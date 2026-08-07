@@ -29,9 +29,22 @@ appears on the main thread of a session started with `--agent`, where there is
 no `agent_id`. Only rule 3 decides main-vs-subagent.
 
 Nothing may wait for a lifecycle event to create identity. A session, and its
-main-thread agent, are created **lazily on the first event of any kind** that
+main-thread agent, are created **lazily on the first consumed event** that
 carries their `session_id`. `SessionStart` did not fire at all in any captured
 headless session, so any model that requires it starts empty and stays empty.
+
+*Consumed*, not "any event" — an earlier draft of this line said any event, and
+that contradicted the rule that an unhandled event changes nothing. Unhandled
+events are counted and refresh the session's liveness timer, but must never
+create a session, an agent, or tool state. Otherwise a synthetic event arriving
+after `SessionEnd` resurrects a dead session, and an unrecognised event carrying
+an `agent_id` spawns a character out of something we do not understand. [I1]
+
+The cost of that resolution: a session whose turn produces no tool call has no
+character at all, because `UserPromptSubmit` is not in the consume table below.
+The honest fix is to consume `UserPromptSubmit` — the event genuinely happened,
+and an idle character is a truthful thing to draw [I2] — not to weaken the
+unhandled rule. Not yet done; see the note against that event.
 
 ## Events we consume
 

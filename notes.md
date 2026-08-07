@@ -241,3 +241,72 @@ licence forbids commercial use *and* forbids editing sprites for commercial
 projects, so a single file from it in the manifest would quietly make the whole
 build non-commercial. Nothing references it and no script reads it. Deleting
 someone else's files is not mine to do unasked — recommended, not done.
+
+---
+
+## 2026-08-07 — M1, ingest and world model
+
+All seven exit criteria pass, verified independently rather than taken on
+report: clean `.build` from scratch with zero warnings, 43 tests green, all six
+fixtures replaying to zero open calls, no `@unchecked Sendable` anywhere, and
+`SpriteRoomCore` importing only `Foundation`, `Network` and `os`.
+
+**Listener p99 is 0.112 ms** against a 5 ms budget — about 45× under. Measured
+with a blocking keep-alive loopback client, one request in flight, which is the
+shape of a session actually blocking on a hook response. That matters more than
+the headroom: S2 caps *added* latency at 10 ms and this is the component that
+spends it.
+
+`tool-failure` replays to zero open calls **without the deadline sweep firing**,
+which was the condition I set when capturing it. The close paths are genuinely
+right rather than the reaper quietly covering a leak. `killed-session` is the
+only fixture with an orphan at end of stream, and it abandons cleanly on the
+sweep — I4 demonstrated rather than asserted.
+
+**One real contradiction surfaced, between two documents I had both signed off.**
+`03-EVENT-MODEL.md` said a session is created lazily on "the first event of any
+kind"; `fixtures/README.md` said unhandled events "change nothing". Both cannot
+hold, and the fixtures prove it: the synthetic unknown events in
+`unknown-events.jsonl` arrive *after* that session's `SessionEnd`, so creating
+state from an unhandled event resurrects a dead session — and
+`SubagentHeartbeat` carries an `agent_id`, so it would spawn a character out of
+an event we do not understand. [I1]
+
+Resolved toward the fixture, which is ground truth: unhandled events are counted
+and refresh the liveness timer, but never create a session, an agent, or tool
+state. Session creation is lazy on the first **consumed** event. This still
+fully satisfies the original intent, which was that nothing waits for
+`SessionStart`.
+
+**That resolution has a product cost, and it is worth naming.** Since
+`UserPromptSubmit` is not in the consume table, the main character now appears at
+the session's first *tool call* — and a turn that produces no tool call draws no
+character at all. For a product whose one sentence is "you glance at the notch
+and know what your agents are doing," an agent that is thinking but invisible is
+a real hole. The honest fix is to consume `UserPromptSubmit`: the event genuinely
+happened, and I2 already licenses drawing an idle character. The dishonest fix
+would be to weaken the unhandled rule, which is why the agent escalated rather
+than picking one. Recorded in the doc and filed as a task — it is not blocking
+M2 or M3, and it belongs with M4's ingest work.
+
+**Design calls the agent made, all of which I agree with.** `Notification` and
+`Stop` emit no delta, because no delta type exists for either and inventing one
+is fiction — `Stop`'s idleness already falls out of an empty open-call set.
+`SubagentStop` for an unknown agent is a no-op rather than spawning a character
+just to walk it off screen. Time is a *parameter* (`ingest(_:at:)`,
+`sweep(at:)`) rather than an injected clock object — stronger, since the actor
+never reads wall time, and it avoids a shared mutable clock that strict
+concurrency would have wanted an escape hatch for. A `PostToolBatch`-only close
+records outcome `.reconciled`: we know the call ended, we do not know it
+succeeded, and claiming more would be fiction.
+
+**The one assumption still untested against reality:** HTTP framing is
+`Content-Length` only, no chunked encoding. Ordinary JSON clients always set it,
+and a differently-framed body degrades to counted-malformed while still
+answering `202`, so the failure mode stays harmless. M4 exercises this live.
+
+**Deferred to M2:** the parent→child link (`tool_response.agentId` on the `Agent`
+tool's `PostToolUse`). `SubagentStart` arrives *before* that `PostToolUse` in
+`three-subagents`, so the link must be applied retroactively. No M1 criterion
+needs it, and the doc already says an unlinked subagent anchors to the main
+agent.

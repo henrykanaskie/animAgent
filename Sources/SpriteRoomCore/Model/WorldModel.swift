@@ -1,0 +1,354 @@
+import Foundation
+
+/// The world. `World → Project(cwd) → Session(session_id) → Agent(agent_id ??
+/// .mainThread)`, where each agent's tool state is a **set** of open calls
+/// keyed by `tool_use_id`. [I3]
+///
+/// An `actor`, and the sole writer. Deltas are the only thing that leaves it.
+///
+/// Time is a parameter, never a reading. `ingest(_:at:)` and `sweep(at:)` both
+/// take the instant to use, so the model is deterministic and every
+/// time-dependent behaviour is testable without waiting for one. [I4]
+public actor WorldModel {
+
+    // MARK: Interior state
+
+    private struct AgentState {
+        var agentType: String?
+        var lifecycle: AgentLifecycle
+        /// Keyed by `tool_use_id`. A set, never a single current tool. [I3]
+        var openCalls: [ToolUseID: OpenCall] = [:]
+    }
+
+    private struct SessionState {
+        var lastEventAt: Date
+        /// `SessionStart` decoration. Never a precondition.
+        var source: String?
+        var agents: [AgentID: AgentState] = [:]
+    }
+
+    private struct ProjectState {
+        var sessions: [String: SessionState] = [:]
+        var agentCount: Int { sessions.values.reduce(0) { $0 + $1.agents.count } }
+    }
+
+    private var projects: [String: ProjectState] = [:]
+    private var unhandled: [String: Int] = [:]
+    private var abandonedCount = 0
+    private let reaper: Reaper
+
+    public init(reaper: Reaper = Reaper()) {
+        self.reaper = reaper
+    }
+
+    // MARK: Counters
+
+    /// `hook_event_name` → how many arrived that we do not consume. A rising
+    /// count is how we notice the hook surface has grown.
+    public var unhandledCounts: [String: Int] { unhandled }
+    public var unhandledTotal: Int { unhandled.values.reduce(0, +) }
+    /// Open calls force-closed by a sweep or by `SessionEnd`. Non-zero means a
+    /// close path is missing or a session died. [I4]
+    public var abandonedTotal: Int { abandonedCount }
+
+    // MARK: Ingest
+
+    @discardableResult
+    public func ingest(_ event: HookEvent, at now: Date) -> [WorldDelta] {
+        var deltas: [WorldDelta] = []
+        let project = event.cwd
+        let before = projects[project]?.agentCount ?? 0
+
+        apply(event, at: now, into: &deltas)
+
+        let after = projects[project]?.agentCount ?? 0
+        if before != after {
+            deltas.append(.populationChanged(project: project, count: after))
+        }
+        return deltas
+    }
+
+    @discardableResult
+    public func ingest(_ events: [HookEvent], at now: Date) -> [WorldDelta] {
+        events.flatMap { ingest($0, at: now) }
+    }
+
+    /// Whether this kind of event is allowed to bring a session into
+    /// existence.
+    ///
+    /// Nothing waits for a lifecycle event: the session and its main-thread
+    /// agent exist from the first *consumed* event carrying this `session_id`,
+    /// because `SessionStart` never fired once in five captured headless
+    /// sessions.
+    ///
+    /// Two kinds are excluded. `sessionEnd` is pure teardown — it can only
+    /// remove what is there. And an `unhandled` event must change nothing at
+    /// all: `fixtures/unknown-events.jsonl` replays seven of them *after* the
+    /// session's `SessionEnd`, and creating state from one would resurrect a
+    /// dead session. See the report accompanying M1 — this is the one place
+    /// `docs/03-EVENT-MODEL.md` ("first event of any kind") and
+    /// `fixtures/README.md` ("none of them changes the world") disagree, and
+    /// the fixture is ground truth.
+    private static func createsSession(_ kind: HookEvent.Kind) -> Bool {
+        switch kind {
+        case .sessionEnd, .unhandled: return false
+        default: return true
+        }
+    }
+
+    private func apply(_ event: HookEvent, at now: Date, into deltas: inout [WorldDelta]) {
+        if Self.createsSession(event.kind) {
+            ensureSession(project: event.cwd, session: event.sessionID, at: now, into: &deltas)
+        }
+        // An unhandled event still proves the session is alive, which keeps the
+        // idle sweep honest. That is not a change to the world.
+        touch(project: event.cwd, session: event.sessionID, at: now)
+
+        let ref = AgentRef(project: event.cwd, session: event.sessionID, agent: event.agentID)
+
+        switch event.kind {
+        case .unhandled(let name):
+            // Counted, never dropped, and nothing else: an unrecognised event
+            // must not move tool state and must not conjure a character out of
+            // an `agent_id` we do not understand.
+            unhandled[name, default: 0] += 1
+
+        case .sessionStart(let source):
+            projects[event.cwd]?.sessions[event.sessionID]?.source = source
+
+        case .subagentStart:
+            ensureAgent(ref, agentType: event.agentType, lifecycle: .spawning, into: &deltas)
+
+        case let .preToolUse(toolUseID, toolName):
+            ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
+            open(toolUseID: toolUseID, toolName: toolName, ref: ref, at: now, into: &deltas)
+
+        case let .postToolUse(toolUseID, _):
+            ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
+            close(toolUseID, ref: ref, outcome: .succeeded, into: &deltas)
+
+        case let .postToolUseFailure(toolUseID, _, _):
+            ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
+            close(toolUseID, ref: ref, outcome: .failed, into: &deltas)
+
+        case .postToolBatch(let calls):
+            // A primary close path, not tidying. A call refused at the
+            // permission gate emits `PreToolUse` and then neither
+            // `PostToolUse` nor `PostToolUseFailure`; this is its only close.
+            ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
+            for call in calls {
+                close(call.toolUseID, ref: ref, outcome: .reconciled, into: &deltas)
+            }
+
+        case .subagentStop:
+            // Only ever acts on a character we already have. Spawning one just
+            // to walk it off screen would be fiction. [I1]
+            guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else {
+                break
+            }
+            abandonAll(ref: ref, reason: .agentStopped, into: &deltas)
+            setLifecycle(.reporting, ref: ref)
+            deltas.append(.reportDelivered(agent: ref))
+            depart(ref: ref, into: &deltas)
+
+        case .stop:
+            // Fires once per assistant message stream — four times in one turn
+            // in `three-subagents`. Not end-of-session, not a reap trigger, and
+            // the character's idleness is already implied by an empty open-call
+            // set. Nothing to emit. [I1]
+            break
+
+        case .sessionEnd:
+            endSession(project: event.cwd, session: event.sessionID, into: &deltas)
+
+        case .notification:
+            // Badge-only, and never observed in capture. There is no delta for
+            // it and inventing one would be fiction. [I1]
+            break
+        }
+    }
+
+    // MARK: Sweeps [I4]
+
+    /// Close every call whose deadline has passed, then close every session
+    /// that has been silent past the idle timeout.
+    @discardableResult
+    public func sweep(at now: Date) -> [WorldDelta] {
+        var deltas: [WorldDelta] = []
+        var touchedProjects: Set<String> = []
+
+        // Deterministic order so replay output and tests are reproducible.
+        for (project, projectState) in projects.sorted(by: { $0.key < $1.key }) {
+            for (session, sessionState) in projectState.sessions.sorted(by: { $0.key < $1.key }) {
+                for (agent, agentState) in sessionState.agents.sorted(by: { $0.key < $1.key }) {
+                    let ref = AgentRef(project: project, session: session, agent: agent)
+                    let expired = agentState.openCalls.values
+                        .filter { reaper.isExpired($0, at: now) }
+                        .sorted()
+                    for call in expired {
+                        abandon(call.toolUseID, ref: ref, reason: .deadlineExpired, into: &deltas)
+                    }
+                }
+            }
+        }
+
+        for (project, projectState) in projects.sorted(by: { $0.key < $1.key }) {
+            for (session, sessionState) in projectState.sessions.sorted(by: { $0.key < $1.key })
+            where reaper.isIdle(lastEventAt: sessionState.lastEventAt, at: now) {
+                let before = projects[project]?.agentCount ?? 0
+                endSession(project: project, session: session, reason: .sessionIdle, into: &deltas)
+                if before != (projects[project]?.agentCount ?? 0) { touchedProjects.insert(project) }
+            }
+        }
+
+        for project in touchedProjects.sorted() {
+            deltas.append(.populationChanged(project: project, count: projects[project]?.agentCount ?? 0))
+        }
+        return deltas
+    }
+
+    // MARK: Snapshot
+
+    public func snapshot() -> WorldSnapshot {
+        var agents: [AgentSnapshot] = []
+        for (project, projectState) in projects {
+            for (session, sessionState) in projectState.sessions {
+                for (agent, agentState) in sessionState.agents {
+                    agents.append(AgentSnapshot(
+                        ref: AgentRef(project: project, session: session, agent: agent),
+                        agentType: agentState.agentType,
+                        lifecycle: agentState.lifecycle,
+                        openCalls: agentState.openCalls.values.sorted()))
+                }
+            }
+        }
+        return WorldSnapshot(agents: agents.sorted { $0.ref < $1.ref })
+    }
+
+    // MARK: - Interior helpers
+
+    private func ensureSession(
+        project: String, session: String, at now: Date, into deltas: inout [WorldDelta]
+    ) {
+        if projects[project]?.sessions[session] != nil { return }
+        projects[project, default: ProjectState()].sessions[session] =
+            SessionState(lastEventAt: now)
+        let main = AgentRef(project: project, session: session, agent: .mainThread)
+        ensureAgent(main, agentType: nil, lifecycle: .active, into: &deltas)
+    }
+
+    private func touch(project: String, session: String, at now: Date) {
+        projects[project]?.sessions[session]?.lastEventAt = now
+    }
+
+    /// Creates an agent if we have not seen it. A subagent whose
+    /// `SubagentStart` we missed — because the app attached mid-session —
+    /// still gets a character on its first tool call.
+    private func ensureAgent(
+        _ ref: AgentRef, agentType: String?, lifecycle: AgentLifecycle,
+        into deltas: inout [WorldDelta]
+    ) {
+        guard projects[ref.project]?.sessions[ref.session] != nil else { return }
+        if projects[ref.project]!.sessions[ref.session]!.agents[ref.agent] != nil {
+            if let agentType {
+                projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.agentType = agentType
+            }
+            return
+        }
+        projects[ref.project]!.sessions[ref.session]!.agents[ref.agent] =
+            AgentState(agentType: agentType, lifecycle: lifecycle)
+        deltas.append(.agentAppeared(agent: ref, agentType: agentType, lifecycle: lifecycle))
+    }
+
+    private func setLifecycle(_ lifecycle: AgentLifecycle, ref: AgentRef) {
+        projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.lifecycle = lifecycle
+    }
+
+    private func open(
+        toolUseID: ToolUseID, toolName: String, ref: AgentRef, at now: Date,
+        into deltas: inout [WorldDelta]
+    ) {
+        guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else { return }
+        // Opening is idempotent too: a repeated `PreToolUse` for a live id is
+        // the same call, not a second one.
+        if projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
+            .openCalls[toolUseID] != nil { return }
+
+        let call = OpenCall(
+            toolUseID: toolUseID,
+            toolName: toolName,
+            startedAt: now,
+            deadline: reaper.deadline(forTool: toolName, startedAt: now))
+        projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
+            .openCalls[toolUseID] = call
+        if projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.lifecycle == .spawning {
+            projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.lifecycle = .active
+        }
+        deltas.append(.callOpened(agent: ref, call: call))
+    }
+
+    /// Closing is idempotent. `PostToolBatch` re-reports calls the other two
+    /// paths already closed — both happen for the same `tool_use_id` in
+    /// `fixtures/tool-failure.jsonl`. A second `.callClosed` would drive the
+    /// scene's open-call count negative.
+    private func close(
+        _ toolUseID: ToolUseID, ref: AgentRef, outcome: CallOutcome,
+        into deltas: inout [WorldDelta]
+    ) {
+        guard let call = removeCall(toolUseID, ref: ref) else { return }
+        deltas.append(.callClosed(
+            agent: ref, toolUseID: toolUseID, toolName: call.toolName, outcome: outcome))
+    }
+
+    private func abandon(
+        _ toolUseID: ToolUseID, ref: AgentRef, reason: AbandonReason,
+        into deltas: inout [WorldDelta]
+    ) {
+        guard let call = removeCall(toolUseID, ref: ref) else { return }
+        abandonedCount += 1
+        deltas.append(.callAbandoned(
+            agent: ref, toolUseID: toolUseID, toolName: call.toolName, reason: reason))
+    }
+
+    private func abandonAll(ref: AgentRef, reason: AbandonReason, into deltas: inout [WorldDelta]) {
+        guard let agent = projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] else {
+            return
+        }
+        for call in agent.openCalls.values.sorted() {
+            abandon(call.toolUseID, ref: ref, reason: reason, into: &deltas)
+        }
+    }
+
+    private func removeCall(_ toolUseID: ToolUseID, ref: AgentRef) -> OpenCall? {
+        guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else {
+            return nil
+        }
+        return projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
+            .openCalls.removeValue(forKey: toolUseID)
+    }
+
+    private func depart(ref: AgentRef, into deltas: inout [WorldDelta]) {
+        guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else { return }
+        setLifecycle(.departed, ref: ref)
+        projects[ref.project]!.sessions[ref.session]!.agents.removeValue(forKey: ref.agent)
+        deltas.append(.agentDeparted(agent: ref))
+    }
+
+    /// `SessionEnd` closes everything under the session and empties it of
+    /// characters. [I4]
+    private func endSession(
+        project: String, session: String, reason: AbandonReason = .sessionEnded,
+        into deltas: inout [WorldDelta]
+    ) {
+        guard let sessionState = projects[project]?.sessions[session] else { return }
+        for agent in sessionState.agents.keys.sorted() {
+            let ref = AgentRef(project: project, session: session, agent: agent)
+            abandonAll(ref: ref, reason: reason, into: &deltas)
+            depart(ref: ref, into: &deltas)
+        }
+        projects[project]?.sessions.removeValue(forKey: session)
+        if projects[project]?.sessions.isEmpty == true {
+            projects.removeValue(forKey: project)
+        }
+    }
+}
