@@ -1,0 +1,9 @@
+# Purchased LimeZu art. The licence permits use but not redistribution.
+# See docs/04-ART-DIRECTION.md.
+assets/
+
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+.DS_Store
