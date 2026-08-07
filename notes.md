@@ -410,3 +410,75 @@ window" because this terminal has no Screen Recording permission. The window doe
 open and its render loop runs, and the window shots come from the live `SKView`,
 but that is in-process capture, not OS-level proof the pixels reached the
 display. M3 or a human glance settles it.
+
+---
+
+## 2026-08-07 — M3, the notch panel
+
+Four criteria pass empirically on real hardware; the fifth is an honest partial.
+188 tests green, clean build, no warnings. I ran all three probes myself rather
+than reading the report.
+
+**The probes drive the real thing, not a model of it.** `--probe hover` warps the
+actual cursor through the actual hot zone while the real 30 Hz sampler and real
+`NSPanel` run — on this machine, a physical notch at (790, 1131, 220×38) with a
+244×39 hot zone. Deliberate entry reveals once and retracts once; a fast
+diagonal produces zero transitions; trembling on the edge produces zero;
+repeated dips out of the keep-open zone do not retract. That is criterion 4
+demonstrated with a physical pointer, not argued.
+
+**Criterion 2 is PARTIAL and must not be rounded up.** Over 20 forced cycles and
+560 samples with TextEdit frontmost: the app never activated, no window of ours
+ever became key, the panel was never key or main, and the frontmost application
+never changed. Structurally `canBecomeKey`/`canBecomeMain`/`acceptsFirstResponder`
+are all false, the panel is `.nonactivatingPanel` at level 27, and the app runs
+`.accessory`.
+
+But the criterion says *typing into a text editor with no lost keystrokes*, and
+real keystrokes are exactly what is missing. Synthesising key events into another
+app needs Accessibility permission, which this process does not have
+(`CGPreflightPostEventAccess` is false, `osascript … keystroke` hangs on the
+permission gate). **A human closes this in about 60 seconds:** open TextEdit, put
+the caret in a document, run
+`./.build/debug/spriteroom --probe focus --cycles 20 --countdown 10`, type
+continuously through the ~12 s of cycling, then check the document for dropped or
+reordered characters.
+
+**Two bugs the checks caught, both invisible to a passing test suite.**
+`NSPanel.isFloatingPanel`'s setter assigns level `.floating` (3) as a *side
+effect* — set after `level`, it silently dropped the panel below the menu bar.
+Ordering is now explicit and asserted. And a stock `SKView` returns
+`acceptsFirstResponder == true`; it could never actually receive a key event
+since the panel is never key, but "no view here can take a keystroke" is a far
+easier invariant to hold than a three-fact argument, so the panel now uses an
+`SKView` subclass that refuses.
+
+**Non-notched displays get a synthesised region:** 240 pt wide, centred on the top
+edge, as tall as that display's menu bar. It keeps one mental model — throw the
+pointer at the middle of the top edge — across every display, and the middle of
+the menu bar is the one stretch neither the app menus nor the status items
+occupy. Detection uses `auxiliaryTopLeftArea`/`auxiliaryTopRightArea`, so the gap
+between them *is* the notch and no housing width is hard-coded;
+`safeAreaInsets.top` was rejected because it says nothing about horizontal
+position and reads zero on an external display attached to a notched Mac.
+
+**Judgment calls worth keeping.** Panel level is `.mainMenu + 3`, deliberately
+*below* the screen saver — covering a lock screen with the room would be a
+privacy bug. `ignoresMouseEvents = true`, so clicks pass through to the app
+underneath; hover is detected by *sampling* `NSEvent.mouseLocation` at 30 Hz
+rather than by tracking areas (nothing to track while the window is off-screen)
+or a global monitor (an input tap, needing permission). The panel slides rather
+than resizes, so the scene is not re-laid-out sixty times a second during the
+animation. The licence-required credit line moved from the window title, which no
+longer exists, to the status menu.
+
+**Full-screen visibility is proved from the window server's own account** —
+`isVisible`, `occlusionState.visible`, and presence in
+`CGWindowListCopyWindowInfo(.optionOnScreenOnly)` — after entering a real
+full-screen space. Not a photograph; there is still no Screen Recording
+permission here.
+
+**Noted for M5:** at 720×400 the room occupies roughly the middle third of the
+panel, with a large empty band above and below. Fine for a milestone about
+mechanics, wrong for a surface whose entire job is a glance. Composition belongs
+with the art pass.

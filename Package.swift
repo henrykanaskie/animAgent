@@ -42,6 +42,16 @@ let package = Package(
             path: "Tests/SpriteRoomCoreTests",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // The panel's geometry and its hysteresis are arithmetic, and they are
+        // tested as arithmetic. Depending on the executable target is what
+        // keeps `NotchGeometry` and `RevealPolicy` next to the panel that uses
+        // them instead of in a library invented to make them testable.
+        .testTarget(
+            name: "SpriteRoomAppTests",
+            dependencies: ["SpriteRoomApp", "SpriteRoomCore"],
+            path: "Tests/SpriteRoomAppTests",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .testTarget(
             name: "SpriteRoomSceneTests",
             dependencies: ["SpriteRoomScene", "SpriteRoomCore"],
