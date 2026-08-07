@@ -1,0 +1,62 @@
+{
+  "_comment": [
+    "The hook block SpriteRoom writes into ~/.claude/settings.json on first run,",
+    "with consent. Registered once at user scope, matcher '*', so it covers every",
+    "project and routes by cwd — see docs/02-ARCHITECTURE.md.",
+    "",
+    "Only the ten events docs/03-EVENT-MODEL.md consumes are registered. Every",
+    "other event Claude Code emits is deliberately NOT registered: an unregistered",
+    "event costs the user nothing, and the listener still decodes anything that",
+    "does arrive to .unhandled rather than throwing.",
+    "",
+    "'type': 'http' is native — the session POSTs the hook input JSON straight to",
+    "the URL, no shim script. Verified against Claude Code 2.1.224; see",
+    "docs/FINDINGS-M0.md.",
+    "",
+    "There is no 'async' field on the HTTP hook schema. The session BLOCKS on our",
+    "response. A listener holding for 3s was measured adding 3s to every tool call",
+    "in the session. That is the entire reason for I5 — respond 202 and return.",
+    "",
+    "'timeout' is a floor under our own failure: if SpriteRoom is not running, or",
+    "wedges, the user's session stalls by at most this long per event. Keep it low.",
+    "The port is rewritten from the app's config at install time.",
+    "",
+    "PostToolBatch carries no matcher, unlike the rest. That is the shape it was",
+    "captured working under, and it is the only close path for a permission-denied",
+    "call — so it is the last entry to get clever with. Do not add a matcher to it",
+    "without re-capturing and confirming it still fires."
+  ],
+
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "SessionEnd": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "SubagentStart": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "SubagentStop": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "PostToolUseFailure": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "PostToolBatch": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "Stop": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "Notification": [
+      { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ]
+  }
+}
