@@ -152,17 +152,28 @@ public final class Character: SKNode {
 
     // MARK: Badge
 
+    /// The badge layer. Attention wins the slot when it is set — see
+    /// `BadgeSelection.isAttention` for why, and why the `×N` goes with it.
+    ///
+    /// If the attention art is missing from the manifest the tool badge is
+    /// drawn instead. That is a *rendering* fallback, not a policy one: the
+    /// selection above already decided attention outranks the tool, and losing
+    /// both to a missing file would hide information we have. A manifest test
+    /// asserts the key is declared, so this path only fires on a manifest
+    /// older than this change.
     public func apply(badge selection: BadgeSelection) {
         guard selection != currentBadge else { return }
         currentBadge = selection
-        guard let badge = selection.badge, let texture = store.badgeTexture(badge) else {
+        let attentionTexture = selection.isAttention ? store.attentionTexture() : nil
+        let toolTexture = selection.badge.flatMap(store.badgeTexture)
+        guard let texture = attentionTexture ?? toolTexture else {
             badgeNode.isHidden = true
             badgeCountNode.isHidden = true
             return
         }
         badgeNode.texture = texture
         badgeNode.isHidden = false
-        if selection.count > 1 {
+        if attentionTexture == nil, selection.count > 1 {
             let bitmap = SceneBitmaps.badgeCount(selection.count)
             if let countTexture = store.texture(bitmap: bitmap, key: "count:\(selection.count)") {
                 badgeCountNode.texture = countTexture
@@ -176,7 +187,11 @@ public final class Character: SKNode {
 
     public var badgeSelection: BadgeSelection { currentBadge }
     public var isBadgeVisible: Bool { !badgeNode.isHidden }
+    public var isBadgeCountVisible: Bool { !badgeCountNode.isHidden }
     public var isNameplateVisible: Bool { nameplateNode.texture != nil }
+    /// The texture currently in the badge slot. Read by tests that need to
+    /// check *which* glyph is up rather than that one is.
+    var badgeTextureForTesting: SKTexture? { badgeNode.texture }
 
     // MARK: Geometry, for tests that check the picture rather than the policy
 

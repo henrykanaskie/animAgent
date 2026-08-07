@@ -598,7 +598,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                                 written.append(name)
                             }
                         },
-                        into: { host.consume($0) })
+                        into: { host.consume($0, at: Date()) })
                     if self.options.panelRenderDirectory != nil {
                         print("captured \(written.count) frame(s) from the live panel")
                         for name in written { print("  \(name)") }
@@ -704,9 +704,11 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                 let elapsed = Date().timeIntervalSince(started)
                 for delta in deltas { print(String(format: "  t=%8.3f ", elapsed) + "\(delta)") }
             }
-            host.consume(deltas)
-
             let now = Date()
+            // Every frame, empty batch or not: the roster ages on this call and
+            // a project that has gone quiet produces no deltas to ride in on.
+            host.consume(deltas, at: now)
+
             let elapsed = now.timeIntervalSince(started)
             while let mark = marks.first, mark <= elapsed {
                 marks.removeFirst()

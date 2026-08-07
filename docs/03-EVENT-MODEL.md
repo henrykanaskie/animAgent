@@ -82,7 +82,7 @@ rule. It creates the session and its main agent and has no other effect.
 | `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → departs. |
 | `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. |
 | `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
-| `Notification` | Main agent shows an attention badge. Badge only — no body animation exists for this. Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and no `agent_id`, so it can only mean the main thread. |
+| `Notification` | Main agent raises an attention badge; emits `attentionChanged`. Badge only — no body animation exists for this and repurposing one would be fiction. [I1] Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and no `agent_id`, so it can only mean the main thread. |
 
 **Notification timing, because the badge is a timed thing.** `permission_prompt`
 arrives 6.0 s after the permission gate opens, not instantly (three occurrences,
@@ -92,6 +92,116 @@ further 145 s produced no second one. So an `idle_prompt` badge means "this has
 been waiting a while", not "this is waiting"; `Stop` with an empty open-call set
 already says the latter, immediately and for free. Nothing may drive a
 "currently idle" state off `idle_prompt`, and nothing may expect a repeat.
+
+## The attention badge
+
+Implemented at M6. `Notification` was a no-op until then, correctly — it had
+never been captured. M0c captured it, both values are real, and M0b had already
+sourced a real `attention` badge from the pack, so the design in this document
+became implementable without inventing anything.
+
+**The badge is the whole representation.** There is no body state for "waiting
+on a human" — the pack ships none, and the six body states are fixed. A
+character blocked at a permission gate keeps whatever body its open-call set
+says: `working` if it holds calls, `idle` if it does not. [I1/I2]
+
+`badges.states.attention` in `assets/manifest.json`, **not** `badges.map` —
+`map` is keyed by `ToolBadge` and every one of its keys is required, while
+attention answers to no tool. One glyph serves every `notification_type`: they
+all mean "this session wants you", which is what the glyph asserts, and a
+per-type icon would need art nobody has drawn. An unrecognised
+`notification_type` is carried verbatim and still badges, which is the
+question-mark badge's reasoning on a second axis — we know an alert fired, we do
+not know which kind, and the honest generic is not a guess.
+
+### When it clears
+
+**The next consumed event from the same agent clears it.** That is the whole
+rule.
+
+There is no "notification answered" event. Nothing in 2.1.224 observes the
+click: `PermissionDenied` has never fired, on either denial path. So the badge
+must be cleared by inference, and the only honest inference is *the session
+moved*. Both captured `notification_type`s mean "blocked on the human", and
+while blocked the main thread emits nothing at all — so a main-thread event is
+evidence the human acted. Measured in `fixtures/permission-prompt.jsonl`:
+
+| Path | Cleared by | Delay |
+|---|---|---|
+| permission approved | that call's own `PostToolUse` | **1.81 s** |
+| permission denied | the user's next `UserPromptSubmit` | **49.37 s** |
+| idle | `SessionEnd` (character departs) | — |
+
+**Same agent, not same session.** Only events carrying no `agent_id` clear the
+main thread's badge. Without that restriction an async subagent churning
+`Read`s into the same `session_id` would wipe the badge off a main thread that
+is genuinely still at a dialog — `fixtures/three-subagents.jsonl` is full of
+exactly those interleavings — and so would the phantom `SubagentStop` the TUI's
+suggestion helper emits on every interactive turn.
+
+**Two kinds do not clear it.** `Notification` itself, and anything `unhandled`,
+which by the standing rule changes nothing at all — `PermissionRequest` is
+unhandled and arrives 6 s *before* the notification it precedes. `SessionEnd`
+is excluded only because it is redundant: it departs the character, and a badge
+on a character that no longer exists is not a state.
+
+**Erring early is deliberate.** M4's rule — *a late reap is a blind spot, an
+early one is fiction* — is about a state that asserts "working", so it argues
+for a long deadline. This badge has the opposite polarity: it is a positive
+assertion, so a **late** clear is the fiction ("Claude needs your permission"
+when it does not) and an early clear is only a miss. The same principle
+therefore points the other way here.
+
+**Reapable without a deadline of its own.** [I4] Three paths bound it: the
+agent's next consumed event, `SessionEnd`, and the 30-minute session-idle sweep,
+which departs the character entirely. A fourth timer was considered and
+rejected — it would be a number with nothing behind it, and it would make the
+badge lie by omission in the one case where the true statement is "still
+waiting": an `idle_prompt` on a session nobody has come back to is correct for
+exactly as long as nobody has come back to it.
+
+**Two things the rule gets wrong, stated rather than papered over.**
+
+- Between clicking "No" and typing again, the badge asserts a wait that has
+  ended — 49.37 s in the capture. No rule can do better without an event that
+  does not exist.
+- A permission *approved* for a long-running tool leaves the badge up for that
+  tool's whole run, because nothing fires between the approval and the call's
+  close. The badge therefore never outlives the call it sits beside, so it
+  introduces no unbounded state — but it is stale for that window. If living
+  with it proves annoying, a bounded timeout is the obvious refinement, and it
+  is a decision that wants somebody watching the room rather than a constant
+  picked in the dark.
+
+### Precedence against the tool badge
+
+A character can hold open calls *and* have a notification outstanding — that is
+what every permission prompt looks like, since `PermissionRequest` lands ~16 ms
+after `PreToolUse` and the call then sits at the gate.
+
+**Attention outranks every tool badge, and it suppresses the `×N`.**
+
+1. It is the only badge a glance can *act* on. The tool badge says what is
+   happening; the attention badge says the room needs you. For a surface whose
+   one sentence is "you glance at the notch and know what your agents are
+   doing", letting an unactionable icon hide an actionable one inverts the
+   product.
+2. It is the *more truthful* of the two. A call parked at a permission gate is
+   not running, so drawing `terminal` over a gated `Bash` asserts work that is
+   not happening while the attention glyph asserts a wait that is. [I1]
+3. Showing both would need a second badge position, and the manifest carries
+   exactly one badge anchor. A second slot would be an eyeballed offset dressed
+   as data — the reason M5 left the monitors unplaced.
+
+The `×N` goes because it annotates a *tool* badge ("N calls, of which this is
+the lowest ordinal"). Pinned to the attention glyph it would read as N
+notifications, which is never true — `idle_prompt` fires once and notifications
+are counted nowhere.
+
+Determinism is unaffected. Attention is a single flag, so the badge stays a pure
+function of the character's state and still changes at most once per change of
+that state; the lowest-ordinal rule below is untouched and resumes the moment
+the badge clears. [I3]
 
 Everything else decodes to `.unhandled` and is counted, not dropped silently.
 A rising `.unhandled` count is how we notice the hook surface has grown.
@@ -110,7 +220,9 @@ worth:
   `permission_suggestions[]` — and **no `tool_use_id`**. It therefore cannot be
   joined to an open call without pairing by tool name, which the pairing rule
   below forbids. It is a "this agent is blocked on a human" signal, not a close
-  signal. Not consumed.
+  signal. Not consumed. `docs/ADR-001-denied-calls.md` argues that consuming it
+  as an *agent-level marker* — which performs no join at all — would be
+  legitimate, and that joining it to a call would not.
 - **`PermissionDenied` still has never fired.** **[unverified]** — registered
   over both HTTP and `command` delivery and tested against both denial paths a
   user has (selecting "No" at the dialog, and Esc to cancel). Neither produced
@@ -171,13 +283,19 @@ The consequence is live: `Bash` carries the 15-minute deadline, so clicking
 "No" on a `Bash` prompt currently leaves that character working for fifteen
 minutes. That is the signature bug of this project on the most ordinary
 interaction there is. **Deliberately not fixed here** — the close-path model is
-verified and load-bearing and changing it is the maintainer's call. The options
-on the table, recorded so the next person does not have to rediscover them:
-a shorter deadline for a call known to be sitting at a permission gate; treating
-a session's next `UserPromptSubmit` as closing anything still open from the
-previous prompt; or consuming `PermissionRequest` and joining it by
-`tool_name` + `tool_input`, which the pairing rule forbids and which should
-probably stay forbidden. The first two do not break any existing rule.
+verified and load-bearing and changing it is the maintainer's call.
+
+The options were weighed at M6 and one is recommended. See
+**`docs/ADR-001-denied-calls.md`**, which measures each against the fixtures
+rather than arguing from taste, and in particular refutes the
+`UserPromptSubmit` option with captured data. Nothing here changes until that
+ADR is accepted.
+
+One thing did change, and it narrows the symptom without touching a close path:
+the attention badge is wired as of M6, and it outranks the tool badge. So while
+the dialog is up the character now shows "needs you" rather than a `terminal`
+glyph. The residual is the window *after* a denial, which is what the ADR is
+about.
 
 **Closing is idempotent.** `PostToolBatch` re-reports calls that a preceding
 `PostToolUse` or `PostToolUseFailure` already closed — both appear for the same
@@ -245,6 +363,11 @@ tool you do not recognise — the question mark is honest, a guess is not. [I1]
 **Multiple open calls:** display the badge for the *lowest-ordinal* tool in the
 table above, plus a small `×N`. Deterministic ordering means the badge is
 stable while calls interleave; most-recent-wins would flicker. [I3]
+
+**The attention badge is not in this table and outranks all of it.** It is not
+a tool, it lives under `badges.states` rather than `badges.map`, and while it is
+up it replaces the tool badge and suppresses the `×N` — see "The attention
+badge" above for the three reasons.
 
 **Body state while working** is the sitting pose, regardless of tool. The tool
 identity lives entirely in the badge. This is what lets a new tool name appear

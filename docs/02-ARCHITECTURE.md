@@ -93,6 +93,16 @@ diagonal mouse path does not flicker it. Pointer-only. [I8]
 **`ProjectSelector`** — which `cwd` group is displayed. Menu bar item, not a
 control inside the panel; the panel stays a pure display surface.
 
+**`ProjectRegistry`** — a downstream projection of the delta stream that keeps
+per-project live state so the menu can be drawn and a switched-to room can be
+re-seeded. It never queries `WorldModel`. It also ages the roster: a project
+whose population has been 0 for `endedAfter` is marked **ended** in the menu
+rather than removed, and one still empty at `forgottenAfter` is dropped —
+except the currently selected project, which is pinned so the app never changes
+what the user is looking at. Both are driven by an instant passed to
+`absorb(_:at:)` and `sweep(at:pinning:)`, never by a clock the registry owns,
+the same way `Reaper` is handed `now` by `WorldModel.sweep(at:)`.
+
 ## Concurrency
 
 - Listener runs on its own `DispatchQueue`.

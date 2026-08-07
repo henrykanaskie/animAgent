@@ -87,15 +87,39 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             menu.addItem(empty)
         }
         for entry in entries {
-            let title = entry.population > 0
-                ? "\(entry.displayName)  ·  \(entry.population)"
-                : entry.displayName
+            // An ended project is marked, not deleted. This is a status
+            // surface: "has anything finished" is one of the three things the
+            // PRD says you want at a glance, and a project that silently
+            // vanished would leave the user unable to tell a finished session
+            // from a broken hook. It stops being shown eventually — see
+            // `ProjectRegistry.forgottenAfter` — but not the instant it dies.
+            let title: String
+            switch entry.liveness {
+            case .live:
+                title = entry.population > 0
+                    ? "\(entry.displayName)  ·  \(entry.population)"
+                    : entry.displayName
+            case .ended:
+                title = "\(entry.displayName)  ·  ended"
+            }
             // No key equivalent, anywhere in this menu. [I8]
             let item = NSMenuItem(title: title, action: #selector(pick(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = entry.project
-            item.toolTip = entry.project
+            item.toolTip = entry.liveness == .ended
+                ? "\(entry.project) — no session running"
+                : entry.project
             item.state = entry.project == selected ? .on : .off
+            if entry.liveness == .ended {
+                // Greyed by drawing, not by disabling. Disabling would take
+                // away the ability to switch *to* it — which is the only way
+                // to look at a room and confirm it really is empty — and,
+                // worse, the ability to switch *away* from it, which is what
+                // unpins it and lets it leave.
+                item.attributedTitle = NSAttributedString(
+                    string: title,
+                    attributes: [.foregroundColor: NSColor.secondaryLabelColor])
+            }
             menu.addItem(item)
         }
 

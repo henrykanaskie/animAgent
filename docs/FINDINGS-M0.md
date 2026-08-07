@@ -545,6 +545,18 @@ by `tool_name` + `tool_input`, which the pairing rule currently forbids). The
 first two do not require breaking the pairing rule. Recording it, with the
 fixture that proves it, and handing it over.
 
+**Weighed at M6 — see `docs/ADR-001-denied-calls.md` (status: PROPOSED).** The
+short version: the `UserPromptSubmit` option is **refuted by captured data**
+— two `Bash` calls in `three-subagents` are genuinely still running across
+synthetic prompts, for 8.05 s over one and 15.05 s over two, so that rule
+abandons working characters; the pairing rule should **not** be narrowed,
+because `tool_name` + `tool_input` is not even a unique key inside one batch;
+and consuming `PermissionRequest` as an *agent-level marker* is legitimate,
+because marking performs no join. The recommendation combines the two:
+mark on `PermissionRequest`, discriminate approve-from-deny on the following
+`UserPromptSubmit`, and change only the **deadline** so no close path is
+touched. Nothing is implemented.
+
 ### `SubagentStop` with no subagent
 
 Interactive sessions emit a `SubagentStop` for an agent that never started. It

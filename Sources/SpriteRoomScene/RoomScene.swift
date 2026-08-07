@@ -64,7 +64,7 @@ public final class RoomScene: SKScene {
     /// Diagnostics for the render harness. Read-only; nothing depends on it.
     public var debugRoster: [String] {
         characters.map { agent, character in
-            "\(agent) at x=\(Int(character.position.x)) state=\(character.state.map(\.rawValue) ?? "-") badge=\(character.badgeSelection.badge?.rawValue ?? "-")"
+            "\(agent) at x=\(Int(character.position.x)) state=\(character.state.map(\.rawValue) ?? "-") badge=\(character.badgeSelection.attention.map { "attention(\($0))" } ?? character.badgeSelection.badge?.rawValue ?? "-")"
         }.sorted() + ["camera x=\(Int(camera_.position.x)) y=\(Int(camera_.position.y)) scale=\(effectiveScale) sceneSize=\(Int(size.width))x\(Int(size.height))"]
     }
 

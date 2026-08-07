@@ -125,7 +125,7 @@ enum SceneArt {
     /// What is expected to be gated, so a test that quietly gains or loses the
     /// trait is reported rather than absorbed. Update deliberately, in the same
     /// change that moves a test across the line.
-    static let expectedGatedTestCount = 17
+    static let expectedGatedTestCount = 19
 }
 
 /// Always runs, in both modes, and never fails for the absence of art.

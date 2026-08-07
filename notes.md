@@ -1157,3 +1157,101 @@ is now an honest skip with its assertion unchanged.
 The boundary is now written into `CLAUDE.md`: gating a test on a precondition it
 cannot control is not disabling it, **provided the skip is visible in the run's
 output**. Silencing an assertion is.
+
+---
+
+## 2026-08-07 — Attention badge, project age-out, and ADR-001
+
+Two agents in parallel, disjoint file scopes, one deliberate handoff between
+them. 272 tests, clean gate, 9 fixtures replaying to zero open calls.
+
+### The attention badge is wired, and it is honest
+
+M0c made this implementable: `Notification` had been a no-op with a comment
+reading "never observed in capture", which was true when written and stopped
+being true this morning. Both `notification_type` values are real, and the pack
+carries real `attention` art.
+
+**The clear rule is the interesting part, because there is no "notification
+answered" event.** Chosen: the next consumed event *from the same agent*. Both
+notification types mean "blocked on the human", and while blocked the main
+thread emits nothing — so the session moving is the only honest evidence that
+the block ended. Measured against the fixture: an approved call's badge clears
+on its own `PostToolUse` at 1.81 s; a denied call's clears on the user's next
+`UserPromptSubmit` at 49.37 s.
+
+Same *agent*, not same session, and that distinction is load-bearing: without it
+an async subagent's `Read`s wipe the badge off a main thread genuinely stuck at a
+dialog, and `three-subagents` is full of exactly those interleavings.
+
+The reasoning I most want kept: M4's rule was "a late reap is a blind spot, an
+early one is fiction" — which argued for *long* deadlines, because the state in
+question asserts *working*. **This badge has the opposite polarity: a late clear
+is the fiction, an early one is only a miss.** Same principle, other direction.
+Getting that backwards would have produced a badge that lies.
+
+No dedicated timeout was added, and the refusal is right: three paths already
+bound the badge, and a fourth timer would be a number with nothing behind it —
+worse, it would make the badge lie by omission on `idle_prompt`, where "still
+waiting" is genuinely true.
+
+Precedence: attention outranks every tool badge and suppresses the `×N`. A call
+parked at a permission gate is *not running*, so showing `terminal` over a gated
+`Bash` asserts work that is not happening. And `×N` annotates a tool badge —
+pinned to the attention glyph it would read as N notifications, which is never
+what is counted.
+
+**Known limitation, documented rather than hidden:** a permission *approved* for
+a long-running tool leaves the badge up for that tool's whole run, because
+nothing fires between approval and close. It never outlives the call beside it,
+so there is no unbounded state, but it is stale for that window. The refinement
+is a bounded timeout, and it wants somebody watching a real room rather than a
+constant picked in the dark.
+
+### Projects now age out of the selector
+
+My brief warned that population 0 was probably too eager, since a session
+between turns might momentarily empty. **That was wrong, and it was checked
+rather than accepted:** `Stop` emits no delta and the main agent departs only on
+`SessionEnd`, so a project does not dip to zero between turns. The case that
+does exist is `/clear`, and it is worse than I said — since `SessionStart` never
+reaches an HTTP hook, the returning session's first event is an ordinary
+`UserPromptSubmit`, so the gap is however long the user takes to type. **No
+finite number covers it.**
+
+So the number is argued from asymmetry instead: too short and a returning
+project flips its label back with nothing moving; too long and the menu claims a
+project is running when it is not. 90 s — four thirds of the one *measured*
+quiet interval in the fixtures, Claude Code's own 60.02 s idle declaration.
+Ended projects are **marked, not removed**, because a project that vanished the
+instant it finished would be indistinguishable from one whose hooks broke. A
+second threshold drops them at 30 min, reading `Reaper`'s constant rather than
+retyping it so the two cannot drift. The selected project is pinned — the app
+does not change what the user is looking at without being asked.
+
+It also found a real bug in my framing: `RoomHost.consume` only ran on frames
+carrying deltas, and a project that has gone quiet produces no deltas to ride in
+on, so nothing triggered by arriving deltas could ever notice it had stopped.
+
+### ADR-001, and a recommendation that refuted my own option list
+
+`docs/ADR-001-denied-calls.md`, status PROPOSED, nothing implemented.
+
+I had offered three options. **Option (b) — close stragglers on the next
+`UserPromptSubmit` — is refuted by captured data rather than by argument.** In
+`three-subagents`, one `Bash` call runs 8.05 s across one synthetic prompt and
+another runs 15.05 s across two. Rule (b) abandons both *while they are
+working*. Scoping by `prompt_id` fails because the close carries the new one;
+scoping to the main thread fails on M4's synchronous `Agent`, whose child's
+report *is* the synthetic prompt.
+
+The recommendation is a fourth option: mark on `PermissionRequest`, discriminate
+on the following `UserPromptSubmit`, and change only the deadline — each of (a)
+and (b) fixing the other's flaw. Marking is legitimately different from pairing
+because it names no `tool_use_id` and so cannot close the wrong call.
+
+And it declined to lean on the convenient assumption: **"at most one permission
+prompt is open at a time" is not safe** — all six captured `PermissionRequest`s
+were lone calls in their own turns, so the parallel case was simply never
+exercised. The recommendation does not assume it. That is the difference between
+an ADR and a rationalisation.

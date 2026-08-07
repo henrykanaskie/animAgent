@@ -65,9 +65,20 @@ public struct SceneDirector: Sendable {
         /// link arrives, and `nil` forever when it never does — in which case
         /// the anchor is the main agent.
         var parent: AgentID?
+        /// From `.attentionChanged`. Orthogonal to `openCalls`: a character can
+        /// be holding calls *and* be blocked at a permission gate, which is
+        /// exactly what a `Bash` sitting at the dialog looks like.
+        var attention: AttentionKind?
 
+        /// **The body does not change for attention.** The pack ships no
+        /// animation for "waiting on a human" and repurposing an unrelated one
+        /// would be fiction, so the badge is the whole representation. A
+        /// character blocked at a permission gate still has an open call and so
+        /// is still `working`, which is what the data says. [I1/I2]
         var body: BodyState { openCalls.isEmpty ? .idle : .working }
-        var badge: BadgeSelection { BadgeSelection.select(openToolNames: openCalls.values) }
+        var badge: BadgeSelection {
+            BadgeSelection.select(openToolNames: openCalls.values, attention: attention)
+        }
     }
 
     // MARK: Stored
@@ -169,6 +180,13 @@ public struct SceneDirector: Sendable {
                 // it closes exactly like a normal one and the character just
                 // returns to idle. No error is shown. [I4]
                 presentations[agent]?.openCalls.removeValue(forKey: toolUseID)
+                note(&touched, agent)
+
+            case let .attentionChanged(agent, attention):
+                // Nothing but the badge. The existing suppression memory then
+                // does the rest: `setBadge` is emitted only if this actually
+                // changed what is on the character's head.
+                presentations[agent]?.attention = attention
                 note(&touched, agent)
 
             case let .reportDelivered(agent):

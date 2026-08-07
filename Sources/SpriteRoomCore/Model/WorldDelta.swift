@@ -95,6 +95,15 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     case callClosed(agent: AgentRef, toolUseID: ToolUseID, toolName: String, outcome: CallOutcome)
     case callAbandoned(agent: AgentRef, toolUseID: ToolUseID, toolName: String, reason: AbandonReason)
     case reportDelivered(agent: AgentRef)
+    /// This character is, or is no longer, waiting on a human. `nil` clears it.
+    ///
+    /// Raised by `Notification`, which carries no `agent_id` and so can only
+    /// mean the main thread. **Cleared by the next consumed event from the same
+    /// agent** — see `WorldModel.clearsAttention(_:)` for why that is the rule
+    /// and what it costs.
+    ///
+    /// A *change*, never a repeat: two identical notifications are one fact.
+    case attentionChanged(agent: AgentRef, attention: AttentionKind?)
     case populationChanged(project: String, count: Int)
 
     public var description: String {
@@ -113,6 +122,8 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
             return "callAbandoned    \(agent) \(toolName)(\(toolUseID)) \(reason.rawValue)"
         case let .reportDelivered(agent):
             return "reportDelivered  \(agent)"
+        case let .attentionChanged(agent, attention):
+            return "attentionChanged \(agent) \(attention.map(String.init(describing:)) ?? "cleared")"
         case let .populationChanged(project, count):
             let leaf = project.split(separator: "/").last.map(String.init) ?? project
             return "populationChanged \(leaf)=\(count)"
@@ -133,6 +144,10 @@ public struct AgentSnapshot: Sendable, Hashable {
     public let parent: AgentID?
     /// Sorted by start time. A *set* of calls — never a single current tool.
     public let openCalls: [OpenCall]
+    /// Raised by `Notification`, cleared by this agent's next consumed event.
+    /// Orthogonal to `openCalls`: a character can be working *and* blocked at a
+    /// permission gate, which is exactly what a denied `Bash` looks like.
+    public let attention: AttentionKind?
 
     /// An agent is working if and only if its open-call set is non-empty. [I2]
     public var isWorking: Bool { !openCalls.isEmpty }

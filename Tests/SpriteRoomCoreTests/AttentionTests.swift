@@ -1,0 +1,363 @@
+import Foundation
+import Testing
+
+@testable import SpriteRoomCore
+
+/// `Notification` → the attention badge, and the rule that takes it away
+/// again.
+///
+/// Driven by the two M0c captures — `permission-prompt` and `idle-notification`
+/// — which are real interactive sessions recorded under a pty. They are not in
+/// the required six (that list is a signed-off exit criterion), but they are
+/// ground truth and they are the only captures containing a `Notification` at
+/// all.
+@Suite struct AttentionTests {
+
+    // MARK: Decoding
+
+    /// Both values the design assumed are real, and neither carries an
+    /// identity beyond the session.
+    @Test func bothNotificationTypesDecodeFromTheirRealPayloads() throws {
+        let permission = try Fixtures.entries("permission-prompt")
+            .compactMap(\.event)
+            .filter { if case .notification = $0.kind { return true } else { return false } }
+        #expect(permission.count == 2)
+        for event in permission {
+            #expect(event.kind == .notification(attention: .permissionPrompt))
+            // No `agent_id` key at all, which by rule 3 *is* the main thread.
+            #expect(event.agentID == .mainThread)
+        }
+
+        let idle = try Fixtures.entries("idle-notification")
+            .compactMap(\.event)
+            .filter { if case .notification = $0.kind { return true } else { return false } }
+        #expect(idle.count == 1)
+        #expect(idle.first?.kind == .notification(attention: .idlePrompt))
+        #expect(idle.first?.agentID == .mainThread)
+    }
+
+    /// It carries no `tool_use_id`, so it can never be joined to a call. The
+    /// badge is a property of the *character*, not of any open call.
+    @Test func aNotificationNamesNoToolCall() throws {
+        for name in ["permission-prompt", "idle-notification"] {
+            for entry in try Fixtures.entries(name) {
+                guard case .notification = entry.event?.kind else { continue }
+                let object = try JSONSerialization.jsonObject(with: entry.payload)
+                let keys = Set(((object as? [String: Any]) ?? [:]).keys)
+                #expect(!keys.contains("tool_use_id"), "\(name): Notification gained a tool_use_id")
+                #expect(!keys.contains("agent_id"), "\(name): Notification gained an agent_id")
+                #expect(keys.contains("notification_type"))
+            }
+        }
+    }
+
+    /// An unrecognised `notification_type` still means "this session wants
+    /// you" — the same fact the one glyph asserts — so it still badges. The
+    /// raw value is kept rather than discarded. [I1]
+    @Test func anUnrecognisedNotificationTypeIsCarriedVerbatim() {
+        #expect(AttentionKind(notificationType: "some_future_type")
+            == .other("some_future_type"))
+        #expect(AttentionKind(notificationType: nil) == .other(nil))
+        #expect("\(AttentionKind(notificationType: "some_future_type"))" == "some_future_type")
+    }
+
+    // MARK: Raising
+
+    /// The badge goes up on the main agent, once per notification.
+    @Test func aPermissionPromptRaisesTheBadgeOnTheMainAgent() async throws {
+        let (_, deltas, _) = try await Fixtures.replay("permission-prompt")
+        let raises = deltas.compactMap { delta -> AgentRef? in
+            guard case let .attentionChanged(agent, attention) = delta,
+                  attention == .permissionPrompt else { return nil }
+            return agent
+        }
+        #expect(raises.count == 2)
+        #expect(raises.allSatisfy { $0.agent == .mainThread })
+    }
+
+    /// A character can be holding an open call *and* be waiting on a human.
+    /// That is not an edge case — it is what every permission prompt looks
+    /// like, since `PermissionRequest` lands ~16 ms after `PreToolUse` and the
+    /// call then sits at the gate.
+    @Test func attentionAndAnOpenCallCoexist() async throws {
+        let entries = try Fixtures.entries("permission-prompt")
+        let model = WorldModel()
+        var sawBoth = false
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            for agent in await model.snapshot().agents where agent.attention != nil {
+                if agent.isWorking { sawBoth = true }
+            }
+        }
+        #expect(sawBoth, "no moment in the capture had a badge up and a call open")
+    }
+
+    // MARK: Clearing — the rule
+
+    /// **The clear rule, measured against the capture that produced it.**
+    ///
+    /// There is no "notification answered" event, so the badge is cleared by
+    /// the next consumed event from the same agent. In this fixture that is
+    /// each of the two shapes a user actually produces:
+    ///
+    /// - the **approved** call's notification is cleared by its own
+    ///   `PostToolUse`, 1.81 s later;
+    /// - the **denied** call's notification is cleared by the user's next
+    ///   `UserPromptSubmit`, 49.37 s later — because a denial emits nothing at
+    ///   all, not even a `Stop` for its turn.
+    ///
+    /// The second number is the cost of the rule, stated rather than hidden:
+    /// between clicking "No" and typing again, the badge asserts a wait that
+    /// has ended. Nothing in 2.1.224 observes that click —
+    /// `PermissionDenied` has never fired on either denial path — so no rule
+    /// can do better without an event that does not exist.
+    @Test func theBadgeClearsOnTheNextEventAndTheseAreTheDurations() async throws {
+        let entries = try Fixtures.entries("permission-prompt")
+        let model = WorldModel()
+
+        var raisedAt: Date?
+        var durations: [TimeInterval] = []
+        var clearedBy: [String] = []
+
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            for delta in await model.ingest(event, at: entry.receivedAt) {
+                guard case let .attentionChanged(_, attention) = delta else { continue }
+                if attention != nil {
+                    raisedAt = entry.receivedAt
+                } else if let raised = raisedAt {
+                    durations.append(entry.receivedAt.timeIntervalSince(raised))
+                    clearedBy.append(event.kind.name)
+                    raisedAt = nil
+                }
+            }
+        }
+
+        #expect(clearedBy == ["UserPromptSubmit", "PostToolUse"])
+        #expect(durations.count == 2)
+        // Denied: cleared by the user's next prompt. Approved: by the call's
+        // own close. Pinned to a tenth of a second so a change in the rule
+        // cannot be absorbed silently.
+        #expect(abs(durations[0] - 49.370) < 0.1, "denied-path duration \(durations[0])")
+        #expect(abs(durations[1] - 1.814) < 0.1, "approved-path duration \(durations[1])")
+    }
+
+    /// Nothing is left raised at the end of either capture.
+    @Test(arguments: ["permission-prompt", "idle-notification", "interactive-session"])
+    func noBadgeSurvivesTheEndOfAStream(name: String) async throws {
+        let (model, deltas, _) = try await Fixtures.replay(name)
+        #expect(await model.snapshot().agents.allSatisfy { $0.attention == nil })
+
+        // And every raise in the stream had a matching clear or a departure.
+        var raised = false
+        for delta in deltas {
+            switch delta {
+            case let .attentionChanged(_, attention): raised = attention != nil
+            case .agentDeparted: raised = false
+            default: break
+            }
+        }
+        #expect(!raised, "\(name) ended with an attention badge still up")
+    }
+
+    /// `idle_prompt` lands a full minute after `Stop` and fires exactly once.
+    /// It means "waiting a while", not "waiting" — nothing may drive a live
+    /// idle state off it, and nothing may expect a repeat.
+    @Test func idlePromptArrivesAMinuteAfterStopAndOnlyOnce() async throws {
+        let entries = try Fixtures.entries("idle-notification")
+        let stop = try #require(entries.first { $0.event?.kind == .stop })
+        let notifications = entries.filter {
+            if case .notification = $0.event?.kind { return true } else { return false }
+        }
+        #expect(notifications.count == 1)
+        let gap = try #require(notifications.first).receivedAt.timeIntervalSince(stop.receivedAt)
+        #expect(abs(gap - 60.021) < 0.1, "idle_prompt arrived \(gap)s after Stop")
+
+        // `Stop` itself changes nothing, and specifically does not raise a
+        // badge: the character's idleness is already an empty open-call set.
+        let model = WorldModel()
+        for entry in entries.prefix(while: { $0.event?.kind != .stop }) {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+        }
+        let onStop = await model.ingest(try #require(stop.event), at: stop.receivedAt)
+        #expect(onStop.isEmpty)
+        #expect(await model.snapshot().agents.allSatisfy { $0.attention == nil })
+    }
+
+    /// `SessionEnd` takes the character and the badge with it. No separate
+    /// clear delta: a badge on a character that no longer exists is not a
+    /// state.
+    @Test func sessionEndRemovesTheBadgeWithTheCharacter() async throws {
+        let (model, deltas, _) = try await Fixtures.replay("idle-notification")
+        let tags = deltas.map(\.tag)
+        #expect(tags == [
+            "agentAppeared", "populationChanged",   // UserPromptSubmit
+            "attentionChanged",                     // Notification, 60 s after Stop
+            "agentDeparted", "populationChanged",   // SessionEnd
+        ])
+        #expect(await model.snapshot().agents.isEmpty)
+    }
+
+    // MARK: Clearing — what must *not* clear it
+
+    /// **A subagent's traffic must not clear the main thread's badge.**
+    ///
+    /// This is the case the "same agent, not same session" restriction exists
+    /// for, and it is not hypothetical: an async subagent emits a
+    /// `PreToolUse`/`PostToolUse` every few hundred milliseconds into the same
+    /// `session_id` while the main thread sits at a dialog. Without the
+    /// restriction the badge would be wiped roughly instantly, every time.
+    ///
+    /// Built by routing the *real* `Notification` payload from
+    /// `permission-prompt` into `three-subagents`' session — the only capture
+    /// with concurrent subagent traffic — via the one sanctioned rewrite
+    /// helper. Nothing about the event is invented; only its address.
+    @Test func subagentEventsDoNotClearTheMainThreadsBadge() async throws {
+        let subagentRun = try Fixtures.entries("three-subagents")
+        let host = try #require(subagentRun.first?.event)
+
+        let notificationPayload = try #require(
+            try Fixtures.firstEntry("permission-prompt") {
+                if case .notification = $0.kind { return true } else { return false }
+            }).payload
+        let notification = try #require(Fixtures.rewriting(notificationPayload, [
+            "session_id": host.sessionID,
+            "cwd": host.cwd,
+        ]))
+        #expect(notification.agentID == .mainThread)
+
+        let model = WorldModel()
+        let mainRef = AgentRef(project: host.cwd, session: host.sessionID, agent: .mainThread)
+
+        // Everything up to and including the turn's `Stop`: three subagents
+        // are live and working by then.
+        var index = 0
+        let entries = subagentRun
+        while index < entries.count {
+            guard let event = entries[index].event else { index += 1; continue }
+            await model.ingest(event, at: entries[index].receivedAt)
+            index += 1
+            if event.kind == .stop { break }
+        }
+
+        let raised = await model.ingest(notification, at: entries[index - 1].receivedAt)
+        #expect(raised.map(\.tag) == ["attentionChanged"])
+        #expect(await model.snapshot().agent(mainRef)?.attention == .permissionPrompt)
+
+        // Now every subagent event up to the next main-thread one. In this
+        // capture that is seventeen events across three different subagents,
+        // including a `SubagentStop`.
+        var subagentEvents = 0
+        while index < entries.count, let event = entries[index].event,
+              event.agentID != .mainThread {
+            await model.ingest(event, at: entries[index].receivedAt)
+            subagentEvents += 1
+            index += 1
+            #expect(await model.snapshot().agent(mainRef)?.attention == .permissionPrompt,
+                    "\(event.kind.name) from \(event.agentID) cleared the main thread's badge")
+        }
+        #expect(subagentEvents >= 10, "expected a run of subagent traffic, got \(subagentEvents)")
+
+        // The next main-thread event is the one that clears it.
+        let next = try #require(entries[index].event)
+        #expect(next.agentID == .mainThread)
+        let cleared = await model.ingest(next, at: entries[index].receivedAt)
+        #expect(cleared.contains { $0.attentionChange == .some(AttentionKind?.none) })
+        #expect(await model.snapshot().agent(mainRef)?.attention == nil)
+    }
+
+    /// An unhandled event changes nothing at all — including this. It matters
+    /// concretely: `PermissionRequest` is unhandled and arrives 6 s *before*
+    /// the `Notification` it precedes, so a rule that cleared on any event
+    /// would still be fine there, but a `PermissionRequest` for a *second*
+    /// gated call would erase a badge that is still true.
+    @Test func anUnhandledEventDoesNotClearTheBadge() async throws {
+        let entries = try Fixtures.entries("permission-prompt")
+        let model = WorldModel()
+        var mainRef: AgentRef?
+
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            if case .notification = event.kind {
+                mainRef = AgentRef(
+                    project: event.cwd, session: event.sessionID, agent: .mainThread)
+                break
+            }
+        }
+        let ref = try #require(mainRef)
+        #expect(await model.snapshot().agent(ref)?.attention == .permissionPrompt)
+
+        // A real captured payload from this same session, renamed to something
+        // 2.1.224 emits and we do not consume.
+        let firstPayload = try #require(entries.first).payload
+        let stray = try #require(
+            Fixtures.rewritingEventName(firstPayload, to: "UserPromptExpansion"))
+        let deltas = await model.ingest(stray, at: Date())
+        #expect(deltas.isEmpty)
+        #expect(await model.snapshot().agent(ref)?.attention == .permissionPrompt)
+    }
+
+    /// Two identical notifications are one fact. A repeat must not produce a
+    /// second badge change — otherwise the scene's suppression memory is the
+    /// only thing between a stable badge and a flicker.
+    @Test func aRepeatedNotificationEmitsNothing() async throws {
+        let entry = try #require(try Fixtures.firstEntry("idle-notification") {
+            if case .notification = $0.kind { return true } else { return false }
+        })
+        let event = try #require(entry.event)
+        let model = WorldModel()
+        await model.ingest(event, at: entry.receivedAt)
+        let again = await model.ingest(event, at: entry.receivedAt.addingTimeInterval(145))
+        #expect(again.isEmpty)
+    }
+
+    // MARK: Reapability [I4]
+
+    /// **The badge cannot stick forever, and it does not need a deadline of
+    /// its own to be reapable.**
+    ///
+    /// Three paths bound it: the agent's next consumed event, `SessionEnd`,
+    /// and the 30-minute session-idle sweep, which departs the character
+    /// entirely. A fourth timer was considered and rejected: it would have to
+    /// be a number with nothing behind it, and it would make the badge lie by
+    /// *omission* in the one case where the true statement is "still waiting"
+    /// — an `idle_prompt` badge on a session nobody has come back to is
+    /// correct for as long as nobody has come back to it.
+    @Test func theBadgeCannotOutliveTheSession() async throws {
+        let entries = try Fixtures.entries("idle-notification")
+        let model = WorldModel()
+        var last = Date()
+        for entry in entries where entry.event?.kind.name != "SessionEnd" {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            last = entry.receivedAt
+        }
+        #expect(await model.snapshot().agents.contains { $0.attention == .idlePrompt })
+
+        // Just short of the idle timeout the badge is still up — which is
+        // true, because nothing has happened.
+        let reaper = Reaper()
+        #expect(await model.sweep(
+            at: last.addingTimeInterval(reaper.sessionIdleTimeout - 1)).isEmpty)
+        #expect(await model.snapshot().agents.contains { $0.attention == .idlePrompt })
+
+        // Past it, the character leaves and takes the badge with it.
+        let swept = await model.sweep(at: last.addingTimeInterval(reaper.sessionIdleTimeout))
+        #expect(swept.map(\.tag) == ["agentDeparted", "populationChanged"])
+        #expect(await model.snapshot().agents.isEmpty)
+    }
+
+    // MARK: Regression
+
+    /// Wiring this must not have moved a single delta in the six fixtures the
+    /// ingest layer is signed off against. None of them contains a
+    /// `Notification`, so none of them may gain a delta.
+    @Test(arguments: Fixtures.required)
+    func theRequiredFixturesEmitNoAttentionDelta(name: String) async throws {
+        let (_, deltas, _) = try await Fixtures.replay(name)
+        #expect(!deltas.contains { $0.tag == "attentionChanged" })
+    }
+}

@@ -117,6 +117,73 @@ struct ProjectSelectorTests {
         #expect(!selector.menu.items.contains { $0.title.contains("Hooks") })
     }
 
+    // MARK: Ended projects
+
+    static let withEnded = [
+        ProjectRegistry.Entry(
+            project: "/work/alpha", displayName: "alpha", population: 3, liveness: .live),
+        ProjectRegistry.Entry(
+            project: "/work/beta", displayName: "beta", population: 0, liveness: .ended),
+    ]
+
+    /// A finished session is marked, not deleted. "Has anything finished" is
+    /// one of the three things the PRD says you want at a glance, and a project
+    /// that silently disappeared would be indistinguishable from one whose
+    /// hooks stopped working.
+    @Test(.enabled(if: NotchPanelTests.hasWindowServer))
+    func anEndedProjectSaysSoAndIsDrawnGreyed() {
+        let selector = Self.selector()
+        selector.update(entries: Self.withEnded, selected: "/work/alpha")
+        selector.menuNeedsUpdate(selector.menu)
+
+        let items = selector.menu.items.filter { $0.representedObject is String }
+        #expect(items.count == 2)
+        #expect(items[1].title == "beta  ·  ended")
+        // Greyed by drawing rather than by disabling, so the item stays
+        // clickable.
+        #expect(items[1].attributedTitle != nil)
+        #expect(items[0].attributedTitle == nil)
+        #expect(items[1].toolTip?.contains("no session running") == true)
+    }
+
+    /// Greying must not cost the user the ability to switch away from an ended
+    /// project — switching away is what unpins it and lets it leave the menu.
+    @Test(.enabled(if: NotchPanelTests.hasWindowServer))
+    func anEndedProjectCanStillBePicked() throws {
+        let selector = Self.selector()
+        var picked: [String] = []
+        selector.onSelect = { picked.append($0) }
+        selector.update(entries: Self.withEnded, selected: "/work/beta")
+        selector.menuNeedsUpdate(selector.menu)
+
+        let item = try #require(
+            selector.menu.items.first { $0.representedObject as? String == "/work/alpha" })
+        let action = try #require(item.action)
+        let target = try #require(item.target)
+        _ = target.perform(action, with: item)
+        #expect(picked == ["/work/alpha"])
+
+        // And the ended one itself, which is the entry the user is currently
+        // parked on.
+        let ended = try #require(
+            selector.menu.items.first { $0.representedObject as? String == "/work/beta" })
+        #expect(ended.isEnabled)
+        #expect(ended.state == .on)
+    }
+
+    /// A live project that happens to be momentarily empty is not an ended one.
+    /// The registry's grace period is what tells them apart; the menu must not
+    /// second-guess it by treating "population 0" as "over".
+    @Test(.enabled(if: NotchPanelTests.hasWindowServer))
+    func anEmptyButLiveProjectIsNotMarkedEnded() {
+        let selector = Self.selector()
+        selector.update(entries: Self.entries, selected: nil)
+        selector.menuNeedsUpdate(selector.menu)
+        let items = selector.menu.items.filter { $0.representedObject is String }
+        #expect(items[1].title == "beta")
+        #expect(items[1].attributedTitle == nil)
+    }
+
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func anEmptyRosterSaysSoRatherThanShowingNothing() {
         let selector = Self.selector()

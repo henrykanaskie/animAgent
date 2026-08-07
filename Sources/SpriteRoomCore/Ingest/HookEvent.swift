@@ -33,6 +33,49 @@ public enum AgentID: Hashable, Sendable, Comparable, CustomStringConvertible {
     }
 }
 
+/// What a `Notification` is telling the user, from `notification_type`.
+///
+/// M0c captured exactly two values under a pty, in real interactive sessions:
+/// `permission_prompt` ("Claude needs your permission") and `idle_prompt`
+/// ("Claude is waiting for your input"). Neither carries a `tool_use_id` or an
+/// `agent_id`, so a `Notification` can only ever mean the main thread.
+///
+/// `other` keeps the raw value rather than discarding it. `Notification` is by
+/// construction the hook Claude Code fires *at the user*, so a third value
+/// appearing tomorrow still means "this session wants you" — the same fact the
+/// one attention glyph asserts. That is the question-mark badge's reasoning
+/// applied to a second axis: we know an alert fired, we do not know which kind,
+/// and showing the honest generic is not a guess. [I1]
+public enum AttentionKind: Sendable, Hashable, CustomStringConvertible {
+    /// `permission_prompt`. Fires **6.0 s after** `PermissionRequest`, not with
+    /// the dialog — three occurrences within 30 ms of each other.
+    case permissionPrompt
+    /// `idle_prompt`. Fires **60.02 s after `Stop`**, exactly once; a further
+    /// 145 s of silence produced no repeat. It means "this has been waiting a
+    /// while", *not* "this is waiting" — `Stop` with an empty open-call set
+    /// already says the latter, immediately and for free. Nothing may drive a
+    /// live idle state off it.
+    case idlePrompt
+    /// Any other `notification_type`, verbatim. `nil` when the key was absent.
+    case other(String?)
+
+    public init(notificationType: String?) {
+        switch notificationType {
+        case "permission_prompt": self = .permissionPrompt
+        case "idle_prompt": self = .idlePrompt
+        default: self = .other(notificationType)
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .permissionPrompt: return "permission_prompt"
+        case .idlePrompt: return "idle_prompt"
+        case .other(let raw): return raw ?? "<no notification_type>"
+        }
+    }
+}
+
 /// One entry of a `PostToolBatch`'s `tool_calls[]`.
 public struct BatchedCall: Hashable, Sendable {
     public let toolUseID: ToolUseID
@@ -79,7 +122,10 @@ public struct HookEvent: Hashable, Sendable {
         /// One assistant message stream ended. **Not** "turn over."
         case stop
         case sessionEnd(reason: String?)
-        case notification
+        /// The main agent raises an attention badge. **Badge only** — the pack
+        /// ships no body animation for "waiting on a human" and repurposing an
+        /// unrelated one would be fiction. [I1]
+        case notification(attention: AttentionKind)
         case unhandled(name: String)
 
         /// The `hook_event_name` this kind came from. Used for counting.
@@ -138,6 +184,7 @@ extension HookEvent: Decodable {
         case source
         case reason
         case error
+        case notificationType = "notification_type"
     }
 
     /// The only field of `tool_response` we read.
@@ -258,7 +305,8 @@ extension HookEvent: Decodable {
             self.kind = .sessionEnd(reason: string(.reason))
 
         case "Notification":
-            self.kind = .notification
+            self.kind = .notification(
+                attention: AttentionKind(notificationType: string(.notificationType)))
 
         default:
             self.kind = .unhandled(name: name)

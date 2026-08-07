@@ -56,18 +56,30 @@ final class RoomHost {
     var scene: RoomScene { binding.scene }
     var entries: [ProjectRegistry.Entry] { registry.entries }
 
-    /// One frame's deltas.
-    func consume(_ deltas: [WorldDelta]) {
-        guard !deltas.isEmpty else { return }
-        let rosterChanged = registry.absorb(deltas)
+    /// One frame's deltas, and the instant that frame happened.
+    ///
+    /// Called every frame, **including frames with no deltas at all**, which is
+    /// the whole reason it takes a clock. A project that has stopped reporting
+    /// stops producing deltas by definition, so anything that only ran when
+    /// deltas arrived could never notice it had gone; the entry would sit in
+    /// the menu at population 0 for the life of the process. Ageing is driven
+    /// by what the deltas already said plus this number, and never by asking
+    /// the model anything.
+    func consume(_ deltas: [WorldDelta], at now: Date) {
+        var rosterChanged = registry.absorb(deltas, at: now)
 
         // First project seen wins the screen. A user who has never chosen gets
         // the room that is actually doing something rather than a blank panel.
         if selected == nil, let first = registry.projects.first {
             selected = first
         }
-        if let selected {
+        if !deltas.isEmpty, let selected {
             binding.apply(deltas.filter { $0.projectKey == selected })
+        }
+        // The selection is pinned: whatever the user is looking at is never
+        // dropped out from under them. It can still be marked ended.
+        if registry.sweep(at: now, pinning: selected) {
+            rosterChanged = true
         }
         if rosterChanged {
             onRosterChanged?(registry.entries, selected)

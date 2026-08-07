@@ -92,6 +92,15 @@ public final class TextureStore {
         return texture(path: art.file)
     }
 
+    /// The `Notification` badge, from `badges.states.attention`. There is one
+    /// glyph for every `notification_type`: the attention badge asserts "this
+    /// session wants you", which is what all of them mean, and drawing a
+    /// different icon per type would need art nobody has drawn. [I1]
+    public func attentionTexture() -> SKTexture? {
+        guard let art = manifest.badges.attention else { return nil }
+        return texture(path: art.file)
+    }
+
     // MARK: Room
 
     public func roomTileChoice() -> RoomTiles {

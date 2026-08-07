@@ -90,7 +90,18 @@ public struct Manifest: Sendable, Hashable {
         public let anchor: Anchor
         public let map: [ToolBadge: BadgeArt]
         /// Non-tool badge states. `attention` is the only one. [I1]
+        ///
+        /// Deliberately separate from `map`: `map` is keyed by `ToolBadge` and
+        /// every one of its keys must exist or the manifest is malformed, while
+        /// `attention` answers to no tool at all. M0b sourced it from the pack —
+        /// it and `question_mark` are the only two real badges we have.
         public let states: [String: BadgeArt]
+
+        /// The `badges.states` key for the `Notification` badge. Written once,
+        /// here, so no other file in the scene spells it.
+        public static let attentionKey = "attention"
+
+        public var attention: BadgeArt? { states[Self.attentionKey] }
 
         public func art(_ badge: ToolBadge) -> BadgeArt? { map[badge] }
     }

@@ -45,21 +45,44 @@ enum Fixtures {
         return (model, deltas, entries)
     }
 
-    /// A captured payload with its `hook_event_name` replaced.
+    /// A captured payload with named top-level keys replaced.
     ///
-    /// The one sanctioned way to make a synthetic event in this target, and it
-    /// exists for one case: proving what an *unconsumed* event does to a
-    /// session captured before that event name existed in our table. Everything
-    /// else about the payload — `session_id`, `cwd`, `agent_id` — stays exactly
-    /// as captured, so it still routes to a real session.
-    static func rewritingEventName(_ payload: Data, to name: String) -> HookEvent? {
+    /// The one sanctioned way to make a synthetic event in this target. Every
+    /// field it does not name stays exactly as captured, so what comes out is
+    /// still a real payload shape with real values — no hand-written event has
+    /// ever been allowed in here and none is now.
+    ///
+    /// Two uses, both of them about a fact that no single capture can contain:
+    ///
+    /// - replacing `hook_event_name`, to prove what an *unconsumed* event does
+    ///   to a session captured before that name existed in our table;
+    /// - replacing `session_id` and `cwd`, to route a real event captured in
+    ///   one session into another real session's stream. That is how the
+    ///   attention tests below put a genuine `Notification` payload into
+    ///   `three-subagents`, which is the only capture with concurrent subagent
+    ///   traffic and the only way to test that such traffic does not clear the
+    ///   main thread's badge. The alternative — a live capture of a permission
+    ///   prompt raised while three subagents run — needs a human at a dialog
+    ///   and three agents in flight at the same moment.
+    static func rewriting(_ payload: Data, _ changes: [String: String]) -> HookEvent? {
         guard var object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any]
         else { return nil }
-        object["hook_event_name"] = name
+        for (key, value) in changes { object[key] = value }
         guard let rewritten = try? JSONSerialization.data(withJSONObject: object) else {
             return nil
         }
         return HookEventDecoder.decode(rewritten)
+    }
+
+    static func rewritingEventName(_ payload: Data, to name: String) -> HookEvent? {
+        rewriting(payload, ["hook_event_name": name])
+    }
+
+    /// The first entry of `name` whose event satisfies `predicate`.
+    static func firstEntry(
+        _ name: String, where predicate: (HookEvent) -> Bool
+    ) throws -> HookLogEntry? {
+        try entries(name).first { $0.event.map(predicate) ?? false }
     }
 }
 
@@ -74,6 +97,7 @@ extension WorldDelta {
         case .callClosed: return "callClosed"
         case .callAbandoned: return "callAbandoned"
         case .reportDelivered: return "reportDelivered"
+        case .attentionChanged: return "attentionChanged"
         case .populationChanged: return "populationChanged"
         }
     }
@@ -87,8 +111,16 @@ extension WorldDelta {
         case let .callClosed(agent, _, _, _): return agent
         case let .callAbandoned(agent, _, _, _): return agent
         case let .reportDelivered(agent): return agent
+        case let .attentionChanged(agent, _): return agent
         case .populationChanged: return nil
         }
+    }
+
+    /// The attention this delta carries, and whether it carries one at all.
+    /// `.some(nil)` is a clear; `nil` is "not an attention delta".
+    var attentionChange: AttentionKind?? {
+        if case let .attentionChanged(_, attention) = self { return attention }
+        return nil
     }
 
     var toolUseID: ToolUseID? {

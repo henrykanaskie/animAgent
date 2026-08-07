@@ -21,6 +21,9 @@ public actor WorldModel {
         /// Who launched this agent, once the `Agent` call's `PostToolUse` told
         /// us. `nil` until then, and `nil` forever if we never see it.
         var parent: AgentID?
+        /// Raised by `Notification`, cleared by this agent's next consumed
+        /// event. Orthogonal to `openCalls` — see `clearsAttention(_:)`.
+        var attention: AttentionKind?
     }
 
     private struct SessionState {
@@ -104,6 +107,61 @@ public actor WorldModel {
         }
     }
 
+    /// Whether this kind of event, arriving for an agent, is evidence that the
+    /// agent is no longer waiting on a human.
+    ///
+    /// **The clear rule, and it is the whole of it: the next consumed event
+    /// from the same agent clears that agent's attention badge.**
+    ///
+    /// There is no "notification answered" event. Nothing in 2.1.224 observes
+    /// the click — `PermissionDenied` has never fired, on either denial path.
+    /// So the badge has to be cleared by inference, and the only honest
+    /// inference available is *the session moved*. Both captured
+    /// `notification_type`s mean "blocked on the human": while a permission
+    /// dialog is up the main thread emits nothing at all, and while a session
+    /// sits at the prompt it emits nothing at all. A main-thread event is
+    /// therefore evidence the human acted — the fixtures show exactly that.
+    /// In `fixtures/permission-prompt.jsonl` the approved call's `Notification`
+    /// is followed 1.81 s later by its `PostToolUse`, and the denied call's is
+    /// followed by the user's next `UserPromptSubmit`.
+    ///
+    /// **Same agent, not same session.** A `Notification` carries no
+    /// `agent_id`, so it is the main thread's; symmetrically only events with
+    /// no `agent_id` say anything about the main thread. Without that
+    /// restriction an async subagent churning through `Read`s would wipe the
+    /// badge off a main thread that is genuinely still stuck at a dialog —
+    /// `fixtures/three-subagents.jsonl` is full of exactly those interleavings
+    /// — and so would the phantom `SubagentStop` the TUI's suggestion helper
+    /// emits on every interactive turn.
+    ///
+    /// **Two kinds are excluded.** `notification` itself, obviously — it is the
+    /// raise. And `unhandled`, which must change nothing at all, by the same
+    /// rule that stops it creating a session; `PermissionRequest` arrives
+    /// unhandled and clearing on it would erase the badge 6 s before the
+    /// `Notification` that raises it. `sessionEnd` is excluded too, but only
+    /// because it is redundant: it departs the character, and a badge on a
+    /// character that no longer exists is not a state.
+    ///
+    /// **Erring early is the deliberate direction.** M4's rule — *a late reap
+    /// is a blind spot, an early one is fiction* — is about closing a state
+    /// that asserts "working", so it points at a long deadline. This badge has
+    /// the opposite polarity: it is a *positive* assertion, so a late clear is
+    /// the fiction ("Claude needs your permission" when it does not) and an
+    /// early clear is only a blind spot. The same principle therefore points
+    /// the other way here, at the earliest defensible signal.
+    ///
+    /// **What it can still get wrong**, stated rather than papered over: a
+    /// main-thread batch holding several calls where one is gated and the
+    /// others complete would clear the badge while the dialog is still up. No
+    /// capture shows that shape — every observed `PermissionRequest` is a lone
+    /// call — and the failure is a miss, not a lie.
+    private static func clearsAttention(_ kind: HookEvent.Kind) -> Bool {
+        switch kind {
+        case .notification, .unhandled, .sessionEnd: return false
+        default: return true
+        }
+    }
+
     private func apply(_ event: HookEvent, at now: Date, into deltas: inout [WorldDelta]) {
         if Self.createsSession(event.kind) {
             ensureSession(project: event.cwd, session: event.sessionID, at: now, into: &deltas)
@@ -113,6 +171,12 @@ public actor WorldModel {
         touch(project: event.cwd, session: event.sessionID, at: now)
 
         let ref = AgentRef(project: event.cwd, session: event.sessionID, agent: event.agentID)
+
+        // Before the event's own effect, so the delta stream reads in the order
+        // the facts happened: the wait ended, then the work resumed.
+        if Self.clearsAttention(event.kind) {
+            setAttention(nil, ref: ref, into: &deltas)
+        }
 
         switch event.kind {
         case .unhandled(let name):
@@ -182,10 +246,14 @@ public actor WorldModel {
         case .sessionEnd:
             endSession(project: event.cwd, session: event.sessionID, into: &deltas)
 
-        case .notification:
-            // Badge-only, and never observed in capture. There is no delta for
-            // it and inventing one would be fiction. [I1]
-            break
+        case .notification(let attention):
+            // Badge-only. No body animation for this exists in the pack and
+            // repurposing an unrelated one would be fiction; the badge is the
+            // whole representation. [I1]
+            //
+            // The event carries no `agent_id`, so `ref` is the main thread by
+            // the identity rule rather than by a special case here.
+            setAttention(attention, ref: ref, into: &deltas)
         }
     }
 
@@ -240,7 +308,8 @@ public actor WorldModel {
                         agentType: agentState.agentType,
                         lifecycle: agentState.lifecycle,
                         parent: agentState.parent,
-                        openCalls: agentState.openCalls.values.sorted()))
+                        openCalls: agentState.openCalls.values.sorted(),
+                        attention: agentState.attention))
                 }
             }
         }
@@ -311,6 +380,28 @@ public actor WorldModel {
             .agents[child]!.parent == nil else { return }
         projects[parent.project]!.sessions[parent.session]!.agents[child]!.parent = parent.agent
         deltas.append(.agentLinked(agent: childRef, parent: parent.agent))
+    }
+
+    /// Raises or clears the attention badge, emitting a delta only on a real
+    /// change.
+    ///
+    /// Idempotent in both directions. `idle_prompt` fires exactly once so a
+    /// repeat is not expected, but a second identical `permission_prompt` is
+    /// the same fact and must not produce a second badge change — a delta
+    /// stream that repeats itself makes the scene's suppression memory the only
+    /// thing standing between a stable badge and a flicker.
+    private func setAttention(
+        _ attention: AttentionKind?, ref: AgentRef, into deltas: inout [WorldDelta]
+    ) {
+        // No such agent: nothing to raise a badge on, and conjuring a character
+        // out of a notification is not this function's job.
+        guard var state = projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] else {
+            return
+        }
+        guard state.attention != attention else { return }
+        state.attention = attention
+        projects[ref.project]!.sessions[ref.session]!.agents[ref.agent] = state
+        deltas.append(.attentionChanged(agent: ref, attention: attention))
     }
 
     private func setLifecycle(_ lifecycle: AgentLifecycle, ref: AgentRef) {
