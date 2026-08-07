@@ -1,0 +1,26 @@
+{
+ "cmd": ["/Users/henrykanaskie/.local/bin/claude"],
+ "cwd": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m0-capture",
+ "env_clear": ["CLAUDECODE","CLAUDE_CODE_ENTRYPOINT","CLAUDE_CODE_SESSION_ID","CLAUDE_CODE_CHILD_SESSION","CLAUDE_CODE_BRIDGE_SESSION_ID","CLAUDE_CODE_EXECPATH","CLAUDE_PID","CLAUDE_EFFORT","AI_AGENT","CLAUDE_CODE_SSE_PORT"],
+ "env_set": {"TERM":"xterm-256color","COLUMNS":"120","LINES":"40"},
+ "log": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m6c/twogates.raw",
+ "hard_timeout": 500, "drain": 5, "cols":120, "rows":40,
+ "steps": [
+  {"await": "forshortcuts|Try\\s*\"|Welcometo", "timeout": 90},
+  {"sleep": 2},
+  {"send": "In ONE single message make two Agent tool calls in parallel, both general-purpose subagents, both launched in the background so they run at the same time. Subagent 1's only task: run the bash command `touch /private/tmp/claude-501/m6-s1.txt`. Subagent 2's only task: run the bash command `touch /private/tmp/claude-501/m6-s2.txt`. Do not run any bash yourself."},
+  {"sleep": 2},
+  {"key": "enter", "note": "submit"},
+  {"await": "1\\.\\s*Yes", "timeout": 200, "note": "DIALOG 1"},
+  {"sleep": 30, "note": "watch for a SECOND PermissionRequest while dialog 1 is still up"},
+  {"key": "enter", "note": "approve 1"},
+  {"await": "1\\.\\s*Yes", "timeout": 150, "note": "DIALOG 2"},
+  {"sleep": 8},
+  {"key": "enter", "note": "approve 2"},
+  {"sleep": 45},
+  {"send": "/exit"},
+  {"sleep": 2},
+  {"key": "enter"},
+  {"sleep": 8}
+ ]
+}

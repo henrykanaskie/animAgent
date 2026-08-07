@@ -611,6 +611,180 @@ throwaway path.
 
 ---
 
+## Payloads — M6c follow-up: the four ADR-001 captures
+
+Owner: `test-engineer`, M6c. `docs/ADR-001-denied-calls.md` closed on four things
+it could get wrong, three of them unverified, and named four captures that would
+settle them. This is those captures. Same rig as M0c: `tools/pty-capture/`,
+project-scoped hooks in the sandbox, port 8787, hard timeout on every run.
+Seven files, 98 events, every `cwd` the sandbox. `~/.claude/settings.json` sha256
+`682e430ad33a11f0e6d5d2e5e17d7696cc1f117083fe8b5d5d784304d822a9b1` before and
+after — unchanged, and the same value M0c recorded.
+
+Scoring against the ADR's risks is in that document's verification section. What
+follows is the payload evidence.
+
+### `PermissionRequest` carries `agent_id`. ADR risk 3 does not occur.
+
+`fixtures/subagent-permission.jsonl`. A `general-purpose` subagent's `Bash` call
+hit the gate:
+
+```json
+{"session_id": "28dde769-…", "prompt_id": "01ae4810-…",
+ "permission_mode": "default",
+ "agent_id": "ab2378e6a85dea269", "agent_type": "general-purpose",
+ "effort": {"level": "high"},
+ "hook_event_name": "PermissionRequest", "tool_name": "Bash",
+ "tool_input": {"command": "touch /private/tmp/claude-501/m6-sub.txt; echo \"exit=$?\"",
+                "description": "Touch file"},
+ "permission_suggestions": [{"type": "addRules", "behavior": "allow",
+                             "destination": "localSettings", "rules": [ … ]}]}
+```
+
+The `agent_id` matches the `SubagentStart` 2.76 s earlier and the gated
+`PreToolUse` 18 ms earlier. It also gained two fields no M0c capture showed:
+`permission_mode` and `effort` — worth knowing only because the payload is
+larger than `03-EVENT-MODEL.md` describes, not because anything should read them.
+
+This is the one finding that could have changed the implementation, and it
+changes nothing: an agent-level mark keyed on `session_id` + presence/absence of
+`agent_id` lands on the agent that actually raised the gate.
+
+### The `Notification` after a subagent's gate has no `agent_id`
+
+Same file, 6.016 s later (M0c measured 6.006–6.032 s, so the delay is stable):
+
+```json
+{"session_id": "28dde769-…", "prompt_id": "01ae4810-…",
+ "hook_event_name": "Notification", "message": "Claude needs your permission",
+ "notification_type": "permission_prompt"}
+```
+
+No `agent_id`, so by rule 3 it is a main-thread event and the attention badge
+goes on the main character — while the gate belongs to `ab2378e6a85dea269`. The
+badge is on the wrong character for the length of the dialog.
+
+Nothing in ADR-001 depends on this. It is a defect in M6's badge, it is narrow
+(only subagent gates), and the honest options are to badge the main thread
+anyway — the human *is* being asked, and the main thread is where they answer —
+or to badge nothing. Recorded here rather than fixed, because
+`03-EVENT-MODEL.md` and `Sources/` were out of scope for this task.
+
+### A queued prompt emits no `UserPromptSubmit` at all. ADR risk 2 does not occur.
+
+`fixtures/queued-prompt.jsonl`. A `Bash` call was approved at the gate and ran
+for 247 s. 54 s into it the user typed a second prompt and pressed Enter; the TUI
+showed "Press up to edit queued messages"; the assistant answered it 1.2 s after
+the tool result. **The file contains exactly one `UserPromptSubmit`, at t=0.**
+
+The session transcript shows the mechanism:
+
+```json
+{"type": "queue-operation", "operation": "enqueue",
+ "timestamp": "2026-08-07T17:32:28.804Z", "content": "Reply with just the word pineapple…"}
+{"type": "queue-operation", "operation": "remove",
+ "timestamp": "2026-08-07T17:35:41.939Z", "content": "Reply with just the word pineapple…"}
+```
+
+with delivery as an `attachment` of type `queued_command` — not as a new user
+turn. `enqueue` is the keystroke, `remove` is 12 ms after the `tool_result`.
+Neither is hooked.
+
+The ADR asked whether `UserPromptSubmit` fires on the keystroke or on pickup. It
+is neither. So a user typing ahead cannot trigger anything, which is the
+direction risk 2 worried about — and, symmetrically, nothing downstream may
+expect a `UserPromptSubmit` when a user types during a running call.
+
+### Two `PermissionRequest`s **can** be outstanding at once — across agents
+
+`fixtures/concurrent-permission-gates.jsonl`. Two `general-purpose` subagents,
+launched in one assistant message, each with one gated `Bash`:
+
+```
+6.446  PermissionRequest  agent ac26da513c96ad388
+7.919  PermissionRequest  agent a7298874eca5a457d
+38.263 PostToolUse        agent ac26da513c96ad388   ← the first answer
+```
+
+31.8 s with two gates open. `03-EVENT-MODEL.md` never claimed otherwise and
+ADR-001 explicitly refused to assume otherwise, so nothing breaks — but the
+assumption is now positively refuted rather than merely untested, and the two
+gates are on **different `agent_id`s**, which is exactly the case a per-agent
+mark handles and a session-level one would not.
+
+What was *not* observed is one agent holding two gates at once. Within a single
+agent's batch that appears impossible, for the reason in the next finding.
+
+### In the interactive TUI, a batch's tool calls ran strictly sequentially
+
+Three captures, all with both `tool_use` blocks confirmed in one assistant
+message in the session transcript:
+
+| Fixture | Calls | Gating | Peak concurrent open |
+|---|---|---|---|
+| `parallel-denial` | pre-allowed 45 s `Bash`, then gated `Bash` | second gates, denied | **1** |
+| `denied-batch-cancel` | gated `Bash`, then `Bash` | first gates, denied | **1** |
+| `interactive-batch-serial` | two pre-allowed 40–45 s `Bash` | none at all | **1** |
+
+In `parallel-denial` the second call's `PreToolUse` arrives **4 ms after the
+first call's `PostToolUse`** (49.976 vs 49.972). In `interactive-batch-serial`,
+with no permission gate anywhere in the file, the same 5 ms gap appears (48.727
+vs 48.722). So the serialisation is not caused by the gate.
+
+`denied-batch-cancel` adds the other half: when the first call of a batch is
+denied, **the remaining calls never emit `PreToolUse`.** The transcript shows
+both `tool_use` blocks receiving "The user doesn't want to proceed with this tool
+use", but only one of them ever reached the hook surface. A cancelled sibling
+therefore never becomes an open call and cannot leak.
+
+**This does not weaken I3 and must not be read as doing so.**
+`fixtures/parallel-tools.jsonl` holds five genuinely simultaneous `tool_use_id`s
+closing out of order; it was captured headless. The claim here is only about the
+2.1.224 TUI, it rests on four attempts, and absence of observation is not
+evidence of absence. I3 is about what the model must tolerate, not about what the
+TUI does this week, and a release that parallelises the TUI would change this row
+and nothing else in the codebase.
+
+### `Agent` ran synchronously with a dialog on screen
+
+`fixtures/subagent-permission.jsonl`: the main thread's `Agent` call
+`toolu_01PLtuHaiz8sCVVkAPGXebfJ` opens at t=3.504 and closes at t=19.805, after
+its child's `SubagentStop` at t=19.802 — M4's synchronous shape, now in a
+fixture rather than an observation. During that window a permission dialog was on
+screen for the child's `Bash`.
+
+So "a main thread blocked inside a synchronous `Agent` call is not simultaneously
+raising a permission prompt" is **false** — it is raising one, on behalf of its
+child. See the ADR verification section, where that sentence is load-bearing.
+
+### `idle_prompt` fires once per idle stretch, not once per session
+
+`fixtures/denial-then-work.jsonl` has two, at t=99.783 and t=171.469 — 60.03 s
+and 60.02 s after the `Stop`s at 39.751 and 111.444.
+
+`03-EVENT-MODEL.md` says `idle_prompt` "arrives 60.02 s after `Stop` and fires
+exactly **once** — a session left idle a further 145 s produced no second one."
+The measurement is right and the non-repeat within one idle stretch is right; the
+word "once" reads as once per session, and that is wrong. It is once per `Stop`
+that is followed by 60 s of quiet. Nothing in M6 depends on the difference, and
+the badge rule ("the next consumed event from the same agent clears it") is
+unaffected, but the sentence invites a wrong inference and should say "per idle
+stretch".
+
+### What I could not capture
+
+- **A main-thread parallel batch mixing a gated call with a genuinely long open
+  sibling** — ADR risk 1's hazard. Four attempts, three orderings, gated and
+  ungated: the TUI serialised every one, so the sibling was always either not yet
+  open or already closed. Recorded as *not reproducible*, not as *impossible*.
+- **One agent holding two permission gates at once.** Follows from the same
+  serialisation. Across agents it happens readily (above).
+- **`PermissionDenied`.** Still never fired, now over four more denials on the
+  "3. No" path. Six denials across M0c and M6c, zero events. Unchanged from M0c
+  and still **[unverified]**.
+
+---
+
 ## Art
 
 Owner: `art-director`. Measured 2026-08-07 against the files in `assets/`, using

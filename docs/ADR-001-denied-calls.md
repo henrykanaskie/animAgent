@@ -306,6 +306,241 @@ It is the one step left, and it is one line in two files once the capture lands.
 
 ---
 
+## VERIFICATION — the four captures, taken
+
+**Added by `test-engineer`, M6c, after the ADR was accepted and while it was
+being implemented.** Nothing above this heading was edited to add this section:
+the recommendation, the numbers and the reasoning are the author's as written,
+and the contradictions below are reported rather than applied. This
+section records what the four captures found and scores each risk *settled* or
+*still open*. Where a capture contradicts the text above, it says so and names
+the passage; the correction is the maintainer's call, not mine.
+
+Evidence: seven new interactive captures, same rig as M0c, listed in
+`fixtures/README.md` under "Interactive captures (M6c)" and written up in
+`docs/FINDINGS-M0.md` under "Payloads — M6c follow-up". 98 events, every `cwd`
+the sandbox, `~/.claude/settings.json` untouched (sha256 unchanged).
+
+### Headline
+
+**The recommendation survives all four captures.** Rule (d) as written — mark on
+`PermissionRequest`, disarm on close or `Stop`, shorten to `now + G` on
+`UserPromptSubmit` for the same agent — needs no change. Risk 3, the one that
+could have changed the implementation, resolved in the rule's favour.
+
+Two things in the text above are **wrong on the evidence**. Neither changes what
+gets built; both are reasons stated for conclusions that turn out to be right for
+other reasons, and a reader who trusts the stated reason will draw a wrong
+inference later.
+
+### Risk 3 — `PermissionRequest` for a subagent — **SETTLED, in the rule's favour**
+
+> *"If it carries `agent_id` the rule works unchanged; if it does not, a
+> subagent's gate would mark the main thread instead."*
+
+It carries `agent_id`. `fixtures/subagent-permission.jsonl`:
+
+```json
+{"agent_id": "ab2378e6a85dea269", "agent_type": "general-purpose",
+ "permission_mode": "default",
+ "hook_event_name": "PermissionRequest", "tool_name": "Bash",
+ "tool_input": {"command": "touch /private/tmp/claude-501/m6-sub.txt; echo \"exit=$?\"", …},
+ "permission_suggestions": [ … ]}
+```
+
+Matching the `SubagentStart` 2.76 s earlier and the gated `PreToolUse` 18 ms
+earlier. The rule works unchanged. It also carries `permission_mode` and
+`effort`, which no M0c capture showed — noted only so nobody is surprised by the
+payload's size.
+
+**One consequence worth having, outside this ADR's scope.** The `Notification`
+that follows a subagent's gate carries **no** `agent_id` (6.016 s later, same
+file), so the attention badge lands on the main character while the gate belongs
+to the subagent. That is an M6 badge defect, not an ADR-001 defect, and it is
+recorded in `docs/FINDINGS-M0.md` rather than acted on here.
+
+### Risk 2 — a queued prompt during a long approved call — **SETTLED, safe**
+
+> *"If the TUI emits `UserPromptSubmit` when the user types rather than when the
+> turn picks the message up… Believed safe; unverified."*
+
+Safe, and by a wider margin than the text hoped: **a queued prompt emits no
+`UserPromptSubmit` at all.** `fixtures/queued-prompt.jsonl` — an approved 247 s
+`Bash`, a prompt typed 54 s in and answered when the call finished, and exactly
+one `UserPromptSubmit` in the file, at t=0. The transcript routes it through
+`queue-operation` / `enqueue` at the keystroke and `queue-operation` / `remove`
+12 ms after the `tool_result`, delivering it as a `queued_command` attachment
+rather than a user turn. Neither point is hooked.
+
+So the mark cannot be acted on by a typed-ahead message. The symmetric caution,
+which is new: rule 3 will also **not** fire when the user's reply to a denial is
+typed while something else is still running. That is not a failure mode — the
+mark simply persists until a real prompt, a close, or `Stop` — but it is a case
+the text above does not mention.
+
+### Risk 1 — a gated call beside a genuinely long sibling — **OPEN, but not reproducible**
+
+> *"…it is the recommendation's one genuine hazard."*
+
+I could not produce it, in four attempts. In the 2.1.224 **interactive TUI**, the
+tool calls of one assistant message ran strictly one after another, so a gated
+call was never open at the same time as a sibling.
+
+| Fixture | Batch | Peak concurrent open |
+|---|---|---|
+| `parallel-denial` | pre-allowed 45 s `Bash`, then gated `Bash` (denied) | 1 |
+| `denied-batch-cancel` | gated `Bash` (denied), then `Bash` | 1 |
+| `interactive-batch-serial` | two pre-allowed 40–45 s `Bash`, **no gate at all** | 1 |
+
+Both `tool_use` blocks were confirmed in one assistant message in the transcript
+each time. In `parallel-denial` the second `PreToolUse` lands 4 ms after the
+first `PostToolUse`; in `interactive-batch-serial`, with no gate anywhere, 5 ms.
+The serialisation is therefore not caused by the permission gate.
+`denied-batch-cancel` adds the other half: denying the first call of a batch
+cancels the rest **before they emit `PreToolUse`**, so a cancelled sibling never
+becomes an open call at all.
+
+**This lowers the probability of risk 1; it does not close it, and the
+recommendation should not start assuming it away.** `fixtures/parallel-tools.jsonl`
+proves the headless runner does run five calls concurrently, four attempts is not
+a proof about the TUI, and a release that parallelises the TUI restores the
+hazard exactly as described. Marked **open** on that basis. The honest statement
+is "not reproducible in 2.1.224's TUI", and the ADR's assessment of the hazard as
+*narrow* is if anything understated.
+
+### Capture 4 — a denial in a session that keeps working — **TAKEN**
+
+`fixtures/denial-then-work.jsonl`, 28 events. `toolu_01WXAhzmcL2iKm1mdYfuLczp`
+opens at t=3.138, `PermissionRequest` at t=3.151, denied at the dialog; nothing
+in the stream ever closes it; the session then does three more turns of real work
+and ends at t=252.062.
+
+Under rule (d): mark at 3.151, `UserPromptSubmit` at 34.984, G = 60 s → the
+shortened deadline falls at **t=94.98**, and the stream then runs another 157 s
+of real work before `SessionEnd` at **t=252.06**. `permission-prompt.jsonl` ends
+40 s after its denial, so it can never distinguish 60 s from 900 s;
+`denial-then-work` can. `parallel-denial.jsonl` is a second, weaker instance
+(orphan open 49.976, prompt at 86.709 → deadline 146.71, `SessionEnd` 209.157).
+
+Both files behave like `permission-prompt` and `killed-session`: they do **not**
+replay to zero open calls without the reaper, by nature. If
+`permission-prompt.jsonl` joins the required set, these two belong beside it —
+`denial-then-work` in particular, because it is the only capture in which the
+shortened deadline falls strictly inside the stream.
+
+**One caveat, and it is about the harness rather than the rule.**
+`spriteroom-replay` sweeps **once**, at `last event + longestDeadline + 1`
+(`Sources/SpriteRoomReplay`, `sweepAt`). It never advances the clock between
+events. So running it over `denial-then-work` today prints
+`callAbandoned … sessionEnded` at 252.062 — the `SessionEnd` pre-empts a sweep
+that never happens at 94.98 — and running it over `denied-batch-cancel` prints
+`deadlineExpired` at 911.356 for the same reason, whatever the deadline value
+is. The single sweep instant carries no information about the deadline.
+
+That is not evidence against the implementation, which does hold the shortened
+deadline and is covered by
+`Tests/SpriteRoomCoreTests/PermissionGateTests.swift`
+(`theDeniedCallIsAbandonedSixtySecondsAfterTheNextPromptNotNineHundred`) with an
+injected clock. It is a note that the *fixture* is the input that lets such a
+test run against real data with a real 157 s tail, and that the replay CLI is not
+the tool that demonstrates it. A mid-stream sweep in the harness would make it
+visible; that is the harness owner's call, and it is out of scope here.
+
+### "At most one permission prompt open at a time" — **REFUTED, harmlessly**
+
+The ADR refused to assume it and was right to.
+`fixtures/concurrent-permission-gates.jsonl`: two subagents launched in one
+assistant message, `PermissionRequest` at t=6.446 (`ac26da513c96ad388`) and
+t=7.919 (`a7298874eca5a457d`), first answered at t=38.263. **31.8 s with two
+gates open.**
+
+They are on different `agent_id`s, which is precisely what a per-agent mark
+handles and a session-level flag would not. One agent holding two gates at once
+was never observed, and follows from the batch serialisation above.
+
+### Two statements above that the captures contradict
+
+**1. "Why the synthetic-`UserPromptSubmit` hazard is defused rather than
+ignored", last sentence — the synchronous-`Agent` exclusion is stated for a false
+reason.**
+
+> *"The synchronous `Agent` case is structurally excluded: a main thread blocked
+> inside a synchronous `Agent` call is not simultaneously raising a permission
+> prompt."*
+
+It is. `fixtures/subagent-permission.jsonl`: the main thread's `Agent` call
+`toolu_01PLtuHaiz8sCVVkAPGXebfJ` is open from t=3.504 to t=19.805 — the
+synchronous shape — and a permission dialog is on screen from t=6.279 for the
+child's `Bash`. The premise is false.
+
+**The conclusion still holds, for a different reason.** The `PermissionRequest`
+carries the *child's* `agent_id`, so the mark goes on the child; the main
+thread's `Agent` call is never marked, and no synthetic `UserPromptSubmit` can
+shorten it. `concurrent-permission-gates.jsonl` shows exactly this interleaving
+in the wild — a synthetic `UserPromptSubmit` at t=40.510 with no `agent_id`,
+arriving while a subagent still holds an open gated call, touching nothing.
+
+Why it matters: the exclusion currently reads as structural, so a reader
+implementing a *session*-scoped mark — a natural simplification, since the mark
+holds no `tool_use_id` — would believe this case is still covered. It would not
+be. **The per-agent scoping in rule 1 is what makes the synchronous-`Agent` case
+safe, and it should be recorded as load-bearing rather than incidental.**
+
+**2. "What it could get wrong", risk 1 — "it is the recommendation's one genuine
+hazard."**
+
+On the evidence, risk 1 is the recommendation's one *unreproducible* hazard. The
+sentence overstates what is known in the direction of caution, which is the
+right direction to overstate in, and nothing needs changing. Noted so the next
+reader does not treat it as an observed failure.
+
+### Scoreboard
+
+| Risk | Status | Evidence |
+|---|---|---|
+| 1 — gated call + long sibling | **open, not reproducible** | `parallel-denial`, `denied-batch-cancel`, `interactive-batch-serial` |
+| 2 — queued prompt | **settled, safe** | `queued-prompt` |
+| 3 — subagent `PermissionRequest` | **settled, rule unchanged** | `subagent-permission` |
+| 4 — `PermissionRequest` stops firing / fires for non-gates | **open, unchanged** | 8 more `PermissionRequest`s in M6c, every one at a real gate, none spurious |
+| "one prompt at a time" | **refuted, harmlessly** | `concurrent-permission-gates` |
+
+Risk 4 is the same standing bet it was: the mechanism rests on one
+unhandled-until-now event. M6c saw eight more of them, in six sessions, every one
+18 ms after a `PreToolUse` for a call that then sat at a dialog, and none
+anywhere else. `fixtures/` now holds nine, seven of them new.
+`PermissionDenied` still has never fired — three more "3. No" denials in M6c,
+five across the two milestones counting M0c's Esc path, zero events.
+
+**G = 60 s is untouched by any of this.** The straddle measurements it is derived
+from (8.05 s, 15.05 s) are unchanged, and no M6c capture produced a larger one.
+
+### Comments in the implementation that these captures have made stale
+
+Reported, not edited — `Sources/` and `Tests/` belong to the implementer, and
+none of these is a behaviour change. All three say some version of "risk 3 is
+unobserved", which is no longer true.
+
+- `Sources/SpriteRoomCore/Model/WorldModel.swift` — the `gateOwner` commentary
+  ("every captured `PermissionRequest` is main-thread, so nobody has yet observed
+  whether…"). Now observed, and it resolves the way the code already assumes.
+  Worth promoting from an assumption to a cited fact, because that one line is
+  what makes the synchronous-`Agent` case safe.
+- `Sources/SpriteRoomCore/Model/WorldModel.swift` — "all six `PermissionRequest`s
+  in M0c are lone calls in their own turns". Twelve now, and
+  `concurrent-permission-gates` has two overlapping.
+- `Tests/SpriteRoomCoreTests/PermissionGateTests.swift` —
+  `everyCapturedPermissionRequestIsMainThread`. **Still green and still
+  truthful**: it reads only `permission-prompt.jsonl`, and nothing in the test
+  target enumerates `fixtures/`, so the seven new files cannot turn the suite
+  red. But the name now says more than the assertion does, and
+  `subagent-permission.jsonl` is the file that would let it assert the useful
+  thing instead — that a subagent's gate is attributed to the subagent.
+
+None of these blocks anything. They are the places a reader would otherwise be
+misled six months from now.
+
+---
+
 ## The alternatives, and why I did not recommend them
 
 **Do nothing; leave it to the reaper.** Legitimate, and cheapest, and I do not
