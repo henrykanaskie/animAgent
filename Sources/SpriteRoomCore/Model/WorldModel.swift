@@ -24,6 +24,21 @@ public actor WorldModel {
         /// Raised by `Notification`, cleared by this agent's next consumed
         /// event. Orthogonal to `openCalls` — see `clearsAttention(_:)`.
         var attention: AttentionKind?
+        /// **ADR-001 (d) — the permission-gate marker.** `nil` is disarmed.
+        /// Non-`nil` is "a gate opened for this agent, and these are the
+        /// `tool_use_id`s it held open at that instant".
+        ///
+        /// The set may legitimately be empty: it is a snapshot of `openCalls`,
+        /// not a claim about any particular call, and an empty one shortens
+        /// nothing.
+        ///
+        /// **It lives inside `AgentState` on purpose, and that is what makes it
+        /// reapable** [I4]. Every path that ends an agent — `SessionEnd`,
+        /// `SubagentStop`'s departure, the 30-minute idle sweep — removes the
+        /// whole `AgentState`, so this cannot outlive the character it belongs
+        /// to. A parallel dictionary keyed by agent would have been one more
+        /// thing to remember to clear, i.e. one more thing to leak.
+        var permissionGate: Set<ToolUseID>?
     }
 
     private struct SessionState {
@@ -134,13 +149,20 @@ public actor WorldModel {
     /// — and so would the phantom `SubagentStop` the TUI's suggestion helper
     /// emits on every interactive turn.
     ///
-    /// **Two kinds are excluded.** `notification` itself, obviously — it is the
-    /// raise. And `unhandled`, which must change nothing at all, by the same
-    /// rule that stops it creating a session; `PermissionRequest` arrives
-    /// unhandled and clearing on it would erase the badge 6 s before the
-    /// `Notification` that raises it. `sessionEnd` is excluded too, but only
-    /// because it is redundant: it departs the character, and a badge on a
-    /// character that no longer exists is not a state.
+    /// **Three kinds are excluded.** `notification` itself, obviously — it is
+    /// the raise. `unhandled`, which must change nothing at all, by the same
+    /// rule that stops it creating a session. And `permissionRequest`, which is
+    /// consumed as of ADR-001 but is the *announcement of the wait*, not
+    /// evidence it ended — it arrives 6 s before the `Notification` it
+    /// precedes, so clearing on it would erase a badge before it was raised,
+    /// and a second gate opening while the first is still up would erase a
+    /// badge that is still true. `sessionEnd` is excluded too, but only because
+    /// it is redundant: it departs the character, and a badge on a character
+    /// that no longer exists is not a state.
+    ///
+    /// Note the shape of that last exclusion: consuming an event and having it
+    /// clear the badge are separate decisions, and `permissionRequest` is the
+    /// first event to take one without the other.
     ///
     /// **Erring early is the deliberate direction.** M4's rule — *a late reap
     /// is a blind spot, an early one is fiction* — is about closing a state
@@ -157,9 +179,36 @@ public actor WorldModel {
     /// call — and the failure is a miss, not a lie.
     private static func clearsAttention(_ kind: HookEvent.Kind) -> Bool {
         switch kind {
-        case .notification, .unhandled, .sessionEnd: return false
+        case .notification, .unhandled, .sessionEnd, .permissionRequest: return false
         default: return true
         }
+    }
+
+    /// **Which character a `PermissionRequest` marks. This one line is
+    /// ADR-001's risk 3, and it is deliberately the only place the question is
+    /// answered.**
+    ///
+    /// Attribution goes through the ordinary identity rule and nothing else:
+    /// `agent_id` present → that subagent, absent → the main thread
+    /// (`docs/03-EVENT-MODEL.md`, "Identity resolution", rule 3), which is
+    /// precisely what `HookEvent.agentID` already computed at decode. No
+    /// special case, no inference, no fallback of our own.
+    ///
+    /// **Risk 3, stated rather than papered over: every captured
+    /// `PermissionRequest` is main-thread, so nobody has yet observed whether
+    /// one raised by a *subagent* carries an `agent_id`.** If it does, this rule
+    /// is already right and needs no change. If it does not, a subagent's gate
+    /// would mark the main thread, and the wrong agent's calls would be
+    /// shortened by rule 3 of the ADR. A capture settling that is in flight.
+    ///
+    /// Inventing a workaround for a fact we do not have would be fiction [I1],
+    /// so this does the ordinary thing and keeps the correction cheap: if the
+    /// capture says `agent_id` is absent for subagent gates, the fix is a new
+    /// body for *this function* — most likely returning `nil` so nothing is
+    /// marked when attribution is unknown — and callers already handle that.
+    /// Nothing else in the model asks the question.
+    private static func gateOwner(of event: HookEvent) -> AgentRef? {
+        AgentRef(project: event.cwd, session: event.sessionID, agent: event.agentID)
     }
 
     private func apply(_ event: HookEvent, at now: Date, into deltas: inout [WorldDelta]) {
@@ -190,10 +239,17 @@ public actor WorldModel {
 
         case .userPromptSubmit:
             // Consumed for the session and main agent `ensureSession` has
-            // already created, and for nothing else. A turn that produces no
-            // tool call still gets a character, and that character is idle,
-            // which is what actually happened. [I2]
-            break
+            // already created. A turn that produces no tool call still gets a
+            // character, and that character is idle, which is what actually
+            // happened. [I2]
+            //
+            // ADR-001 (d) rule 3 — and *only* when this agent's gate is still
+            // armed. A prompt on its own means nothing: rule (b), "the next
+            // `UserPromptSubmit` closes stragglers", was rejected because a
+            // subagent's result reaches the main thread as a synthetic prompt
+            // and two calls in `three-subagents` are genuinely still running
+            // when one arrives. The mark is what tells the two apart.
+            answerPermissionGate(ref: ref, at: now)
 
         case .subagentStart:
             ensureAgent(ref, agentType: event.agentType, lifecycle: .spawning, into: &deltas)
@@ -236,12 +292,28 @@ public actor WorldModel {
             deltas.append(.reportDelivered(agent: ref))
             depart(ref: ref, into: &deltas)
 
+        case .permissionRequest:
+            // ADR-001 (d) rule 1. An agent-level marker and nothing else: it
+            // opens no call, closes no call, emits no delta, and names no
+            // `tool_use_id` — it has none to name. What it records is this
+            // agent's open-call set at this instant, which the model already
+            // holds. That performs no join, so it cannot join wrongly. [I3]
+            if let owner = Self.gateOwner(of: event) {
+                armPermissionGate(ref: owner)
+            }
+
         case .stop:
             // Fires once per assistant message stream — four times in one turn
             // in `three-subagents`. Not end-of-session, not a reap trigger, and
             // the character's idleness is already implied by an empty open-call
             // set. Nothing to emit. [I1]
-            break
+            //
+            // ADR-001 (d) rule 2, second half: the turn completed, so whatever
+            // the gate was waiting for is no longer pending. Disarming here is
+            // what stops a mark left by an approved-then-finished turn being
+            // acted on by an unrelated prompt much later. It changes no visible
+            // state, so `Stop` still emits nothing.
+            disarmPermissionGate(ref: ref)
 
         case .sessionEnd:
             endSession(project: event.cwd, session: event.sessionID, into: &deltas)
@@ -404,6 +476,81 @@ public actor WorldModel {
         deltas.append(.attentionChanged(agent: ref, attention: attention))
     }
 
+    // MARK: The permission gate marker — ADR-001 (d)
+
+    /// Rule 1. Record that a gate is open for this agent, and which calls it
+    /// held open at that instant.
+    ///
+    /// Re-arming over an existing mark is deliberate. Two gates outstanding at
+    /// once has never been captured — all six `PermissionRequest`s in M0c are
+    /// lone calls in their own turns — and ADR-001 is explicit that *nothing
+    /// may assume* it cannot happen. Taking the later snapshot is the
+    /// conservative reading: it is the agent's open-call set as of the most
+    /// recent thing we know it is blocked on.
+    private func armPermissionGate(ref: AgentRef) {
+        guard let state = projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] else {
+            // No character to mark. Conjuring one out of a gate is not this
+            // function's job, and `ensureSession` has already made the main
+            // agent for any session this event could belong to.
+            return
+        }
+        projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
+            .permissionGate = Set(state.openCalls.keys)
+    }
+
+    /// Rule 2. The gate is no longer pending, so nothing may act on the mark.
+    private func disarmPermissionGate(ref: AgentRef) {
+        projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.permissionGate = nil
+    }
+
+    /// Rule 3. A `UserPromptSubmit` reached an agent whose gate is still armed,
+    /// so the human answered and the answer was **no** — an approval closes the
+    /// gated call, and that close disarms the mark before any prompt can reach
+    /// here.
+    ///
+    /// Every still-open call in the marked set has its deadline pulled in to
+    /// `now + G`. **Shortened, not closed.** No call is removed here, no delta
+    /// is emitted here, and no close path is involved: the reaper closes these
+    /// on its next sweep past the new deadline and emits `.callAbandoned`
+    /// exactly as it always has, so the character simply returns to idle. [I4]
+    ///
+    /// The mark is spent either way — this is the answer it was waiting for.
+    ///
+    /// **What this can still get wrong**, stated rather than hidden: the marked
+    /// set is *all* of the agent's open calls, because nothing in the event
+    /// names the gated one. A main-thread batch mixing a gated call with a
+    /// sibling that legitimately runs past 60 s therefore reaps the sibling
+    /// early, which is fiction. It needs a shape no capture contains, and it is
+    /// ADR-001's one acknowledged hazard.
+    private func answerPermissionGate(ref: AgentRef, at now: Date) {
+        guard let marked = projects[ref.project]?.sessions[ref.session]?
+            .agents[ref.agent]?.permissionGate else { return }
+        defer { disarmPermissionGate(ref: ref) }
+
+        for toolUseID in marked {
+            guard let call = projects[ref.project]!.sessions[ref.session]!
+                .agents[ref.agent]!.openCalls[toolUseID] else { continue }
+            let pulledIn = reaper.shortenedDeadline(call.deadline, answeredAt: now)
+            guard pulledIn != call.deadline else { continue }
+            projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
+                .openCalls[toolUseID] = OpenCall(
+                    toolUseID: call.toolUseID,
+                    toolName: call.toolName,
+                    startedAt: call.startedAt,
+                    deadline: pulledIn)
+        }
+    }
+
+    /// The marked set for one agent, or `nil` when the gate is disarmed.
+    ///
+    /// Internal, not public. It drives no drawing and belongs in no delta — the
+    /// scene must never learn about it, because a marker is not a fact about
+    /// the room. It exists so the tests can assert the mark arms, disarms and
+    /// is reaped, rather than inferring all three from deadlines.
+    func permissionGateMark(_ ref: AgentRef) -> Set<ToolUseID>? {
+        projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.permissionGate
+    }
+
     private func setLifecycle(_ lifecycle: AgentLifecycle, ref: AgentRef) {
         projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.lifecycle = lifecycle
     }
@@ -463,9 +610,27 @@ public actor WorldModel {
         }
     }
 
+    /// The one point at which a call leaves an agent's open set, whichever path
+    /// asked. Every close and every abandonment funnels through here.
+    ///
+    /// ADR-001 (d) rule 2 lives here for that reason, and *only* that reason:
+    /// the three close paths are verified and load-bearing and are not being
+    /// changed — `PostToolUse`, `PostToolUseFailure` and `PostToolBatch` still
+    /// close exactly the ids they always closed and emit exactly the deltas they
+    /// always emitted. What the marker needs is to notice that a marked call
+    /// went away, and there is exactly one place where that happens.
+    ///
+    /// **Any close of any marked call disarms the whole mark**, which is the
+    /// approve path: the gated call closes normally, so the human said yes and
+    /// no later prompt may shorten anything. Abandonment counts too — a call
+    /// already reaped is not one a deadline change could still help.
     private func removeCall(_ toolUseID: ToolUseID, ref: AgentRef) -> OpenCall? {
         guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else {
             return nil
+        }
+        if projects[ref.project]!.sessions[ref.session]?.agents[ref.agent]?
+            .permissionGate?.contains(toolUseID) == true {
+            disarmPermissionGate(ref: ref)
         }
         return projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
             .openCalls.removeValue(forKey: toolUseID)

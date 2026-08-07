@@ -12,7 +12,14 @@ enum Fixtures {
 
     static let directory: URL = repositoryRoot.appending(path: "fixtures")
 
-    /// The six files `docs/03-EVENT-MODEL.md` requires a green run against.
+    /// The files `docs/03-EVENT-MODEL.md` requires a green run against.
+    ///
+    /// `permission-prompt` joined the six at ADR-001, which is the condition the
+    /// doc set for it: it is the fixture that proves the interactive-denial fix,
+    /// so from the moment there is a fix it is required coverage. Like
+    /// `killed-session` it does **not** replay to zero open calls without the
+    /// reaper, by nature — a user clicking "No" produces a call nothing in the
+    /// stream ever closes. What changed is the number: 900 s became 60 s.
     static let required = [
         "single-agent-simple",
         "parallel-tools",
@@ -20,6 +27,7 @@ enum Fixtures {
         "killed-session",
         "tool-failure",
         "unknown-events",
+        "permission-prompt",
     ]
 
     static func url(_ name: String) -> URL {

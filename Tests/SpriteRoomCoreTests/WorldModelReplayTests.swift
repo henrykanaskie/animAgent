@@ -503,6 +503,27 @@ import Testing
             "callOpened", "callClosed",
             "agentDeparted", "populationChanged",
         ],
+        // Two gates: one denied, one approved. The denied `Bash` opens and is
+        // never closed by anything in the stream — its `callAbandoned` at the
+        // end is `SessionEnd` doing it, 101 s later. That is the shape ADR-001
+        // is about.
+        //
+        // Note what is *not* here. `PermissionRequest` is consumed as of
+        // ADR-001 and appears twice, and it contributes no delta at all: it
+        // marks the agent, which is interior state and not a fact about the
+        // room. Nothing in this sequence moved when the ADR was implemented,
+        // and that is the point of writing it down.
+        "permission-prompt": [
+            "agentAppeared", "populationChanged",   // UserPromptSubmit
+            "callOpened",                           // Bash, about to be denied
+            "attentionChanged",                     // Notification, 6 s after the gate
+            "attentionChanged",                     // cleared by the user's next prompt
+            "callOpened",                           // Bash, about to be approved
+            "attentionChanged", "attentionChanged", // raised, then cleared by its own close
+            "callClosed",
+            "callAbandoned",                        // the denied call, at SessionEnd
+            "agentDeparted", "populationChanged",
+        ],
         // The synthetic unknowns after `SessionEnd` add nothing.
         "unknown-events": [
             "agentAppeared", "populationChanged",

@@ -92,8 +92,9 @@ public struct BatchedCall: Hashable, Sendable {
 ///
 /// An unrecognised — or structurally unusable — `hook_event_name` becomes
 /// `.unhandled(name:)`. It is never an error. The hook surface grows (2.1.224
-/// defines at least sixteen event names we do not consume) and a new event must
-/// never crash the app.
+/// defines at least fifteen event names we do not consume — it was sixteen
+/// until ADR-001 consumed `PermissionRequest`) and a new event must never crash
+/// the app.
 public struct HookEvent: Hashable, Sendable {
 
     public enum Kind: Hashable, Sendable {
@@ -121,6 +122,19 @@ public struct HookEvent: Hashable, Sendable {
         case subagentStop
         /// One assistant message stream ended. **Not** "turn over."
         case stop
+        /// A permission gate opened for *this agent*. Consumed as an
+        /// **agent-level marker** and nothing more —
+        /// `docs/ADR-001-denied-calls.md` (d).
+        ///
+        /// It carries `tool_name`, `tool_input` and `permission_suggestions[]`
+        /// and **no `tool_use_id`**, so it names no call and this case therefore
+        /// carries no payload at all. Deliberate: reading `tool_name` off it
+        /// would be the first step towards joining it to an open call by name,
+        /// which the pairing rule forbids and which ADR-001 (c) rejects with
+        /// data — `tool_name` + `tool_input` is not even unique within one
+        /// batch, and a wrong join closes the wrong call. There is nothing here
+        /// to join with. [I3]
+        case permissionRequest
         case sessionEnd(reason: String?)
         /// The main agent raises an attention badge. **Badge only** — the pack
         /// ships no body animation for "waiting on a human" and repurposing an
@@ -140,6 +154,7 @@ public struct HookEvent: Hashable, Sendable {
             case .postToolBatch: return "PostToolBatch"
             case .subagentStop: return "SubagentStop"
             case .stop: return "Stop"
+            case .permissionRequest: return "PermissionRequest"
             case .sessionEnd: return "SessionEnd"
             case .notification: return "Notification"
             case .unhandled(let name): return name
@@ -300,6 +315,12 @@ extension HookEvent: Decodable {
 
         case "Stop":
             self.kind = .stop
+
+        case "PermissionRequest":
+            // No required fields, because it has none we use. Identity comes
+            // from the common input fields alone — which is exactly what makes
+            // it a legal *marker* rather than an illegal join.
+            self.kind = .permissionRequest
 
         case "SessionEnd":
             self.kind = .sessionEnd(reason: string(.reason))

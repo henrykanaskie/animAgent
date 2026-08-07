@@ -352,12 +352,22 @@ import Testing
 
     // MARK: Regression
 
-    /// Wiring this must not have moved a single delta in the six fixtures the
-    /// ingest layer is signed off against. None of them contains a
-    /// `Notification`, so none of them may gain a delta.
+    /// Wiring this must not have moved a single delta in the fixtures the
+    /// ingest layer is signed off against.
+    ///
+    /// Stated as an *iff* rather than as "none of them badges", because
+    /// `permission-prompt` joined the required set at ADR-001 and it does
+    /// contain `Notification`s. The force of the test is unchanged: a badge
+    /// delta appears exactly where a `Notification` was captured and nowhere
+    /// else, so no fixture can quietly gain or lose one.
     @Test(arguments: Fixtures.required)
-    func theRequiredFixturesEmitNoAttentionDelta(name: String) async throws {
+    func theRequiredFixturesBadgeExactlyWhereTheyWereCaptured(name: String) async throws {
+        let entries = try Fixtures.entries(name)
+        let hasNotification = entries.contains {
+            if case .notification = $0.event?.kind { return true } else { return false }
+        }
         let (_, deltas, _) = try await Fixtures.replay(name)
-        #expect(!deltas.contains { $0.tag == "attentionChanged" })
+        #expect(deltas.contains { $0.tag == "attentionChanged" } == hasNotification,
+                "\(name): attention deltas and captured Notifications disagree")
     }
 }

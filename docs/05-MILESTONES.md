@@ -18,9 +18,14 @@ Run real sessions: a simple one, one with parallel tool calls, one dispatching
 three subagents, one killed mid-`Bash`.
 
 **Exit:**
-- `fixtures/` contains the six files listed in `03-EVENT-MODEL.md`. It was five;
-  `tool-failure` was added once M0a proved a permission-denied call is closed by
-  nothing but the following `PostToolBatch`.
+- `fixtures/` contains the **seven** files listed in `03-EVENT-MODEL.md`. It was
+  five. `tool-failure` joined once M0a proved a permission-denied call is closed
+  by nothing but the following `PostToolBatch`; `permission-prompt` joined at
+  ADR-001, once M0c proved that claim is true only of the *headless* auto-deny
+  and that an interactively denied call is closed by nothing at all.
+
+  The count is deliberately not frozen. A fixture enters this list when it is
+  the only thing that would prove a rule — not to round the number up.
 - A short `docs/FINDINGS-M0.md` records: which events actually fired, whether
   `agent_id` appeared exactly where expected, observed `tool_use_id` overlap,
   and anything in `03-EVENT-MODEL.md` that reality contradicts.

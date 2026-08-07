@@ -1,8 +1,13 @@
 # ADR-001 — The interactively denied tool call
 
-**Status: PROPOSED.** Nothing in this document is implemented. It changes no
-close path — that decision is the maintainer's, and this is the analysis it
-asked for.
+**Status: ACCEPTED, 2026-08-07** — accepted by the maintainer and implemented in
+the same change. Recommendation **(d)** below is the rule that ships; (a), (b)
+and (c) remain recorded as rejected and are not implemented.
+
+It changes no close path. `PostToolUse`, `PostToolUseFailure` and
+`PostToolBatch` are untouched; what this changed is a *deadline*, which is
+tool-keyed policy that already lived in `Reaper`, plus the per-agent marker
+state rule 1 needs. See `docs/03-EVENT-MODEL.md` for the shipped contract.
 
 Author: `ingest-engineer`, M6. Written against Claude Code 2.1.224 and the
 fixtures as captured at M0c. Every number below is measured from `fixtures/`;
@@ -222,6 +227,15 @@ such rather than as a constant of nature.
    main-thread. If it carries `agent_id` the rule works unchanged; if it does
    not, a subagent's gate would mark the main thread instead, and the wrong
    agent's calls would be shortened. **Unverified.**
+
+   *As shipped:* attribution goes through the ordinary identity rule and nothing
+   else, and it is asked in exactly one place —
+   `WorldModel.gateOwner(of:)` — whose doc comment names this risk. It returns
+   an optional `AgentRef` and its one caller already handles `nil`, so if the
+   capture says subagent gates carry no `agent_id`, the correction is a new body
+   for that one function (most plausibly: mark nothing when attribution is
+   unknown, since marking the wrong agent is the failure being avoided). No
+   workaround was invented for a fact we do not have. [I1]
 4. **`PermissionRequest` might stop firing, or start firing for things that are
    not gates.** The whole mechanism rests on one unhandled-until-now event
    observed six times.
@@ -247,6 +261,48 @@ implemented, because it is the fixture that would prove it. Note that it does
 **not** replay to zero open calls without the reaper today, by nature, exactly
 like `killed-session` — and under this recommendation it still would not. What
 would change is the number: 900 s becomes 60 s.
+
+*It joined the set in this change*, in `docs/03-EVENT-MODEL.md` and in
+`Fixtures.required`. All four captures above remain outstanding; none of them
+blocks the rule, and each would settle a risk rather than change the design.
+
+---
+
+## As implemented — 2026-08-07
+
+Everything below is where the three rules actually live, so that a reader
+holding this document can find them without a search.
+
+| | |
+|---|---|
+| `HookEvent.Kind.permissionRequest` | Decodes the event. **Carries no payload** — deliberately, so that `tool_name` is not even in reach of a future join. |
+| `WorldModel.AgentState.permissionGate` | The mark: `Set<ToolUseID>?`, `nil` when disarmed. Held *inside* the agent's state, which is what makes `SessionEnd`, departure and the idle sweep clear it by construction rather than by three pieces of housekeeping. [I4] |
+| `WorldModel.gateOwner(of:)` | Rule 1's attribution, and the seam for risk 3. |
+| `WorldModel.armPermissionGate(ref:)` | Rule 1. Emits no delta. |
+| `WorldModel.removeCall(_:ref:)` | Rule 2's first half. The one point at which a call leaves an open set, whichever path asked — which is why the disarm is there and **not** in any of the three close paths. |
+| `WorldModel.disarmPermissionGate(ref:)` on `.stop` | Rule 2's second half. `Stop` still emits nothing. |
+| `WorldModel.answerPermissionGate(ref:at:)` on `.userPromptSubmit` | Rule 3. Rewrites deadlines; closes nothing, emits nothing. |
+| `Reaper.permissionGateGraceInterval` | **G = 60 s**, with the measurement that produced it. |
+| `Reaper.shortenedDeadline(_:answeredAt:)` | `min(existing, now + G)`. |
+
+Two decisions the recommendation above did not spell out, taken here and
+recorded rather than left in the code alone:
+
+- **Rule 3 pulls in only; it never pushes a deadline out.** "Pulled in to
+  `now + G`" is read as `min(existing, now + G)`, so a marked `Read` keeps its
+  own 30 s rather than being granted 60. A rule that exists to shorten
+  deadlines must not be able to lengthen one.
+- **A second `PermissionRequest` re-marks with the set as it stands then.** This
+  document is explicit that "at most one gate outstanding" is untested and must
+  not be assumed; taking the later snapshot is the conservative reading of an
+  agent that is blocked on something.
+
+`PermissionRequest` is consumed but **not yet registered** in
+`HookInstaller.events`, so in a normal install it does not arrive and this rule
+cannot fire. That is deliberate: no capture records which matcher shape this
+event answers to, and this project's rule is that a registration shape is
+captured rather than guessed — a wrong one is a hook that silently never fires.
+It is the one step left, and it is one line in two files once the capture lands.
 
 ---
 

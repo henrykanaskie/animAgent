@@ -45,6 +45,16 @@ struct HookInstaller: Sendable {
         "PostToolBatch",
         "Stop",
         "Notification",
+        // ADR-001 (d). Consumed as the *marker* that an agent has a call at a
+        // permission gate — never as a close, and never joined to a
+        // `tool_use_id`, which it does not carry. Without this line the model
+        // consumes an event that never arrives, and a denied call goes back to
+        // sitting open for 900 s.
+        //
+        // Registered with `matcher: "*"`, which is the shape it was captured
+        // firing under at M0c — not a guess. A wrong matcher here is a hook
+        // that silently never fires and looks like a working install.
+        "PermissionRequest",
     ]
 
     /// `PostToolBatch` was captured working *without* a matcher, and it is the

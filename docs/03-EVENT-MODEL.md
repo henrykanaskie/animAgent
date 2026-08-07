@@ -80,7 +80,8 @@ rule. It creates the session and its main agent and has no other effect.
 | `PostToolUseFailure` | Close that `tool_use_id`, flagged failed. Fires *instead of* `PostToolUse`, never alongside it; the message is in `error`, not `tool_response`. |
 | `PostToolBatch` | Close every `tool_use_id` in `tool_calls[]`. A primary close path, not a sweep — see below. |
 | `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → departs. |
-| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. |
+| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. |
+| `PermissionRequest` | **An agent-level marker, and nothing else.** Records for that agent: a permission gate is open, plus the set of `tool_use_id`s it held open at that instant. No join by name, no join by recency, no `tool_use_id` read from the event — it carries none. Emits no delta and does not clear the attention badge. See "The interactively denied tool call" below. |
 | `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
 | `Notification` | Main agent raises an attention badge; emits `attentionChanged`. Badge only — no body animation exists for this and repurposing one would be fiction. [I1] Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and no `agent_id`, so it can only mean the main thread. |
 
@@ -139,11 +140,19 @@ is genuinely still at a dialog — `fixtures/three-subagents.jsonl` is full of
 exactly those interleavings — and so would the phantom `SubagentStop` the TUI's
 suggestion helper emits on every interactive turn.
 
-**Two kinds do not clear it.** `Notification` itself, and anything `unhandled`,
-which by the standing rule changes nothing at all — `PermissionRequest` is
-unhandled and arrives 6 s *before* the notification it precedes. `SessionEnd`
-is excluded only because it is redundant: it departs the character, and a badge
-on a character that no longer exists is not a state.
+**Three kinds do not clear it.** `Notification` itself; anything `unhandled`,
+which by the standing rule changes nothing at all; and `PermissionRequest`,
+which is consumed as of ADR-001 but is the *announcement of the wait*, not
+evidence it ended — it arrives 6 s *before* the notification it precedes, and a
+second gate opening while the first badge is up would otherwise erase a badge
+that is still true. `SessionEnd` is excluded only because it is redundant: it
+departs the character, and a badge on a character that no longer exists is not a
+state.
+
+Note the shape of that third exclusion: **consuming an event and having it clear
+the badge are separate decisions.** `PermissionRequest` is the first event to
+take one without the other, and nothing about consuming an event implies it
+clears anything.
 
 **Erring early is deliberate.** M4's rule — *a late reap is a blind spot, an
 early one is fiction* — is about a state that asserts "working", so it argues
@@ -206,32 +215,47 @@ the badge clears. [I3]
 Everything else decodes to `.unhandled` and is counted, not dropped silently.
 A rising `.unhandled` count is how we notice the hook surface has grown.
 
-"Everything else" is not hypothetical. 2.1.224 defines at least fifteen further
+"Everything else" is not hypothetical. 2.1.224 defines at least fourteen further
 event names we do not consume, including `UserPromptExpansion`, `StopFailure`,
-`PreCompact`, `PostCompact`, `PermissionRequest`, `PermissionDenied`,
-`TaskCreated`, and `TaskCompleted`. All of them will reach the listener under a
-`*` registration. They must decode, be counted, and change nothing.
+`PreCompact`, `PostCompact`, `PermissionDenied`, `TaskCreated`, and
+`TaskCompleted`. All of them will reach the listener under a `*` registration.
+They must decode, be counted, and change nothing.
 
-Two of those are no longer hypothetical either, and M0c settled what they are
-worth:
+`PermissionRequest` used to be on that list. **It is consumed as of ADR-001** —
+see the table above and "The interactively denied tool call" below. That is a
+real cost, recorded rather than glossed: the unhandled counter exists to notice
+the hook surface growing, and it is one name poorer.
 
 - **`PermissionRequest` is real and fires over HTTP**, ~16 ms after the
   `PreToolUse` for the same call. It carries `tool_name`, `tool_input` and
   `permission_suggestions[]` — and **no `tool_use_id`**. It therefore cannot be
   joined to an open call without pairing by tool name, which the pairing rule
-  below forbids. It is a "this agent is blocked on a human" signal, not a close
-  signal. Not consumed. `docs/ADR-001-denied-calls.md` argues that consuming it
-  as an *agent-level marker* — which performs no join at all — would be
-  legitimate, and that joining it to a call would not.
+  below forbids, and it is not joined to one: it is consumed as a "this agent is
+  blocked on a human" signal, which is what it is. Marking performs no join at
+  all, so it cannot join wrongly.
 - **`PermissionDenied` still has never fired.** **[unverified]** — registered
   over both HTTP and `command` delivery and tested against both denial paths a
   user has (selecting "No" at the dialog, and Esc to cancel). Neither produced
   it. The name exists; the condition that emits it is unknown.
 
-The app registers only the eleven events above, so in normal operation the
-others never arrive at all — but the listener is not allowed to depend on that,
-because a `*` registration written by hand, or a future release that widens what
-a registration covers, would deliver them anyway.
+The app registers only the eleven events listed under "Hook registration", so in
+normal operation the others never arrive at all — but the listener is not
+allowed to depend on that, because a `*` registration written by hand, or a
+future release that widens what a registration covers, would deliver them
+anyway.
+
+**`PermissionRequest` is consumed but not yet registered**, and until it is,
+the deadline rule below can only fire for a session whose hooks were installed
+by hand or by the capture rig. That gap is deliberate rather than an oversight:
+the registration shape for this event has never been captured — the fixtures
+came from a rig that registered every event name at once, and the repo does not
+record which matcher form each one answered to — and this project's standing
+rule is that a registration shape is captured, not guessed
+(*"Do not add a matcher to it without re-capturing and confirming it still
+fires"*). Adding a wrong one produces a hook that silently never fires, which
+looks exactly like a working install. A capture settling it is in flight; when
+it lands, the entry goes into `HookInstaller.events` and
+`.claude/settings.example.json` together and this paragraph goes away.
 
 ## Pairing rule
 
@@ -279,23 +303,70 @@ path. What was wrong was the coverage claim. **`PostToolBatch` covers the
 headless denial and none of the interactive ones**, and interactive denial is
 the common case for a real user.
 
-The consequence is live: `Bash` carries the 15-minute deadline, so clicking
-"No" on a `Bash` prompt currently leaves that character working for fifteen
-minutes. That is the signature bug of this project on the most ordinary
-interaction there is. **Deliberately not fixed here** — the close-path model is
-verified and load-bearing and changing it is the maintainer's call.
+The consequence used to be live: `Bash` carries the 15-minute deadline, so
+clicking "No" on a `Bash` prompt left that character working for fifteen
+minutes — the signature bug of this project on the most ordinary interaction
+there is.
 
-The options were weighed at M6 and one is recommended. See
-**`docs/ADR-001-denied-calls.md`**, which measures each against the fixtures
-rather than arguing from taste, and in particular refutes the
-`UserPromptSubmit` option with captured data. Nothing here changes until that
-ADR is accepted.
+**`docs/ADR-001-denied-calls.md` was accepted on 2026-08-07 and implemented in
+the same change.** Read it for why each alternative was rejected; the shipped
+rule is below. Note what it did *not* do: **no close path changed.** There are
+still exactly three, they still close exactly the ids they always closed, and
+this fixture's denied call still has none of them. What changed is a *deadline*,
+which is tool-keyed policy that already lived in the `Reaper`.
 
-One thing did change, and it narrows the symptom without touching a close path:
-the attention badge is wired as of M6, and it outranks the tool badge. So while
-the dialog is up the character now shows "needs you" rather than a `terminal`
-glyph. The residual is the window *after* a denial, which is what the ADR is
-about.
+One other thing narrows the symptom without touching a close path either: the
+attention badge is wired as of M6 and outranks the tool badge, so while the
+dialog is up the character shows "needs you" rather than a `terminal` glyph. The
+residual — the window *after* a denial — is what the rule below is for.
+
+### The interactively denied tool call
+
+Three rules. They are what ADR-001 recommends as (d), and they exist because
+each of its two halves fixes the other's flaw: a `PermissionRequest` is a
+reliable arming signal that cannot tell approve from deny, and a
+`UserPromptSubmit` is a discriminator that cannot tell a real prompt from a
+synthetic one.
+
+1. **Mark.** A `PermissionRequest` records, for the agent it belongs to: a gate
+   is open, and these are the `tool_use_id`s that agent held open at that
+   instant. The marked set is simply the agent's open-call set, which the model
+   already holds. **No join is performed** — not by name, not by recency — so
+   none can be performed wrongly. [I3]
+2. **Disarm.** Any close of any call in the marked set (the approve path: the
+   gated call closes normally), or a `Stop` (the turn completed).
+3. **Shorten.** A `UserPromptSubmit` for that same agent while the mark is still
+   set pulls every still-open marked call's deadline in to `now + G`.
+   **Shortened, not closed.** The reaper still does the closing and still emits
+   `.callAbandoned`; the character just returns to idle.
+
+`G` is 60 s, and where that number comes from is under "Reaping" below.
+
+Rule 3 pulls *in* only. A call whose own deadline is already sooner than
+`now + G` keeps it — this rule may never grant a call more life than the
+deadline table below allows.
+
+Agent attribution for rule 1 is the **ordinary identity rule and nothing else**:
+`agent_id` present → that subagent, absent → the main thread. **Risk 3 of the
+ADR, unverified:** every captured `PermissionRequest` is main-thread, so nobody
+yet knows whether a *subagent's* gate carries an `agent_id`. If it does, the rule
+is already right. If it does not, a subagent's gate would mark the main thread
+and shorten the wrong agent's calls. The decision lives in exactly one place —
+`WorldModel.gateOwner(of:)` — so a correction is a small local edit rather than
+a hunt.
+
+**What it can get wrong**, stated rather than papered over: the mark covers *all*
+of the agent's open calls, because nothing in the event names the gated one. A
+main-thread batch mixing a gated call with a sibling that legitimately runs past
+`G` after the user's next prompt reaps the sibling early, which is fiction. It
+needs a shape no capture contains, and it is the rule's one acknowledged hazard.
+
+**What it deliberately does not do** is close anything on a `UserPromptSubmit`
+alone. That was option (b), and it is refuted by capture: in
+`three-subagents.jsonl` `toolu_017StzPCoy…` runs 8.05 s across one synthetic
+prompt and `toolu_01NDyNkE17…` runs 15.05 s across two, and both were genuinely
+working. Neither is marked, so neither is touched — there is a test named for
+exactly that.
 
 **Closing is idempotent.** `PostToolBatch` re-reports calls that a preceding
 `PostToolUse` or `PostToolUseFailure` already closed — both appear for the same
@@ -332,12 +403,42 @@ character went idle mid-task. **A late reap is a blind spot; an early one is
 fiction.** [I1] The cost of the long deadline, a genuinely lost close lingering,
 is already covered twice by `SessionEnd` and the 30-minute idle sweep.
 
+### `G` — the one deadline not keyed by tool
+
+| | |
+|---|---|
+| **A call marked at a permission gate, once a `UserPromptSubmit` says the human answered** | **`now + G`, G = 60 s** |
+
+Set by rule 3 of "The interactively denied tool call" above, and never applied to
+anything the mark did not cover. It replaces whatever the table says for that
+call — but only downwards.
+
+`G` is a measurement, not a taste. The only thing it has to survive is the gap
+between a synthetic `UserPromptSubmit` and the close of a call that is genuinely
+still running, and that gap is measured twice in `fixtures/three-subagents.jsonl`
+and nowhere else: 8.05 s and 15.05 s. 60 s is four times the larger — 3.99×, to
+the precision the second decimal deserves — so it keeps four times the observed
+head-room while cutting the worst case from 900 s to 60 s, 15×.
+
+**It is a number to revisit with more captures, not a constant of nature.** Two
+straddles from one fixture is the whole evidence base. It lives in
+`Reaper.permissionGateGraceInterval` with that reasoning attached, and the test
+that pins it *derives* the straddles from the fixture rather than restating them,
+so a capture with a longer one turns this from an argument into a red test.
+
 On expiry: close the call, emit `.callAbandoned`, increment a counter. The
 character returns to idle. It does **not** display an error — an abandoned call
 is usually our blind spot, not the user's failure.
 
 Additional sweeps: `SessionEnd` closes all. A session with no event for 30
 minutes is presumed dead and closed. Both are belt and braces for I4; keep both.
+
+**The permission-gate mark is reapable too** [I4]. It is not a call, so it has no
+deadline of its own, but it is per-agent open state and it answers to the same
+paths: `SessionEnd`, the agent's departure, and the idle sweep. It is held
+*inside* the agent's own state rather than in a table beside it, so all three
+clear it by construction — a parallel store would be one more thing to remember
+to clear, which is one more thing to leak.
 
 ## Tool → badge mapping
 
@@ -445,28 +546,33 @@ them were not visible in the M0 capture:
   `PostToolUse` close paths. Must replay to zero open calls *without* the
   deadline sweep firing; if the reaper is needed, the close paths are wrong.
 - `unknown-events` — payloads with an unrecognised `hook_event_name`.
+- `permission-prompt` — a real interactive permission dialog, denied then
+  approved. **Joined the set at ADR-001**, on the condition this document
+  already set for it: it is the fixture that proves the interactive-denial fix,
+  so from the moment there is a fix it is required coverage. Carries
+  `PermissionRequest`, both `Notification` types' first half, and the
+  never-closed denied call. Like `killed-session` it does **not** replay to zero
+  open calls without the reaper, by nature — a user clicking "No" produces a
+  call that nothing in the stream ever closes, and no rule can invent one. What
+  ADR-001 changed is the number: 900 s became 60 s.
 
-A change to the ingest layer that does not run green against all six is not
+A change to the ingest layer that does not run green against all seven is not
 done.
 
 **Interactive coverage, added at M0c.** Three further captures, from real TUI
-sessions driven under an allocated pty rather than `claude -p`. They are not in
-the required six — that list is an exit criterion that has already been signed
-off and is not mine to rewrite — but they are ground truth and they cover events
-the six cannot contain:
+sessions driven under an allocated pty rather than `claude -p`. They cover
+events the original six cannot contain:
 
 - `interactive-session` — a real interactive session, start to `/exit`. Settles
   `SessionStart` by absence, and carries the phantom `SubagentStop`.
-- `permission-prompt` — a real permission dialog, denied then approved. Carries
-  `PermissionRequest`, both `Notification` types' first half, and the
-  never-closed denied call. **This one does not replay to zero open calls
-  without the reaper**, by nature, exactly like `killed-session`.
+- `permission-prompt` — **now one of the required seven**, listed above.
 - `idle-notification` — `Notification` with `notification_type: idle_prompt`,
   60 s after `Stop`.
 
-`permission-prompt` is the one that should join the required set if the
-interactive-denial close path above is ever resolved, because it is the fixture
-that would prove the fix.
+The other two remain outside the required list. That list was an exit criterion
+signed off at M2; `permission-prompt` joined it because this document had
+already named the condition under which it should ("the fixture that would prove
+the fix"), and ADR-001 is that fix.
 
 Capture at **project scope**, in a throwaway directory, never at user scope. A
 `*` registration in `~/.claude/settings.json` injects hooks into the developer's
