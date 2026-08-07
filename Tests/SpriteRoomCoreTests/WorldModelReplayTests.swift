@@ -382,7 +382,19 @@ import Testing
     /// at t=117.5 in a stream that ends at t=103.5 — so stepping the clock
     /// across them must be a no-op, and if one ever gains such a deadline this
     /// is the test that says so instead of a diff nobody reads.
-    @Test(arguments: Fixtures.required)
+    ///
+    /// **`denial-then-work` is excluded, and the exclusion is the point.** It
+    /// joined the required set precisely because its shortened deadline *does*
+    /// fall inside its stream: stepping the clock reaps the denied call at
+    /// t=94.98 where the unstepped replay leaves it until `SessionEnd` at
+    /// t=252.06. Asserting "stepping changes nothing" over it would assert the
+    /// opposite of what it exists to prove. Its positive assertion lives in
+    /// `PermissionGateTests.theShortenedDeadlineFiresInsideTheStreamWithTheSessionStillWorking`.
+    ///
+    /// This list is therefore *not* `Fixtures.required` minus nothing — if a
+    /// future fixture legitimately gains an in-stream deadline, add it here
+    /// with its own positive test, and do not silence this one.
+    @Test(arguments: Fixtures.required.filter { $0 != "denial-then-work" })
     func advancingTheClockChangesNothingInTheRequiredFixtures(name: String) async throws {
         let (_, plain, _) = try await Fixtures.replay(name)
         let (_, stepped, _) = try await Fixtures.replayAdvancingTheClock(name)
@@ -560,6 +572,33 @@ import Testing
             "agentDeparted", "populationChanged",
         ],
         // The synthetic unknowns after `SessionEnd` add nothing.
+        // A real interactive denial in a session that then keeps working.
+        //
+        // Read the position of `callAbandoned`: it is second from last, after
+        // every other call has opened and closed. That is the *unstepped*
+        // replay, where the denied `Bash` survives to `SessionEnd` at t=252.06.
+        // Step the clock and it moves to t=94.98, ahead of three later calls —
+        // which is the whole reason this fixture is in the required set, and
+        // why it is the one exclusion from
+        // `advancingTheClockChangesNothingInTheRequiredFixtures`.
+        //
+        // The six `attentionChanged` are three raise/clear pairs: two
+        // permission gates and one idle stretch. `idle_prompt` fires per
+        // stretch, not per session — this fixture is the capture that refuted
+        // the "exactly once" claim.
+        "denial-then-work": [
+            "agentAppeared", "populationChanged",
+            "callOpened", "attentionChanged", "attentionChanged",
+            "callOpened", "callClosed",
+            "attentionChanged", "attentionChanged",
+            "callOpened", "callClosed",
+            "attentionChanged", "attentionChanged",
+            "callOpened", "callClosed",
+            "callOpened", "callClosed",
+            "callAbandoned",
+            "agentDeparted", "populationChanged",
+        ],
+
         "unknown-events": [
             "agentAppeared", "populationChanged",
             "callOpened", "callClosed",

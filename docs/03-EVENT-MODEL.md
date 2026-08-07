@@ -627,7 +627,24 @@ them were not visible in the M0 capture:
   call that nothing in the stream ever closes, and no rule can invent one. What
   ADR-001 changed is the number: 900 s became 60 s.
 
-A change to the ingest layer that does not run green against all seven is not
+- `denial-then-work` — a real interactive denial in a session that **carries on
+  working for 157 s afterwards**. Joined the set by maintainer decision once
+  ADR-001 shipped. `permission-prompt` proves the denied call exists;
+  this one proves the fix *fires*, because it is the only fixture whose
+  shortened deadline falls inside its own stream. The orphan opens at t=3.14,
+  the gate marks it, the user's real prompt at t=34.98 sets the deadline to
+  t=94.98, and it is reaped there with three later calls still to come.
+  Consequently it is also the one required fixture that replays **differently**
+  with the clock advancing — which is the point of it, and why it is the single
+  exclusion from `advancingTheClockChangesNothingInTheRequiredFixtures`.
+  It also carries two `idle_prompt` notifications, and is the capture that
+  refuted "fires exactly once".
+
+  `parallel-denial` was considered alongside it and left out: it records that
+  the 2.1.224 TUI serialises a batch's tool calls, which is a finding about the
+  TUI rather than a rule this layer has to keep.
+
+A change to the ingest layer that does not run green against all eight is not
 done.
 
 **Interactive coverage, added at M0c.** Three further captures, from real TUI

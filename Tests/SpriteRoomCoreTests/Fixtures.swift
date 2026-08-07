@@ -28,6 +28,14 @@ enum Fixtures {
         "tool-failure",
         "unknown-events",
         "permission-prompt",
+        // Joined at the maintainer's decision after ADR-001 shipped. It is the
+        // only fixture whose shortened deadline falls *inside* its own stream —
+        // the orphan is reaped at t=94.98 and 157 s of real session activity
+        // follows — so it is the only one that can demonstrate the fix rather
+        // than merely be consistent with it. `parallel-denial` was considered
+        // and left out: it proves the TUI serialises a batch, which is a
+        // finding, not a rule this layer has to keep.
+        "denial-then-work",
     ]
 
     static func url(_ name: String) -> URL {

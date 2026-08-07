@@ -18,11 +18,13 @@ Run real sessions: a simple one, one with parallel tool calls, one dispatching
 three subagents, one killed mid-`Bash`.
 
 **Exit:**
-- `fixtures/` contains the **seven** files listed in `03-EVENT-MODEL.md`. It was
+- `fixtures/` contains the **eight** files listed in `03-EVENT-MODEL.md`. It was
   five. `tool-failure` joined once M0a proved a permission-denied call is closed
   by nothing but the following `PostToolBatch`; `permission-prompt` joined at
   ADR-001, once M0c proved that claim is true only of the *headless* auto-deny
-  and that an interactively denied call is closed by nothing at all.
+  and that an interactively denied call is closed by nothing at all; and
+  `denial-then-work` joined once ADR-001 shipped, because it is the only capture
+  in which the shortened deadline actually fires inside the stream.
 
   The count is deliberately not frozen. A fixture enters this list when it is
   the only thing that would prove a rule — not to round the number up.
