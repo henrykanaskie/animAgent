@@ -13,7 +13,7 @@ that was not just read off the filesystem. Every entry is re-stat'd before the
 file is written, so a manifest that references a missing file cannot be
 produced.
 
-Run scripts/process-assets.py and scripts/generate-placeholders.py first.
+Run scripts/process-assets.py and scripts/generate-art.py first.
 
 Python 3 stdlib only.
 """
@@ -28,6 +28,7 @@ import pnglite
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(REPO, "assets")
 PROCESSED = os.path.join(ASSETS, "processed")
+AUTHORED = os.path.join(ASSETS, "authored")
 PLACEHOLDER = os.path.join(ASSETS, "placeholder")
 MANIFEST = os.path.join(ASSETS, "manifest.json")
 
@@ -294,7 +295,7 @@ def build_room():
 
 def build_badges():
     real = os.path.join(PROCESSED, "badges", SIZE)
-    fake = os.path.join(PLACEHOLDER, "badges", SIZE)
+    drawn = os.path.join(AUTHORED, "badges", SIZE)
 
     # Where each cut badge came from, written by scripts/process-assets.py at the
     # moment it did the cutting. Read rather than restated so the two scripts
@@ -317,23 +318,34 @@ def build_badges():
             entry.update(cut.get(name, {}))
             entry["provenance"] = "pack"
         else:
-            p = os.path.join(fake, "%s.png" % name)
+            p = os.path.join(drawn, "%s.png" % name)
             if os.path.exists(p):
-                entry = {"file": rel(p), "provenance": "placeholder"}
-                # Why it is still a placeholder, in the words of the script that
-                # searched. Before M5b this said "blocked on a purchase"; the
-                # purchase happened, so the honest answer is now "the pack does
-                # not contain this icon", and the entry says which pack and what
-                # was looked at. A placeholder that still blames a purchase
-                # decision would send someone to buy the pack again.
+                # M5c: these are authored final art, not placeholders. No
+                # further art packs will be bought, so "placeholder" would be a
+                # claim about a roadmap that does not exist. `placeholder` keeps
+                # its meaning elsewhere in this manifest for things that really
+                # are scaffolding.
+                entry = {"file": rel(p), "provenance": "authored"}
+                # The search that led here, in the words of the script that did
+                # it. Kept because it is a real finding and someone will ask —
+                # but worded as why this badge is *authored*, not as why it is
+                # still waiting. Nothing here should send a reader shopping.
                 reason = unsourceable.get(name)
                 if reason:
-                    entry["unsourceable"] = reason
+                    entry["authored_because"] = reason
                     entry["searched"] = "Modern Interiors, Modern Office and Modern "
                     entry["searched"] += "User Interface, every 32px cell of all three "
-                    entry["searched"] += "UI sheets rendered and inspected at M5b"
+                    entry["searched"] += "UI sheets rendered and inspected at M5b; "
+                    entry["searched"] += "filename sweep of all 52726 PNGs in the three "
+                    entry["searched"] += "packs. The search is closed, not paused."
+                    entry["drawn_by"] = "scripts/generate-art.py — authored on the "
+                    entry["drawn_by"] += "pack's own 2x design grid and in the pack's "
+                    entry["drawn_by"] += "own four-colour icon palette, composited "
+                    entry["drawn_by"] += "into the pack's own empty speech bubble"
                 else:
-                    entry["needs_swap_at"] = "M5"
+                    entry["provenance"] = "placeholder"
+                    entry["fallback_for"] = "pack art in assets/processed/; this file "
+                    entry["fallback_for"] += "is only reached on a checkout without it"
         if entry is None:
             continue
         if name in BADGE_LABELS:
@@ -348,17 +360,26 @@ def build_badges():
                    "note": "bottom-centre; the bubble tail points down at the head"},
         "note": "Badge colour is intentionally left unprocessed. A badge floats above "
                 "the room rather than being part of it, so the I7 room saturation "
-                "ceiling does not apply to it. Re-checked at M5b against real pack "
-                "art rather than placeholders: the composited badges are a light "
-                "bubble carrying a value-0.42 glyph, so they neither own the darkest "
-                "pixel on screen nor add saturation to the room layer.",
+                "ceiling does not apply to it. Re-derived at M5c over every badge "
+                "including the four authored ones, not just the two checked at "
+                "M5b: no badge owns the darkest pixel on screen (every badge bottoms "
+                "out at value 0.337 against the characters' 0.314), and the six that "
+                "are drawn or composited here top out at saturation 0.384, which is "
+                "the bubble's own border. The two emotes cut whole from the pack, "
+                "question_mark (0.710) and attention (0.770), are the loud ones and "
+                "always were — they are pack art, high-value rather than heavy, and "
+                "they sit under the most saturated character pixel (1.000). Every "
+                "badge is over the 0.25 room ceiling, which is why the exemption "
+                "exists rather than being decorative.",
         "frame": {
             "source": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % SIZE,
             "rect": [164, 16, 24, 34],
-            "note": "Every badge shares this bubble. It is not a lookalike of the "
-                    "question_mark badge's frame — it is the same 692-pixel "
-                    "component with no glyph in it, so a swap cannot change the "
-                    "badge silhouette.",
+            "note": "Every badge shares this bubble, the four authored ones "
+                    "included as of M5c — before that they drew a hand-made "
+                    "lookalike with a heavier border and read louder in the room "
+                    "than the pack art beside them. It is the same "
+                    "692-pixel component the question_mark badge is cut from with "
+                    "no glyph in it, so a swap cannot change the badge silhouette.",
         },
         "map": out,
     }
@@ -469,10 +490,12 @@ def main():
     chars = manifest.get("characters", {}).get("variants", {})
     badges = manifest.get("badges", {}).get("map", {})
     ph = sum(1 for b in badges.values() if b["provenance"] == "placeholder")
+    au = sum(1 for b in badges.values() if b["provenance"] == "authored")
     print("wrote %s" % rel(MANIFEST))
     print("  %d character variants, %d states each" %
           (len(chars), len(next(iter(chars.values()))["states"]) if chars else 0))
-    print("  %d badges (%d from pack, %d placeholder)" % (len(badges), len(badges) - ph, ph))
+    print("  %d badges (%d from pack, %d authored, %d placeholder)"
+          % (len(badges), len(badges) - ph - au, au, ph))
     print("  %d asset paths, all verified present" % seen[0])
     return 0
 

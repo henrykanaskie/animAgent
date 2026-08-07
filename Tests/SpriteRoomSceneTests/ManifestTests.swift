@@ -93,68 +93,78 @@ struct ManifestTests {
         }
     }
 
-    /// Which badges are real art and which are still placeholders. The scene
-    /// does not care — it reads the manifest either way — but the manifest must
-    /// keep saying which, so the swap stays reviewable.
+    /// Which badges came from a pack and which we drew ourselves. The scene does
+    /// not care — it reads the manifest either way — but the manifest must keep
+    /// saying which, so the mix stays reviewable.
     ///
-    /// **Changed at M5b, and the change is a tightening.** This used to accept
-    /// "pack" or "placeholder" for any badge and pin only `question_mark`,
-    /// which meant a badge silently reverting to a placeholder was green. It
-    /// now names the exact split, so both directions of drift fail: sourcing a
-    /// badge without updating the spec, and losing one that was sourced.
+    /// **Tightened at M5b, and the vocabulary changed at M5c.** This used to
+    /// accept "pack" or "placeholder" for any badge and pin only
+    /// `question_mark`, which meant a badge silently reverting was green. It now
+    /// names the exact split, so both directions of drift fail.
     ///
     /// The split is a fact about the downloads, not a schedule. `document` and
     /// `checklist` came from Modern User Interface when it was bought.
-    /// `magnifier`, `terminal`, `globe` and `plug` stay placeholders because
-    /// **no icon for them exists in any of the three purchased packs** — every
-    /// 32px cell of all three UI sheets was rendered and inspected. If you are
-    /// changing this list, change it because you found art, and put the cell
-    /// coordinates in `scripts/process-assets.py` where the others are. [I1]
+    /// `magnifier`, `terminal`, `globe` and `plug` are **`authored`** — no icon
+    /// for them exists in any pack we own (every 32px cell of all three UI
+    /// sheets was rendered and inspected), no further pack will be bought, so
+    /// they were drawn rather than left waiting. `placeholder` deliberately
+    /// appears nowhere in this map any more: it would be a claim about a
+    /// roadmap that does not exist. If you are changing this list, change it
+    /// because you found art, and put the cell coordinates in
+    /// `scripts/process-assets.py` where the others are. [I1]
     @Test func badgeProvenanceIsRecorded() throws {
         let manifest = try SceneFixtures.manifest()
         let fromPack: Set<ToolBadge> = [.document, .checklist, .questionMark]
         for badge in ToolBadge.allCases {
             let art = try #require(manifest.badges.art(badge))
-            let expected = fromPack.contains(badge) ? "pack" : "placeholder"
+            let expected = fromPack.contains(badge) ? "pack" : "authored"
             #expect(art.provenance == expected, "\(badge) is \(art.provenance)")
         }
     }
 
-    /// A badge that is still a placeholder has to say *why*, and the reason has
-    /// to be the true one.
+    /// A badge we drew has to say that we drew it, and why there was nothing to
+    /// source — and the reason has to be the true one.
     ///
-    /// Before M5b every placeholder carried `blocked_on: the standalone LimeZu
-    /// "Modern User Interface" pack, which is not on disk`. That pack is now on
-    /// disk, so an entry still saying it would send the next person to buy
-    /// something twice. `scripts/process-assets.py` replaces it with what was
-    /// searched and what was found — including the near misses it rejected, so
-    /// nobody rediscovers that pack's hand mirror and files it as a magnifier.
+    /// This is the M5b test with its subject changed. Before M5b every one of
+    /// these carried `blocked_on: the standalone LimeZu "Modern User Interface"
+    /// pack, which is not on disk`; that pack was bought, so M5b replaced it
+    /// with what was searched and found, including the near misses it rejected.
+    /// At M5c the answer stopped being "still waiting" altogether: no further
+    /// packs will be bought, so the four are authored final art and the entry
+    /// says who drew them. `blocked_on` and `unsourceable` are both banned here
+    /// — the first would send someone to buy a pack that is already on disk, the
+    /// second frames finished art as a gap.
     ///
     /// Read out of the raw JSON rather than the decoded `Manifest`: these keys
-    /// are provenance for humans reviewing the swap, and the scene has no
+    /// are provenance for humans reviewing the mix, and the scene has no
     /// business decoding them. Adding them to `BadgeArt` would put a field in
     /// `Sources/` that nothing renders.
-    @Test func remainingPlaceholdersSayWhyTheyAreStillPlaceholders() throws {
+    @Test func authoredBadgesSayTheyAreAuthoredAndWhy() throws {
         let url = SceneFixtures.repositoryRoot
             .appending(path: "assets").appending(path: "manifest.json")
         let raw = try JSONSerialization.jsonObject(with: try Data(contentsOf: url))
         let map = try #require(
             ((raw as? [String: Any])?["badges"] as? [String: Any])?["map"] as? [String: Any])
 
-        var placeholders = 0
+        var authored = 0
         for badge in ToolBadge.allCases {
             let entry = try #require(map[badge.manifestKey] as? [String: Any],
                                      "no entry for \(badge.manifestKey)")
-            guard entry["provenance"] as? String == "placeholder" else { continue }
-            placeholders += 1
-            let why = try #require(entry["unsourceable"] as? String,
-                                   "\(badge.manifestKey) gives no reason")
+            #expect(entry["provenance"] as? String != "placeholder",
+                    "\(badge.manifestKey) still calls itself a placeholder, promising a purchase that will never happen")
+            guard entry["provenance"] as? String == "authored" else { continue }
+            authored += 1
+            let why = try #require(entry["authored_because"] as? String,
+                                   "\(badge.manifestKey) gives no reason it was drawn")
             #expect(!why.isEmpty)
             #expect(entry["searched"] != nil, "\(badge.manifestKey) does not say where it looked")
+            #expect(entry["drawn_by"] != nil, "\(badge.manifestKey) does not say who drew it")
             #expect(entry["blocked_on"] == nil,
                     "\(badge.manifestKey) still blames a purchase that has been made")
+            #expect(entry["unsourceable"] == nil,
+                    "\(badge.manifestKey) still frames finished art as a gap")
         }
-        #expect(placeholders == 4, "expected four unsourceable badges, found \(placeholders)")
+        #expect(authored == 4, "expected four authored badges, found \(authored)")
     }
 
     /// Every badge shares one bubble, which is why the swap needed no code and

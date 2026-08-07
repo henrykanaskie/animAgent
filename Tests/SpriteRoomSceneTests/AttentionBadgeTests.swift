@@ -206,9 +206,10 @@ struct AttentionBadgeTests {
         // M0b sourced it from the pack, and it is still pack art. Corrected at
         // M5b: this used to say it and `question_mark` were the only two real
         // badges and that the other six were "pending a purchase". The purchase
-        // was made. It supplied `document` and `checklist`; the four that are
-        // still placeholders are so because no icon for them exists in any pack
-        // we own, which is not a thing a purchase fixes. See
+        // was made. It supplied `document` and `checklist`. Corrected again at
+        // M5c: the remaining four are not placeholders either — no icon for them
+        // exists in any pack we own and no further pack is coming, so they were
+        // drawn here and are `authored`. See
         // `ManifestTests.badgeProvenanceIsRecorded` for the exact split.
         #expect(art.provenance == "pack")
         #expect(manifest.badges.states[Manifest.Badges.attentionKey] != nil)

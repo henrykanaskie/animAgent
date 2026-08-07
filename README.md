@@ -24,9 +24,10 @@ Their licences permit commercial and non-commercial use and permit editing, but
 **forbid redistribution**. That is the whole reason `assets/` is gitignored, and
 it is why the next section exists.
 
-A third pack, **Modern User Interface**, is assumed by `docs/04-ART-DIRECTION.md`
-and has **not been purchased**. Six of the seven tool badges are placeholders
-until it is. Nothing else is blocked on it.
+A third pack, **Modern User Interface**, was purchased at M5b and is on disk. It
+supplied `document` and `checklist`. It contains no magnifier, terminal, globe or
+plug, and **no further packs will be bought** — those four badges are authored in
+`scripts/generate-art.py` and are final art. See `docs/04-ART-DIRECTION.md`.
 
 Do **not** substitute the free *Modern tiles* sampler. Its licence forbids
 commercial use *and* forbids editing the sprites for a commercial project, so one
@@ -91,13 +92,13 @@ in this order**, because each consumes the last one's output:
 
 ```sh
 python3 scripts/process-assets.py         # packs   -> assets/processed/
-python3 scripts/generate-placeholders.py  # the six missing badges -> assets/placeholder/
+python3 scripts/generate-art.py           # the four authored badges -> assets/authored/
 python3 scripts/build-manifest.py         # walks disk -> assets/manifest.json
 python3 scripts/lint-palette.py           # the I7 gate; non-zero exit names the file
 ```
 
 Nothing here writes back into a pack. `assets/processed/` and
-`assets/placeholder/` are disposable and reproducible: both scripts are
+`assets/authored/` are disposable and reproducible: both scripts are
 idempotent and byte-deterministic, and a second run leaves the tree unchanged
 (verified by hashing). `build-manifest.py` re-stats every path before writing, so
 a manifest naming a file that does not exist cannot be produced.
@@ -299,10 +300,6 @@ doc is wrong — say so rather than following it.
 M0 through M5 are committed. `notes.md` records what each one overturned. What is
 honestly still open:
 
-- **Six of the seven tool badges are placeholders** — document, magnifier,
-  terminal, globe, checklist, plug. Blocked on one purchase, LimeZu Modern User
-  Interface. Nothing in either pack on disk is an application icon, and
-  substituting a nearby emote would be the same failure as inventing a badge.
 - **The first-run consent dialog has never been clicked** by a human. All five
   decision branches are unit-tested and were driven end to end via `--consent`,
   but synthesising a click needs Accessibility permission the build environment

@@ -1091,7 +1091,7 @@ Until that lands, the build path from a clean clone is:
 
 ```
 python3 scripts/process-assets.py
-python3 scripts/generate-placeholders.py
+python3 scripts/generate-art.py        # renamed from generate-placeholders.py at M5c
 python3 scripts/build-manifest.py
 python3 scripts/lint-palette.py
 ```

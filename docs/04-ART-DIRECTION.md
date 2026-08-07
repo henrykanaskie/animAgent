@@ -10,8 +10,18 @@ packs are now on disk:
 - **Modern User Interface** (`assets/modernuserinterface-win/`) — **purchased at
   M5b.** It is a real application-icon set and it supplied `document` and
   `checklist`. It does **not** contain a magnifier, a globe, a plug or a
-  console, so four badges are still placeholders — see the badge table below,
-  which now records what was searched rather than what is awaited.
+  console.
+
+**No further packs will be bought.** That is a decision, taken at M5c, and it
+closes the search rather than pausing it. The consequence is recorded here
+because it changes what this document is about: **the badge layer is
+deliberately mixed provenance.** Two packs supply it — Modern Interiors gives
+every badge its speech bubble and gives `question_mark` and `attention` whole,
+Modern User Interface is partially mined for `document` and `checklist` — and
+the remaining four glyphs, `magnifier`, `terminal`, `globe` and `plug`, are
+**authored here**, on the pack's own grid and in the pack's own palette. They
+are final art, not scaffolding, and the manifest says `provenance: "authored"`
+so nobody has to guess which is which.
 
 Licence terms for the three packs are equivalent in substance — commercial and
 non-commercial use permitted, editing permitted, resale and redistribution
@@ -85,9 +95,12 @@ Nothing is held. Delete every reference to a held prop.
 
 The badge layer draws from **two** packs as of M5b. The frame — a 24×34 speech
 bubble — is Modern Interiors' own empty emote bubble; the glyph inside it is
-either a Modern Interiors emote (`question_mark`, `attention`, cut whole) or a
-Modern User Interface icon dropped into that frame (`document`, `checklist`).
-The layering is unaffected: the badge is still one independent sprite above the
+either a Modern Interiors emote (`question_mark`, `attention`, cut whole), a
+Modern User Interface icon dropped into that frame (`document`, `checklist`),
+or, for the four badges no pack draws, a glyph generated here and dropped into
+the same frame the same way (M5c — see below). **All seven share one frame**,
+and as of M5c that is a fact about the files rather than an intention. The
+layering is unaffected: the badge is still one independent sprite above the
 head, on one canvas, on one anchor.
 
 Placement is by measurement, not eyeball. A character is bottom-aligned in its
@@ -236,9 +249,10 @@ Collapse aggressively. A user cannot distinguish twelve icons at `2x`.
 | plug | `mcp__*` (any) |
 | question mark | anything unmapped |
 
-**Three of these seven are real art. Four are not, and no purchase will fix
-them.** Corrected at M5b, replacing this section's previous claim that six were
-blocked on buying Modern User Interface.
+**All seven are final art. Three come from a pack and four were drawn here.**
+Corrected at M5b, which replaced the claim that six were blocked on buying
+Modern User Interface; corrected again at M5c, when the four that no pack draws
+stopped being placeholders and were authored.
 
 | Badge | Status | Source |
 |---|---|---|
@@ -246,7 +260,7 @@ blocked on buying Modern User Interface.
 | checklist | **sourced** — M5b | Modern UI `Style_1` cell (31,18), a bulleted list |
 | question mark | **sourced** — M0b | Modern Interiors emote sheet, blue `?` bubble |
 | attention (`Notification`) | **sourced** — M0b | Modern Interiors emote sheet, red `!` bubble |
-| magnifier, terminal, globe, plug | **placeholder** | nothing to source — see below |
+| magnifier, terminal, globe, plug | **authored** — M5c | drawn by `scripts/generate-art.py` on the pack's 2× design grid, in the pack's four-colour icon palette, inside the pack's own bubble — see below |
 
 The two new badges are **composited, not drawn**: the Modern UI icon is dropped
 into Modern Interiors' own *empty* speech bubble at `UI_32x32.png` (164,16,24,34).
@@ -299,12 +313,78 @@ picking an icon because it is *sort of* tool-shaped is the same failure as
 inventing a badge for an unknown tool. Unmapped tools get the question mark and
 are logged — never guess. [I1]
 
-**The placeholders do not, in fact, reuse the pack's bubble** — an earlier
-version of this document said they did. Measured at M5b: their frame is a
-hand-drawn lookalike with a heavier, darker border, which is why they read
-*louder* than the real badges beside them. That is harmless and arguably
-correct — a placeholder should be conspicuous — but the sentence was wrong and
-is corrected rather than left standing.
+### The four badges no pack draws are authored — M5c
+
+Two things changed at M5c and they belong together.
+
+**First, the frame.** M5b measured that the four unsourceable badges did *not*
+reuse the pack's bubble: their frame was a hand-made lookalike with a heavier,
+darker border, which is why they read louder than the real badges beside them.
+M5b called that harmless on the grounds that a placeholder should be
+conspicuous. That was right for a scaffold and wrong here, because — see the
+next paragraph — these are not scaffolding. At the `1x` floor the badge row was
+speaking two visual languages, four shouting beside four talking, which is I7
+failing on the badge layer.
+
+**Second, and it is the bigger change: no further art packs will be bought.** So
+calling these four "placeholders" was a claim about a roadmap that does not
+exist. M5b's search is finished and its conclusion is not "keep looking", it is
+"draw them". They are now **authored final art**: `provenance: "authored"` in
+the manifest, a third value beside `pack`, with `authored_because`, `searched`
+and `drawn_by` recording how we got here. `placeholder` keeps its meaning
+elsewhere — the fallback character set is still one.
+
+**Authoring is not an I1 violation.** I1 forbids the room asserting *data* the
+hooks did not give us. It says nothing about who drew the pixels. `PixelFont.standard`
+is the precedent: written here rather than sourced, licence-clean by
+construction, and M5 closed the "source a pixel font" blocker by keeping it.
+What I1 still forbids, and this change does not touch, is inventing a badge for
+a tool that is not in the mapping table. Unmapped tools still get the question
+mark.
+
+#### How they are drawn
+
+- **The pack's bubble, not a lookalike.** `scripts/process-assets.py` writes the
+  empty bubble out to `assets/processed/badges/32x32/_bubble_frame.png` — the
+  same 692-pixel component `question_mark` is cut from — and
+  `scripts/generate-art.py` composites into those pixels with the same
+  centre-the-bounding-box arithmetic the pack composites use. An authored badge
+  and a pack badge are now the same construction.
+- **The pack's grid.** Dump `document` or `checklist` pixel by pixel and every
+  feature is a 2×2 block: the Modern UI 32× sheet is a 2× scale-up of a 16px
+  design. A glyph drawn at 1px line weight beside them reads as a different hand
+  immediately. So every authored glyph is designed on a half-resolution grid and
+  doubled, and the designs are literal ASCII grids in `DESIGN` — reviewable, and
+  editable without an image editor. The bubble interior is 20×24, so a design is
+  at most 10×12 cells, which forces the simple silhouette that survives `1x`.
+- **The pack's palette.** Differencing the two composited badges against the
+  empty bubble recovers their ink exactly: four colours, saturation 0.252–0.345,
+  value 0.420–0.694. Those four are used verbatim. A palette is a set of
+  numbers, not artwork; the manifest is where provenance is claimed. An interim
+  draft used a deliberately off-hue slate ramp so a reviewer could spot which
+  four were ours — the right instinct for a placeholder and the wrong one for
+  final art, whose job is not to announce itself.
+
+The old ink was outside the pack's band in both directions: a 0.610-saturation
+globe, higher than variant 06's most saturated pixel (0.598), and a 0.078-value
+terminal screen, **darker than the darkest character pixel on screen at 0.314**,
+which is the one thing I7 says a non-character layer may never be.
+
+#### Distinguishability, measured before and after
+
+Pairwise IoU of the glyph ink with each state's own bubble subtracted. The
+closest pair in the set was `terminal` vs `plug` at **0.56** — both ours, both a
+centred blob of the same footprint. `terminal` is now a wide window with a `>_`
+prompt and `plug` a narrow two-pin stack, and that pair is **0.16**.
+
+The closest pair in the whole set is now **0.37**, `checklist` vs `terminal`,
+one pack and one authored; the closest pack-only pair, `checklist` vs
+`question_mark`, is **0.36** and unchanged by any of this. Twelve of the
+twenty-one pairs improved, the largest by 0.40; the three that got worse did so
+by 0.07 or less and none of them is near the top of the table.
+
+The acceptance test that is not a number is the room shot: at `1x`, above a
+character's head, a viewer should not be able to point at which four we drew.
 
 **Multiple open calls:** show the badge for the *lowest-ordinal* tool in the
 table, plus a small `×N`. Deterministic ordering keeps the badge stable while
@@ -327,19 +407,35 @@ So the rule becomes a **preprocessing pass**, not an authoring instruction:
 3. Badges also pass through untouched. A badge floats above the room rather
    than being part of it, so the room saturation ceiling does not bind it.
 
-   **Re-checked at M5b against real art rather than placeholders, because an
-   exemption granted to art nobody had seen is not an exemption anyone
-   checked.** It still holds, and now for a measured reason rather than a
-   structural one. The composited badges are a light bubble (interior
-   `RGB(235,225,246)`, value 0.965) carrying a glyph that bottoms out at value
-   0.42 and 0.34 saturation. So they are neither the most saturated element on
-   screen — the characters' accents clear 0.598 — nor the darkest, the
-   characters' darkest pixel being 0.314. The exemption is not being used to
-   smuggle in art that would have failed the room test; the badges would pass
-   the room's saturation ceiling anyway, and only fail to be *room* art because
-   they are brighter than the room's value band, which is the direction that
-   costs nothing. If a future badge is ever the darkest or most saturated thing
-   on screen, this exemption is the wrong answer and the badge is.
+   **Re-derived at M5c over every badge, the four authored ones included**, rather
+   than inherited from M5b — which checked only the two composited badges and
+   drew two conclusions from them that do not survive the wider measurement.
+   The exemption holds, but it holds for a narrower reason than M5b claimed:
+
+   - **No badge owns the darkest pixel on screen.** Every badge bottoms out at
+     value **0.337**, which is the bubble's own darkest border step, against
+     the characters' darkest pixel at **0.314**. This is the axis I7 actually
+     protects, and it holds for all eight badges. **It did not hold before
+     M5c**: the old placeholder terminal reached value 0.078 and the other
+     three 0.180, so the four badges with no source art were the darkest thing
+     in the room. That is the strongest reason the retone was not cosmetic.
+   - **On saturation the honest statement is narrower.** The six badges we draw
+     or composite top out at **0.384** — again the bubble's border, with glyph
+     ink at 0.345 and below. But the two emotes cut whole from the pack are
+     `question_mark` at **0.710** and `attention` at **0.770**, which is above
+     the peak saturation of three of the six cast variants (06 at 0.598, 17 at
+     0.621, 19 at 0.748) though below the most saturated character pixel on
+     screen (variant 09, **1.000**). M5b's "the badges top out at 0.34
+     saturation" was true of the two it measured and false of the set. Those
+     two are pack art, they are bright rather than heavy (value 0.82–1.00), and
+     repainting real art to satisfy a sentence would be the wrong repair — so
+     the sentence is corrected instead.
+   - **M5b also claimed the badges "would pass the room's saturation ceiling
+     anyway". They would not.** Every badge is over 0.25, the frame alone
+     putting it there. The exemption is load-bearing, not decorative.
+
+   If a future badge is ever the darkest thing on screen, this exemption is the
+   wrong answer and the badge is.
 4. `scripts/lint-palette.py` runs over `assets/manifest.json` after processing.
    Thresholds unchanged: room under 25% saturation, every character carrying
    something above 55%, at least 40% value contrast between a character's
@@ -577,39 +673,42 @@ drop-down jump as agents come and go) or a fractional zoom (which I6 forbids).
 
 ## Placeholders
 
-Mostly discharged. Characters, room, furniture and **three** badges are real art
-as of M5b. What remains a placeholder:
+**Discharged for the badge layer.** Characters, room, furniture and all seven
+tool badges are final art as of M5c — three cut from packs, four authored here.
+The four that were placeholders through M5b are not any more, and the reason is
+not that we found them: no further packs will be bought, so they were drawn.
+See the badge section above.
 
-- **Four tool badges** — magnifier, terminal, globe, plug. **Not blocked on a
-  purchase any more.** Modern User Interface was bought at M5b, supplied
-  `document` and `checklist`, and contains no icon for these four; the search is
-  recorded above and in each manifest entry's `unsourceable` field.
-  `scripts/generate-placeholders.py` draws them at the real badge canvas, so the
-  swap stays a manifest edit with no code change and no layout change — as it
-  just demonstrated, twice.
+What is still genuinely a placeholder:
 
-  The way to close these is different in kind from the last one: either find a
-  pack that has them, or commission four 16×16 glyphs. There is no third pack
-  left to buy in this family.
 - A **fallback character set**, generated only on `--characters`. Not in the
   manifest. It exists so that a missing pack degrades to something that renders
   rather than to a crash.
 - `SceneBitmaps.placeholderDesk`, now reached only if a manifest declares no
   `desk` role.
 
-The original instruction stands for anything else that goes missing: flat-colour
-blocks at the correct dimensions and the correct palette split, and make them
-look like placeholders. A placeholder that could pass for final art will survive
-to M5.
+The original instruction stands for anything that goes missing *while something
+is genuinely pending*: flat-colour blocks at the correct dimensions and the
+correct palette split, and make them look like placeholders. A placeholder that
+could pass for final art will survive to M5.
+
+**M5c drew the line that instruction was missing.** Being conspicuous is what
+gets a placeholder replaced — it is worth paying for while a replacement is
+coming. When nothing is coming, conspicuous buys nothing and costs the user a
+badge row that reads as two families every time they glance at the notch. So the
+rule is: **if it is waiting, make it loud; if it is permanent, either draw it
+properly or say plainly that it is scaffolding for good.** Which of those a
+thing is belongs in the manifest, where a reviewer and a test can both read it,
+not in how ugly it looks.
 
 ## Scripts
 
 | Script | Does |
 |---|---|
 | `scripts/pnglite.py` | minimal PNG decode/encode, stdlib only. No pip anywhere in this pipeline. |
-| `scripts/process-assets.py` | the import pass — room recolour, shadow strip, character slicing, badge cutting and badge compositing. Idempotent; verified byte-identical across a forced rerun. It also writes `assets/processed/badges/32x32/sources.json`, which records the sheet, cell and bounding box behind every badge, and the search result behind every badge that has none. |
-| `scripts/generate-placeholders.py` | draws what no pack supplies. Still draws all six, but two of them are now only the fallback behind real art. |
+| `scripts/process-assets.py` | the import pass — room recolour, shadow strip, character slicing, badge cutting and badge compositing. Idempotent; verified byte-identical across a forced rerun. It also writes `assets/processed/badges/32x32/sources.json`, which records the sheet, cell and bounding box behind every badge, and the search result behind every badge that has none, and `_bubble_frame.png`, the pack's empty bubble on the badge canvas. |
+| `scripts/generate-art.py` | **renamed from `generate-placeholders.py` at M5c.** Authors the four glyphs no pack draws — on the pack's 2× design grid, in the pack's four-colour palette — and composites them into `_bubble_frame.png`, so an authored badge is the same construction as a pack one. Also draws `document`/`checklist` as the fallback behind pack art, and the fallback cast under `--characters`. Falls back to a hand-drawn bubble only when there is no pack on disk at all. |
 | `scripts/build-manifest.py` | generates `assets/manifest.json` from disk, re-stating every path. |
 | `scripts/lint-palette.py` | the I7 gate. Non-zero exit names the file and the value. |
 
-Order: process → placeholders → manifest → lint.
+Order: process → generate-art → manifest → lint.

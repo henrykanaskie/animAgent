@@ -1,33 +1,50 @@
 #!/usr/bin/env python3
-"""Generate placeholder art for everything we could not source from a pack.
+"""Draw the art no pack supplies: four authored tool badges, and one fallback.
 
-docs/04-ART-DIRECTION.md: "ship M1 and M2 with flat-colour blocks at the correct
-dimensions and the correct palette split. The scene builds against the manifest,
-so real art is a manifest swap with no code change."
+Renamed at M5c from `generate-placeholders.py`, because four of the six badges
+it draws stopped being placeholders. **No further art packs will be bought.**
+M5b proved exhaustively that no pack we own contains a magnifier, a terminal, a
+globe or a plug — every 32px cell of three UI sheets rendered and inspected (337
+distinct masks on Style 1, 283 on Style 2, 28 straddling components), plus a
+filename sweep of all 52726 PNGs in the three packs returning exactly one hit, a
+Christmas snow globe. That investigation is finished. Its conclusion is not
+"keep searching", it is "draw them", and this is where they are drawn.
 
-As of M0 the character and room layers are fully sourced from the purchased
-packs, so this script's job has narrowed to what is genuinely absent:
+So these four are **authored final art**, not scaffolding:
 
-  * Four of the seven tool badges — magnifier, terminal, globe and plug.
-    Corrected at M5b: this used to say six, blocked on buying LimeZu "Modern
-    User Interface". That pack was bought. It supplied `document` and
-    `checklist`, which scripts/process-assets.py now cuts and composites, and
-    it turned out to contain no magnifier, no globe, no plug and no console
-    glyph at all — every 32px cell of all three of its sheets was rendered and
-    inspected. So the remaining four are not blocked on a purchase any more;
-    they are simply not drawn by anyone we have bought. [I1]
+  * `magnifier`, `terminal`, `globe`, `plug` — `provenance: "authored"` in the
+    manifest, with the search that led here recorded beside it so nobody repeats
+    it or goes shopping.
 
-    All six are still generated. The two that now have pack art keep a
-    placeholder on disk as the fallback for a checkout whose assets/processed/
-    is missing — the manifest prefers the real cut whenever it exists, exactly
-    as it does for every other badge.
+Authoring them is not an I1 violation. I1 forbids the room asserting *data* the
+hooks did not give us — a character walking when nothing said it walked, a badge
+invented for a tool we did not recognise. It says nothing about who drew the
+pixels. `PixelFont.standard` is the precedent: written here rather than sourced,
+licence-clean by construction, and M5 judged it good enough to close the blocker
+outright.
 
-  * A character variant, drawn only when --characters is passed. Not used by
-    the manifest today; kept because the moment a pack goes missing or a
-    seventh agent needs a body, the fallback has to already work.
+What still ships as a genuine placeholder:
 
-These are placeholders and they look like placeholders on purpose. A badge that
-could be mistaken for final art will survive to M5.
+  * `document` and `checklist` are drawn here too, but only as the fallback
+    behind the pack art that scripts/process-assets.py composites. The manifest
+    prefers the real cut whenever it exists.
+  * A character variant set, drawn only under --characters. Not in the manifest;
+    it exists so a missing pack degrades to something that renders.
+
+**How the badges are drawn, and why it looks like that.** A badge is the pack's
+own empty speech bubble — the same 692-pixel component `question_mark` is cut
+from — with a glyph composited into it by the same arithmetic
+scripts/process-assets.py uses for the pack's own icons. The glyphs are drawn on
+the pack's grid and in the pack's palette, both measured rather than guessed:
+
+  * The Modern UI icons on the 32x sheet are a 2x scale-up of a 16px design, so
+    every feature in them is a 2x2 block. Drawing at 1px line weight next to
+    them reads as a different hand immediately. Every glyph here is therefore
+    authored on a half-resolution grid and doubled. See DESIGN.
+  * Their ink is exactly four colours, recovered by differencing `document` and
+    `checklist` against the empty bubble: saturation 0.252-0.345, value
+    0.420-0.694. PALETTE is those four values. Matching a palette claims no
+    provenance — the manifest says who drew the shape.
 
 Python 3 stdlib only. Idempotent — same inputs, byte-identical outputs.
 """
@@ -41,118 +58,270 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pnglite
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(REPO, "assets", "placeholder")
+
+# Two output roots, because the two things this script makes are not the same
+# kind of thing any more. The badges are final art and go under authored/; the
+# fallback cast is scaffolding and stays under placeholder/. A path is the first
+# thing a reviewer reads in the manifest, so it should not contradict the
+# provenance field two lines below it.
+AUTHORED = os.path.join(REPO, "assets", "authored")
+PLACEHOLDER = os.path.join(REPO, "assets", "placeholder")
 
 # Matches the canvas that scripts/process-assets.py cuts the real badges onto,
 # so swapping a real icon in at M5 needs no layout change anywhere.
 BADGE_CANVAS = (24, 34)
 
-# Badges drawn here, with the glyph each one draws. Names are exactly the badge
-# names in the docs/03-EVENT-MODEL.md table — that table is the contract and
-# this file does not get to rename anything in it.
-#
-# `document` and `checklist` have real pack art as of M5b and are kept only as
-# the fallback described in the module docstring. The other four have no source
-# art anywhere and are what a placeholder is actually for.
-MISSING_BADGES = ("document", "magnifier", "terminal", "globe", "checklist", "plug")
-STILL_UNSOURCEABLE = ("magnifier", "terminal", "globe", "plug")
+# The pack's empty speech bubble, written out by scripts/process-assets.py from
+# UI_32x32.png (164,16,24,34) — the same 692-pixel component the question_mark
+# badge is cut from, with no glyph in it. Read rather than re-measured, so that
+# rectangle is written down in exactly one place.
+BUBBLE = os.path.join(REPO, "assets", "processed", "badges", "32x32",
+                      "_bubble_frame.png")
 
-# Placeholder ink. Deliberately high saturation: a badge sits above the room, so
-# I7's room ceiling does not bind it, and a washed-out placeholder is one nobody
-# notices is still a placeholder.
-INK = (32, 30, 46, 255)
-PAPER = (232, 231, 240, 255)
-ACCENT = {
-    "document": (78, 154, 241, 255),
-    "magnifier": (90, 200, 160, 255),
-    "terminal": (120, 226, 120, 255),
-    "globe": (96, 172, 246, 255),
-    "checklist": (246, 190, 72, 255),
-    "plug": (232, 118, 96, 255),
-}
+# Where a glyph may go inside that frame, in frame-local coordinates. Same
+# constant scripts/process-assets.py composites the pack icons with, so an
+# authored glyph sits exactly where a pack one does.
+BUBBLE_INTERIOR = (2, 2, 20, 24)
+
+# The badges drawn here. Names are exactly the badge names in the
+# docs/03-EVENT-MODEL.md table — that table is the contract and this file does
+# not get to rename anything in it.
+BADGES = ("document", "magnifier", "terminal", "globe", "checklist", "plug")
+
+# The four with no source art in any pack we own, and no pack coming. These are
+# authored final art. The other two are the fallback behind pack art.
+AUTHORED_BADGES = ("magnifier", "terminal", "globe", "plug")
+
+# The pack's own icon palette, recovered by differencing `document` and
+# `checklist` against the empty bubble: those two glyphs are exactly these four
+# colours and no others. Saturation 0.252-0.345, value 0.420-0.694.
+#
+# Used verbatim rather than approximated. A palette is a set of numbers, not
+# artwork — matching it is what "stylistically of a piece" means, and the
+# manifest is where provenance is claimed. An earlier draft of these glyphs used
+# a deliberately off-hue slate ramp so a reviewer could spot which four were
+# ours; that was the right instinct while they were placeholders and the wrong
+# one for final art, whose whole job is not to announce itself.
+DARK = (0x6B, 0x50, 0x52, 255)    # s 0.252 v 0.420 — outlines and main strokes
+MID = (0x91, 0x66, 0x62, 255)     # s 0.324 v 0.569 — secondary strokes
+HALF = (0x9C, 0x78, 0x6B, 255)    # s 0.314 v 0.612 — fills
+LIGHT = (0xB1, 0x8A, 0x74, 255)   # s 0.345 v 0.694 — highlights
+
+# Measured off the pack's bubble: interior RGB(235,225,246) at value 0.965 and
+# the darkest border step RGB(53,53,86) at value 0.337. Used only to draw the
+# fallback bubble below, for a checkout with no pack on disk.
+PAPER = (235, 225, 246, 255)
+BORDER = (53, 53, 86, 255)
 
 CHAR_CANVAS = (32, 64)
 
 
-def _bubble(w, h):
-    """The speech-bubble frame the real badges use, so the placeholders read as
-    the same family and the swap at M5 does not change the silhouette."""
+def _pack_bubble():
+    """The pack's empty speech bubble, or None if the pack is not on disk.
+
+    Read from assets/processed/, which scripts/process-assets.py writes from the
+    Modern Interiors UI sheet. Reading it is what makes a placeholder badge the
+    *same* bubble as a real one rather than a lookalike — same border weight,
+    same interior colour, same silhouette, same tail on the same anchor.
+    """
+    if not os.path.exists(BUBBLE):
+        return None
+    w, h, px = pnglite.load(BUBBLE)
+    if (w, h) != BADGE_CANVAS:
+        return None
+    return px
+
+
+def _fallback_bubble(w, h):
+    """Hand-drawn approximation, used only when the pack is absent.
+
+    This is what every placeholder used to draw, and it is kept for exactly one
+    case: a checkout with no assets/ at all, where there is no pack bubble to
+    read and something still has to render. Its border weight is a guess; the
+    pack's is not. Retoned at M5c to the pack's measured border and interior
+    colours so the guess is at least in the right band.
+    """
     buf = pnglite.new(w, h)
     body_h = h - 6
-    pnglite.fill_rect(buf, w, h, 1, 0, w - 2, body_h, INK)
-    pnglite.fill_rect(buf, w, h, 0, 1, w, body_h - 2, INK)
+    pnglite.fill_rect(buf, w, h, 1, 0, w - 2, body_h, BORDER)
+    pnglite.fill_rect(buf, w, h, 0, 1, w, body_h - 2, BORDER)
     pnglite.fill_rect(buf, w, h, 3, 2, w - 6, body_h - 4, PAPER)
     pnglite.fill_rect(buf, w, h, 2, 3, w - 4, body_h - 6, PAPER)
     # tail, bottom-centre — this is the anchor edge
     for i in range(6):
-        pnglite.fill_rect(buf, w, h, w // 2 - 3 + i // 2, body_h - 2 + i, 6 - i, 1, INK)
+        pnglite.fill_rect(buf, w, h, w // 2 - 3 + i // 2, body_h - 2 + i, 6 - i, 1, BORDER)
         if 6 - i > 2:
             pnglite.fill_rect(buf, w, h, w // 2 - 2 + i // 2, body_h - 2 + i, 4 - i, 1, PAPER)
     return buf
 
 
-def _glyph(buf, w, h, name):
-    """Draw a crude but unambiguous mark inside the bubble.
+# --- glyphs ----------------------------------------------------------------
+#
+# Authored on the pack's own grid. The Modern UI icons on the 32x sheet are a 2x
+# scale-up of a 16px design — dump `document` or `checklist` pixel by pixel and
+# every feature in them is a 2x2 block — so a glyph drawn here at 1px line weight
+# reads as a different hand at any size. Each design below is therefore a
+# half-resolution grid, doubled on the way out. One design pixel is two screen
+# pixels, exactly like the pack's.
+#
+# That constraint is the good kind. The bubble interior is 20x24, so a design is
+# at most 10x12 cells, which forces the simple silhouette that survives 1x —
+# docs/04-ART-DIRECTION.md's "if a sprite stops reading when scaled down, the fix
+# is a simpler silhouette, never more outline detail".
+#
+# Shapes are chosen for *mutual* separation, measured as pairwise IoU of the ink
+# inside the bubble rather than eyeballed. Two structural decisions come straight
+# out of those numbers:
+#
+#   * `terminal` is wide and `plug` is narrow-and-tall. As two centred blobs of
+#     one footprint they were the closest pair in the whole set at 0.57; they are
+#     now 0.16.
+#   * `magnifier` and `globe` are both circles, so they are deliberately
+#     different circles: a small ring set up-and-left with a handle, against a
+#     large ring centred with two latitude bands across it.
+#
+# Three designs were thrown out on legibility before these stuck, all failing the
+# same way — detail this grid cannot carry. Recorded so they are not retried:
+# a `terminal` whose prompt was one cell thick read as a *picture frame with a
+# squiggle* (fixed by fattening the ">" to two cells per stroke and pulling it a
+# cell clear of the border, which is what stops it merging with the corner); a
+# `globe` with a full vertical meridian read as a *crosshair* (fixed by cutting
+# the meridian back to pole hints); a `plug` with a filled body and a stem read
+# as a *goblet* (fixed by hollowing the body).
+#
+#   D outline / main stroke   M secondary stroke   H fill   L highlight
+#   .  transparent — the bubble's own interior shows through
+#
+# H and L are unused by the designs below and kept deliberately: they are two of
+# the pack's four icon colours, and a glyph that needs a fill or a highlight
+# should reach for the pack's value rather than invent one.
 
-    Every glyph is legible as a distinct blob at 1x. That is the only bar a
-    placeholder has to clear; detail here would be wasted and, worse, would make
-    the placeholder look finished.
+DESIGN = {
+    "magnifier": (
+        ".DDD...",
+        "D...D..",
+        "D...D..",
+        "D...D..",
+        ".DDD...",
+        "....DD.",
+        ".....DD",
+    ),
+    "terminal": (
+        "DDDDDDDDD",
+        "D.DD....D",
+        "D..DD...D",
+        "D.DD.MM.D",
+        "D.......D",
+        "DDDDDDDDD",
+    ),
+    "globe": (
+        "..DDD..",
+        ".D.M.D.",
+        "DMMMMMD",
+        "D.....D",
+        "DMMMMMD",
+        ".D.M.D.",
+        "..DDD..",
+    ),
+    "plug": (
+        ".D.D.",
+        ".D.D.",
+        "DDDDD",
+        "D...D",
+        "D...D",
+        ".DDD.",
+        "..D..",
+        "..D..",
+    ),
+    # Fallbacks only — the manifest prefers the pack's own cut of these two
+    # whenever assets/processed/ has it.
+    "document": (
+        "DDDDD",
+        "D...D",
+        "DMMMD",
+        "D...D",
+        "DMMMD",
+        "D...D",
+        "DDDDD",
+    ),
+    "checklist": (
+        "DD.MMMM",
+        "DD.....",
+        ".......",
+        "DD.MMMM",
+        "DD.....",
+        ".......",
+        "DD.MMMM",
+        "DD.....",
+    ),
+}
+
+PEN = {"D": DARK, "M": MID, "H": HALF, "L": LIGHT}
+
+# One design cell is this many screen pixels. Measured off the pack, not chosen:
+# see the module docstring.
+DESIGN_SCALE = 2
+
+
+def _glyph(name):
+    """Expand a design grid to screen pixels. Nothing else draws a glyph."""
+    rows = DESIGN[name]
+    w = max(len(r) for r in rows) * DESIGN_SCALE
+    h = len(rows) * DESIGN_SCALE
+    g = pnglite.new(w, h)
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch == ".":
+                continue
+            pnglite.fill_rect(g, w, h, x * DESIGN_SCALE, y * DESIGN_SCALE,
+                              DESIGN_SCALE, DESIGN_SCALE, PEN[ch])
+    return g, w, h
+
+
+def _compose(bubble, name):
+    """Bubble plus glyph, centred in the interior by bounding box.
+
+    Deliberately the same arithmetic as Importer.badge_composites in
+    scripts/process-assets.py: find the glyph's bounding box, centre that box in
+    BUBBLE_INTERIOR, blit skipping transparent pixels. An authored badge is the
+    same construction as a pack one, differing only in where the glyph came
+    from — which is the fact the manifest records.
     """
-    c = ACCENT[name]
-    cx, cy = w // 2, (h - 6) // 2
-
-    if name == "document":
-        pnglite.fill_rect(buf, w, h, cx - 5, cy - 8, 10, 15, c)
-        for k in range(4):
-            pnglite.fill_rect(buf, w, h, cx - 3, cy - 5 + k * 3, 6, 1, INK)
-    elif name == "magnifier":
-        ox, oy = cx - 2, cy - 3
-        for dy in range(-6, 7):
-            for dx in range(-6, 7):
-                d = dx * dx + dy * dy
-                if d <= 16:
-                    pnglite.fill_rect(buf, w, h, ox + dx, oy + dy, 1, 1, PAPER)
-                if 16 < d <= 30:
-                    pnglite.fill_rect(buf, w, h, ox + dx, oy + dy, 1, 1, c)
-        for k in range(6):
-            pnglite.fill_rect(buf, w, h, ox + 4 + k, oy + 4 + k, 3, 3, c)
-    elif name == "terminal":
-        pnglite.fill_rect(buf, w, h, cx - 7, cy - 6, 14, 12, INK)
-        pnglite.fill_rect(buf, w, h, cx - 6, cy - 5, 12, 10, (16, 20, 18, 255))
-        pnglite.fill_rect(buf, w, h, cx - 4, cy - 2, 2, 2, c)
-        pnglite.fill_rect(buf, w, h, cx - 2, cy, 2, 2, c)
-        pnglite.fill_rect(buf, w, h, cx, cy + 2, 4, 1, c)
-    elif name == "globe":
-        for dy in range(-7, 8):
-            for dx in range(-7, 8):
-                if dx * dx + dy * dy <= 46:
-                    pnglite.fill_rect(buf, w, h, cx + dx, cy + dy, 1, 1, c)
-        pnglite.fill_rect(buf, w, h, cx - 7, cy, 15, 1, PAPER)
-        pnglite.fill_rect(buf, w, h, cx - 7, cy - 4, 15, 1, PAPER)
-        pnglite.fill_rect(buf, w, h, cx - 7, cy + 4, 15, 1, PAPER)
-        pnglite.fill_rect(buf, w, h, cx - 1, cy - 7, 2, 15, PAPER)
-    elif name == "checklist":
-        for k in range(3):
-            y = cy - 6 + k * 5
-            pnglite.fill_rect(buf, w, h, cx - 7, y, 4, 4, INK)
-            pnglite.fill_rect(buf, w, h, cx - 6, y + 1, 2, 2, c)
-            pnglite.fill_rect(buf, w, h, cx - 1, y + 1, 8, 2, INK)
-    elif name == "plug":
-        pnglite.fill_rect(buf, w, h, cx - 4, cy - 7, 3, 5, INK)
-        pnglite.fill_rect(buf, w, h, cx + 1, cy - 7, 3, 5, INK)
-        pnglite.fill_rect(buf, w, h, cx - 6, cy - 2, 12, 6, c)
-        pnglite.fill_rect(buf, w, h, cx - 2, cy + 4, 4, 5, INK)
+    cw, _ch = BADGE_CANVAS
+    buf = bytearray(bubble)
+    g, gw, gh = _glyph(name)
+    xs = [(x, y) for y in range(gh) for x in range(gw) if g[(y * gw + x) * 4 + 3]]
+    bx = min(p[0] for p in xs)
+    by = min(p[1] for p in xs)
+    bw = max(p[0] for p in xs) - bx + 1
+    bh = max(p[1] for p in xs) - by + 1
+    ix, iy, iw, ih = BUBBLE_INTERIOR
+    if bw > iw or bh > ih:
+        raise SystemExit("glyph %s is %dx%d, larger than the %dx%d bubble "
+                         "interior" % (name, bw, bh, iw, ih))
+    gx, gy = ix + (iw - bw) // 2, iy + (ih - bh) // 2
+    for y in range(bh):
+        for x in range(bw):
+            si = ((by + y) * gw + bx + x) * 4
+            if g[si + 3] == 0:
+                continue
+            di = ((gy + y) * cw + gx + x) * 4
+            buf[di : di + 4] = g[si : si + 4]
+    return buf, (bw, bh)
 
 
 def make_badges(scale, quiet):
     w, h = BADGE_CANVAS[0] * scale, BADGE_CANVAS[1] * scale
     size = "%dx%d" % (32 * scale, 32 * scale)
-    d = os.path.join(OUT, "badges", size)
+    d = os.path.join(AUTHORED, "badges", size)
     os.makedirs(d, exist_ok=True)
+    bubble = _pack_bubble()
+    if bubble is None:
+        bubble = _fallback_bubble(*BADGE_CANVAS)
     made = []
-    for name in MISSING_BADGES:
-        base = _bubble(BADGE_CANVAS[0], BADGE_CANVAS[1])
-        _glyph(base, BADGE_CANVAS[0], BADGE_CANVAS[1], name)
+    boxes = {}
+    for name in BADGES:
+        base, boxes[name] = _compose(bubble, name)
         if scale == 1:
             buf = base
         else:
@@ -166,11 +335,18 @@ def make_badges(scale, quiet):
         pnglite.save(p, w, h, buf)
         made.append(p)
     if not quiet:
-        fallback = [n for n in MISSING_BADGES if n not in STILL_UNSOURCEABLE]
-        print("  badges/%s: %d placeholders — %d unsourceable (%s), %d kept as "
-              "fallback behind pack art (%s)"
-              % (size, len(made), len(STILL_UNSOURCEABLE), ", ".join(STILL_UNSOURCEABLE),
+        fallback = [n for n in BADGES if n not in AUTHORED_BADGES]
+        print("  badges/%s: %d drawn — %d authored final art (%s), %d fallback "
+              "behind pack art (%s)"
+              % (size, len(made), len(AUTHORED_BADGES), ", ".join(AUTHORED_BADGES),
                  len(fallback), ", ".join(fallback)))
+        print("    bubble: %s"
+              % ("the pack's own empty frame, %s"
+                 % os.path.relpath(BUBBLE, REPO) if _pack_bubble() is not None
+                 else "FALLBACK hand-drawn frame — the pack is not on disk"))
+        print("    glyph boxes (screen px, %dx design cells): " % DESIGN_SCALE
+              + ", ".join("%s %dx%d" % (n, boxes[n][0], boxes[n][1])
+                          for n in BADGES))
     return made
 
 
@@ -227,7 +403,7 @@ def make_characters(quiet):
     these placeholders need to have.
     """
     w, h = CHAR_CANVAS
-    d = os.path.join(OUT, "characters", "32x32")
+    d = os.path.join(PLACEHOLDER, "characters", "32x32")
     os.makedirs(d, exist_ok=True)
     made = {}
     for name, spec in CHAR_VARIANTS.items():
@@ -264,11 +440,14 @@ def main(argv=None):
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
 
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(AUTHORED, exist_ok=True)
     if not args.quiet:
-        print("placeholders -> %s" % os.path.relpath(OUT, REPO))
+        print("authored art -> %s" % os.path.relpath(AUTHORED, REPO))
     make_badges(args.scale, args.quiet)
     if args.characters:
+        os.makedirs(PLACEHOLDER, exist_ok=True)
+        if not args.quiet:
+            print("placeholders -> %s" % os.path.relpath(PLACEHOLDER, REPO))
         make_characters(args.quiet)
     return 0
 

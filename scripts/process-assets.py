@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Asset import pass. Cuts the three purchased packs into what the scene loads.
 
-Three as of M5b: Modern User Interface was bought, and two of the six
-placeholder tool badges now have real art. Four still do not — the pack has no
-magnifier, no globe, no plug and no terminal anywhere in it, which is a fact
-about the download and not a scheduling problem. See docs/04-ART-DIRECTION.md.
+Three as of M5b: Modern User Interface was bought, and two more tool badges came
+out of it. Four did not — the pack has no magnifier, no globe, no plug and no
+terminal anywhere in it, which is a fact about the download and not a scheduling
+problem. Those four are authored by scripts/generate-art.py as of M5c, since no
+further packs will be bought. See docs/04-ART-DIRECTION.md.
 
 docs/04-ART-DIRECTION.md: "Do the pass in a script committed to the repo, not by
 hand in an image editor. Hand-edited assets cannot be regenerated when the pack
@@ -166,6 +167,13 @@ BADGE_RECTS = {
 # silhouette, which is what docs/04-ART-DIRECTION.md promised the M5 swap would
 # preserve.
 BADGE_FRAME_RECT = (164, 16, 24, 34)
+
+# The empty frame is also written out on its own, so that
+# scripts/generate-art.py can composite into the *same pixels* rather
+# than draw a lookalike. Named with a leading underscore because it is not a
+# badge and must never be mistaken for one: build-manifest.py looks up badge
+# files by badge name, and no badge is called this.
+BADGE_FRAME_FILE = "_bubble_frame.png"
 
 # Where a glyph may go inside that frame: the light interior, measured off the
 # frame rather than guessed. x 2..21 and y 2..25 in frame-local coordinates —
@@ -566,7 +574,8 @@ class Importer:
 
         Only badges whose icon was actually found go here. The rest have no icon
         in any pack on disk — see MUI_ABSENT for what was looked for and where —
-        and stay with scripts/generate-placeholders.py. [I1]
+        and are authored by scripts/generate-art.py instead. No further packs
+        will be bought, so that is a finished answer rather than a wait. [I1]
         """
         for size in sizes:
             unit = int(size.split("x")[0])
@@ -610,11 +619,54 @@ class Importer:
                         buf[di : di + 4] = px[si : si + 4]
                 self._emit(dst, cw, ch, buf)
 
+            frame = self.badge_frame(size, scale, w, h, px, key)
             composed = self.badge_composites(size, scale, w, h, px, key, sources)
-            self._write_badge_sources(size, sources)
-            self.log("  badges/%s: %d cut whole, %d composed, %d still unsourceable (%s)"
+            self._write_badge_sources(size, sources, frame)
+            self.log("  badges/%s: %d cut whole, %d composed, %d still unsourceable "
+                     "(%s) — empty frame written to %s for the authored glyphs"
                      % (size, len(BADGE_RECTS), composed, len(MUI_ABSENT),
-                        ", ".join(sorted(MUI_ABSENT))))
+                        ", ".join(sorted(MUI_ABSENT)), BADGE_FRAME_FILE))
+
+    def badge_frame(self, size, scale, fw, fh, fpx, framekey):
+        """Cut the pack's EMPTY speech bubble onto the badge canvas, on its own.
+
+        It is written out for one reason: scripts/generate-art.py needs the very
+        same pixels. Until M5c the four badges no pack draws used a hand-made
+        lookalike bubble — heavier border, darker ink — so they read louder in
+        the room than the pack art beside them and the badge row spoke in two
+        visual languages. Emitting the frame here rather than re-measuring the
+        rectangle in the other script keeps BADGE_FRAME_RECT the single place
+        that coordinate is written down.
+
+        Not a badge: build-manifest.py maps badge *names* to files, so this file
+        is never mistaken for one. It is recorded in sources.json under `frame`.
+        """
+        cw, ch = BADGE_CANVAS[0] * scale, BADGE_CANVAS[1] * scale
+        fx, fy, frw, frh = [v * scale for v in BADGE_FRAME_RECT]
+        rel = os.path.join("badges", size, BADGE_FRAME_FILE)
+        dst = os.path.join(OUT, rel)
+        key = "frame:" + framekey
+        info = {
+            "file": rel,
+            "sheet": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % size,
+            "rect": [fx, fy, frw, frh],
+            "interior": [v * scale for v in BADGE_FRAME_INTERIOR],
+            "note": "the pack's own empty speech bubble — the same component the "
+                    "question_mark badge is cut from, with no glyph in it. Every "
+                    "badge on the canvas is this frame plus a glyph, the four "
+                    "authored ones included as of M5c.",
+        }
+        if self._fresh(dst, key):
+            return info
+        buf = pnglite.new(cw, ch)
+        fox, foy = (cw - frw) // 2, ch - frh
+        for y in range(frh):
+            for x in range(frw):
+                si = ((fy + y) * fw + fx + x) * 4
+                di = ((foy + y) * cw + fox + x) * 4
+                buf[di : di + 4] = fpx[si : si + 4]
+        self._emit(dst, cw, ch, buf)
+        return info
 
     def badge_composites(self, size, scale, fw, fh, fpx, framekey, sources):
         """Drop Modern User Interface icons into the Modern Interiors bubble.
@@ -628,8 +680,8 @@ class Importer:
         (4,10) and (6,8). Taking the cell whole would centre nothing.
         """
         if not os.path.isdir(USERINTERFACE):
-            self.log("  badges %s: Modern User Interface absent — %d badges stay "
-                     "placeholders" % (size, len(MUI_BADGE_ICONS)))
+            self.log("  badges %s: Modern User Interface absent — %d badges fall "
+                     "back to their authored versions" % (size, len(MUI_BADGE_ICONS)))
             return 0
         cw, ch = BADGE_CANVAS[0] * scale, BADGE_CANVAS[1] * scale
         fx, fy, frw, frh = [v * scale for v in BADGE_FRAME_RECT]
@@ -641,7 +693,7 @@ class Importer:
             stem = MUI_SHEETS[sheet_key] % (int(sheet_key[-1]), size)
             src = os.path.join(USERINTERFACE, size, stem)
             if not os.path.exists(src):
-                self.log("  badges %s: %s absent — %s stays a placeholder"
+                self.log("  badges %s: %s absent — %s falls back to authored"
                          % (size, stem, name))
                 continue
             if src not in loaded:
@@ -650,17 +702,17 @@ class Importer:
             cell = 32 * scale
             if sw % cell or sh % cell:
                 self.log("  badges %s: %s is %dx%d, not a whole number of %dpx cells "
-                         "— %s stays a placeholder" % (size, stem, sw, sh, cell, name))
+                         "— %s falls back to authored" % (size, stem, sw, sh, cell, name))
                 continue
             box = _bbox_in(sw, sh, spx, cx * cell, cy * cell, cell, cell)
             if box is None:
-                self.log("  badges %s: %s cell (%d,%d) is empty — %s stays a "
-                         "placeholder" % (size, stem, cx, cy, name))
+                self.log("  badges %s: %s cell (%d,%d) is empty — %s falls back to "
+                         "its authored version" % (size, stem, cx, cy, name))
                 continue
             bx, by, bw, bh = box
             if bw > iw or bh > ih:
                 self.log("  badges %s: %s cell (%d,%d) is %dx%d, larger than the "
-                         "%dx%d bubble interior — %s stays a placeholder"
+                         "%dx%d bubble interior — %s falls back to authored"
                          % (size, stem, cx, cy, bw, bh, iw, ih, name))
                 continue
 
@@ -705,7 +757,7 @@ class Importer:
             made += 1
         return made
 
-    def _write_badge_sources(self, size, sources):
+    def _write_badge_sources(self, size, sources, frame=None):
         """Record where every badge came from, for build-manifest.py to read.
 
         The manifest has to say which sheet and which coordinates produced each
@@ -717,6 +769,8 @@ class Importer:
         if not os.path.isdir(d):
             return
         blob = {"badges": sources, "unsourceable": MUI_ABSENT}
+        if frame:
+            blob["frame"] = frame
         with open(os.path.join(d, "sources.json"), "w") as f:
             json.dump(blob, f, indent=1, sort_keys=True)
             f.write("\n")
@@ -728,8 +782,9 @@ class Importer:
 
         Idempotency has to cut both ways: if a pack drops a file or the cast
         changes, a stale processed copy would keep satisfying the manifest and
-        hide the loss. Placeholders are left alone — a different script owns
-        those, and they live under assets/placeholder/, not here.
+        hide the loss. Authored art and placeholders are left alone — a
+        different script owns those, and they live under assets/authored/ and
+        assets/placeholder/, not here.
         """
         removed = 0
         for root, _dirs, files in os.walk(OUT):
@@ -773,10 +828,10 @@ def main(argv=None):
         )
         return 2
     # Modern User Interface is not fatal: without it two more badges fall back to
-    # placeholders and everything else imports unchanged. That is the degradation
-    # the whole placeholder mechanism exists for.
+    # the versions scripts/generate-art.py draws, and everything else imports
+    # unchanged. That is the degradation the fallback mechanism exists for.
     if not os.path.isdir(USERINTERFACE):
-        print("note: %s is absent; %d badge(s) will stay placeholders."
+        print("note: %s is absent; %d badge(s) will use their authored fallback."
               % (os.path.relpath(USERINTERFACE, REPO), len(MUI_BADGE_ICONS)),
               file=sys.stderr)
 

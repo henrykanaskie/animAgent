@@ -2101,7 +2101,7 @@
       ],
       "note": "bottom-centre; the bubble tail points down at the head"
     },
-    "note": "Badge colour is intentionally left unprocessed. A badge floats above the room rather than being part of it, so the I7 room saturation ceiling does not apply to it. Re-checked at M5b against real pack art rather than placeholders: the composited badges are a light bubble carrying a value-0.42 glyph, so they neither own the darkest pixel on screen nor add saturation to the room layer.",
+    "note": "Badge colour is intentionally left unprocessed. A badge floats above the room rather than being part of it, so the I7 room saturation ceiling does not apply to it. Re-derived at M5c over every badge including the four authored ones, not just the two checked at M5b: no badge owns the darkest pixel on screen (every badge bottoms out at value 0.337 against the characters' 0.314), and the six that are drawn or composited here top out at saturation 0.384, which is the bubble's own border. The two emotes cut whole from the pack, question_mark (0.710) and attention (0.770), are the loud ones and always were \u2014 they are pack art, high-value rather than heavy, and they sit under the most saturated character pixel (1.000). Every badge is over the 0.25 room ceiling, which is why the exemption exists rather than being decorative.",
     "frame": {
       "source": "Modern Interiors / 4_User_Interface_Elements/UI_32x32.png",
       "rect": [
@@ -2110,7 +2110,7 @@
         24,
         34
       ],
-      "note": "Every badge shares this bubble. It is not a lookalike of the question_mark badge's frame \u2014 it is the same 692-pixel component with no glyph in it, so a swap cannot change the badge silhouette."
+      "note": "Every badge shares this bubble, the four authored ones included as of M5c \u2014 before that they drew a hand-made lookalike with a heavier border and read louder in the room than the pack art beside them. It is the same 692-pixel component the question_mark badge is cut from with no glyph in it, so a swap cannot change the badge silhouette."
     },
     "map": {
       "document": {
@@ -2139,22 +2139,25 @@
         "sheet": "Modern User Interface / 32x32/Modern_UI_Style_1_32x32.png"
       },
       "magnifier": {
-        "file": "assets/placeholder/badges/32x32/magnifier.png",
-        "provenance": "placeholder",
-        "unsourceable": "no magnifier, loupe or search glyph exists in Modern User Interface (all three sheets inspected cell by cell at M5b). The closest shape is an RPG hand mirror at Style_1 cell (14,9), which is a mirror.",
-        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
+        "file": "assets/authored/badges/32x32/magnifier.png",
+        "provenance": "authored",
+        "authored_because": "no magnifier, loupe or search glyph exists in Modern User Interface (all three sheets inspected cell by cell at M5b). The closest shape is an RPG hand mirror at Style_1 cell (14,9), which is a mirror.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
+        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "terminal": {
-        "file": "assets/placeholder/badges/32x32/terminal.png",
-        "provenance": "placeholder",
-        "unsourceable": "no console, prompt or shell glyph exists. The only screen in the pack is a monitor at Style_1 cell (19,3), and it sits inside the pack's media strip beside monitor-with-cursor, phone, image and speaker \u2014 so the pack's own semantics for it are 'display', not 'shell'. Rejected on that ground alone and not on legibility: composited into the badge frame it measures glyph IoU 0.31 against document and 0.43 against checklist, which is no worse than pairs already shipping. A display standing in for a shell is the cog-and-hammer rule. Overruling this is one line \u2014 add \"terminal\": (\"style1\", 19, 3, ...) to MUI_BADGE_ICONS in scripts/process-assets.py and rebuild.",
-        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
+        "file": "assets/authored/badges/32x32/terminal.png",
+        "provenance": "authored",
+        "authored_because": "no console, prompt or shell glyph exists. The only screen in the pack is a monitor at Style_1 cell (19,3), and it sits inside the pack's media strip beside monitor-with-cursor, phone, image and speaker \u2014 so the pack's own semantics for it are 'display', not 'shell'. Rejected on that ground alone and not on legibility: composited into the badge frame it measures glyph IoU 0.31 against document and 0.43 against checklist, which is no worse than pairs already shipping. A display standing in for a shell is the cog-and-hammer rule. Overruling this is one line \u2014 add \"terminal\": (\"style1\", 19, 3, ...) to MUI_BADGE_ICONS in scripts/process-assets.py and rebuild.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
+        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "globe": {
-        "file": "assets/placeholder/badges/32x32/globe.png",
-        "provenance": "placeholder",
-        "unsourceable": "no globe, world or planet glyph exists in any of the three packs. Modern Interiors' only match on the name is animated_Christmas_snowball_globe, a snow globe.",
-        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
+        "file": "assets/authored/badges/32x32/globe.png",
+        "provenance": "authored",
+        "authored_because": "no globe, world or planet glyph exists in any of the three packs. Modern Interiors' only match on the name is animated_Christmas_snowball_globe, a snow globe.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
+        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "checklist": {
         "file": "assets/processed/badges/32x32/checklist.png",
@@ -2182,10 +2185,11 @@
         "sheet": "Modern User Interface / 32x32/Modern_UI_Style_1_32x32.png"
       },
       "plug": {
-        "file": "assets/placeholder/badges/32x32/plug.png",
-        "provenance": "placeholder",
-        "unsourceable": "no plug, socket, outlet, cable or connector glyph exists in any of the three packs.",
-        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
+        "file": "assets/authored/badges/32x32/plug.png",
+        "provenance": "authored",
+        "authored_because": "no plug, socket, outlet, cable or connector glyph exists in any of the three packs.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
+        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "question_mark": {
         "file": "assets/processed/badges/32x32/question_mark.png",

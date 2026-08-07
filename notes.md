@@ -1526,3 +1526,237 @@ compiling for twenty minutes; the second pulled four in-progress capture scripts
 into an unrelated commit. Explicit paths only from here. The build gate now
 catches the first failure mode at commit time; nothing catches the second but
 discipline.
+
+---
+
+## 2026-08-07 — M5c, four badges stop being placeholders and become art
+
+Appended, not a rewrite. Two changes, and the second is the one that matters.
+
+### 1. The frame, which was the presenting problem
+
+`scratchpad/m5-badges/03-badges-in-room-1x.png` showed the badge row speaking two
+visual languages: `magnifier`, `terminal`, `globe` and `plug` had a heavier,
+darker border and more saturated ink than the four beside them. M5b had measured
+that their frame was a hand-made lookalike rather than the pack's bubble, and
+called it harmless on the grounds that a placeholder should be conspicuous.
+
+`scripts/process-assets.py` now writes the empty bubble it already knew about —
+`UI_32x32.png` (164,16,24,34), the same 692-pixel component `question_mark` is
+cut from — out to `assets/processed/badges/32x32/_bubble_frame.png`, and the
+generator composites into *those pixels* with the same centre-the-bounding-box
+arithmetic. Emitted rather than re-measured in a second script so
+`BADGE_FRAME_RECT` stays the one place that rectangle is written down.
+
+### 2. The reframing, which came from the maintainer mid-task
+
+**No further art packs will be bought.** So "placeholder" was a claim about a
+roadmap that does not exist, and M5b's exhaustive search — 337 masks on Style 1,
+283 on Style 2, 28 straddling components, a filename sweep of all 52726 PNGs
+returning one Christmas snow globe — was not an argument for waiting. It was an
+argument for drawing.
+
+These four are now **authored final art**. Concretely:
+
+- `provenance: "authored"`, a third value beside `pack`. `placeholder` appears
+  nowhere in `badges.map` any more, and the test asserts that it does not.
+- The evidence is kept and reworded: `authored_because` (was `unsourceable`),
+  `searched` (extended to say the search is closed, not paused), and a new
+  `drawn_by`. `blocked_on` and `unsourceable` are both banned by the test —
+  the first would send someone shopping for a pack already on disk, the second
+  frames finished art as a gap.
+- Output moved to `assets/authored/`, because a path reading `placeholder/` two
+  lines above `provenance: "authored"` is the same lie in a different field.
+- `scripts/generate-placeholders.py` → `scripts/generate-art.py`. It still draws
+  genuine placeholders (the fallback cast), and says so.
+
+**Authoring is not an I1 violation, and it is worth writing down why.** I1
+forbids the room asserting *data* the hooks did not give us. It has nothing to
+say about who drew the pixels. `PixelFont.standard` is the precedent: written
+here, licence-clean by construction, and M5 closed the "source a pixel font"
+blocker by keeping it. What I1 still forbids and this does not touch: inventing
+a badge for a tool that is not in the mapping table.
+
+### The finding that made the art work: the pack draws at 2x
+
+Dumping `document` and `checklist` pixel by pixel, **every feature in them is a
+2x2 block** — the Modern UI 32x sheet is a 2x scale-up of a 16px design. My first
+pass drew 1px line art in a toned-down slate ramp; it measured beautifully and
+looked like a different hand the moment it sat beside the pack's icons, because
+its stroke weight was half theirs.
+
+So every authored glyph is now designed on a half-resolution grid and doubled,
+and the designs are literal ASCII grids in `DESIGN` — editable without an image
+editor, reviewable in a diff. The constraint is the good kind: the bubble
+interior is 20x24, so a design is at most 10x12 cells, which forces the simple
+silhouette that survives `1x`.
+
+The palette is the pack's own four colours, recovered by differencing the two
+composited badges against the empty bubble (saturation 0.252-0.345, value
+0.420-0.694), used verbatim. An interim draft used a deliberately off-hue slate
+ramp so a reviewer could see which four were ours — right for a placeholder,
+wrong for final art, whose job is not to announce itself. A palette is a set of
+numbers; the manifest is where provenance is claimed.
+
+Three designs were thrown away on legibility before one stuck, and the failures
+are worth recording because they are all the same failure — detail the grid
+cannot carry:
+
+- **terminal** as a window with a thin diagonal prompt read as a *picture frame
+  with a squiggle*. Fixed by fattening the `>` to two cells per stroke and
+  pulling it a cell clear of the border, so the chevron stops merging with the
+  frame corner.
+- **globe** as a circle with a full vertical meridian read as a **crosshair**.
+  Fixed by dropping the meridian to pole hints only and letting two latitude
+  bands carry it.
+- **plug** with a filled body and a stem read as a *goblet*. Fixed by hollowing
+  the body and squaring the cable.
+
+### Distinguishability, before and after
+
+Headline metric is M5b's, unchanged, and it reproduces M5b exactly on the old art
+(`terminal` vs `plug` 0.57, `question_mark` vs `attention` 0.56, `document` vs
+`checklist` 0.40, `document` vs `globe` 0.10) — which is what makes it worth
+trusting here.
+
+It has one confound after this change: every authored badge now carries the pack
+frame's two border rows inside the measured rectangle, 40 pixels shared by every
+badge, which inflates every pair. So the honest comparison subtracts each state's
+own bubble. That is only possible for the "before" state because `HEAD`'s
+generator is committed and can be re-run into a temp directory —
+`scratchpad/beforeafter.py` does exactly that, so the before half of every number
+and every image below is rendered from code, not from a saved screenshot.
+
+Glyph-only IoU, frame subtracted, seven tool badges, 21 pairs:
+
+| pair | before | after |
+|---|---|---|
+| `terminal` vs `plug` — **the pair that governed** | **0.56** | **0.16** |
+| `globe` vs `terminal` | 0.49 | 0.20 |
+| `question_mark` vs `terminal` | 0.47 | 0.27 |
+| `plug` vs `question_mark` | 0.42 | 0.30 |
+| `checklist` vs `terminal` — **closest pair now** | 0.40 | **0.37** |
+| `globe` vs `plug` | 0.50 | 0.33 |
+| `checklist` vs `question_mark` — closest pack-only pair | 0.36 | 0.36 |
+
+Worst pair before **0.56**, two of ours. Worst pair after **0.37**, one pack and
+one ours. Twelve of twenty-one pairs improved, the largest by 0.40; three got
+worse, by 0.07, 0.07 and 0.04, and none of them is near the top of the table. On
+M5b's own metric the closest *tool* pair goes 0.57 → 0.48 (`globe` vs `plug`),
+the gap between the two metrics being that shared 40-pixel border.
+
+### Legibility, which is the thing that could have gone wrong
+
+Per-pixel contrast is unchanged and not a matter of opinion: the darkest step of
+the authored ramp is value 0.420 on a 0.965 interior, which is *the same
+contrast* the pack's own `document` glyph has, because 0.420 is that glyph's
+darkest colour. What changed is stroke weight, and it went **up**, not down: 2px
+minimum against the old 1px. Every authored glyph is now easier to read at `1x`
+than the placeholder it replaced, not harder.
+
+Checked at the `1x` floor in the room over real characters and real floor
+(`15-room-1x-before-over-after.png`). **Nothing lost legibility, and there is no
+trade-off to report** — which I would have reported rather than resolved
+quietly. The acceptance test that is not a number is `16-room-6x-...`: you
+cannot pick out which four we drew.
+
+### Lint, unchanged and unweakened
+
+Room max saturation **0.183** (ceiling 0.25), room mean value **0.785**, room
+darkest **0.659**, weakest character saturation **0.598** (floor 0.55), weakest
+value contrast **0.472** (floor 0.40), closest accent pair **59.7°** (floor 40°).
+480 room files, 502276 visible px. Identical to M5b to three decimals — badges
+are not measured by the room or character checks, and nothing about the room or
+the cast changed.
+
+### The badge exemption, re-derived — and two M5b claims that do not survive it
+
+Re-derived over **every** badge rather than inherited. It holds, on a narrower
+basis than M5b stated:
+
+- **No badge owns the darkest pixel.** All eight bottom out at value **0.337**,
+  the bubble's own darkest border step, against the characters' **0.314**. This
+  is the axis I7 protects and it now holds for all eight. **It did not hold
+  before M5c**: the old terminal placeholder was value 0.078 and the other three
+  0.180, so the four badges with no source art owned the darkest pixels in the
+  room. That is the strongest reason this was not a cosmetic change.
+- **Saturation, corrected.** M5b wrote "the badges top out at 0.34 saturation".
+  True of the two it measured, false of the set: `question_mark` is **0.710** and
+  `attention` **0.770**, above the peak pixel of three of the six cast variants
+  (06 at 0.598, 17 at 0.621, 19 at 0.748) though below the most saturated
+  character pixel on screen (variant 09, **1.000**). Pack art, cut whole, bright
+  rather than heavy (value 0.82-1.00). Repainting real art to rescue a sentence
+  is the wrong repair, so the sentence is corrected.
+- **M5b's "the badges would pass the room's saturation ceiling anyway" is
+  false.** Every badge is over 0.25 — the frame alone puts it there. The
+  exemption is load-bearing, not decorative.
+
+### Tests
+
+- `badgeProvenanceIsRecorded` now pins `pack` vs **`authored`**, still failing in
+  both directions.
+- `remainingPlaceholdersSayWhyTheyAreStillPlaceholders` became
+  **`authoredBadgesSayTheyAreAuthoredAndWhy`**: an authored badge must carry
+  `authored_because`, `searched` and `drawn_by`, must *not* carry `blocked_on` or
+  `unsourceable`, and no badge in the map may call itself a placeholder. Four
+  expected, counted.
+- **Both were verified red**, in a throwaway `git worktree` at `HEAD` with only
+  the test file copied in: `provenance → "placeholder" != "placeholder"` four
+  times, `authored → 0 == 4`, and `art.provenance → "placeholder" == "authored"`
+  four times. A test that has never been seen red is not evidence.
+- `AttentionBadgeTests`' comment about "the four that are still placeholders" is
+  corrected in place.
+
+### Gate
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. **303 tests
+pass**, and pass under `SPRITE_ROOM_REQUIRE_ART=1`. **Zero changes under
+`Sources/`** — canvas still 24x34, anchor unmoved, `TextureStore` loaded the new
+files without knowing anything had happened, for the third time. Import and
+generation are byte-identical across a forced rerun, and so is the manifest. The
+no-pack path was exercised in a worktree with no `assets/`: it takes the
+hand-drawn fallback bubble, says so in its output, and still renders six badges.
+
+Proof set regenerated at the original filenames in `scratchpad/m5-badges/`, plus
+`09`/`10` (room at `1x`, before and after), `15`/`16` (stacked, `1x` and `6x`),
+`13`/`14` (isolated row at `8x`, before and after), `17` (the no-pack fallback),
+and the raw numbers as `iou-*.txt`, `tone-*.txt`, `exemption-*.txt`.
+
+### One measurement wrinkle, recorded and deliberately not fixed
+
+`BADGE_FRAME_INTERIOR` is `(2,2,20,24)`, but the frame's paper actually starts at
+row 4 and ends at row 25 — a 20x22 box. Every composited glyph, pack and authored
+alike, therefore sits one pixel high in the bubble. It is one pixel, it is
+consistent across all six composites, and correcting it would move the two
+shipping pack badges for no visible gain. Left alone on purpose; written down so
+nobody rediscovers it as a bug.
+
+### A process note, and it is not mine this time
+
+`git mv scripts/generate-placeholders.py scripts/generate-art.py` stages the
+rename. While this work was in progress the maintainer committed
+`cc1b8f7 Add denial-then-work to the required fixtures`, and the staged rename
+went in with it as `R100 scripts/generate-placeholders.py -> scripts/generate-art.py`
+under a commit message about fixtures. Nothing is broken and no content moved —
+it is a pure rename — but the review of this change will not contain it, so it
+is recorded here rather than discovered later. This is the mirror image of M5's
+`git add -A` note: the fix is the same discipline, explicit paths at commit time,
+applied by whoever is holding the index.
+
+It had one concrete consequence worth knowing about. The before/after numbers and
+images below are produced by re-running the *committed* pre-M5c generator into a
+temp directory, and that reconstruction originally read `HEAD:` — which stopped
+resolving the moment the rename landed. It is now pinned to `17d6a7d`, the last
+commit before this work, so every "before" number stays reproducible.
+
+### Still open
+
+1. `question_mark` and `attention` are the most saturated things the badge layer
+   puts on screen (0.710 and 0.770). Not a defect — pack art, one at a time,
+   above one head — but it is the one place the badge layer is louder than a
+   character, and if the room ever feels noisy at `1x` that is where to look.
+2. The badge layer is now mixed provenance by design. If anyone ever *does* buy a
+   pack with these four glyphs, swapping them back in is a `MUI_BADGE_ICONS`
+   entry plus a provenance flip — but they would want to be sure it is an
+   improvement, because the authored set is measurably more distinguishable than
+   anything the search turned up.
