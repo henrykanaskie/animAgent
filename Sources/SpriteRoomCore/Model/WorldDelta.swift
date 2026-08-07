@@ -80,6 +80,16 @@ public struct OpenCall: Sendable, Hashable, Comparable, CustomStringConvertible 
 /// self-contained.
 public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     case agentAppeared(agent: AgentRef, agentType: String?, lifecycle: AgentLifecycle)
+    /// Which character this one reports to. Emitted separately from
+    /// `agentAppeared` because it cannot be known at that moment: the link
+    /// lives on the `Agent` tool's `PostToolUse`, and `SubagentStart` arrives
+    /// *before* it. So the link is always applied retroactively, and a scene
+    /// that has already drawn the character has to be told afterwards.
+    ///
+    /// Emitted at most once per agent. Its absence is not an error — a subagent
+    /// whose link we never saw anchors to the main agent, which is the
+    /// documented fallback, not a guess. [I1]
+    case agentLinked(agent: AgentRef, parent: AgentID)
     case agentDeparted(agent: AgentRef)
     case callOpened(agent: AgentRef, call: OpenCall)
     case callClosed(agent: AgentRef, toolUseID: ToolUseID, toolName: String, outcome: CallOutcome)
@@ -91,6 +101,8 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
         switch self {
         case let .agentAppeared(agent, agentType, lifecycle):
             return "agentAppeared    \(agent) type=\(agentType ?? "-") \(lifecycle.rawValue)"
+        case let .agentLinked(agent, parent):
+            return "agentLinked      \(agent) parent=\(parent)"
         case let .agentDeparted(agent):
             return "agentDeparted    \(agent)"
         case let .callOpened(agent, call):
@@ -116,6 +128,9 @@ public struct AgentSnapshot: Sendable, Hashable {
     public let ref: AgentRef
     public let agentType: String?
     public let lifecycle: AgentLifecycle
+    /// Who this agent reports to, when the `Agent` call that launched it told
+    /// us. `nil` means unlinked — anchor to the main agent. [I1]
+    public let parent: AgentID?
     /// Sorted by start time. A *set* of calls — never a single current tool.
     public let openCalls: [OpenCall]
 

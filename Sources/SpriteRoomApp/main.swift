@@ -31,11 +31,36 @@ enum ProbeKind: String {
     case focus
     case hover
     case fullscreen
+    /// Live only: wait for two projects, then drive the real menu items.
+    case selector
+}
+
+/// What to do instead of opening anything.
+enum HookAction: String {
+    case install
+    case remove
+    case status
 }
 
 struct Options {
     var host: Host = .panel
     var fixture: URL?
+    /// Live mode: bind the listener and let real sessions drive the room.
+    var live = false
+    var port: UInt16 = 8787
+    var hookAction: HookAction?
+    /// Consent, given on the command line. Without it `--install-hooks`
+    /// refuses to write.
+    var consented = false
+    /// Point the installer at a copy instead of the user's real settings.
+    var settingsPath: URL?
+    /// Live mode: stop after this many seconds. 0 means never.
+    var duration: Double = 0
+    /// Live mode: show the first-run consent dialog when hooks are absent.
+    var hookPrompt = true
+    /// Answer the first-run question without a dialog. For a harness that has
+    /// nobody to click it — never a default, because silence is not consent.
+    var consentAnswer: HookConsent?
     var speed: Double = 1
     var renderDirectory: URL?
     var renderTimes: [Double] = []
@@ -54,7 +79,17 @@ func usage() -> String {
     """
     usage: spriteroom [fixture.jsonl] [options]
 
-      (default)          drop the room out of the notch
+      (default)          drop the room out of the notch, replaying a fixture
+      --live             bind the listener; real Claude Code sessions drive it
+      --port N           listener port (default 8787; 0 asks for an ephemeral one)
+      --for S            live mode: quit after S seconds
+      --install-hooks    write our block into ~/.claude/settings.json
+      --remove-hooks     take it back out
+      --hooks-status     report whether it is there
+      --yes              consent for --install-hooks (it refuses without this)
+      --no-hook-prompt   live mode: never show the first-run consent dialog
+      --consent A        answer the first-run question: 'install' or 'decline'
+      --settings-path P  operate on P instead of the real ~/.claude/settings.json
       --window           M2's plain resizable window instead
       --speed N          replay pace, multiples of real time (default 1)
       --render DIR       render offscreen PNGs into DIR instead of opening anything
@@ -65,6 +100,7 @@ func usage() -> String {
       --probe focus      reveal/retract N times and watch where focus is
       --probe hover      walk the real cursor through the notch and count transitions
       --probe fullscreen enter a full-screen space and check the panel is over it
+      --probe selector   (with --live) wait for 2 projects, then click the menu
       --cycles N         cycles for --probe focus (default 20)
       --countdown S      wait S seconds before --probe focus starts
       -h, --help
@@ -89,6 +125,37 @@ func parse(_ arguments: [String]) -> Options? {
         case "-h", "--help":
             print(usage())
             return nil
+        case "--live":
+            options.live = true
+            options.host = .panel
+        case "--port":
+            guard let value = next(), let port = UInt16(value) else {
+                print("--port needs a number in 0...65535"); return nil
+            }
+            options.port = port
+        case "--for":
+            guard let value = next(), let seconds = Double(value), seconds > 0 else {
+                print("--for needs a positive number of seconds"); return nil
+            }
+            options.duration = seconds
+        case "--install-hooks":
+            options.hookAction = .install
+        case "--remove-hooks":
+            options.hookAction = .remove
+        case "--hooks-status":
+            options.hookAction = .status
+        case "--yes":
+            options.consented = true
+        case "--no-hook-prompt":
+            options.hookPrompt = false
+        case "--consent":
+            guard let value = next(), let answer = HookConsent(rawValue: value) else {
+                print("--consent needs 'install' or 'decline'"); return nil
+            }
+            options.consentAnswer = answer
+        case "--settings-path":
+            guard let value = next() else { print("--settings-path needs a file"); return nil }
+            options.settingsPath = URL(fileURLWithPath: value)
         case "--window":
             options.host = .window
         case "--panel":
@@ -148,6 +215,84 @@ func parse(_ arguments: [String]) -> Options? {
 
 func defaultFixture(root: URL) -> URL {
     root.appending(path: "fixtures").appending(path: "three-subagents.jsonl")
+}
+
+// MARK: - Hook installation
+
+/// The `--install-hooks` / `--remove-hooks` / `--hooks-status` path. Opens no
+/// window; this is the one thing the app does that outlives the process.
+///
+/// **Consent is required and is not implied by running the command.** The flag
+/// says what you want; `--yes` says you mean it. Writing to
+/// `~/.claude/settings.json` changes the behaviour of every Claude Code session
+/// on the machine, including ones already running, so a typo must not be enough
+/// to do it.
+func runHookAction(_ action: HookAction, options: Options) -> Int32 {
+    let installer = HookInstaller(settingsURL: options.settingsPath, port: options.port)
+    let path = installer.settingsURL.path
+
+    func describeState() {
+        do {
+            switch try installer.state() {
+            case .absent:
+                print("hooks: not installed in \(path)")
+            case .installed(let port):
+                print("hooks: installed in \(path), posting to 127.0.0.1:\(port)")
+            case .installedAtOtherPort(let ports):
+                let list = ports.map(String.init).joined(separator: ", ")
+                print("hooks: installed in \(path) but pointing at port(s) \(list), not \(options.port)")
+            }
+        } catch {
+            print("could not read \(path): \(error)")
+        }
+    }
+
+    switch action {
+    case .status:
+        describeState()
+        return 0
+
+    case .install:
+        guard options.consented else {
+            print("""
+                SpriteRoom would add \(HookInstaller.events.count) hook entries to
+                  \(path)
+                Each one POSTs the hook payload to \(installer.url) with a \
+                \(HookInstaller.timeout)s timeout.
+                Every other key in that file is left exactly as it is, and a copy of the \
+                current file is kept at
+                  \(installer.backupURL.path)
+                so --remove-hooks can put it back byte for byte.
+
+                Re-run with --yes to consent.
+                """)
+            return 3
+        }
+        do {
+            let written = try installer.install()
+            print("installed \(written.count) hook entries into \(path)")
+            print("  url \(installer.url), timeout \(HookInstaller.timeout)s")
+            print("  backup \(installer.backupURL.path)")
+            print("  events \(written.joined(separator: ", "))")
+            return 0
+        } catch {
+            print("install failed: \(error)")
+            return 1
+        }
+
+    case .remove:
+        do {
+            if try installer.remove() {
+                print("removed our hook entries from \(path)")
+            } else {
+                print("nothing of ours in \(path); left untouched")
+            }
+            return 0
+        } catch {
+            print("remove failed: \(error)")
+            return 1
+        }
+    }
 }
 
 // MARK: - Shared setup
@@ -381,6 +526,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
     var host: RoomHost?
     var controller: NotchPanelController?
     var selector: ProjectSelector?
+    var live: LiveDriver?
 
     init(options: Options, root: URL, entries: [HookLogEntry]) {
         self.options = options
@@ -427,7 +573,9 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                     : "no notch on this display, hot zone synthesised")
                 + ", hot zone \(geometry.region)")
 
-            if let probe = options.probe {
+            if options.live {
+                Task { await self.runLive(host: host, selector: selector) }
+            } else if let probe = options.probe {
                 Task { await self.runProbe(probe, controller: controller) }
             } else {
                 print("point at the notch to reveal the room; the menu bar item picks the project")
@@ -486,6 +634,248 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
         return PixelImage.writePNG(bitmap, to: directory.appending(path: name)) ? name : nil
     }
 
+    /// The same in-process capture, under a name the caller chooses.
+    @discardableResult
+    private func capture(host: RoomHost, named name: String, into directory: URL) -> Bool {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let texture = host.view.texture(from: host.scene),
+              let image = texture.cgImage() as CGImage?,
+              let bitmap = try? PixelImage.bitmap(from: image) else {
+            print("!! panel capture failed for \(name)")
+            return false
+        }
+        return PixelImage.writePNG(bitmap, to: directory.appending(path: name))
+    }
+
+    // MARK: Live
+
+    /// Bind the listener and let real sessions drive the room.
+    ///
+    /// This is the whole of M4's plumbing: listener → queue → model → deltas →
+    /// scene, once per frame, with the reaper running underneath. The frame
+    /// pump is the only thing on the main actor, and all it does is move a
+    /// batch of value types across.
+    private func runLive(host: RoomHost, selector: ProjectSelector) async {
+        let driver: LiveDriver
+        do {
+            driver = try LiveDriver(port: options.port)
+        } catch {
+            print("could not create the listener: \(error)")
+            NSApp.terminate(nil)
+            return
+        }
+        let bound: UInt16
+        do {
+            bound = try await driver.start()
+        } catch {
+            print("could not bind 127.0.0.1:\(options.port): \(error)")
+            print("another SpriteRoom, or something else, already has that port")
+            NSApp.terminate(nil)
+            return
+        }
+        self.live = driver
+        print("listening on http://127.0.0.1:\(bound)/hook")
+
+        // Only now. Hooks must never point at a port nothing is listening on:
+        // there is no `async` field on the HTTP hook schema, so an absent
+        // listener costs the user the full `timeout` on every event. [I5]
+        offerToInstallHooks(port: bound)
+
+        let trace = ProcessInfo.processInfo.environment["SPRITEROOM_DEBUG"] != nil
+        let started = Date()
+        var lastReport = started
+        // `--at` in live mode is seconds since the listener came up. Capturing
+        // means the panel has to be down; there is no user-facing way to ask
+        // for that, so the harness asks for it. [I8 is about focus, not about
+        // never moving the window]
+        var marks = options.renderTimes.sorted()
+        if options.panelRenderDirectory != nil, !marks.isEmpty {
+            controller?.stop()
+            controller?.forceReveal()
+        }
+
+        if options.probe == .selector {
+            Task { await self.driveSelector(host: host, selector: selector) }
+        }
+
+        while !Task.isCancelled {
+            let deltas = driver.drain()
+            if trace, !deltas.isEmpty {
+                let elapsed = Date().timeIntervalSince(started)
+                for delta in deltas { print(String(format: "  t=%8.3f ", elapsed) + "\(delta)") }
+            }
+            host.consume(deltas)
+
+            let now = Date()
+            let elapsed = now.timeIntervalSince(started)
+            while let mark = marks.first, mark <= elapsed {
+                marks.removeFirst()
+                if let directory = options.panelRenderDirectory {
+                    let name = String(format: "live-t%06.2f.png", mark)
+                    if capture(host: host, named: name, into: directory) {
+                        print("captured \(name)")
+                    }
+                }
+            }
+            if trace, now.timeIntervalSince(lastReport) >= 1 {
+                lastReport = now
+                let counters = driver.counters
+                let snapshot = await driver.snapshot()
+                let working = snapshot.agents.filter(\.isWorking).count
+                print(String(
+                    format: "  t=%8.3f roster agents=%d working=%d open=%d "
+                        + "| requests=%d malformed=%d dropped=%d | projects=%@ selected=%@",
+                    now.timeIntervalSince(started),
+                    snapshot.agents.count, working, snapshot.totalOpenCalls,
+                    counters.requests, counters.malformed, counters.dropped,
+                    host.entries.map { "\($0.displayName)=\($0.population)" }
+                        .joined(separator: ",") as NSString,
+                    host.selected ?? "-" as NSString))
+            }
+            if options.duration > 0, now.timeIntervalSince(started) >= options.duration {
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(16))
+        }
+
+        let snapshot = await driver.snapshot()
+        let counters = driver.counters
+        print("live finished after \(String(format: "%.1f", Date().timeIntervalSince(started)))s")
+        print("  requests=\(counters.requests) decoded=\(counters.decoded) "
+            + "malformed=\(counters.malformed) dropped=\(counters.dropped)")
+        print("  agents left=\(snapshot.agents.count) open calls=\(snapshot.totalOpenCalls) "
+            + "abandoned=\(await driver.abandoned())")
+        let unhandled = await driver.unhandled().sorted { $0.key < $1.key }
+            .map { "\($0.key)×\($0.value)" }.joined(separator: ", ")
+        print("  unhandled: \(unhandled.isEmpty ? "none" : unhandled)")
+        driver.stop()
+        NSApp.terminate(nil)
+    }
+
+    /// First run: if our block is not in `~/.claude/settings.json`, ask.
+    ///
+    /// Asking is a modal `NSAlert`, because this writes to the file that
+    /// governs every Claude Code session on the machine and that is not a
+    /// decision to infer from someone having launched an app. `--consent`
+    /// answers it without the dialog, which is how the branch gets exercised
+    /// by a harness that has no one to click it.
+    private func offerToInstallHooks(port: UInt16) {
+        let installer = HookInstaller(settingsURL: options.settingsPath, port: port)
+
+        // The menu item the consent dialog promises. Wire it before asking, so
+        // the promise is true whichever way the answer goes.
+        selector?.onToggleHooks = { [weak self] installed in
+            do {
+                if installed {
+                    _ = try installer.remove()
+                    print("hooks removed from \(installer.settingsURL.path)")
+                } else {
+                    try installer.install()
+                    print("hooks registered in \(installer.settingsURL.path)")
+                }
+            } catch {
+                print("could not change \(installer.settingsURL.path): \(error)")
+            }
+            self?.refreshHookMenuItem(installer: installer)
+        }
+
+        let answer = options.consentAnswer
+        let outcome = installer.firstRun {
+            if let answer { return answer }
+            guard options.hookPrompt else { return nil }
+            return Self.askForConsent(installer: installer)
+        }
+        switch outcome {
+        case .alreadyInstalled:
+            print("hooks already registered in \(installer.settingsURL.path)")
+        case .installed:
+            print("hooks registered in \(installer.settingsURL.path) — "
+                + "run `spriteroom --remove-hooks` to take them out again")
+        case .reinstalled(let ports):
+            print("hooks re-pointed from port(s) \(ports.map(String.init).joined(separator: ", "))"
+                + " to \(port) in \(installer.settingsURL.path)")
+        case .declined:
+            print("hooks not registered. Nothing will reach the room until they are:")
+            print("  spriteroom --install-hooks --port \(port) --yes")
+        case .failed(let message):
+            print("could not check or write \(installer.settingsURL.path): \(message)")
+        }
+        refreshHookMenuItem(installer: installer)
+    }
+
+    private func refreshHookMenuItem(installer: HookInstaller) {
+        guard let selector else { return }
+        if case .installed = try? installer.state() {
+            selector.hooksInstalled = true
+        } else {
+            selector.hooksInstalled = false
+        }
+        selector.update(entries: host?.entries ?? [], selected: host?.selected)
+    }
+
+    /// The dialog itself. Deliberately the only part of this flow that needs a
+    /// screen, and deliberately the only part that holds no logic.
+    private static func askForConsent(installer: HookInstaller) -> HookConsent {
+        let alert = NSAlert()
+        alert.messageText = "Let Sprite Room watch your Claude Code sessions?"
+        alert.informativeText = """
+            Sprite Room adds \(HookInstaller.events.count) hook entries to
+            \(installer.settingsURL.path)
+
+            Each one posts the hook payload to \(installer.url) and gives up \
+            after \(HookInstaller.timeout) seconds. Everything else in that file \
+            is left exactly as it is, and a copy of it is kept so removal puts \
+            it back unchanged.
+
+            You can take them out at any time from the menu bar item.
+            """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Register Hooks")
+        alert.addButton(withTitle: "Not Now")
+        return alert.runModal() == .alertFirstButtonReturn ? .install : .decline
+    }
+
+    /// Criterion 5, driven through the real menu items rather than around
+    /// them: find each project's `NSMenuItem`, perform its action, and report
+    /// what the room became.
+    private func driveSelector(host: RoomHost, selector: ProjectSelector) async {
+        print("selector: waiting for two projects…")
+        while host.entries.count < 2 {
+            if Task.isCancelled { return }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+        // Keep switching for as long as the run lasts. One pass would prove
+        // the mechanism; repeating it is what shows the two rooms diverging
+        // while both sessions are actually doing something.
+        var pass = 0
+        while !Task.isCancelled {
+            // The menu is built lazily when it is about to be shown; ask for
+            // that explicitly rather than reaching past it.
+            selector.menu.delegate?.menuNeedsUpdate?(selector.menu)
+            let items = selector.menu.items.filter { $0.representedObject is String }
+            print("selector: pass \(pass), \(items.count) project item(s): "
+                + items.map(\.title).joined(separator: " | "))
+
+            for item in items {
+                guard let action = item.action, let target = item.target else { continue }
+                _ = target.perform(action, with: item)
+                try? await Task.sleep(for: .seconds(3))
+                let roster = host.entries
+                    .map { "\($0.displayName)=\($0.population)" }.joined(separator: ",")
+                print("selector: clicked '\(item.title)' → selected=\(host.selected ?? "-") "
+                    + "charactersOnScreen=\(host.scene.charactersOnScreen.count) roster=[\(roster)]")
+                if let directory = options.panelRenderDirectory {
+                    let safe = (host.selected ?? "none")
+                        .split(separator: "/").last.map(String.init) ?? "none"
+                    _ = capture(
+                        host: host, named: "selector-p\(pass)-\(safe).png", into: directory)
+                }
+            }
+            pass += 1
+            try? await Task.sleep(for: .seconds(6))
+        }
+    }
+
     private func runProbe(_ probe: ProbeKind, controller: NotchPanelController) async {
         // The probes need the panel and nothing else moving.
         let status: Int
@@ -499,6 +889,11 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
         case .fullscreen:
             controller.stop()
             status = await Probe.fullScreen(controller: controller)
+        case .selector:
+            // Driven from `runLive`, which is the only place two projects can
+            // exist. Reaching here means `--probe selector` without `--live`.
+            print("--probe selector needs --live: it drives the menu over real sessions")
+            status = 2
         }
         exit(Int32(status))
     }
@@ -515,10 +910,17 @@ setvbuf(stdout, nil, _IONBF, 0)
 let arguments = Array(CommandLine.arguments.dropFirst())
 guard let options = parse(arguments) else { exit(2) }
 
+// Installing hooks opens no window and needs no scene. It happens before
+// anything else so a bad manifest cannot stop the user from *removing* our
+// hooks — the one operation that must always be available.
+if let action = options.hookAction {
+    exit(runHookAction(action, options: options))
+}
+
 let root = Manifest.developmentRoot()
 let fixtureURL = options.fixture ?? defaultFixture(root: root)
 var entries: [HookLogEntry] = []
-if options.probe == nil {
+if options.probe == nil && !options.live {
     do {
         entries = try HookLog.load(contentsOf: fixtureURL)
     } catch {

@@ -57,9 +57,18 @@ public struct HookEvent: Hashable, Sendable {
         /// Decoration only. Never a precondition — it did not fire once in five
         /// captured headless sessions.
         case sessionStart(source: String?)
+        /// The user sent a turn. Consumed for one reason only: it creates the
+        /// session and its main-thread agent, so an agent that is thinking but
+        /// has not yet called a tool is still a character on screen. An idle
+        /// character is a truthful thing to draw. [I2]
+        case userPromptSubmit
         case subagentStart
         case preToolUse(toolUseID: ToolUseID, toolName: String)
-        case postToolUse(toolUseID: ToolUseID, toolName: String?)
+        /// `spawnedAgentID` is `tool_response.agentId` — present only on the
+        /// `Agent` dispatch tool, where it maps this parent `tool_use_id` to
+        /// the `agent_id` of the child it launched. There is no
+        /// `parent_agent_id` field anywhere; this is the whole link.
+        case postToolUse(toolUseID: ToolUseID, toolName: String?, spawnedAgentID: String?)
         /// Fires *instead of* `postToolUse`, never alongside it. The message is
         /// in `error`, not `tool_response`.
         case postToolUseFailure(toolUseID: ToolUseID, toolName: String?, error: String?)
@@ -77,6 +86,7 @@ public struct HookEvent: Hashable, Sendable {
         public var name: String {
             switch self {
             case .sessionStart: return "SessionStart"
+            case .userPromptSubmit: return "UserPromptSubmit"
             case .subagentStart: return "SubagentStart"
             case .preToolUse: return "PreToolUse"
             case .postToolUse: return "PostToolUse"
@@ -124,9 +134,25 @@ extension HookEvent: Decodable {
         case toolName = "tool_name"
         case toolUseID = "tool_use_id"
         case toolCalls = "tool_calls"
+        case toolResponse = "tool_response"
         case source
         case reason
         case error
+    }
+
+    /// The only field of `tool_response` we read.
+    ///
+    /// `tool_response` is otherwise the tool's own output — arbitrary shape,
+    /// arbitrary size, and none of our business. Decoding one key out of it
+    /// keeps the payload's private half private, and means a `tool_response`
+    /// that is a *string* (which most tools produce) simply yields `nil`
+    /// instead of failing the whole event.
+    private struct ToolResponse: Decodable {
+        let agentID: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case agentID = "agentId"
+        }
     }
 
     private struct BatchEntry: Decodable {
@@ -182,6 +208,9 @@ extension HookEvent: Decodable {
         case "SessionStart":
             self.kind = .sessionStart(source: string(.source))
 
+        case "UserPromptSubmit":
+            self.kind = .userPromptSubmit
+
         case "SubagentStart":
             self.kind = self.agentID == .mainThread ? .unhandled(name: name) : .subagentStart
 
@@ -197,7 +226,10 @@ extension HookEvent: Decodable {
 
         case "PostToolUse":
             if let toolUseID {
-                self.kind = .postToolUse(toolUseID: toolUseID, toolName: toolName)
+                let spawned = (try? container.decodeIfPresent(
+                    ToolResponse.self, forKey: .toolResponse))??.agentID
+                self.kind = .postToolUse(
+                    toolUseID: toolUseID, toolName: toolName, spawnedAgentID: spawned)
             } else {
                 self.kind = .unhandled(name: name)
             }

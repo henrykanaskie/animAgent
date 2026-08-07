@@ -22,8 +22,12 @@ import Testing
         #expect(Reaper.deadlineInterval(forTool: "Bash") == 15 * 60)
         #expect(Reaper.deadlineInterval(forTool: "WebFetch") == 15 * 60)
         #expect(Reaper.deadlineInterval(forTool: "mcp__anything__at_all") == 15 * 60)
-        // The subagent-dispatch tool is `Agent`, and it closes in milliseconds.
-        #expect(Reaper.deadlineInterval(forTool: "Agent") == 30)
+        // The subagent-dispatch tool is `Agent`, and it dispatches *both* ways:
+        // M0 captured it closing in ~16 ms (`async_launched`), M4 saw it stay
+        // open for the subagent's whole life. It gets the long deadline because
+        // reaping it early abandons a call that is genuinely still running,
+        // which renders a working character as idle. [I1]
+        #expect(Reaper.deadlineInterval(forTool: "Agent") == 15 * 60)
         #expect(Reaper.deadlineInterval(forTool: "SomeToolShippedTomorrow") == 5 * 60)
     }
 
@@ -101,10 +105,21 @@ import Testing
         let lastEventAt = try #require(entries.last?.receivedAt)
         #expect(await model.snapshot().agents.count == 1)
 
-        // This session's own `UserPromptSubmit` — an event we do not consume —
-        // replayed 59 s on. It emits nothing, but the session is demonstrably
-        // not silent, so the idle sweep must not fire at 61 s.
-        let unconsumed = try #require(entries.first { $0.event?.kind.isUnhandled == true }?.event)
+        // An event we do not consume, arriving for *this* session 59 s on. It
+        // emits nothing, but the session is demonstrably not silent, so the
+        // idle sweep must not fire at 61 s.
+        //
+        // `UserPromptSubmit` used to serve here; it is consumed now, and
+        // `killed-session` contains no other unconsumed event. The payload is
+        // this session's own, with `hook_event_name` rewritten to
+        // `UserPromptExpansion` — a name 2.1.224 really emits and we really do
+        // not handle. Synthetic in the same, necessary sense as the tail of
+        // `unknown-events.jsonl`: the fixture cannot be made to contain an
+        // event the capture did not produce.
+        let last = try #require(entries.last)
+        let unconsumed = try #require(
+            Fixtures.rewritingEventName(last.payload, to: "UserPromptExpansion"))
+        #expect(unconsumed.kind.isUnhandled)
         let deltas = await model.ingest(unconsumed, at: lastEventAt.addingTimeInterval(59))
         #expect(deltas.isEmpty)
 

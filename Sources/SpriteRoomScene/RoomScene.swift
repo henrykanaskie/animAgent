@@ -153,21 +153,21 @@ public final class RoomScene: SKScene {
             seatOf.removeValue(forKey: agent)
             let approach = ScenePoint(x: Double(character.position.x), y: layout.aisleY)
             switch style {
-            case .report:
-                // Step into the aisle, walk to the main agent's anchor, hand
-                // over, then leave. The anchor is seat 0 because the
-                // parent→child link is not available to the scene — an
-                // unlinked subagent anchors to the main agent rather than
-                // guessing a parent. [I1]
+            case let .report(anchorSeat):
+                // Step into the aisle, walk to the anchor, hand over, then
+                // leave. The anchor is the parent's seat when
+                // `tool_response.agentId` linked them, and seat 0 — the main
+                // agent — when it did not. Slots stay globally unique so two
+                // reporters in flight never share a delivery spot. [I1]
                 var slot = 0
                 while reportingSlots.contains(slot) { slot += 1 }
                 reportingSlots.insert(slot)
                 slotOf[ObjectIdentifier(character)] = slot
-                let delivery = layout.deliveryPosition(slot: slot)
+                let delivery = layout.deliveryPosition(anchorSeat: anchorSeat, slot: slot)
                 character.reportAndDepart(
                     via: approach,
                     to: delivery,
-                    facing: layout.deliveryFacing,
+                    facing: layout.deliveryFacing(anchorSeat: anchorSeat),
                     thenExitAt: layout.nearestEdge(toX: delivery.x)
                 ) { [weak self, weak character] in self?.retire(character) }
             case .walkOff:

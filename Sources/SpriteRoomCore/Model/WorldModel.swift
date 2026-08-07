@@ -18,6 +18,9 @@ public actor WorldModel {
         var lifecycle: AgentLifecycle
         /// Keyed by `tool_use_id`. A set, never a single current tool. [I3]
         var openCalls: [ToolUseID: OpenCall] = [:]
+        /// Who launched this agent, once the `Agent` call's `PostToolUse` told
+        /// us. `nil` until then, and `nil` forever if we never see it.
+        var parent: AgentID?
     }
 
     private struct SessionState {
@@ -25,6 +28,11 @@ public actor WorldModel {
         /// `SessionStart` decoration. Never a precondition.
         var source: String?
         var agents: [AgentID: AgentState] = [:]
+        /// Links learned before the child existed. `SubagentStart` normally
+        /// arrives *first*, so this is the rare direction — but the app can
+        /// attach mid-session and see the `PostToolUse` without the
+        /// `SubagentStart` that preceded it.
+        var pendingParents: [AgentID: AgentID] = [:]
     }
 
     private struct ProjectState {
@@ -116,6 +124,13 @@ public actor WorldModel {
         case .sessionStart(let source):
             projects[event.cwd]?.sessions[event.sessionID]?.source = source
 
+        case .userPromptSubmit:
+            // Consumed for the session and main agent `ensureSession` has
+            // already created, and for nothing else. A turn that produces no
+            // tool call still gets a character, and that character is idle,
+            // which is what actually happened. [I2]
+            break
+
         case .subagentStart:
             ensureAgent(ref, agentType: event.agentType, lifecycle: .spawning, into: &deltas)
 
@@ -123,9 +138,15 @@ public actor WorldModel {
             ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
             open(toolUseID: toolUseID, toolName: toolName, ref: ref, at: now, into: &deltas)
 
-        case let .postToolUse(toolUseID, _):
+        case let .postToolUse(toolUseID, _, spawnedAgentID):
             ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
             close(toolUseID, ref: ref, outcome: .succeeded, into: &deltas)
+            // The parent→child link, and the only place it exists. The child's
+            // `SubagentStart` has almost always arrived already, so this is
+            // applied retroactively to a character that is on screen.
+            if let spawnedAgentID {
+                link(child: .subagent(spawnedAgentID), to: ref, into: &deltas)
+            }
 
         case let .postToolUseFailure(toolUseID, _, _):
             ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
@@ -218,6 +239,7 @@ public actor WorldModel {
                         ref: AgentRef(project: project, session: session, agent: agent),
                         agentType: agentState.agentType,
                         lifecycle: agentState.lifecycle,
+                        parent: agentState.parent,
                         openCalls: agentState.openCalls.values.sorted()))
                 }
             }
@@ -255,9 +277,40 @@ public actor WorldModel {
             }
             return
         }
+        let pending = projects[ref.project]!.sessions[ref.session]!
+            .pendingParents.removeValue(forKey: ref.agent)
         projects[ref.project]!.sessions[ref.session]!.agents[ref.agent] =
-            AgentState(agentType: agentType, lifecycle: lifecycle)
+            AgentState(agentType: agentType, lifecycle: lifecycle, parent: pending)
         deltas.append(.agentAppeared(agent: ref, agentType: agentType, lifecycle: lifecycle))
+        if let pending {
+            deltas.append(.agentLinked(agent: ref, parent: pending))
+        }
+    }
+
+    /// Records `tool_response.agentId`: this parent's `tool_use_id` launched
+    /// that child.
+    ///
+    /// Retroactive by construction — `SubagentStart` fires before the
+    /// `PostToolUse` that carries the link — so the normal case is that the
+    /// child is already a character and gets told who it reports to a
+    /// millisecond later. If the child does not exist yet (the app attached
+    /// mid-session and missed its `SubagentStart`) the link waits for it rather
+    /// than conjuring a character out of an id. [I1]
+    private func link(child: AgentID, to parent: AgentRef, into deltas: inout [WorldDelta]) {
+        guard child != parent.agent else { return }
+        guard projects[parent.project]?.sessions[parent.session] != nil else { return }
+        let childRef = AgentRef(project: parent.project, session: parent.session, agent: child)
+
+        guard projects[parent.project]!.sessions[parent.session]!.agents[child] != nil else {
+            projects[parent.project]!.sessions[parent.session]!.pendingParents[child] = parent.agent
+            return
+        }
+        // Emitted at most once. A repeated `PostToolUse` for the same dispatch
+        // is the same fact, not a second one.
+        guard projects[parent.project]!.sessions[parent.session]!
+            .agents[child]!.parent == nil else { return }
+        projects[parent.project]!.sessions[parent.session]!.agents[child]!.parent = parent.agent
+        deltas.append(.agentLinked(agent: childRef, parent: parent.agent))
     }
 
     private func setLifecycle(_ lifecycle: AgentLifecycle, ref: AgentRef) {

@@ -27,6 +27,17 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
 
     var onSelect: ((String) -> Void)?
 
+    /// Whether our hook block is currently in `~/.claude/settings.json`, and
+    /// what to do about it. `nil` while we are not in live mode, where the
+    /// question is not meaningful.
+    ///
+    /// This is the "removed on request" half of hook installation, and it is
+    /// the one place in the app where a menu item writes anything. It does not
+    /// touch a running agent — it changes what the *next* session reports to
+    /// us — so it does not breach the read-only rule.
+    var hooksInstalled: Bool?
+    var onToggleHooks: ((Bool) -> Void)?
+
     init(credit: String, creditURL: String) {
         self.credit = credit
         self.creditURL = creditURL
@@ -88,6 +99,19 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             menu.addItem(item)
         }
 
+        if let hooksInstalled {
+            menu.addItem(.separator())
+            let item = NSMenuItem(
+                title: hooksInstalled ? "Remove Claude Code Hooks" : "Register Claude Code Hooks…",
+                action: #selector(toggleHooks),
+                keyEquivalent: "")
+            item.target = self
+            item.toolTip = hooksInstalled
+                ? "Stop every Claude Code session reporting to Sprite Room"
+                : "Let Claude Code sessions report to Sprite Room"
+            menu.addItem(item)
+        }
+
         menu.addItem(.separator())
         if !credit.isEmpty {
             let item = NSMenuItem(
@@ -104,6 +128,11 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     @objc private func pick(_ sender: NSMenuItem) {
         guard let project = sender.representedObject as? String else { return }
         onSelect?(project)
+    }
+
+    @objc private func toggleHooks() {
+        guard let installed = hooksInstalled else { return }
+        onToggleHooks?(installed)
     }
 
     @objc private func openCredit() {

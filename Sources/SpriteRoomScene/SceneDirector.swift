@@ -13,14 +13,19 @@ public enum SpriteIntent: Sendable, Hashable {
     /// The badge layer. Only ever emitted when it actually changed. [criterion 6]
     case setBadge(agent: AgentRef, selection: BadgeSelection)
     /// Take a character out. `.report` is the `SubagentStop` choreography:
-    /// walk to the main agent's anchor, `deliver`, then `depart`.
+    /// walk to the anchor, `deliver`, then `depart`.
     case exitCharacter(agent: AgentRef, style: ExitStyle)
     /// Integer render scale. [I6]
     case setScale(Int)
 
     public enum ExitStyle: Sendable, Hashable {
         /// `SubagentStop`. The one dramatisation the event model licenses.
-        case report
+        ///
+        /// `anchorSeat` is the seat of the character this one reports to —
+        /// its parent, when `tool_response.agentId` linked them, and seat 0
+        /// otherwise. Seat 0 is the documented fallback rather than a guess:
+        /// an unlinked subagent reports to the main agent. [I1]
+        case report(anchorSeat: Int)
         /// Everything else — session end, idle sweep. Straight `depart`.
         case walkOff
     }
@@ -56,6 +61,10 @@ public struct SceneDirector: Sendable {
         /// Set by `reportDelivered`, so the departure that follows it in the
         /// same batch becomes the walk instead of a plain exit.
         var reported = false
+        /// Who this character reports to, from `.agentLinked`. `nil` until the
+        /// link arrives, and `nil` forever when it never does — in which case
+        /// the anchor is the main agent.
+        var parent: AgentID?
 
         var body: BodyState { openCalls.isEmpty ? .idle : .working }
         var badge: BadgeSelection { BadgeSelection.select(openToolNames: openCalls.values) }
@@ -127,11 +136,25 @@ public struct SceneDirector: Sendable {
                     let variant = claimVariant(for: agent)
                     presentations[agent] = Presentation(
                         ref: agent, agentType: agentType, variant: variant, seat: seat)
+                    // A character that has just walked in wears no badge, so
+                    // "set the badge to none" is an instruction to do nothing.
+                    // Seeding the memory here is what keeps the badge-change
+                    // count equal to the open-call-change count now that an
+                    // agent can appear idle — `UserPromptSubmit` creates the
+                    // main character before its first tool call. [criterion 6]
+                    emittedBadge[agent] = BadgeSelection.none
                     appeared.append(agent)
                 } else if let agentType {
                     presentations[agent]?.agentType = agentType
                 }
                 note(&touched, agent)
+
+            case let .agentLinked(agent, parent):
+                // Retroactive by construction: the character is already on
+                // screen when this arrives. It changes nothing visible until
+                // the character reports, which is the only moment the anchor
+                // is used.
+                presentations[agent]?.parent = parent
 
             case let .callOpened(agent, call):
                 if ToolBadge.isUnmapped(call.toolName) {
@@ -154,11 +177,14 @@ public struct SceneDirector: Sendable {
 
             case let .agentDeparted(agent):
                 guard let presentation = presentations.removeValue(forKey: agent) else { break }
+                let anchorSeat = anchorSeat(for: presentation)
                 occupiedSeats.remove(presentation.seat)
                 assignedVariants.removeValue(forKey: agent)
                 emittedBody.removeValue(forKey: agent)
                 emittedBadge.removeValue(forKey: agent)
-                exited.append((agent, presentation.reported ? .report : .walkOff))
+                exited.append((
+                    agent,
+                    presentation.reported ? .report(anchorSeat: anchorSeat) : .walkOff))
                 touched.removeAll { $0 == agent }
                 appeared.removeAll { $0 == agent }
 
@@ -241,6 +267,21 @@ public struct SceneDirector: Sendable {
             ?? variantIDs[assignedVariants.count % variantIDs.count]
         assignedVariants[agent] = variant
         return variant
+    }
+
+    /// Where this character walks to when it reports.
+    ///
+    /// Its parent's seat when `tool_response.agentId` linked them and that
+    /// parent is still in the room; seat 0 — the main agent's anchor —
+    /// otherwise. The fallback is documented, not invented: a subagent whose
+    /// link we never saw reports to the main agent rather than to a guess. [I1]
+    private func anchorSeat(for presentation: Presentation) -> Int {
+        guard let parent = presentation.parent else { return 0 }
+        let ref = AgentRef(
+            project: presentation.ref.project,
+            session: presentation.ref.session,
+            agent: parent)
+        return presentations[ref]?.seat ?? 0
     }
 
     /// `agent_type` names the character. Its absence is the main agent — that

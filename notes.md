@@ -482,3 +482,232 @@ permission here.
 panel, with a large empty band above and below. Fine for a milestone about
 mechanics, wrong for a surface whose entire job is a glance. Composition belongs
 with the art pass.
+
+---
+
+## 2026-08-07 — M4, live end to end
+
+The first milestone driven by a real session rather than a file. Four criteria
+pass on evidence from real Claude Code sessions; the fifth passes with one part
+of it code-complete but never clicked. 215 tests, clean rebuild, no warnings.
+
+**Measured added latency: 8 ms at the median, 5 ms at p99, 9 ms at the worst
+quantile measured.** Five identical 40-`Read` sessions with hooks against five
+without, n=200 tool calls per arm, timed from Claude Code's own transcript —
+the interval between the assistant message carrying a `tool_use` and the user
+message carrying its `tool_result`, which is exactly what the user waits for.
+With hooks: p50 15.0 ms, p90 21.0, p95 23.0, p99 28.0. Without: p50 7.0, p90
+12.0, p95 14.0, p99 23.0. Under the 10 ms budget at every quantile from p50 to
+p99.5, but not by a wide margin, and the honest caveat is that a quantile
+difference is not the same statistic as the p99 of a per-call difference —
+calls cannot be paired across arms, so that statistic does not exist.
+
+**Only about a quarter of that is ours.** A single hook POST against the
+*running app* — panel up, scene rendering, model draining — is p99 **1.248 ms**
+on a fresh connection and **0.124 ms** on a kept-alive one, over 10 000 real
+payloads. Two blocking POSTs per tool call puts our ceiling near 2.5 ms; the
+other ~5.5 ms is Claude Code's own hook machinery. Worth knowing, because it
+means shaving the listener further would buy almost nothing, and it means the
+budget is mostly spent before our code runs.
+
+**The reaper closed a `kill -9` at deadline + 0.04 s.** `Bash` opened at
+t=22.196, the session was `kill -9`ed with the call open, no `SessionEnd` and no
+close ever arrived, and the sweep abandoned it at t=922.235 — 900.04 s, against
+a 900 s deadline. The character stopped working and nothing else in the room
+moved. I4 demonstrated against a real corpse rather than a fixture.
+
+**`~/.claude/settings.json` was written and then restored byte for byte.**
+sha256 `682e430a…` before, after installing eleven hook entries, and after
+removing them. All six of the user's keys survived with their values intact. The
+proof that it was a *user-scope* registration is that a session in a directory
+with no project-level settings appeared in the room anyway — and so, immediately
+and unbidden, did the session managing this work, which is the product doing
+exactly what it says on the tin.
+
+Byte-identity is not free from a JSON round trip, so `remove` earns it: it
+compares what is left against the copy taken at install time and, only if they
+agree key for key, writes the original bytes back. Edit the file while hooks are
+installed and it falls back to structural removal, keeping the edit. Both paths
+are tested.
+
+**`UserPromptSubmit` is consumed now** — task #12, and the delta sequences moved
+as predicted: the main character appears on the prompt rather than on the first
+tool call, so `populationChanged` now precedes the first `callOpened` in all six
+fixtures. A turn spent thinking draws an idle character instead of an empty
+room. Consuming it forced one small honest fix: the director used to emit
+`setBadge(.none)` at spawn, which was invisible while every character appeared
+mid-tool-call and became a spurious badge change once they could appear idle.
+The badge memory is now seeded at spawn, so the badge-change count still equals
+the open-call-change count.
+
+That change also cost a test its subject. `anUnhandledEventKeepsASessionAlive`
+used `killed-session`'s own `UserPromptSubmit` as its unconsumed event, and
+there is no other unconsumed event in that fixture. It now rewrites that
+payload's `hook_event_name` to `UserPromptExpansion` — a name 2.1.224 really
+emits and we really do not handle — through one sanctioned helper. Synthetic in
+the same, necessary sense as the tail of `unknown-events.jsonl`.
+
+**The parent→child link is implemented, and reality was more interesting than
+the doc.** `tool_response.agentId` is decoded, `WorldModel` holds it, a new
+`agentLinked` delta carries it, and the scene anchors a reporter's walk at its
+parent's seat instead of unconditionally at seat 0. Three things the M0 capture
+could not have shown:
+
+- **It is not only the `Agent` tool.** `SendMessage` — resuming an existing
+  subagent — returns a `tool_response.agentId` too. Keying the decode on the
+  field rather than on `tool_name == "Agent"` is what caught it, and it is how a
+  resumed subagent gets linked at all.
+- **`Agent` is not always asynchronous.** M0 captured `async_launched`, where
+  the dispatch call closes in ~16 ms. Live, the same tool ran *synchronously*:
+  the `Agent` call stayed open for the subagent's entire life and closed after
+  its `SubagentStop`. Both shapes are real. Nothing may assume either — which is
+  precisely why a subagent's life is keyed on `agent_id` and never on its
+  spawning call, and the rule was written before we had a case that needed it.
+- **A subagent can come back.** One departed on `SubagentStop` and reappeared
+  minutes later when the main thread woke it with `SendMessage`, then worked and
+  reported again. The character leaving and returning is true, so nothing needed
+  changing — but "departed" is not "finished", and anything that assumes an
+  `agent_id` is retired for good will be wrong.
+
+The retroactive path is not a hypothetical either: it fired live. The link
+arrives after the character is on screen, always, so `agentLinked` is a separate
+delta rather than a field on `agentAppeared`, and a link learned before its child
+exists waits rather than conjuring a character out of an id. [I1]
+
+**Every subagent observed is a child of the main thread**, so the link and the
+documented fallback agree, and implementing it changed no pixel of any existing
+fixture — there is a test asserting exactly that. Its value is that a nested
+subagent will now walk to the right desk instead of the wrong one, and that we
+found out `SendMessage` carries the field.
+
+**The one part not exercised: the first-run `NSAlert`.** The decision it feeds
+is fully tested — declining writes nothing, *nobody to ask* writes nothing
+(silence is not consent), consenting installs, an already-installed block is not
+re-asked, a block stale on another port is offered again — and all five branches
+were driven end to end against a copy via `--consent`. What was never clicked is
+the dialog itself, because synthesising a click needs Accessibility permission
+this process does not have, the same wall M3 hit, and popping a modal on a
+sleeping user's screen was not a trade worth making. Ten lines of AppKit holding
+no logic. **A human closes it in fifteen seconds:** `spriteroom --live
+--settings-path /tmp/copy.json`, click either button.
+
+**Judgment calls worth keeping.** Consent is never implied by launching
+anything: `--install-hooks` refuses without `--yes`, and the first-run flow
+treats "no one to ask" as no. The block is recognised by *shape* — a native HTTP
+hook posting to `/hook` on loopback — so a hand-edited file still cleans up, and
+a stale entry on a wrong port is recognised as ours precisely so it can be
+fixed; a session posting into a dead port pays the full timeout on every event.
+Hooks are offered only *after* the listener has bound, for the same reason. The
+backup path is derived from the settings path, so exercising the installer
+against a copy cannot overwrite the backup the real file would be restored from.
+Live events are stamped at drain time rather than at receive time, because a
+`Date()` inside the response path is a syscall on the user's every tool call and
+a deadline measured in tens of seconds does not care. [I5]
+
+**Two residuals, neither started.**
+
+*Nameplates do not separate same-typed subagents.* Three subagents dispatched
+together all read `GENERAL-P…` — `general-purpose`, truncated. M0 established
+the nameplate as the primary identity channel because the cast is not separable
+by silhouette, and M2 established that accent hue does not separate it either.
+So three simultaneous subagents of one type are, in practice, distinguishable
+only by seat. This is S4 ("every character individually identifiable") failing
+for the most ordinary case there is, and it is not an art problem — the data
+genuinely does not distinguish them beyond `agent_id`. A disambiguating suffix
+drawn from `agent_id` would be truthful and would fix it; that is a design call,
+not mine to make unasked.
+
+*A project stays in the menu with a population of zero after its session ends.*
+Correct as far as it goes — you did have a session there — but the panel shows
+an empty room for it, and nothing ever ages the entry out.
+
+---
+
+## 2026-08-07 — M4, live end to end, and a bug it exposed
+
+All five criteria pass; one has a partial inside it. 215 tests green, clean
+build, no stray processes, no bound ports. Verified independently.
+
+**Your settings file was touched and restored byte for byte.** sha256
+`682e430a…` before and after, all six keys present, no `hooks` key, and the
+backup directory the install created was removed since the install was reverted.
+The removal path earns byte-identity rather than assuming it: it compares what is
+left against the install-time copy and only then writes the original bytes; if
+anyone edited the file meanwhile it falls back to structural removal and keeps
+the edit.
+
+**Added latency is under 10 ms at every quantile — narrowly.** Five identical
+40-`Read` sessions per arm, n=200 tool calls each, timed from Claude Code's own
+transcript:
+
+| | p50 | p90 | p95 | p99 |
+|---|---|---|---|---|
+| with hooks | 15.0 | 21.0 | 23.0 | 28.0 |
+| without | 7.0 | 12.0 | 14.0 | 23.0 |
+| **added** | **8.0** | **9.0** | **9.0** | **5.0** |
+
+The caveat is stated rather than rounded away: a difference of quantiles is not
+the p99 of a per-call difference, and calls cannot be paired across arms, so that
+statistic does not exist. The worst quantile-wise gap is 9.0 ms against a 10 ms
+budget. Of that, only ~2.5 ms is ours — one hook POST against the running app
+over 10,000 real payloads measures p99 1.248 ms on a fresh connection and
+0.124 ms keep-alive. The rest is Claude Code's own hook machinery, which we do
+not control. **There is not much headroom left; anything added to the response
+path spends someone's tool call.** [I5]
+
+**`kill -9` behaved exactly as I4 requires:** `Bash` opened at t=22.196, session
+killed with the call open, no close of any kind ever arrived, sweep abandoned it
+at t=922.235 — deadline plus 0.04 s.
+
+### The bug M4 exposed, which I fixed on review
+
+M4 found that **`Agent` is not always asynchronous.** M0 captured the async form
+— `isAsync: true`, `status: async_launched`, the call closing in ~16 ms while the
+subagent ran for minutes. Live, M4 saw it run *synchronously*, staying open for
+the subagent's entire life. Both are real, and we cannot tell which in advance.
+
+The deadline table gave `Agent` 30 s, reasoned entirely from the async form. So
+against the synchronous form the reaper abandoned the parent's call at 30 s
+**while the parent was genuinely still working** — the character went idle
+mid-task. That is not a missed cleanup, it is the room asserting something false,
+which is the one failure mode this project is organised against. [I1]
+
+`Agent` now carries the 15-minute deadline. The principle worth keeping: **a late
+reap is a blind spot; an early one is fiction.** The cost of the long deadline —
+a genuinely lost close lingering — is already covered twice, by `SessionEnd` and
+by the 30-minute idle sweep. The test that pinned 30 s was updated rather than
+deleted, and now records *why* the value is what it is.
+
+### Two more findings the docs did not have
+
+- **`tool_response.agentId` is not `Agent`-only** — `SendMessage` returns it too.
+  Keying the parent link on the *field* rather than on the tool name is what
+  caught this, and is why it was the right way to write it.
+- **A subagent can come back.** One departed on `SubagentStop` and reappeared
+  minutes later via `SendMessage`, worked, and reported again. "Departed" does
+  not mean "finished", and any model that treats departure as terminal is wrong.
+
+### Both open items closed
+
+`UserPromptSubmit` is consumed, so a thinking agent is now visible — the main
+character appears on the prompt rather than at the first tool call. That forced
+one honest fix: the director's `setBadge(.none)` at spawn became a spurious badge
+change once characters could appear idle, so badge memory is seeded at spawn. The
+parent→child link is implemented, with a retroactive path for the case where
+`SubagentStart` arrives before the `PostToolUse` carrying the link.
+
+### Needing a human
+
+1. **Click the first-run consent dialog once** (~15 s). All five decision
+   branches are unit-tested and were driven end to end against a copy via
+   `--consent`, but synthesising a click needs Accessibility permission this
+   process lacks — the same wall M3 hit. `spriteroom --live --settings-path
+   /tmp/copy.json`, click either button.
+2. **Nameplates do not separate same-typed subagents.** Three dispatched together
+   all read `GENERAL-P…`. With silhouette refuted at M0 and accent hue refuted at
+   M2, they are now distinguishable only by seat position. **That is S4 failing
+   for the most ordinary case there is.** A short suffix from `agent_id` would be
+   truthful and would fix it, but which channel carries identity is a design call
+   and not one to make while the user is asleep.
+3. A project stays in the selector at population 0 after its session ends;
+   nothing ages it out.

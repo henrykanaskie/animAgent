@@ -111,9 +111,13 @@ public struct RoomLayout: Sendable, Hashable {
     /// another. Slots rather than a queue because queueing would mean a
     /// character standing about waiting, and nothing in the data says it
     /// waited. [I1]
-    public func deliveryPosition(slot: Int) -> ScenePoint {
+    ///
+    /// `anchorSeat` is whose seat the reporter delivers to. It is 0 — the main
+    /// agent — unless `tool_response.agentId` linked the reporter to a
+    /// different parent that is still in the room.
+    public func deliveryPosition(anchorSeat: Int = 0, slot: Int) -> ScenePoint {
         ScenePoint(
-            x: seatPosition(0).x - Double(tile) * 1.5
+            x: seatPosition(anchorSeat).x - Double(tile) * 1.5
                 - Double(max(0, slot)) * Self.deliverySlotPitch,
             y: aisleY)
     }
@@ -125,8 +129,11 @@ public struct RoomLayout: Sendable, Hashable {
     /// Which way the reporter faces to hand its report over. It stands left of
     /// the anchor, so it turns right — delivering with your back to the person
     /// you are delivering to would be a small lie about a real event. [I1]
-    public var deliveryFacing: Facing {
-        deliveryPosition.x < seatPosition(0).x ? .right : .left
+    public var deliveryFacing: Facing { deliveryFacing(anchorSeat: 0) }
+
+    public func deliveryFacing(anchorSeat: Int) -> Facing {
+        deliveryPosition(anchorSeat: anchorSeat, slot: 0).x < seatPosition(anchorSeat).x
+            ? .right : .left
     }
 
     /// The point on the aisle directly in front of a seat. A character walks

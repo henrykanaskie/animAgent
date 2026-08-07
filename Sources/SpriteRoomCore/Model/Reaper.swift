@@ -20,9 +20,19 @@ public struct Reaper: Sendable, Hashable {
     /// The deadline table from `docs/03-EVENT-MODEL.md`.
     ///
     /// `Agent` is the subagent-dispatch tool — the hook name is `Agent`, never
-    /// `Task`. It launches asynchronously and its own call closes in
-    /// milliseconds, hence the short deadline; the subagent it spawned is
-    /// tracked by `agent_id`, not by this call.
+    /// `Task`. It gets a long deadline because it dispatches **either** way:
+    /// M0 captured it launching asynchronously and closing in ~16 ms, and M4
+    /// observed it running synchronously, staying open for the subagent's
+    /// entire life. Both are real.
+    ///
+    /// The short deadline it used to carry assumed the async case, and it made
+    /// the synchronous case render a lie: the parent's call was abandoned at
+    /// 30 s while the parent was genuinely still working, so the character went
+    /// idle mid-task. A late reap is a blind spot; an early one is fiction, and
+    /// fiction is the thing we do not ship. [I1]
+    ///
+    /// The cost of the long deadline — a genuinely lost close lingering — is
+    /// already covered twice over by `SessionEnd` and the session idle sweep.
     public static func deadlineInterval(forTool toolName: String) -> TimeInterval {
         if toolName.hasPrefix("mcp__") { return 15 * 60 }
         switch toolName {
@@ -30,10 +40,8 @@ public struct Reaper: Sendable, Hashable {
             return 30
         case "Edit", "Write", "NotebookEdit":
             return 60
-        case "Bash", "WebFetch":
+        case "Bash", "WebFetch", "Agent":
             return 15 * 60
-        case "Agent":
-            return 30
         default:
             return 5 * 60
         }

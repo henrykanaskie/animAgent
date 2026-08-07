@@ -30,6 +30,10 @@ struct ProjectRegistry: Sendable {
         var lifecycle: AgentLifecycle
         /// Keyed by `tool_use_id`, never a single current tool. [I3]
         var openCalls: [ToolUseID: OpenCall] = [:]
+        /// From `.agentLinked`. Kept so that switching to this project
+        /// reconstructs the link too — otherwise a character that was linked
+        /// while off screen would report to the wrong anchor once shown.
+        var parent: AgentID?
     }
 
     private var agents: [String: [AgentRef: AgentState]] = [:]
@@ -61,6 +65,8 @@ struct ProjectRegistry: Sendable {
                 state.agentType = agentType ?? state.agentType
                 state.lifecycle = lifecycle
                 agents[project]?[agent] = state
+            case let .agentLinked(agent, parent):
+                agents[project]?[agent]?.parent = parent
             case let .agentDeparted(agent):
                 agents[project]?.removeValue(forKey: agent)
             case let .callOpened(agent, call):
@@ -109,6 +115,9 @@ struct ProjectRegistry: Sendable {
             deltas.append(
                 .agentAppeared(
                     agent: ref, agentType: state.agentType, lifecycle: state.lifecycle))
+            if let parent = state.parent {
+                deltas.append(.agentLinked(agent: ref, parent: parent))
+            }
         }
         for ref in roster.keys.sorted() {
             guard let state = roster[ref] else { continue }
@@ -159,6 +168,7 @@ extension WorldDelta {
     var projectKey: String {
         switch self {
         case let .agentAppeared(agent, _, _): return agent.project
+        case let .agentLinked(agent, _): return agent.project
         case let .agentDeparted(agent): return agent.project
         case let .callOpened(agent, _): return agent.project
         case let .callClosed(agent, _, _, _): return agent.project

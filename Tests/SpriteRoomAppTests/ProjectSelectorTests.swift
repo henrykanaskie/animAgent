@@ -79,6 +79,37 @@ struct ProjectSelectorTests {
         }
     }
 
+    /// The consent dialog promises "you can take them out at any time from the
+    /// menu bar item". That promise has to be true, and it has to still be
+    /// true when the answer was no.
+    @Test(.enabled(if: NotchPanelTests.hasWindowServer))
+    func theHookItemOffersTheOppositeOfWhateverIsInstalled() {
+        for installed in [true, false] {
+            let selector = Self.selector()
+            selector.hooksInstalled = installed
+            var toggled: [Bool] = []
+            selector.onToggleHooks = { toggled.append($0) }
+            selector.update(entries: Self.entries, selected: nil)
+            selector.menuNeedsUpdate(selector.menu)
+
+            let item = try? #require(selector.menu.items.first { $0.title.contains("Hooks") })
+            #expect(item?.title.hasPrefix(installed ? "Remove" : "Register") == true)
+            if let item, let action = item.action {
+                _ = item.target?.perform(action, with: item)
+            }
+            #expect(toggled == [installed])
+        }
+    }
+
+    /// Outside live mode the question is not meaningful, so it is not asked.
+    @Test(.enabled(if: NotchPanelTests.hasWindowServer))
+    func thereIsNoHookItemWhenWeAreNotListening() {
+        let selector = Self.selector()
+        selector.update(entries: Self.entries, selected: nil)
+        selector.menuNeedsUpdate(selector.menu)
+        #expect(!selector.menu.items.contains { $0.title.contains("Hooks") })
+    }
+
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func anEmptyRosterSaysSoRatherThanShowingNothing() {
         let selector = Self.selector()

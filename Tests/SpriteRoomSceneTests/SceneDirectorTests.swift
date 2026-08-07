@@ -139,7 +139,7 @@ struct SceneDirectorTests {
         #expect(sawSpawn)
         #expect(restingStates.contains(.idle))
         #expect(restingStates.contains(.working))
-        #expect(exitStyles.contains(.report))
+        #expect(exitStyles.contains(.report(anchorSeat: 0)))
     }
 
     /// A seated character can only face sideways. Asking for `working` facing
@@ -290,7 +290,84 @@ struct SceneDirectorTests {
             if case let .exitCharacter(_, style) = intent { return style }
             return nil
         }
-        #expect(exits == [.report])
+        #expect(exits == [.report(anchorSeat: 0)])
+    }
+
+    /// A linked child reports to *its parent's* seat, not to seat 0.
+    ///
+    /// The link is applied retroactively — `SubagentStart` arrives before the
+    /// `PostToolUse` that carries it — so the character is drawn first and told
+    /// who it reports to afterwards. This is the only moment that knowledge
+    /// changes anything visible.
+    @Test func aLinkedChildReportsToItsParentsSeatRatherThanTheMainAgents() {
+        var director = Self.director()
+        let main = Self.ref(.mainThread)
+        let middle = Self.ref(.subagent("middle"))
+        let child = Self.ref(.subagent("child"))
+
+        _ = director.apply([
+            .agentAppeared(agent: main, agentType: nil, lifecycle: .active),
+            .agentAppeared(agent: middle, agentType: "Explore", lifecycle: .spawning),
+            .agentAppeared(agent: child, agentType: "Explore", lifecycle: .spawning),
+        ])
+        // Retroactive, one batch later.
+        _ = director.apply([.agentLinked(agent: child, parent: .subagent("middle"))])
+
+        let middleSeat = try! #require(director.seats[middle])
+        #expect(middleSeat != 0, "the anchor under test must not be seat 0")
+
+        let intents = director.apply([
+            .reportDelivered(agent: child),
+            .agentDeparted(agent: child),
+        ])
+        let exits = intents.compactMap { intent -> SpriteIntent.ExitStyle? in
+            if case let .exitCharacter(_, style) = intent { return style }
+            return nil
+        }
+        #expect(exits == [.report(anchorSeat: middleSeat)])
+    }
+
+    /// A parent that has already left the room is not a place to walk to. The
+    /// anchor falls back to the main agent, which is the documented fallback
+    /// for an unlinked subagent too. [I1]
+    @Test func aChildWhoseParentHasDepartedFallsBackToTheMainAnchor() {
+        var director = Self.director()
+        let middle = Self.ref(.subagent("middle"))
+        let child = Self.ref(.subagent("child"))
+
+        _ = director.apply([
+            .agentAppeared(agent: Self.ref(.mainThread), agentType: nil, lifecycle: .active),
+            .agentAppeared(agent: middle, agentType: "Explore", lifecycle: .spawning),
+            .agentAppeared(agent: child, agentType: "Explore", lifecycle: .spawning),
+            .agentLinked(agent: child, parent: .subagent("middle")),
+        ])
+        _ = director.apply([.agentDeparted(agent: middle)])
+
+        let intents = director.apply([
+            .reportDelivered(agent: child),
+            .agentDeparted(agent: child),
+        ])
+        let exits = intents.compactMap { intent -> SpriteIntent.ExitStyle? in
+            if case let .exitCharacter(_, style) = intent { return style }
+            return nil
+        }
+        #expect(exits == [.report(anchorSeat: 0)])
+    }
+
+    /// Every subagent in the capture is a child of the main thread, so the
+    /// link and the fallback agree — which is exactly why implementing it
+    /// changed no pixel of the existing fixtures.
+    @Test func everyReportInTheCaptureStillAnchorsAtSeatZero() async throws {
+        var director = Self.director()
+        var anchors: [Int] = []
+        for batch in try await SceneFixtures.batchedDeltas("three-subagents") {
+            for intent in director.apply(batch) {
+                if case let .exitCharacter(_, .report(anchorSeat)) = intent {
+                    anchors.append(anchorSeat)
+                }
+            }
+        }
+        #expect(anchors == [0, 0, 0])
     }
 
     @Test func aDepartureWithoutAReportIsAPlainWalkOff() {

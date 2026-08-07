@@ -38,6 +38,8 @@ struct ProjectRegistryTests {
         switch delta {
         case let .agentAppeared(agent, type, lifecycle):
             return .agentAppeared(agent: moved(agent), agentType: type, lifecycle: lifecycle)
+        case let .agentLinked(agent, parent):
+            return .agentLinked(agent: moved(agent), parent: parent)
         case let .agentDeparted(agent):
             return .agentDeparted(agent: moved(agent))
         case let .callOpened(agent, call):
@@ -114,7 +116,7 @@ struct ProjectRegistryTests {
         // else is invented. [I1]
         for delta in rebuilt {
             switch delta {
-            case .agentAppeared, .callOpened, .populationChanged: continue
+            case .agentAppeared, .agentLinked, .callOpened, .populationChanged: continue
             default: Issue.record("reconstruction emitted \(delta)")
             }
         }

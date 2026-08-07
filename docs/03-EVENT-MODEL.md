@@ -40,17 +40,19 @@ create a session, an agent, or tool state. Otherwise a synthetic event arriving
 after `SessionEnd` resurrects a dead session, and an unrecognised event carrying
 an `agent_id` spawns a character out of something we do not understand. [I1]
 
-The cost of that resolution: a session whose turn produces no tool call has no
-character at all, because `UserPromptSubmit` is not in the consume table below.
-The honest fix is to consume `UserPromptSubmit` — the event genuinely happened,
-and an idle character is a truthful thing to draw [I2] — not to weaken the
-unhandled rule. Not yet done; see the note against that event.
+That resolution had a cost, and M4 paid it off: a session whose turn produced no
+tool call had no character at all, because `UserPromptSubmit` was not in the
+consume table below. An agent that was thinking was invisible. The fix taken was
+to **consume `UserPromptSubmit`** — the event genuinely happened, and an idle
+character is a truthful thing to draw [I2] — rather than to weaken the unhandled
+rule. It creates the session and its main agent and has no other effect.
 
 ## Events we consume
 
 | Event | Effect on the world |
 |---|---|
 | `SessionStart` | Decoration only: record `source`, `model`, `session_title`. Never a precondition — it did not fire in any captured session, so the session and its main agent are created lazily by whatever event arrives first. |
+| `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is idle, because nothing has been called yet. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] |
 | `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. |
 | `PreToolUse` | Open a call keyed by `tool_use_id`. Character enters/keeps working. |
 | `PostToolUse` | Close that `tool_use_id`. |
@@ -64,12 +66,16 @@ unhandled rule. Not yet done; see the note against that event.
 Everything else decodes to `.unhandled` and is counted, not dropped silently.
 A rising `.unhandled` count is how we notice the hook surface has grown.
 
-"Everything else" is not hypothetical. 2.1.224 defines at least sixteen further
-event names we do not consume, including `UserPromptSubmit`,
-`UserPromptExpansion`, `StopFailure`, `PreCompact`, `PostCompact`,
-`PermissionRequest`, `PermissionDenied`, `TaskCreated`, and `TaskCompleted`. All
-of them will reach the listener under a `*` registration. They must decode, be
-counted, and change nothing.
+"Everything else" is not hypothetical. 2.1.224 defines at least fifteen further
+event names we do not consume, including `UserPromptExpansion`, `StopFailure`,
+`PreCompact`, `PostCompact`, `PermissionRequest`, `PermissionDenied`,
+`TaskCreated`, and `TaskCompleted`. All of them will reach the listener under a
+`*` registration. They must decode, be counted, and change nothing.
+
+The app registers only the eleven events above, so in normal operation the
+others never arrive at all — but the listener is not allowed to depend on that,
+because a `*` registration written by hand, or a future release that widens what
+a registration covers, would deliver them anyway.
 
 ## Pairing rule
 
@@ -113,14 +119,25 @@ Every open call has a deadline. Defaults, revisit with data:
 |---|---|
 | `Read`, `Glob`, `Grep`, `TodoWrite` | 30 s |
 | `Edit`, `Write`, `NotebookEdit` | 60 s |
-| `Bash`, `WebFetch`, `mcp__*` | 15 min |
-| `Agent` | 30 s |
+| `Bash`, `WebFetch`, `Agent`, `mcp__*` | 15 min |
 | unknown | 5 min |
 
 `Agent` is the subagent-dispatch tool. Its hook name is `Agent`, not `Task` —
-`Task` is the model-facing name and never appears in a payload. It launches
-asynchronously and its own call closes in milliseconds, so it gets a short
-deadline; the subagent's life is tracked by `agent_id`, not by this call.
+`Task` is the model-facing name and never appears in a payload. The subagent's
+life is tracked by `agent_id`, never by this call.
+
+**`Agent` dispatches both synchronously and asynchronously, and we cannot tell
+which in advance.** M0 captured the async form: `tool_response.isAsync == true`,
+`status: async_launched`, the call closing in ~16 ms while the subagent ran for
+minutes. M4 observed the synchronous form: the call stayed open for the
+subagent's entire life. Both are real.
+
+It therefore carries the long deadline. The 30 s it used to carry assumed the
+async form, and against the synchronous form it rendered a lie — the parent's
+call was abandoned at 30 s while the parent was genuinely still working, so the
+character went idle mid-task. **A late reap is a blind spot; an early one is
+fiction.** [I1] The cost of the long deadline, a genuinely lost close lingering,
+is already covered twice by `SessionEnd` and the 30-minute idle sweep.
 
 On expiry: close the call, emit `.callAbandoned`, increment a counter. The
 character returns to idle. It does **not** display an error — an abandoned call
@@ -176,10 +193,29 @@ asynchronously: the `Agent` call's `PreToolUse`/`PostToolUse` pair closes in
 ~16 ms while the subagent runs for minutes. A subagent's life is
 `SubagentStart` → `SubagentStop`, keyed by `agent_id`, and nothing else.
 
-The parent link, when we need one, is `tool_response.agentId` on the `Agent`
-tool's `PostToolUse` — it maps the parent's `tool_use_id` to the child's
-`agent_id`. There is no `parent_agent_id` field. If that link is missing, the
+The parent link is `tool_response.agentId` on a `PostToolUse` — it maps the
+`tool_use_id` of the call that launched or resumed a subagent to that subagent's
+`agent_id`. There is no `parent_agent_id` field. If the link is missing, the
 subagent anchors to the main agent rather than guessing. [I1]
+
+Implemented in M4. Three things about it are worth writing down, because two of
+them were not visible in the M0 capture:
+
+- **It is always retroactive.** `SubagentStart` arrives *before* the
+  `PostToolUse` that carries the link, so the character is already on screen
+  when we learn who it reports to. The model therefore emits a separate
+  `agentLinked` delta rather than folding the parent into `agentAppeared`, and
+  holds the link pending if the child is not there yet.
+- **It is not only the `Agent` tool.** `SendMessage` — continuing an existing
+  subagent — returns a `tool_response.agentId` too, and observing it is how a
+  resumed subagent gets linked. Keying the decode on `tool_response.agentId`
+  rather than on `tool_name == "Agent"` is deliberate.
+- **`Agent` is not always asynchronous.** M0 captured `isAsync: true,
+  status: async_launched`, where the dispatch call closes in ~16 ms. In a live
+  M4 session the same tool ran *synchronously*: the `Agent` call stayed open for
+  the subagent's whole lifetime and closed after its `SubagentStop`. Both shapes
+  occur. Nothing may assume either — which is exactly why a subagent's life is
+  tracked by `agent_id` and never by its spawning call.
 
 ## Fixtures
 
@@ -221,7 +257,15 @@ Optional fields: `timeout` (seconds), `headers`, `statusMessage`, `once`, `if`.
 The app registers one such entry per consumed event at user scope in
 `~/.claude/settings.json`, matcher `*`, so it covers every project and routes by
 `cwd`. The block the app writes lives in `.claude/settings.example.json` in this
-repo.
+repo, and a test asserts the two agree.
+
+`UserPromptSubmit` and `PostToolBatch` are registered **without** a matcher.
+That is the shape both were captured working under; neither takes a tool name,
+so a matcher has nothing to match.
+
+M4 verified the registration end to end against the real file: install, a
+session in a directory with no project-level settings whose events arrived
+anyway, then removal restoring the file byte for byte.
 
 There is no `async` field on the HTTP hook schema — `command` hooks have one,
 HTTP hooks do not. The session blocks on our response. Measured: a listener that

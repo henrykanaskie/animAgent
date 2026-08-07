@@ -13,9 +13,9 @@ import Testing
         let (model, deltas, _) = try await Fixtures.replay("single-agent-simple")
 
         #expect(deltas.map(\.tag) == [
-            "agentAppeared",      // lazily, on the first consumed event
-            "callOpened",         // Read alpha.txt
+            "agentAppeared",      // lazily, on `UserPromptSubmit`
             "populationChanged",
+            "callOpened",         // Read alpha.txt
             "callClosed",
             "callOpened",         // Read beta.txt
             "callClosed",
@@ -53,6 +53,162 @@ import Testing
             if case let .agentAppeared(agent, _, _) = delta { return agent.agent == .mainThread }
             return false
         })
+    }
+
+    // MARK: UserPromptSubmit — the agent that is thinking
+
+    /// A turn that produces no tool call must still draw somebody.
+    ///
+    /// Before this event was consumed the main character appeared at the
+    /// session's first *tool call*, so an agent that was thinking was invisible
+    /// — a real hole in a product whose one sentence is "you glance at the
+    /// notch and know what your agents are doing." The character it draws is
+    /// idle, which is exactly what is happening. [I2]
+    @Test func userPromptSubmitAloneCreatesTheSessionAndItsMainCharacter() async throws {
+        let entries = try Fixtures.entries("single-agent-simple")
+        let first = try #require(entries.first?.event)
+        #expect(first.kind == .userPromptSubmit, "the fixture no longer opens on a prompt")
+
+        let model = WorldModel()
+        let deltas = await model.ingest(first, at: try #require(entries.first?.receivedAt))
+
+        #expect(deltas.map(\.tag) == ["agentAppeared", "populationChanged"])
+        let snapshot = await model.snapshot()
+        #expect(snapshot.agents.count == 1)
+        #expect(snapshot.agents.first?.ref.agent == .mainThread)
+        // Idle, not working. Nothing has been called yet and the room must not
+        // pretend otherwise. [I1/I2]
+        #expect(snapshot.agents.first?.isWorking == false)
+        #expect(await model.unhandledTotal == 0)
+    }
+
+    /// Consuming it must not make it a *second* creation path: the later
+    /// prompts in one session change nothing at all.
+    @Test func laterUserPromptsInTheSameSessionEmitNothing() async throws {
+        let entries = try Fixtures.entries("three-subagents")
+        let prompts = entries.filter { $0.event?.kind == .userPromptSubmit }
+        #expect(prompts.count == 4, "the fixture's four prompts are the point of this test")
+
+        let model = WorldModel()
+        var promptsSeen = 0
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            if event.kind == .userPromptSubmit, promptsSeen > 0 {
+                let before = await model.snapshot()
+                #expect(await model.ingest(event, at: entry.receivedAt).isEmpty)
+                #expect(await model.snapshot() == before)
+            } else {
+                await model.ingest(event, at: entry.receivedAt)
+            }
+            if event.kind == .userPromptSubmit { promptsSeen += 1 }
+        }
+        #expect(promptsSeen == 4)
+    }
+
+    // MARK: the parent→child link
+
+    /// `tool_response.agentId` on the `Agent` tool's `PostToolUse` is the only
+    /// place the link exists — there is no `parent_agent_id` field.
+    @Test func agentDispatchCarriesTheChildAgentIDInItsToolResponse() throws {
+        let entries = try Fixtures.entries("three-subagents")
+        let spawned = entries.compactMap { entry -> String? in
+            guard case let .postToolUse(_, tool, spawnedAgentID) = entry.event?.kind,
+                  tool == "Agent" else { return nil }
+            return spawnedAgentID
+        }
+        #expect(spawned.count == 3)
+        #expect(Set(spawned).count == 3)
+
+        // Nothing else carries one. A `Read`'s `tool_response` is a string, and
+        // decoding one key out of it must yield nil rather than throwing.
+        let others = entries.compactMap { entry -> String? in
+            guard case let .postToolUse(_, tool, spawnedAgentID) = entry.event?.kind,
+                  tool != "Agent" else { return nil }
+            return spawnedAgentID
+        }
+        #expect(others.isEmpty)
+    }
+
+    /// The link is applied *retroactively*: `SubagentStart` arrives before the
+    /// `PostToolUse` that carries it, so the character is already on screen
+    /// when we learn who it reports to.
+    @Test func theParentLinkIsAppliedAfterTheChildHasAlreadyAppeared() async throws {
+        let entries = try Fixtures.entries("three-subagents")
+        var appearedAt: [AgentID: Int] = [:]
+        var linkedAt: [AgentID: Int] = [:]
+        var links: [AgentID: AgentID] = [:]
+
+        let model = WorldModel()
+        var index = 0
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            for delta in await model.ingest(event, at: entry.receivedAt) {
+                switch delta {
+                case let .agentAppeared(agent, _, _):
+                    appearedAt[agent.agent] = index
+                case let .agentLinked(agent, parent):
+                    linkedAt[agent.agent] = index
+                    links[agent.agent] = parent
+                default: break
+                }
+                index += 1
+            }
+        }
+
+        #expect(links.count == 3)
+        // All three are children of the main thread in this capture, which is
+        // also why the documented fallback and the truth agree here.
+        #expect(Set(links.values) == [.mainThread])
+        for (child, at) in linkedAt {
+            let appeared = try #require(appearedAt[child])
+            #expect(appeared < at, "\(child) was linked before it appeared")
+        }
+    }
+
+    /// Learned once, then never re-announced.
+    @Test func theParentLinkIsEmittedExactlyOncePerChild() async throws {
+        let (model, deltas, _) = try await Fixtures.replay("three-subagents")
+        let linked = deltas.compactMap { delta -> AgentRef? in
+            if case let .agentLinked(agent, _) = delta { return agent }
+            return nil
+        }
+        #expect(linked.count == Set(linked).count)
+        #expect(await model.snapshot().agents.isEmpty)
+    }
+
+    /// A subagent whose link we never saw carries no parent. The fallback is
+    /// documented — it anchors to the main agent — and inventing a parent to
+    /// fill the hole would be fiction. [I1]
+    @Test func aSubagentWithNoObservedLinkHasNoParent() async throws {
+        let entries = try Fixtures.entries("three-subagents")
+        let withoutLinks = WorldModel()
+        let withLinks = WorldModel()
+        // Everything up to the last `Agent` dispatch's close — by then all
+        // three children exist and all three links have been seen, and none of
+        // them has departed yet.
+        let cut = try #require(entries.lastIndex { entry in
+            guard case let .postToolUse(_, tool, spawned) = entry.event?.kind else { return false }
+            return tool == "Agent" && spawned != nil
+        })
+
+        for entry in entries.prefix(through: cut) {
+            guard let event = entry.event else { continue }
+            await withLinks.ingest(event, at: entry.receivedAt)
+            // The `Agent` dispatch's close is the only carrier of the link.
+            // Drop it and the same stream produces unlinked children.
+            if case let .postToolUse(_, tool, spawned) = event.kind,
+               tool == "Agent", spawned != nil {
+                continue
+            }
+            await withoutLinks.ingest(event, at: entry.receivedAt)
+        }
+
+        let unlinked = await withoutLinks.snapshot().agents.filter { $0.ref.agent != .mainThread }
+        let linked = await withLinks.snapshot().agents.filter { $0.ref.agent != .mainThread }
+        #expect(unlinked.count == linked.count)
+        #expect(!unlinked.isEmpty)
+        #expect(unlinked.allSatisfy { $0.parent == nil })
+        #expect(linked.allSatisfy { $0.parent == .mainThread })
     }
 
     // MARK: parallel-tools — I3
@@ -131,7 +287,7 @@ import Testing
             switch entry.event?.kind {
             case let .preToolUse(id, tool) where tool == "Agent":
                 openedAt[id] = entry.receivedAt
-            case let .postToolUse(id, _):
+            case let .postToolUse(id, _, _):
                 if let start = openedAt[id] {
                     agentCallDurations.append(entry.receivedAt.timeIntervalSince(start))
                 }
@@ -275,7 +431,9 @@ import Testing
     @Test func unhandledCountsAreKeyedByEventName() async throws {
         let (model, _, _) = try await Fixtures.replay("unknown-events")
         let counts = await model.unhandledCounts
-        #expect(counts["UserPromptSubmit"] == 1)
+        // `UserPromptSubmit` is consumed now, so it must no longer be counted
+        // as something we do not understand.
+        #expect(counts["UserPromptSubmit"] == nil)
         #expect(counts["SomeFutureEvent"] == 1)
         #expect(counts["ToolProgress"] == 1)
         #expect(counts["SubagentHeartbeat"] == 1)
@@ -290,26 +448,37 @@ import Testing
     /// rather than derived, so a change in behaviour has to be argued for
     /// instead of absorbed.
     static let expectedSequences: [String: [String]] = [
+        // The main character now appears on `UserPromptSubmit`, before any
+        // tool call — so `populationChanged` precedes the first `callOpened`
+        // rather than trailing it. A turn that calls no tool still draws
+        // somebody, and that somebody is idle. [I2]
         "single-agent-simple": [
-            "agentAppeared", "callOpened", "populationChanged", "callClosed",
+            "agentAppeared", "populationChanged",
+            "callOpened", "callClosed",
             "callOpened", "callClosed",
             "callOpened", "callClosed",
             "agentDeparted", "populationChanged",
         ],
         // Five opens before the first close. That shape is I3.
         "parallel-tools": [
-            "agentAppeared", "callOpened", "populationChanged",
-            "callOpened", "callOpened", "callOpened", "callOpened",
+            "agentAppeared", "populationChanged",
+            "callOpened", "callOpened", "callOpened", "callOpened", "callOpened",
             "callClosed", "callClosed", "callClosed", "callClosed", "callClosed",
             "agentDeparted", "populationChanged",
         ],
         // Three `Agent` dispatches, each opening and closing in milliseconds
         // around a `SubagentStart` — the subagents outlive them by seconds.
+        //
+        // Each `agentLinked` lands immediately after the `callClosed` of the
+        // `Agent` call that carried it, and *after* the child's
+        // `agentAppeared`. That order is the whole reason the link has to be
+        // applied retroactively.
         "three-subagents": [
-            "agentAppeared", "callOpened", "populationChanged",
-            "agentAppeared", "populationChanged", "callClosed",
-            "callOpened", "agentAppeared", "populationChanged", "callClosed",
-            "callOpened", "agentAppeared", "populationChanged", "callClosed",
+            "agentAppeared", "populationChanged",
+            "callOpened",
+            "agentAppeared", "populationChanged", "callClosed", "agentLinked",
+            "callOpened", "agentAppeared", "populationChanged", "callClosed", "agentLinked",
+            "callOpened", "agentAppeared", "populationChanged", "callClosed", "agentLinked",
             "callOpened", "callClosed", "callOpened",
             "callOpened", "callClosed", "callOpened", "callClosed",
             "callClosed", "callOpened", "callOpened", "callClosed",
@@ -322,19 +491,22 @@ import Testing
         ],
         // Ends on an open `Bash` the stream will never close. No SessionEnd.
         "killed-session": [
-            "agentAppeared", "callOpened", "populationChanged", "callClosed",
+            "agentAppeared", "populationChanged",
+            "callOpened", "callClosed",
             "callOpened", "callClosed",
             "callOpened",
         ],
         // One close by `PostToolUseFailure`, one by `PostToolBatch` alone.
         "tool-failure": [
-            "agentAppeared", "callOpened", "populationChanged", "callClosed",
+            "agentAppeared", "populationChanged",
+            "callOpened", "callClosed",
             "callOpened", "callClosed",
             "agentDeparted", "populationChanged",
         ],
-        // The seven synthetic unknowns after `SessionEnd` add nothing.
+        // The synthetic unknowns after `SessionEnd` add nothing.
         "unknown-events": [
-            "agentAppeared", "callOpened", "populationChanged", "callClosed",
+            "agentAppeared", "populationChanged",
+            "callOpened", "callClosed",
             "agentDeparted", "populationChanged",
         ],
     ]

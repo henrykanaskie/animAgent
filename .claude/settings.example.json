@@ -4,10 +4,16 @@
     "with consent. Registered once at user scope, matcher '*', so it covers every",
     "project and routes by cwd — see docs/02-ARCHITECTURE.md.",
     "",
-    "Only the ten events docs/03-EVENT-MODEL.md consumes are registered. Every",
+    "Only the eleven events docs/03-EVENT-MODEL.md consumes are registered. Every",
     "other event Claude Code emits is deliberately NOT registered: an unregistered",
     "event costs the user nothing, and the listener still decodes anything that",
     "does arrive to .unhandled rather than throwing.",
+    "",
+    "UserPromptSubmit is registered as of M4. It creates the session and its main",
+    "agent and does nothing else — without it, a turn that produces no tool call",
+    "draws no character at all, so an agent that is thinking is invisible. An idle",
+    "character is truthful [I2]. Like PostToolBatch it carries no matcher: that is",
+    "the shape it was captured working under.",
     "",
     "'type': 'http' is native — the session POSTs the hook input JSON straight to",
     "the URL, no shim script. Verified against Claude Code 2.1.224; see",
@@ -33,6 +39,9 @@
     ],
     "SessionEnd": [
       { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }
     ],
     "SubagentStart": [
       { "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:8787/hook", "timeout": 2 }] }

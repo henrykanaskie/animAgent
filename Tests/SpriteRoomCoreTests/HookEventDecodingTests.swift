@@ -123,7 +123,7 @@ import Testing
         }
         let id = try #require(failedID)
         let successes = entries.compactMap { entry -> ToolUseID? in
-            if case let .postToolUse(postID, _) = entry.event?.kind { return postID }
+            if case let .postToolUse(postID, _, _) = entry.event?.kind { return postID }
             return nil
         }
         #expect(!successes.contains(id), "a PostToolUse accompanied the failure")

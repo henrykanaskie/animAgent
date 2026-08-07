@@ -114,12 +114,13 @@ Code's Bash sandbox refuses a standalone `sleep 600`.
 Two halves, in order.
 
 Lines 1–5 are **real**: a captured session whose `Bash` call was denied at the
-permission gate. Three of its five `hook_event_name`s — `UserPromptSubmit`,
-`PostToolBatch`, and the orphaned `PreToolUse` they surround — are events
-`03-EVENT-MODEL.md` either does not model or models incorrectly, so this half is
-genuine unknown-event traffic. It also carries a real orphan: a `PreToolUse`
-whose only close is the `tool_use_id` listed inside the following
-`PostToolBatch`.
+permission gate. It carries a real orphan: a `PreToolUse` whose only close is
+the `tool_use_id` listed inside the following `PostToolBatch`.
+
+*(This half was originally described as unknown-event traffic because
+`UserPromptSubmit` and `PostToolBatch` were both outside the model. Both are
+consumed now — `PostToolBatch` since M0a, `UserPromptSubmit` since M4 — so the
+only genuinely unknown events in this file are the synthetic ones below.)*
 
 Lines 6–12 are **synthetic**, each flagged `"_synthetic": true`. They were
 POSTed to the logger directly, because Claude Code cannot be made to emit an
