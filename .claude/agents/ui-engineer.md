@@ -34,4 +34,6 @@ design — do not scatter per-project registrations.
 batched, once per frame. If you find yourself reaching into the model from the
 UI, the arrow is pointing the wrong way.
 
-Run `swift build && swift test` before reporting. Report honestly.
+Run `swift build --build-tests -Xswiftc -warnings-as-errors && swift test`
+before reporting — plain `swift build` compiles no test target and is blind to
+warnings in your own tests. Report honestly.

@@ -35,7 +35,10 @@ Owner: `test-engineer`, with `planner`.
 No window. No pixels. This runs in a terminal and prints deltas.
 
 **Exit:**
-- `swift test` green.
+- `swift build --build-tests -Xswiftc -warnings-as-errors` clean, and
+  `swift test` green. The build flags are not decoration: plain `swift build`
+  compiles no test target and so cannot see a warning in one. This applies to
+  every milestone in this file, not only M1.
 - Replay of all five fixtures produces expected delta sequences.
 - `killed-session` fixture leaves **zero** open calls after deadlines elapse
   (test uses an injected clock, not `sleep`).

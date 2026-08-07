@@ -14,8 +14,15 @@ including yours, is not on either list.
 
 Run, in order, and report each result verbatim:
 
-1. `swift build 2>&1` — must succeed **with no warnings**. A warning is a
-   failure. Quote the warning.
+1. `swift build --build-tests -Xswiftc -warnings-as-errors 2>&1` — must
+   succeed. A warning is a failure, and this command makes that mechanical:
+   warnings come back as errors and the exit code is non-zero. Quote them.
+
+   Do **not** substitute plain `swift build`. It compiles no test target, so
+   it is blind to every diagnostic in `Tests/` — it reported this repo clean
+   while a warning sat in `ProjectSelectorTests`. Do not drop
+   `-warnings-as-errors` either: without it a warning still prints but the
+   exit code stays `0`, which is exactly the kind of pass nobody notices.
 2. `swift test 2>&1` — must pass. Quote failures.
 3. The replay harness over `fixtures/` — must end with zero orphaned open calls.
 4. The import boundary — `SpriteRoomCore` imports neither AppKit nor SpriteKit.

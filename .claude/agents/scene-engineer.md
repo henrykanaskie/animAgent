@@ -46,4 +46,6 @@ allowed because the underlying event genuinely happened.
 Build against `assets/manifest.json`, never against filenames or frame indices.
 Final art must drop in as a manifest swap with zero code change.
 
-Run `swift build && swift test` before reporting. Report honestly.
+Run `swift build --build-tests -Xswiftc -warnings-as-errors && swift test`
+before reporting — plain `swift build` compiles no test target and is blind to
+warnings in your own tests. Report honestly.

@@ -42,5 +42,7 @@ that escape hatch, the design is wrong; fix the design.
 **Fixtures over mocks.** Test against `fixtures/`. Time-dependent tests use an
 injected clock, never `sleep`.
 
-Run `swift build && swift test` before reporting. Report honestly — partial
+Run `swift build --build-tests -Xswiftc -warnings-as-errors && swift test`
+before reporting — plain `swift build` compiles no test target and is blind to
+warnings in your own tests. Report honestly — partial
 work reported as done is the failure this team is organised to prevent.

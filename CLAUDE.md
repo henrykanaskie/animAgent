@@ -113,7 +113,15 @@ what makes the whole system testable without a screen.
 
 A task is done when **all** of these hold. Agent opinion is not on this list.
 
-1. `swift build` succeeds with no warnings.
+1. `swift build --build-tests -Xswiftc -warnings-as-errors` succeeds.
+
+   Plain `swift build` compiles **no test target**, so it cannot see a warning
+   in one — for most of this project's life that made "no warnings" a check on
+   roughly half the code. `--build-tests` compiles them; `-warnings-as-errors`
+   is what makes "a warning is a failure" true mechanically instead of
+   depending on someone reading the log. It also defeats the stale-cache
+   failure mode: a warm cache cannot hide a warning from this command, because
+   a build carrying one could not have succeeded.
 2. `swift test` passes.
 3. The replay harness runs `fixtures/` end to end with no orphaned state at the
    end of the run.

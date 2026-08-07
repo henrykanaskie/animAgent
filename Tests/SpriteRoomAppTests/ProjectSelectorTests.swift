@@ -96,8 +96,10 @@ struct ProjectSelectorTests {
             // clickable. Both are requirements, not expectations: there is
             // nothing left to check about a menu item that does not exist or
             // that cannot be invoked.
-            let item = try? #require(selector.menu.items.first { $0.title.contains("Hooks") })
-            #expect(item?.title.hasPrefix(installed ? "Remove" : "Register") == true)
+            let item = try #require(
+                selector.menu.items.first { $0.title.contains("Hooks") },
+                "no Hooks item in the menu when hooksInstalled == \(installed)")
+            #expect(item.title.hasPrefix(installed ? "Remove" : "Register"))
 
             let action = try #require(item.action, "the Hooks item has no action")
             let target = try #require(item.target, "the Hooks item has no target")
