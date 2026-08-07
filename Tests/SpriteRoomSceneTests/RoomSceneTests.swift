@@ -5,6 +5,12 @@ import SpriteRoomCore
 @testable import SpriteRoomScene
 
 /// The SpriteKit half. These run on the main actor because SpriteKit nodes do.
+///
+/// Mixed suite. The tests that need real pixels — anything that loads a texture,
+/// plays an animation or places a prop — are gated on `SceneArt`, because
+/// `assets/` is not in the repository; see `SceneFixtures.swift`. The layout,
+/// camera and depth-ordering tests derive everything from the tracked
+/// manifest and `RoomLayout`, so they run on any checkout and are not gated.
 @MainActor
 struct RoomSceneTests {
 
@@ -18,7 +24,8 @@ struct RoomSceneTests {
     /// without it looks wrong in a way that is very hard to trace later, so
     /// this checks the room, the characters, the badges and the generated
     /// bitmaps — every path a texture can be born through.
-    @Test func everyTextureIsNearestFilteredWithNoMipmaps() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyTextureIsNearestFilteredWithNoMipmaps() throws {
         let store = try Self.store()
         var textures: [SKTexture] = []
 
@@ -51,7 +58,8 @@ struct RoomSceneTests {
 
     // MARK: Criterion 2 — all six body states play
 
-    @Test func everyVariantHasPlayableFramesForAllSixStates() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyVariantHasPlayableFramesForAllSixStates() throws {
         let store = try Self.store()
         for id in store.manifest.characters.orderedVariantIDs {
             for state in BodyState.allCases {
@@ -65,7 +73,8 @@ struct RoomSceneTests {
     /// Asking for a seated character facing the camera is asking for art that
     /// was never drawn; the store falls back to the nearest side view rather
     /// than rendering nothing.
-    @Test func workingFacingUpOrDownFallsBackToASideView() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func workingFacingUpOrDownFallsBackToASideView() throws {
         let store = try Self.store()
         let id = store.manifest.characters.orderedVariantIDs[0]
         let up = store.frames(variant: id, state: .working, facing: .up)
@@ -74,7 +83,8 @@ struct RoomSceneTests {
         #expect(up == right)
     }
 
-    @Test func aCharacterCanEnterEverySixStateAndReportsIt() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aCharacterCanEnterEverySixStateAndReportsIt() throws {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: "main", store: store)
         var seen: Set<BodyState> = []
@@ -90,7 +100,8 @@ struct RoomSceneTests {
     /// Re-applying the state a character already has must not restart the
     /// animation. This is what keeps a burst of short calls from stuttering.
     /// [I2/I3]
-    @Test func reapplyingTheSameStateDoesNotRestartTheAnimation() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func reapplyingTheSameStateDoesNotRestartTheAnimation() throws {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: "main", store: store)
         character.advance(to: 0)
@@ -103,7 +114,8 @@ struct RoomSceneTests {
         #expect(character.currentTextureForTesting === before)
     }
 
-    @Test func aLoopingStateCyclesAndNeverRunsOffTheEnd() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aLoopingStateCyclesAndNeverRunsOffTheEnd() throws {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: "main", store: store)
         character.advance(to: 0)
@@ -120,7 +132,8 @@ struct RoomSceneTests {
 
     // MARK: Choreography
 
-    @Test func aSpawningCharacterWalksInFromTheEdgeAndSettles() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aSpawningCharacterWalksInFromTheEdgeAndSettles() throws {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: "main", store: store)
         character.advance(to: 0)
@@ -144,7 +157,8 @@ struct RoomSceneTests {
 
     /// The one dramatisation the event model licenses: walk, deliver, depart.
     /// All three states have to actually play, in that order.
-    @Test func theReportWalkPlaysWalkThenDeliverThenDepart() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theReportWalkPlaysWalkThenDeliverThenDepart() throws {
         let store = try Self.store()
         let character = Character(variant: "07", nameplate: "Explore", store: store)
         character.advance(to: 0)
@@ -170,7 +184,8 @@ struct RoomSceneTests {
         #expect(finished)
     }
 
-    @Test func aPlainDepartureJustWalksOff() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aPlainDepartureJustWalksOff() throws {
         let store = try Self.store()
         let character = Character(variant: "09", nameplate: "Explore", store: store)
         character.advance(to: 0)
@@ -188,7 +203,8 @@ struct RoomSceneTests {
 
     /// State the data reports while a script is running lands when the script
     /// ends, rather than fighting the choreography for the body.
-    @Test func dataStateArrivingMidWalkIsAppliedWhenTheWalkEnds() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func dataStateArrivingMidWalkIsAppliedWhenTheWalkEnds() throws {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: "main", store: store)
         character.advance(to: 0)
@@ -205,7 +221,8 @@ struct RoomSceneTests {
 
     // MARK: Badge
 
-    @Test func theBadgeShowsAndHidesWithTheSelection() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theBadgeShowsAndHidesWithTheSelection() throws {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: "main", store: store)
         #expect(!character.isBadgeVisible)
@@ -239,7 +256,8 @@ struct RoomSceneTests {
 
     // MARK: The room
 
-    @Test func theFloorAndWallAreChosenByMeasurementNotByFilename() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theFloorAndWallAreChosenByMeasurementNotByFilename() throws {
         let store = try Self.store()
         let tiles = store.roomTileChoice()
         #expect(store.manifest.room.builderTiles.contains(tiles.floor))
@@ -528,7 +546,8 @@ struct RoomSceneTests {
     /// The room draws real furniture only where the manifest names it. Anything
     /// unnamed stays a placeholder — the pack ships 339 singles by index and
     /// picking a desk-shaped one would be a guess. [I1]
-    @Test func everyPropRoleTheSceneDrawsIsOneTheManifestNames() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyPropRoleTheSceneDrawsIsOneTheManifestNames() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
         let nodes = scene.propNodesForTesting
@@ -544,7 +563,8 @@ struct RoomSceneTests {
     /// it, it would be on screen at `3x` — the zoom where a character is
     /// biggest and the frame is tightest — which is the one place I7 says a
     /// background detail must not be.
-    @Test func foregroundDecorationIsEntirelyOutsideTheContentBand() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func foregroundDecorationIsEntirelyOutsideTheContentBand() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
         let band = scene.contentBand

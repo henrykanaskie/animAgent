@@ -4,6 +4,10 @@ import Testing
 
 /// The manifest is the contract. If these break, either the art moved or the
 /// scene started assuming something the manifest does not promise.
+///
+/// `assets/manifest.json` is tracked, so most of these run anywhere. The three
+/// that go on to open the files the manifest names are gated on `SceneArt` —
+/// see `SceneFixtures.swift` for why the art may legitimately be absent.
 struct ManifestTests {
 
     @Test func theManifestLoadsAndDeclaresTheIntegerLadder() throws {
@@ -58,7 +62,8 @@ struct ManifestTests {
         }
     }
 
-    @Test func everyDeclaredFrameIsActuallyOnDisk() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyDeclaredFrameIsActuallyOnDisk() throws {
         let manifest = try SceneFixtures.manifest()
         var checked = 0
         for id in manifest.characters.orderedVariantIDs {
@@ -77,7 +82,8 @@ struct ManifestTests {
         #expect(checked > 0)
     }
 
-    @Test func everyBadgeInTheTableHasArtAndAFileOnDisk() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyBadgeInTheTableHasArtAndAFileOnDisk() throws {
         let manifest = try SceneFixtures.manifest()
         for badge in ToolBadge.allCases {
             let art = try #require(manifest.badges.art(badge), "no art for \(badge)")
@@ -120,7 +126,8 @@ struct ManifestTests {
 
     /// A role's content box has to be inside the canvas and non-empty, or the
     /// anchor derived from it points somewhere the art is not.
-    @Test func everyPropRoleHasAMeasuredBoxInsideItsCanvas() throws {
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyPropRoleHasAMeasuredBoxInsideItsCanvas() throws {
         let manifest = try SceneFixtures.manifest()
         let canvas = manifest.room.propCanvas
         for (role, prop) in manifest.room.propRoles {
