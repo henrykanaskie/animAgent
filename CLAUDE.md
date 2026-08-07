@@ -85,8 +85,12 @@ path. If attribution is ambiguous, the character does not appear.
 - **SpriteKit** for the room. Nearest-neighbour filtering on every texture.
 - **Network.framework** for the HTTP listener, in-process. One binary. No
   daemon, no Electron, no external server.
-- Swift Package Manager for the core modules; a thin Xcode app target on top so
-  the logic is testable from the command line.
+- Swift Package Manager throughout. `spriteroom` is an SPM executable target,
+  not an Xcode app target and not a `.app` bundle — the panel sets its own
+  activation policy at launch, so the bundle bought nothing. This line used to
+  promise "a thin Xcode app target on top"; it never existed, and the goal it
+  was there to serve — logic testable from the command line — is delivered by
+  the `SpriteRoomCore` boundary instead.
 
 ## Layout
 

@@ -389,6 +389,31 @@ def main():
             print("   " + m, file=sys.stderr)
         return 1
 
+    # The check above only catches paths we *declared* and could not find. With
+    # no art at all nothing gets declared, so `missing` is empty and the run
+    # looks like a success — and then overwrites the one art artefact that is
+    # tracked in git with an empty shell, exit 0, no complaint.
+    #
+    # That is exactly what a fresh clone is: `assets/` is gitignored, so a
+    # newcomer running the scripts in order before unpacking the packs destroys
+    # the manifest and gets a green exit for it. Refuse instead.
+    variants = manifest.get("characters", {}).get("variants", {})
+    badge_map = manifest.get("badges", {}).get("map", {})
+    empty = []
+    if not variants:
+        empty.append("no character variants")
+    if not badge_map:
+        empty.append("no badges")
+    if seen[0] == 0:
+        empty.append("no asset paths at all")
+    if empty:
+        print("error: refusing to write an empty manifest (%s)." % ", ".join(empty),
+              file=sys.stderr)
+        print("       The packs are not unpacked under assets/ — see README.md.",
+              file=sys.stderr)
+        print("       %s is left untouched." % rel(MANIFEST), file=sys.stderr)
+        return 2
+
     with open(MANIFEST, "w") as f:
         json.dump(manifest, f, indent=2, sort_keys=False)
         f.write("\n")

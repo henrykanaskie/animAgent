@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Asset import pass. Cuts the three purchased packs into what the scene loads.
+"""Asset import pass. Cuts the two purchased packs into what the scene loads.
+
+Two, not three: Modern User Interface was never purchased, so six of the seven
+tool badges have no source art and ship as placeholders. See README.md.
 
 docs/04-ART-DIRECTION.md: "Do the pass in a script committed to the repo, not by
 hand in an image editor. Hand-edited assets cannot be regenerated when the pack

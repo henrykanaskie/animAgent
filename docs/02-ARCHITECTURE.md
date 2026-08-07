@@ -104,11 +104,22 @@ control inside the panel; the panel stays a pure display surface.
 
 ## Configuration
 
-Port and selected project live in a small JSON file under
-`~/Library/Application Support/SpriteRoom/`. The app writes the matching hook
-block into `~/.claude/settings.json` on first run, after asking, and never
-touches project-level settings files — hooks registered once at user scope,
-routed by `cwd`, is the whole point.
+The app writes the hook block into `~/.claude/settings.json` on first run, after
+asking, and never touches project-level settings files — hooks registered once
+at user scope, routed by `cwd`, is the whole point.
+
+**Nothing else is persisted, and this paragraph used to claim otherwise.** It
+described port and selected project living in a JSON file under
+`~/Library/Application Support/SpriteRoom/`. No such file is read or written.
+The port is a command-line flag; the selected project lives in `ProjectRegistry`
+in memory and resets every launch. The only thing that directory ever holds is
+`settings-backup.json`, written while hooks are installed so the removal path
+can restore the user's file byte for byte.
+
+That is consistent with "no persistence of events — the world is live state and
+dies with the app" below. If a preference ever does need to survive a launch,
+add it deliberately; do not assume this file already exists because a document
+once said it did.
 
 ## What is deliberately absent
 
