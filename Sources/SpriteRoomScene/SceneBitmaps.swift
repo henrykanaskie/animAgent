@@ -5,9 +5,14 @@ import Foundation
 /// each of these is inspectable in a test.
 public enum SceneBitmaps {
 
-    /// Longest nameplate that still fits inside one seat's spacing. Ten glyphs
-    /// at 5+1 px is 59 px of text plus the plate, against 96 px of seat pitch.
-    public static let nameplateGlyphLimit = 10
+    /// Longest nameplate that still fits inside one seat's spacing.
+    ///
+    /// Twelve glyphs at 5+1 px is 71 px of text plus 6 px of plate = 77 px,
+    /// against 96 px of seat pitch and 80 px of delivery-slot pitch. It was ten
+    /// until M5; the two extra glyphs pay for the `:XXX` discriminator that
+    /// separates same-typed subagents, which is what S4 needs and which no
+    /// other channel in this art can supply.
+    public static let nameplateGlyphLimit = 12
 
     public static let nameplateInk = Bitmap.RGBA(238, 238, 244)
     public static let nameplatePlate = Bitmap.RGBA(26, 24, 32, 235)

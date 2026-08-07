@@ -286,9 +286,65 @@ public struct SceneDirector: Sendable {
 
     /// `agent_type` names the character. Its absence is the main agent — that
     /// is the identity rule, not a fallback. [CLAUDE.md, Identity model]
+    ///
+    /// **A subagent's plate also carries a discriminator from its `agent_id`,
+    /// always.** Three `general-purpose` subagents dispatched together all read
+    /// `GENERAL-P…` and are then distinguishable only by which seat they took —
+    /// M4 watched that happen live. With silhouette refuted at M0 (the best
+    /// six-variant subset differs by 7.3% of outline; several premades are
+    /// identical) and accent hue refuted at M2, the plate *text* is the only
+    /// channel left, so S4 fails for the most ordinary case there is unless the
+    /// text separates them.
+    ///
+    /// `agent_id` is the only field that actually distinguishes two subagents of
+    /// one type. It is real data we already hold, so showing three characters of
+    /// it is not fiction; an invented index or an assigned colour would be. [I1]
+    ///
+    /// **Always on, never conditional.** The alternative — show it only while
+    /// two visible agents share a type — was rejected: it mutates a plate that
+    /// is already on screen the moment a second agent arrives, which is a change
+    /// of *identity* under the user's eye, and it fires precisely when the room
+    /// got busy and they are looking at it. It would also flicker, since the
+    /// visible set changes on every arrival, departure and report walk. A stable
+    /// plate is worth more than the glyphs it costs. The main agent has no
+    /// `agent_id` and therefore no suffix, which is not an exception: absence of
+    /// `agent_id` *is* the main agent.
     static func nameplate(for presentation: Presentation) -> String {
-        if presentation.ref.agent == .mainThread { return "main" }
-        return presentation.agentType ?? "subagent"
+        guard case let .subagent(id) = presentation.ref.agent else { return "main" }
+        let type = presentation.agentType ?? "subagent"
+        guard let suffix = discriminator(id) else {
+            return PixelFont.standard.fit(type, limit: nameplateTypeGlyphs)
+        }
+        return PixelFont.standard.fit(type, limit: nameplateTypeGlyphs)
+            + String(nameplateSeparator) + suffix
+    }
+
+    /// Glyphs the type gets before the discriminator, out of
+    /// `SceneBitmaps.nameplateGlyphLimit`.
+    ///
+    /// The split is 8 + 1 + 3 = 12. Three characters rather than two because
+    /// two is not enough to be safe: over six same-typed agents, two hex
+    /// characters collide about 5.5% of the time and three about 0.4%, and a
+    /// collision here is exactly the failure S4 names. The separator earns its
+    /// glyph by telling the reader where the type stops — without it
+    /// `GENERAL3F` reads as one word. `:` is used because no `agent_type` ever
+    /// contains one, while `-` appears inside `general-purpose` itself.
+    static let nameplateTypeGlyphs = 8
+    static let nameplateSeparator: Swift.Character = ":"
+    static let nameplateDiscriminatorGlyphs = 3
+
+    /// The **last** three alphanumerics of `agent_id`, uppercased.
+    ///
+    /// The last rather than the first: every `agent_id` observed is `a` plus 16
+    /// hex characters, so a leading slice spends a third of its budget on a
+    /// constant. Taking from the end is also robust to any future prefix
+    /// convention, and it stays a plain slice of the real id rather than a hash
+    /// — someone comparing the plate against a transcript can see the same
+    /// characters there.
+    static func discriminator(_ agentID: String) -> String? {
+        let usable = agentID.filter { $0.isLetter || $0.isNumber }
+        guard !usable.isEmpty else { return nil }
+        return String(usable.suffix(nameplateDiscriminatorGlyphs)).uppercased()
     }
 
     private func note(_ list: inout [AgentRef], _ agent: AgentRef) {

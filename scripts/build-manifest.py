@@ -57,6 +57,47 @@ BADGE_NAMES = ("document", "magnifier", "terminal", "globe", "checklist", "plug"
                "question_mark")
 BADGE_LABELS = {"question_mark": "question mark"}
 
+# Accent hues, assigned rather than sampled. [M5]
+#
+# docs/04-ART-DIRECTION.md claims "one accent hue per variant, chosen for mutual
+# separation". Measured at M2, that claim was false of the art: the most
+# saturated pixel of all six selected premades lands inside a 30 degree arc and
+# variants 07 and 17 are hue-identical, because the generator dresses one body
+# in variations of one warm palette. Sampling the art therefore produces six
+# hues that do not separate, which is worse than useless for identity.
+#
+# These six are 60 degrees apart by construction, at HSV S=0.70 V=1.00. They are
+# not a claim about the sprite - they are the nameplate border colour, which is
+# drawn by the scene, not loaded from a file. Assignment is by manifest order so
+# it is stable across rebuilds. scripts/lint-palette.py enforces the separation
+# so the claim in the doc is checked rather than asserted.
+ACCENT_HUES = ["#FF884D", "#C4FF4D", "#4DFF88", "#4DC3FF", "#884DFF", "#FF4DC4"]
+
+# Prop roles. [M5]
+#
+# The pack ships 339 office singles named by index only - no layer names, no
+# slice names, no tags anywhere in 00_Modern_Office_Singles.ase (checked: one
+# unnamed layer, 339 unnamed frames). So a role cannot be read off a filename
+# and there is nothing to look up. Each of these was identified by *rendering
+# the contact sheet and looking at it*, which is what the standing rule asks
+# for: locate the actual PNG before you write it down. The index is recorded so
+# anyone can re-open the same file and disagree.
+#
+# Only the five roles the room actually places are listed. The other 334 singles
+# stay unidentified and stay out of the role map - a role nothing draws is an
+# invitation for the scene to guess. Monitors (121-133) and laptops (139-140)
+# are identifiable too, but a monitor has to stand on a desk surface and the art
+# carries no datum for where that surface is, so none is placed. [I1]
+PROP_ROLES = {
+    "desk":  {"index": 34,  "what": "plain office desk, side view, top slab plus two legs"},
+    "chair": {"index": 104, "what": "office chair, side view, backrest to the left - a "
+                                    "person on it faces right, which is the way every "
+                                    "seated character faces"},
+    "plant": {"index": 99,  "what": "small potted plant, floor standing"},
+    "board": {"index": 171, "what": "presentation board on a stand, floor standing, "
+                                    "chart on the face"},
+}
+
 
 def rel(p):
     return os.path.relpath(p, REPO).replace(os.sep, "/")
@@ -83,6 +124,34 @@ def content_top(path, w, h):
             if px[(y * w + x) * 4 + 3] > 127:
                 return y
     return 0
+
+
+def content_box(path):
+    """Tight bounding box of the opaque pixels: {x, y, w, h}, y down.
+
+    A Modern Office single is a 64x96 canvas with the object dropped into it
+    wherever it sat on the source sheet - the objects are *not* bottom-aligned
+    and not centred, and their positions differ from each other by tens of
+    pixels. So the scene cannot place one from the canvas alone. Recording the
+    measured box lets it put the object's own bottom-centre on a named point,
+    which is placement by measurement rather than by eyeballed offsets.
+    """
+    w, h, px = pnglite.load(path)
+    x0, y0, x1, y1 = w, h, -1, -1
+    for y in range(h):
+        for x in range(w):
+            if px[(y * w + x) * 4 + 3] > 127:
+                if x < x0:
+                    x0 = x
+                if x > x1:
+                    x1 = x
+                if y < y0:
+                    y0 = y
+                if y > y1:
+                    y1 = y
+    if x1 < 0:
+        return None
+    return {"x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1}
 
 
 def build_characters():
@@ -133,12 +202,22 @@ def build_characters():
         }
     if not variants:
         return None
+    for i, who in enumerate(sorted(variants)):
+        variants[who]["accent_hex"] = ACCENT_HUES[i % len(ACCENT_HUES)]
+        variants[who]["accent_provenance"] = "assigned"
     return {
         "canvas": {"w": 32, "h": 64},
         "anchor": {"px": [16, 64], "normalized": [0.5, 0.0],
                    "note": "bottom-centre; the character stands on this point"},
         "directions": ["right", "up", "left", "down"],
         "frame_rate": FPS,
+        "accent_note": "accent_hex is assigned, not sampled. The art's own most "
+                       "saturated pixels do not separate — all six selected premades "
+                       "land inside a 30 degree hue arc and two of them are "
+                       "hue-identical (measured at M2). These six are 60 degrees "
+                       "apart. The accent is drawn by the scene as the nameplate "
+                       "border; it is not a claim about any pixel in the sprite. "
+                       "scripts/lint-palette.py checks the separation.",
         "unsourceable_states": {
             "read": "no 'read a book' animation exists in Modern Interiors; "
                     "docs/04-ART-DIRECTION.md permits dropping it",
@@ -161,6 +240,29 @@ def build_room():
     props = listing("singles")
     if not builder and not props:
         return None
+
+    # Roles. Each one is re-derived from the file on disk: if the single is not
+    # there, the role is not written, and the manifest simply has one fewer role
+    # rather than a dangling name.
+    roles = {}
+    for role, spec in sorted(PROP_ROLES.items()):
+        path = os.path.join(base, "singles",
+                            "Modern_Office_Singles_%s_%d.png" % (SIZE, spec["index"]))
+        if not os.path.exists(path):
+            continue
+        box = content_box(path)
+        if box is None:
+            continue
+        roles[role] = {
+            "file": rel(path),
+            "single_index": spec["index"],
+            "provenance": "pack",
+            "identified_by": "rendered and inspected by eye at M5; the pack ships no "
+                             "names for its singles",
+            "what": spec["what"],
+            "content_box": box,
+        }
+
     return {
         "tile": {"w": 32, "h": 32},
         "anchor": {"px": [0, 0], "normalized": [0.0, 0.0], "note": "bottom-left of the tile"},
@@ -176,10 +278,15 @@ def build_room():
         "props": {
             "source": "Modern Office / 4_Modern_Office_singles/%s" % SIZE,
             "canvas": {"w": 64, "h": 96},
-            "identified": False,
-            "note": "The pack names singles by index only, so none of these is known to "
-                    "be a desk, chair or monitor without opening it. Identifying the "
-                    "handful the room layout needs is scene work, not import work.",
+            "identified": bool(roles),
+            "note": "The pack names singles by index only — no filenames, no layer or "
+                    "slice names in its .ase, no tags. The %d roles below were "
+                    "identified by rendering the singles and looking at them; the "
+                    "other %d files stay unidentified and are listed for completeness "
+                    "only. An object is placed by putting its measured content_box "
+                    "bottom-centre on a named point, because the singles are not "
+                    "bottom-aligned in their canvas." % (len(roles), len(props) - len(roles)),
+            "roles": roles,
             "files": props,
         },
     }

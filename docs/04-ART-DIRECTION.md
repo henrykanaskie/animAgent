@@ -247,7 +247,9 @@ So the rule becomes a **preprocessing pass**, not an authoring instruction:
 4. `scripts/lint-palette.py` runs over `assets/manifest.json` after processing.
    Thresholds unchanged: room under 25% saturation, every character carrying
    something above 55%, at least 40% value contrast between a character's
-   darkest pixel and the mean room value.
+   darkest pixel and the mean room value. **Added at M5, not a relaxation:** the
+   assigned accents must each clear 45% saturation and value 0.60, and no pair
+   may be within 40° of hue.
 
 Measured at M0, after the pass: room max saturation **0.183** against the 0.25
 ceiling, room mean value **0.785**, room darkest value **0.659**, weakest
@@ -310,40 +312,188 @@ The rule stays, because it is right about what reads at `1x`:
 - Verify by flattening two variants to solid black. If you cannot tell them
   apart, they are the same character in different colours.
 - One accent hue per variant, and that hue appears nowhere in the processed
-  room. This holds by construction: the room is clamped under 0.18 saturation
-  and every selected character carries something above 0.55.
+  room. This holds for the room by construction — it is clamped under 0.18
+  saturation — but **it did not hold between the variants, and at M5 the source
+  of the hue changed** (below).
 
 But the rule can no longer be the *only* thing carrying identity, because the
 source art will not let it. **The nameplate is now load-bearing, not
-decoration** — see Typography. If a six-agent room proves unreadable at the
-resulting zoom [S4], the honest fixes are a stronger nameplate or a
-per-character accent that reads at `1x`, not a demand for silhouettes this pack
-cannot supply. Commissioning custom bodies is the only way to satisfy the rule
-as originally written, and that is an M5-or-later decision with a real cost.
+decoration** — see Typography.
+
+### Accent hue is assigned, not sampled — corrected at M5
+
+Until M5 the scene took each variant's accent by sampling the most saturated
+pixel of its own art. M2 measured what that produces: **all six selected
+premades land inside a 30° arc of hue, 07 and 17 are hue-identical, and 07/19
+differ by 3.5°.** The generator dresses one body in variations of one warm
+palette, so there is no sixth hue in the art to find. The sentence "one accent
+hue per variant, chosen for mutual separation" was therefore false as written —
+it described an intention, not the files.
+
+The manifest now carries `characters.variants.<id>.accent_hex`, **six hues 60°
+apart**, assigned in manifest order. Two things make this not a violation of the
+verify-before-you-write rule:
+
+- The accent is not a pixel of the sprite. It is the nameplate border, which the
+  *scene* draws. Assigning it claims nothing about the artwork.
+- `scripts/lint-palette.py` now checks it: every variant must declare one, each
+  must clear 45% saturation and value 0.60, and **no pair may be closer than
+  40° in hue**. Measured on the shipped set the closest pair is 59.7°. The
+  sentence is enforced now instead of asserted.
+
+`TextureStore` keeps the sampling path as the fallback for a manifest without
+the field, so an older manifest still renders — with the weak channel it always
+had.
+
+### Same-typed agents: the nameplate carries a discriminator — M5
+
+M4 watched three `general-purpose` subagents dispatched together render three
+identical `GENERAL-P…` plates. With silhouette refuted here at M0 and accent hue
+refuted at M2, they were separable only by seat position — which is S4 failing
+for the most ordinary case there is.
+
+The plate for a subagent is now `TYPE:XXX`, where `XXX` is the **last three
+alphanumerics of `agent_id`**. `agent_id` is the only field that actually
+distinguishes two subagents of one type, and it is data we already hold — so
+this is not an invented label. [I1] The main agent has no `agent_id` and so has
+no suffix, which is the identity rule rather than an exception.
+
+Two calls worth recording, both made at M5:
+
+- **Always on, never conditional on a clash.** Showing the suffix only while two
+  visible agents share a type would rewrite a plate that is already on screen —
+  changing a character's *identity* under the user's eye, at exactly the moment
+  the room got busy and they are looking at it — and would flicker as the
+  visible set changed on every arrival, departure and report walk.
+- **8 + 1 + 3 = 12 glyphs**, up from a 10-glyph plate. Three discriminator
+  characters rather than two because two hex characters collide across six
+  agents about 5.5% of the time and three about 0.4%, and a collision here is
+  precisely the failure S4 names. The separator earns its glyph: without it
+  `GENERAL3F` reads as one word. `:` because no `agent_type` contains one, while
+  `-` appears inside `general-purpose` itself.
+
+Twelve glyphs is 77 px of plate against 96 px of seat pitch and 80 px of
+delivery-slot pitch, so neighbours' plates still cannot touch.
+
+Commissioning custom bodies remains the only way to satisfy the silhouette rule
+as originally written, and it is still a real cost. Nothing here needs it.
 
 ## Typography
 
 Confirmed: **no font ships with either pack** — no `.ttf`, no `.otf`, nothing
-font-shaped anywhere in the files. The previews use Arial Bold. Source a pixel
-font for nameplates. Arial at 8pt beside this art looks exactly as wrong as it
-sounds.
+font-shaped anywhere in the files. The previews use Arial Bold, and Arial at 8pt
+beside this art looks exactly as wrong as it sounds.
 
-This is no longer a finishing touch. Since silhouette cannot separate the cast
-(see above), the nameplate is a primary identity channel and needs to be legible
-at `1x`. Choose the font on that basis and check it at `1x` before adopting it.
+M2 wrote a 5×7 bitmap typeface as a constant (`PixelFont.standard`) rather than
+sourcing one, and left "source a pixel font" standing as a blocker.
+
+**At M5 that blocker is closed, and the answer is that the font we wrote is the
+one to keep.** Judged at `1x` in a six-agent room, which is the size and the
+crowd it has to survive: every glyph is on the pixel grid by construction, `0`
+carries a slash so it cannot be read as `O`, no two glyphs render identically
+(there is a test), and the plates separate six characters at the `1x` floor. A
+sourced `.ttf` would have to be hinted or rendered at exactly the right size to
+match that, would reintroduce antialiasing next to nearest-filtered art, and
+would add a licence to audit. A font authored here is licence-clean *by
+construction* — which was the only thing sourcing one was ever going to buy.
+
+It stays one constant and one call site, so replacing it is still local if
+anyone disagrees.
+
+## Prop roles — added at M5
+
+The Modern Office singles are named by **index only**. There is nothing to look
+up: `00_Modern_Office_Singles.ase` holds one unnamed layer and 339 unnamed
+frames, with no slices and no tags, and the two `Office_Design_*.aseprite` files
+are the same. So `room.props.identified` was `false` and the room drew hatched
+placeholder desks, which was the correct answer while nothing had been checked.
+
+At M5 five roles were identified the only way this pack allows — by rendering
+every single onto a contact sheet and looking at it. The role map records the
+index so anyone can reopen the same file and disagree:
+
+| Role | Single | What it is |
+|---|---|---|
+| `desk` | 34 | plain desk, top slab plus two legs |
+| `chair` | 104 | office chair, side view, backrest on the left — a person on it faces right, which is the only way this pack's sit animation faces |
+| `plant` | 99 | small potted plant, floor standing |
+| `board` | 171 | presentation board on a stand, floor standing |
+
+**Placement is by measurement.** The singles are 64×96 canvases with the object
+dropped in wherever it sat on the source sheet: they are neither bottom-aligned
+nor centred, and the desk's baseline is row 87 while the plant's is row 75 in
+canvases of identical size. So each role carries its measured `content_box`, and
+the scene puts that box's bottom-centre on a named point. A fixed offset would
+have been right for one file and 12 px into the floor for the next.
+
+**The other 334 singles stay unidentified**, and stay out of the role map. A
+role nothing draws is an invitation for the scene to guess. Monitors (121–133)
+and laptops (139–140) are identifiable too and were deliberately *not* added: a
+monitor has to stand on a desk's surface and the art carries no datum for where
+that surface is, so placing one would be an eyeballed offset dressed up as
+data. [I1]
+
+`SceneBitmaps.placeholderDesk` survives as the fallback for a manifest with no
+`desk` role, so the room still draws against an older manifest.
+
+## Composition — corrected at M5
+
+The camera used to fit the room's **nominal** box, `rows × tile` = 192 px. In the
+720×400 panel that had two consequences, both wrong for a surface whose whole
+job is a glance:
+
+- the ~132 px strip where characters, nameplates and badges actually live sat in
+  the middle third, with a flat band of wall above and a flat band of floor
+  below;
+- **`3x` was unreachable at any population**, because 192 × 3 = 576 does not fit
+  in 400. The top rung of the I6 ladder was dead code in the product.
+
+The camera now fits a **content band**, derived from the manifest rather than
+written down: from the bottom of the lowest nameplate (a character standing in
+the aisle) to the top of the tallest badge. One agent working now fills the
+panel at `3x`, which is the case a glance surface exists for.
+
+Two smaller calls in the same pass:
+
+- Vertical slack is biased *upwards*. The band's bottom is reserved for an aisle
+  character and most of the time nobody is there, so centring the band spends
+  the difference on empty foreground floor. The bias is clamped by the slack the
+  scale actually left, so it can never crop a plate or a badge.
+- The room is furnished: a desk and a chair at every seat, boards and plants
+  alternating along the back wall, and a row of plants in front of the walkway.
+  Everything went through the same desaturating import pass as the floor, so I7
+  still binds it.
+- **Decoration is placed outside the content band on purpose.** The foreground
+  row sits strictly below the band, which means it is *out of frame* at the
+  tightest fitting scale and only appears as the camera pulls back. That is I7's
+  "a background detail competes with the characters at exactly the zoom where
+  they are hardest to read" answered geometrically rather than by taste: at
+  `3x`, where the characters are biggest and there is no spare room, the
+  decoration is not on screen at all; at `1x`, where there is nothing else in
+  the foreground, it is.
+
+**Residual, stated rather than papered over.** At the `1x` floor — six agents —
+the band is 132 px of a 400 px panel and the bands above and below are still
+large. That is forced: with six characters the room is 640 px wide, which only
+fits at `1x`, and `1x` makes the band a third of the panel's height. The only
+real fixes are a panel whose height tracks the scale (which would make the
+drop-down jump as agents come and go) or a fractional zoom (which I6 forbids).
 
 ## Placeholders
 
-Mostly discharged. Characters, room and one badge are real art as of M0. What
-remains a placeholder:
+Mostly discharged. Characters, room, furniture and one badge are real art as of
+M5. What remains a placeholder:
 
 - **Six tool badges** — document, magnifier, terminal, globe, checklist, plug.
-  Blocked on the Modern User Interface pack. `scripts/generate-placeholders.py`
-  draws them at the real badge canvas inside the real bubble frame, so the swap
-  is a manifest edit with no code change and no layout change.
+  Blocked on the Modern User Interface pack, which is **still not purchased**.
+  `scripts/generate-placeholders.py` draws them at the real badge canvas inside
+  the real bubble frame, so the swap is a manifest edit with no code change and
+  no layout change. This is the one open purchase decision in the project.
 - A **fallback character set**, generated only on `--characters`. Not in the
   manifest. It exists so that a missing pack degrades to something that renders
   rather than to a crash.
+- `SceneBitmaps.placeholderDesk`, now reached only if a manifest declares no
+  `desk` role.
 
 The original instruction stands for anything else that goes missing: flat-colour
 blocks at the correct dimensions and the correct palette split, and make them

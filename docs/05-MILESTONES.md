@@ -18,7 +18,9 @@ Run real sessions: a simple one, one with parallel tool calls, one dispatching
 three subagents, one killed mid-`Bash`.
 
 **Exit:**
-- `fixtures/` contains the five files listed in `03-EVENT-MODEL.md`.
+- `fixtures/` contains the six files listed in `03-EVENT-MODEL.md`. It was five;
+  `tool-failure` was added once M0a proved a permission-denied call is closed by
+  nothing but the following `PostToolBatch`.
 - A short `docs/FINDINGS-M0.md` records: which events actually fired, whether
   `agent_id` appeared exactly where expected, observed `tool_use_id` overlap,
   and anything in `03-EVENT-MODEL.md` that reality contradicts.

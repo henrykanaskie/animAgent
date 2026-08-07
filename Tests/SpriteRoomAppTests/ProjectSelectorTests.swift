@@ -83,7 +83,7 @@ struct ProjectSelectorTests {
     /// menu bar item". That promise has to be true, and it has to still be
     /// true when the answer was no.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
-    func theHookItemOffersTheOppositeOfWhateverIsInstalled() {
+    func theHookItemOffersTheOppositeOfWhateverIsInstalled() throws {
         for installed in [true, false] {
             let selector = Self.selector()
             selector.hooksInstalled = installed
@@ -92,11 +92,16 @@ struct ProjectSelectorTests {
             selector.update(entries: Self.entries, selected: nil)
             selector.menuNeedsUpdate(selector.menu)
 
+            // The promise is only kept if the item is there *and* it is
+            // clickable. Both are requirements, not expectations: there is
+            // nothing left to check about a menu item that does not exist or
+            // that cannot be invoked.
             let item = try? #require(selector.menu.items.first { $0.title.contains("Hooks") })
             #expect(item?.title.hasPrefix(installed ? "Remove" : "Register") == true)
-            if let item, let action = item.action {
-                _ = item.target?.perform(action, with: item)
-            }
+
+            let action = try #require(item.action, "the Hooks item has no action")
+            let target = try #require(item.target, "the Hooks item has no target")
+            _ = target.perform(action, with: item)
             #expect(toggled == [installed])
         }
     }

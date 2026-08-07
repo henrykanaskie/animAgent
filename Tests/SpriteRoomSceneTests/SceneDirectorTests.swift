@@ -425,13 +425,85 @@ struct SceneDirectorTests {
 
     @Test func theNameplateIsTheAgentTypeAndItsAbsenceIsTheMainAgent() {
         var director = Self.director()
-        let child = Self.ref(.subagent("c1"))
+        let child = Self.ref(.subagent("a894ded5b0c4b18de"))
         let intents = director.apply([
             .agentAppeared(agent: child, agentType: "security-reviewer", lifecycle: .spawning)])
         guard case let .spawnCharacter(_, _, nameplate, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
-        #expect(nameplate == "security-reviewer")
+        #expect(nameplate.hasPrefix("SECURIT"))
+        #expect(nameplate.hasSuffix(":8DE"))
+
+        var mainDirector = Self.director()
+        let mainIntents = mainDirector.apply([
+            .agentAppeared(agent: Self.ref(.mainThread), agentType: nil, lifecycle: .active)])
+        guard case let .spawnCharacter(_, _, mainPlate, _) = mainIntents[0] else {
+            Issue.record("expected a spawn"); return
+        }
+        // No `agent_id`, so no discriminator. That is the identity rule, not a
+        // special case. [CLAUDE.md]
+        #expect(mainPlate == "main")
+    }
+
+    /// The failure this whole change exists for: three subagents of one type,
+    /// dispatched together, used to render three identical `GENERAL-P…` plates
+    /// and were then distinguishable only by seat. [M4, S4]
+    @Test func sameTypedSubagentsGetDifferentPlates() {
+        var director = Self.director()
+        let ids = ["a894ded5b0c4b18de", "a3b448736697956e7", "a793beae9fa532d0f"]
+        var plates: [String] = []
+        for id in ids {
+            let intents = director.apply([
+                .agentAppeared(agent: Self.ref(.subagent(id)),
+                               agentType: "general-purpose", lifecycle: .spawning)])
+            for case let .spawnCharacter(_, _, plate, _) in intents { plates.append(plate) }
+        }
+        #expect(plates.count == 3)
+        #expect(Set(plates).count == 3, "same-typed subagents share a plate: \(plates)")
+        #expect(plates.allSatisfy { $0.hasPrefix("GENERAL") })
+    }
+
+    /// The plate is decided once, at spawn, and never rewritten. Showing the
+    /// discriminator only when a twin turns up would change a character's
+    /// identity while the user is looking at it.
+    @Test func theDiscriminatorIsPresentEvenWhenTheTypeIsUnique() {
+        var director = Self.director()
+        let intents = director.apply([
+            .agentAppeared(agent: Self.ref(.subagent("a1c0ffee0badf00d1")),
+                           agentType: "Explore", lifecycle: .spawning)])
+        guard case let .spawnCharacter(_, _, plate, _) = intents[0] else {
+            Issue.record("expected a spawn"); return
+        }
+        #expect(plate == "EXPLORE:0D1")
+    }
+
+    @Test func theDiscriminatorIsTheTailOfTheAgentIDAndSurvivesOddIDs() {
+        // Every observed id is `a` + 16 hex, so a leading slice would spend a
+        // third of its budget on a constant.
+        #expect(SceneDirector.discriminator("a894ded5b0c4b18de") == "8DE")
+        #expect(SceneDirector.discriminator("a3b448736697956e7") == "6E7")
+        // Shorter than the budget, and punctuation, degrade rather than crash.
+        #expect(SceneDirector.discriminator("c1") == "C1")
+        #expect(SceneDirector.discriminator("x-y-z") == "XYZ")
+        #expect(SceneDirector.discriminator("---") == nil)
+        #expect(SceneDirector.discriminator("") == nil)
+    }
+
+    /// Whatever the type is, the plate must stay inside the glyph budget or two
+    /// neighbours' plates overlap and neither reads.
+    @Test func noPlateExceedsTheGlyphBudget() {
+        var director = Self.director()
+        for (index, type) in ["general-purpose", "Explore", "claude-code-guide",
+                              "statusline-setup", "a", ""].enumerated() {
+            let id = String(format: "a%016x", index + 0x1000)
+            let intents = director.apply([
+                .agentAppeared(agent: Self.ref(.subagent(id)),
+                               agentType: type, lifecycle: .spawning)])
+            for case let .spawnCharacter(_, _, plate, _) in intents {
+                #expect(plate.count <= SceneBitmaps.nameplateGlyphLimit,
+                        "\(plate) is \(plate.count) glyphs")
+            }
+        }
     }
 
     // MARK: Scale [I6]

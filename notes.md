@@ -711,3 +711,295 @@ parent→child link is implemented, with a retroactive path for the case where
    and not one to make while the user is asleep.
 3. A project stays in the selector at population 0 after its session ends;
    nothing ages it out.
+
+---
+
+## 2026-08-07 — M5, final art and polish
+
+Three criteria pass, one is an honest partial, and the partial is the one nobody
+can close without a purchase. 232 tests, clean rebuild from an empty `.build`
+with no warnings, all six fixtures replaying to zero open calls.
+
+**Criterion 1 is PARTIAL and must not be rounded up.** Six of the seven tool
+badges — document, magnifier, terminal, globe, checklist, plug — are still
+placeholders, and they stay placeholders. The pack that would supply them,
+LimeZu **Modern User Interface**, has never been purchased; Modern Interiors'
+`4_User_Interface_Elements` is an emote set with no application icon in it at
+all. The temptation was to reach for the cog or the hammer, and that is the same
+failure as inventing a badge for an unknown tool, so nothing was drawn. Only
+`question_mark` and `attention` are real art. **That is the whole shopping
+list.** Everything else — characters, room, badges' bubble frame, and now the
+furniture — is pack art, and every swap is a manifest edit.
+
+### S4 was failing, and the fix is a discriminator on the nameplate
+
+M0 refuted silhouette (best six-variant subset differs by 7.3% of outline;
+several premades are silhouette-identical). M2 refuted accent hue (all six
+sampled accents inside a 30° arc; 07 and 17 hue-identical). M4 watched the
+consequence live: three `general-purpose` subagents dispatched together all
+render `GENERAL-P…` and are separable only by seat. Three channels, all gone,
+for the most ordinary case there is.
+
+A subagent's plate is now `TYPE:XXX`, where `XXX` is the **last three
+alphanumerics of `agent_id`** — the only field that actually distinguishes two
+subagents of one type, and data we already hold, so it is not an invented
+label. [I1] The main agent has no `agent_id` and so carries no suffix, which is
+the identity rule rather than an exception.
+
+**Always on, not on clash.** Showing the suffix only while two visible agents
+share a type would rewrite a plate already on screen the moment the second one
+arrives — changing a character's *identity* under the user's eye, at exactly the
+moment the room got busy and they are looking at it — and it would flicker,
+because the visible set changes on every arrival, departure and report walk. A
+plate decided once at spawn and never rewritten is worth the glyphs.
+
+**8 + 1 + 3 = 12 glyphs**, up from a 10-glyph plate. Three discriminator
+characters rather than two because two hex characters collide across six agents
+about **5.5%** of the time and three about **0.4%**, and a collision here is
+precisely the failure S4 names. The separator earns its glyph — without it
+`GENERAL3F` reads as one word — and it is `:` because no `agent_type` contains
+one while `-` sits inside `general-purpose` itself. Twelve glyphs is 77 px
+against 96 px of seat pitch and 80 px of delivery-slot pitch, so neighbours'
+plates still cannot touch; there is a test for each.
+
+**The last three characters, not the first.** Every `agent_id` observed is `a`
+plus 16 hex, so a leading slice spends a third of its budget on a constant.
+
+### The S4 evidence, and what is honest about it
+
+Six characters — main plus five subagents, **three of them
+`general-purpose`** — at the `1x` floor, in the real 720×400 panel. Plates read
+`EXPLORE:A74`, `GENERAL…:FE2`, `MAIN`, `GENERAL…:0D1`, `GENERAL…:123`,
+`EXPLORE:E05`, each in a different accent border. Six distinct identities, no
+seat position required. Captured both offscreen through `SKRenderer` and from
+the **live panel's** `SKView` at Retina backing, where it is twice as crisp
+again.
+
+**The scenario driving it is derived, not captured, and it says so on every
+line.** A live six-agent capture needs a permission this environment refuses —
+both `--dangerously-skip-permissions` and writing a permissions block into a
+sandbox `settings.json` were blocked by the harness, so the M0a route was closed.
+So `tools/s4-scenario/make-scenario.py` clones **real payloads** from
+`fixtures/three-subagents.jsonl` under new `agent_id`s in the observed `a` + 16
+hex shape, rewrites `agent_type` and `tool_use_id`, and shifts the timestamps so
+the clones overlap. No event name, field or value shape is invented. Every line
+carries `"_synthetic": true` and `"_derived_from"`, and **it is not in
+`fixtures/`** — that directory is ground truth and stays that way. S4 is a claim
+about pixels at a zoom level, which a driver can produce honestly as long as it
+says what it is; the *legibility* it demonstrates is not synthetic.
+
+### Accent hue: assigned, and now enforced
+
+`04-ART-DIRECTION.md` claimed "one accent hue per variant, chosen for mutual
+separation". M2 measured that to be false of the art. The manifest now carries
+`accent_hex` per variant — **six hues 60° apart** — and `lint-palette.py` checks
+it: every variant must declare one, each must clear 45% saturation and value
+0.60, and no pair may be within 40°. Measured on the shipped set the closest
+pair is **59.7°**. Assigning is not a violation of verify-before-you-write: the
+accent is the nameplate border, which the *scene* draws, so it claims nothing
+about any pixel in a sprite. Sampling survives as the fallback for an older
+manifest.
+
+The negative test was run: a manifest with a duplicated hue, a desaturated one, a
+dark one, a missing one and an unparseable one produces **8 named violations and
+exit 1**.
+
+### Prop roles: five files, identified by looking at them
+
+`room.props.identified` was `false` because the pack names its singles by index
+only — and that is not laziness on the pack's part that a filename search could
+fix: `00_Modern_Office_Singles.ase` holds **one unnamed layer and 339 unnamed
+frames**, no slices, no tags, and both `Office_Design_*.aseprite` are the same. I
+wrote an Aseprite parser to check rather than assume. There is nothing to look
+up.
+
+So the roles were identified the only way this pack allows: render all 339 onto
+contact sheets and look. `desk` = single 34, `chair` = 104 (side view, backrest
+on the left, so a person on it faces right — the only way this pack's sit
+animation faces), `plant` = 99, `board` = 171. The index is recorded in the
+manifest so anyone can reopen the same file and disagree.
+
+**Placement is by measurement, and it had to be.** The singles are 64×96 canvases
+with the object dropped in wherever it sat on the source sheet: the desk's
+baseline is row 87 and the plant's is row 75, in canvases of identical size. So
+each role carries its measured `content_box` and the scene puts that box's
+bottom-centre on a named point. A fixed offset would have been right for one file
+and 12 px into the floor for the next — there is a test that fails if every prop
+ever shares a baseline, because at that point the box would be dead weight and
+someone would delete it.
+
+**334 singles stay unidentified and stay out of the role map.** Monitors
+(121–133) and laptops (139–140) are identifiable too and were deliberately left
+out: a monitor has to stand on a desk's *surface*, and the art carries no datum
+for where that surface is. Placing one would be an eyeballed offset dressed up as
+data. [I1]
+
+### Composition: the camera was framing the wrong rectangle
+
+The camera fitted the room's nominal box, `rows × tile` = 192 px. Two
+consequences, both wrong for a glance surface:
+
+- the ~132 px strip where characters, plates and badges actually live sat in the
+  middle third, flat wall above and flat floor below;
+- **`3x` was unreachable at any population** in the product's own panel, because
+  192 × 3 = 576 does not fit in 400. The top rung of the I6 ladder was dead code.
+
+The camera now fits a **content band** derived from the manifest — bottom of the
+lowest nameplate (an aisle character) to top of the tallest badge — so one agent
+working fills the panel at `3x`. Vertical slack is biased upwards, because the
+band's bottom is reserved for an aisle character and most of the time nobody is
+there; the bias is clamped by the slack the scale actually left, so it can never
+crop a plate or a badge, and there is a test that sweeps every scene height.
+
+And the room is furnished: desk and chair at every seat, boards and plants along
+the back wall, plants in front of the walkway.
+
+**One rule out of that is worth keeping.** The foreground row is placed
+*strictly below the content band*, which means it is out of frame at the tightest
+fitting scale and only appears as the camera pulls back. That is I7's warning —
+"a background detail competes with the characters at exactly the zoom where they
+are hardest to read" — answered geometrically instead of by taste: at `3x` the
+decoration is not on screen at all; at `1x`, where the foreground is otherwise a
+flat field of floor, it is.
+
+**Residual, stated rather than papered over.** At the `1x` floor the band is
+132 px of a 400 px panel and the bands above and below are still large. It is
+forced: six characters make the room 640 px wide, which only fits at `1x`, and
+`1x` makes the band a third of the panel. The only real fixes are a panel whose
+height tracks the scale — which would make the drop-down jump as agents come and
+go — or a fractional zoom, which I6 forbids.
+
+### The font blocker is closed, and the answer is to keep what we wrote
+
+M0 filed "source a licence-clean pixel font" as a blocker on S4; M2 wrote a 5×7
+bitmap typeface as a constant and left the blocker standing. Judged at `1x` in a
+six-agent room — the size and the crowd it has to survive — it reads: every
+glyph is on the pixel grid by construction, `0` carries a slash so it cannot be
+read as `O`, no two glyphs render identically (there is a test), and six plates
+separate at the floor. A sourced `.ttf` would reintroduce antialiasing next to
+nearest-filtered art and add a licence to audit, to buy the one thing a font
+authored here already has *by construction*. **Blocker closed, not deferred.**
+
+### Lint numbers, unchanged where they were unchanged
+
+Room max saturation **0.183** (ceiling 0.25), room mean value **0.785**, room
+darkest **0.659**, weakest character saturation **0.598** (floor 0.55), weakest
+value contrast **0.472** (floor 0.40), closest accent pair **59.7°** (floor 40°).
+480 room files, 502,276 visible pixels. Manifest regeneration is byte-identical
+across runs.
+
+### Housekeeping
+
+Three `tools/hook-logger` processes were still listening from earlier milestones
+— ports 8787, 8788 and one of mine — and 8787 is the app's own default, so a
+`--live` run would have failed to bind. All killed; no ports held now.
+
+`swift test` emits one warning, in `Tests/SpriteRoomAppTests/ProjectSelectorTests.swift:95`
+(a redundant `#require`). It predates M5 and was left alone rather than widening
+this diff. `swift build` is clean.
+
+### Still open
+
+1. **Buy LimeZu Modern User Interface**, or accept six placeholder badges. This
+   is the only thing standing between criterion 1 and a pass.
+2. Click the first-run consent dialog once (from M4).
+3. A project stays in the selector at population 0 after its session ends (from
+   M4).
+4. A live six-agent capture, if the permission to run one ever exists — it would
+   replace a derived scenario with ground truth, though it would not change the
+   pixels.
+
+---
+
+## 2026-08-07 — M5, final art and polish
+
+Three criteria pass, one is honestly partial. Clean build from an empty
+`.build`, zero warnings, 232 tests green (was 215), six fixtures replaying to
+zero open calls.
+
+**S4 was failing and now passes.** That was the point of this milestone. Three
+identity channels had been refuted in sequence — silhouette at M0, accent hue at
+M2, and M4 found the consequence live when three `general-purpose` subagents all
+rendered `GENERAL-P…` and were separable only by seat. Six agents now render at
+the 1x floor in the real panel as `EXPLORE:A74`, `GENERAL…:FE2`, `MAIN`,
+`GENERAL…:0D1`, `GENERAL…:123`, `EXPLORE:E05`, each in a distinct accent border,
+every one identified by its plate alone with no appeal to position.
+
+The two sub-decisions I left open were both answered with reasons I would have
+argued for myself:
+
+- **Always-on, not on-clash.** Conditional suffixes rewrite a plate already on
+  screen the moment a second same-typed agent arrives — a change of *identity*
+  under the user's eye, firing exactly when the room got busy and they are
+  looking at it. It would also flicker, since the visible set changes on every
+  arrival, departure and report walk. A plate decided once at spawn and never
+  rewritten is worth the glyphs. `MAIN` has no `agent_id` and so no suffix,
+  which is the identity rule rather than an exception to it.
+- **Three discriminator characters, not two.** Across six agents two hex
+  characters collide about 5.5% of the time and three about 0.4% — and a
+  collision is precisely the failure S4 names. Taken from the *last* three
+  alphanumerics because every observed `agent_id` is `a` + 16 hex, so a leading
+  slice would spend a third of its budget on a constant. Separator is `:`
+  because no `agent_type` contains one while `-` sits inside `general-purpose`.
+
+**Criterion 1 is partial for one reason only: six of seven tool badges have no
+source art.** The Modern User Interface pack was never purchased. Nothing was
+substituted — the pack's cog and hammer were left alone rather than pressed into
+service as a "document" and a "terminal", which would have been fiction with a
+plausible face on it. [I1] **Shopping list: LimeZu "Modern User Interface", one
+purchase.** `question_mark` and `attention` are real; everything else in the
+manifest now reads `provenance: pack`, including the furniture, and no filename
+or frame index appears anywhere in `Sources/`.
+
+**The lint gained a check rather than losing one.** Accent hues are now
+*assigned* — six values 60° apart — instead of sampled from art that M2 proved
+does not separate. Assigning is legitimate here precisely because the accent is
+the nameplate border the *scene* draws; it claims nothing about a sprite pixel.
+The lint now enforces a 40° minimum separation that the doc had merely asserted
+since M0, and it was verified to actually fail: a manifest with a duplicated hue,
+a desaturated one, a dark one, a missing one and an unparseable one yields eight
+named violations and exit 1. Measured: closest accent pair **59.7°**, room max
+saturation 0.183, weakest character saturation 0.598, weakest contrast 0.472.
+
+**Prop roles were identified by looking, not by guessing.** An Aseprite parser
+was written first to check whether the pack carried names — `00_Modern_Office_
+Singles.ase` has one unnamed layer, 339 unnamed frames, no slices and no tags, so
+there was nothing to look up. All 339 singles were rendered and inspected:
+`desk`=34, `chair`=104, `plant`=99, `board`=171, each carrying its **measured
+`content_box`**, because the singles are not bottom-aligned. 334 stay
+unidentified. Monitors are identifiable and were deliberately *not* placed — a
+monitor needs a desk-surface datum the art does not carry, and inventing one
+would put a screen floating at the wrong height forever.
+
+**The composition bug was worse than it looked.** The camera framed the room's
+nominal 192 px box, which not only pushed the live strip into the middle third
+but made **3x unreachable at any population** (192 × 3 > 400). It now fits a
+manifest-derived content band, so a single agent fills the panel at 3x. The rule
+worth keeping: foreground decoration sits strictly *below* the content band, so
+it is out of frame at the tightest zoom and appears only as the camera pulls
+back — I7's "remove the detail that competes with characters" answered
+geometrically rather than by taste. Residual, documented not papered over: at the
+1x floor the band is still 132 of 400 px, forced by integer zoom against a fixed
+panel height.
+
+**The font blocker is closed, not deferred.** Judged at 1x in the six-agent room,
+the written 5×7 bitmap face holds: on-grid by construction, slashed zero, no two
+glyphs identical, six plates separating at the floor. A sourced `.ttf` would buy
+licence-cleanliness we already have by construction and cost antialiasing beside
+nearest-filtered art.
+
+**One caveat flagged rather than buried: the S4 driver is derived, not
+captured.** A live six-agent capture needs a permission this environment
+refuses, which closed M0a's route. So the scenario clones *real* payloads from
+`fixtures/three-subagents.jsonl` under new `agent_id`s in the observed
+`a`+16-hex shape, rewriting only the identity and timestamp fields. Every line is
+flagged `"_synthetic": true` and it is deliberately **not** in `fixtures/` —
+that directory means captured, and it keeps meaning captured. The legibility it
+demonstrates is not synthetic.
+
+**A lesson about running four agents at once.** M5 killed two `hook-logger`
+processes believing them strays from an earlier milestone; one belonged to the
+concurrent capture agent, which rebound and recovered. No damage, but the general
+hazard is real: process cleanup is not scoped the way file edits are, and a
+disjoint *file* scope does not give you a disjoint *process* scope. Worth
+stating in a brief next time.

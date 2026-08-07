@@ -80,11 +80,17 @@ public struct RoomLayout: Sendable, Hashable {
         ScenePoint(x: Double(seatColumn(index) * tile + tile / 2), y: baselineY)
     }
 
-    /// The desk for a seat sits one tile to the character's right; every seated
-    /// character faces right at it. Uniform facing keeps the row readable and
-    /// keeps every seated sprite inside the two directions the pack drew.
+    /// Bottom-**centre** of the desk for a seat. It sits just to the character's
+    /// right; every seated character faces right at it. Uniform facing keeps the
+    /// row readable and keeps every seated sprite inside the two directions the
+    /// pack drew.
+    ///
+    /// The offset is seven eighths of a tile, which puts a 32 px desk's near
+    /// edge four pixels inside the body. That overlap is the point: at 32 px the
+    /// only cue that a character is sitting *at* a desk rather than beside one
+    /// is whether the desk's near edge crosses it.
     public func deskPosition(_ index: Int) -> ScenePoint {
-        ScenePoint(x: Double(seatColumn(index) * tile + tile * 3 / 4), y: baselineY)
+        ScenePoint(x: seatPosition(index).x + Double(tile) * 0.875, y: baselineY)
     }
 
     public var seatedFacing: Facing { .right }
@@ -162,6 +168,32 @@ public struct RoomLayout: Sendable, Hashable {
         ScenePoint(
             x: x >= width / 2 ? width + Double(tile) : -Double(tile),
             y: aisleY)
+    }
+
+    /// The vertical strip the camera actually has to frame: from the bottom of
+    /// the lowest nameplate to the top of the tallest badge.
+    ///
+    /// **Not `height`.** The room's nominal box is `rows * tile` = 192 px, and
+    /// the camera used to fit that. At the panel's 720×400 the consequence was
+    /// that the strip where anything happens — about 132 px of it — sat in the
+    /// middle third with a flat band of wall above and a flat band of floor
+    /// below, and `3x` was unreachable at any population because 192×3 does not
+    /// fit in 400. Framing the strip instead puts one working agent at `3x`
+    /// filling the panel, which is the case a glance surface exists for.
+    ///
+    /// Both arguments are measured from the manifest by the caller rather than
+    /// written down here, so a taller badge or a taller font changes the frame
+    /// instead of quietly overflowing it.
+    ///
+    /// - Parameters:
+    ///   - badgeTopAboveFeet: highest pixel a seated character can put on
+    ///     screen, relative to its own feet.
+    ///   - plateDropBelowFeet: how far a nameplate hangs below the feet.
+    public func contentBand(
+        badgeTopAboveFeet: Double, plateDropBelowFeet: Double
+    ) -> (bottom: Double, top: Double) {
+        // The lowest plate belongs to a character in the aisle, not at a desk.
+        (aisleY - plateDropBelowFeet, baselineY + badgeTopAboveFeet)
     }
 
     /// Bounding box in x of the given seats plus their desks, padded by a

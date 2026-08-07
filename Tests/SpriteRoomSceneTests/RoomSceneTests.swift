@@ -458,6 +458,125 @@ struct RoomSceneTests {
         #expect(seated + Character.Layer.nameplate > aisle, "no body may hide a nameplate")
     }
 
+    // MARK: Composition [M5]
+
+    /// The camera frames the strip where characters, plates and badges live,
+    /// not the room's nominal 192 px box. The strip has to be big enough to
+    /// contain everything a character can draw, or something gets cropped.
+    @Test func theContentBandContainsEveryPixelACharacterCanDraw() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        let band = scene.contentBand
+        let layout = scene.layout
+
+        for id in manifest.characters.orderedVariantIDs {
+            let variant = manifest.characters.variant(id)!
+            let badgeTop = layout.baselineY
+                + Double(manifest.characters.canvas.height - variant.headTopPx + 1)
+                + Double(manifest.badges.canvas.height)
+            #expect(badgeTop <= band.top, "variant \(id) badge pokes out of the frame")
+        }
+        let plateHeight = Double(SceneBitmaps.nameplate("MAIN", accent: .clear).height)
+        // The lowest plate belongs to a character standing in the aisle.
+        #expect(layout.aisleY - 2 - plateHeight >= band.bottom)
+        #expect(band.top - band.bottom < layout.height,
+                "framing the nominal room box is what left the middle-third composition")
+    }
+
+    /// `3x` was unreachable in the product's own panel: the nominal room box is
+    /// 192 px and 192 × 3 does not fit in 400. Framing the content band makes
+    /// the top rung of the ladder something the user can actually see. [I6]
+    @Test func oneAgentReachesThreeXInsideThePanel() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        scene.setViewport(CGSize(width: 720, height: 400))
+        var director = SceneDirector(manifest: manifest)
+        let ref = AgentRef(project: "/p", session: "s", agent: .mainThread)
+        scene.apply(director.apply([
+            .agentAppeared(agent: ref, agentType: nil, lifecycle: .active)]))
+        #expect(scene.currentScale == 3)
+    }
+
+    /// Whatever the camera prefers, it may never crop an identity. The
+    /// preference exists to stop the foreground filling with empty floor; it is
+    /// clamped by the slack the scale actually left.
+    @Test func theCameraNeverCropsTheContentBandAtAnyScale() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        let band = scene.contentBand
+        for height in stride(from: band.top - band.bottom, through: 600, by: 7.0) {
+            let y = scene.cameraY(band: band, sceneHeight: height)
+            #expect(y - height / 2 <= band.bottom + 1e-9, "plate cropped at \(height)")
+            #expect(y + height / 2 >= band.top - 1e-9, "badge cropped at \(height)")
+        }
+    }
+
+    /// Once there is slack, the frame is biased upwards — the band's bottom is
+    /// reserved for a character in the aisle, and most of the time nobody is
+    /// there.
+    @Test func spareVerticalRoomGoesToTheWallRatherThanTheForeground() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        let band = scene.contentBand
+        let tight = scene.cameraY(band: band, sceneHeight: band.top - band.bottom)
+        let loose = scene.cameraY(band: band, sceneHeight: 400)
+        #expect(loose > tight)
+    }
+
+    // MARK: Props [M5]
+
+    /// The room draws real furniture only where the manifest names it. Anything
+    /// unnamed stays a placeholder — the pack ships 339 singles by index and
+    /// picking a desk-shaped one would be a guess. [I1]
+    @Test func everyPropRoleTheSceneDrawsIsOneTheManifestNames() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        let nodes = scene.propNodesForTesting
+        #expect(!nodes.isEmpty)
+        // Every prop is drawn at the manifest's own prop canvas, so the anchor
+        // maths and the measured box are in the same units.
+        let canvas = CGSize(
+            width: manifest.room.propCanvas.width, height: manifest.room.propCanvas.height)
+        #expect(nodes.allSatisfy { $0.size == canvas })
+    }
+
+    /// Foreground decoration must sit entirely below the content band. Inside
+    /// it, it would be on screen at `3x` — the zoom where a character is
+    /// biggest and the frame is tightest — which is the one place I7 says a
+    /// background detail must not be.
+    @Test func foregroundDecorationIsEntirelyOutsideTheContentBand() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        let band = scene.contentBand
+        let ahead = scene.propNodesForTesting.filter { $0.position.y < band.bottom }
+        #expect(!ahead.isEmpty, "no foreground decoration was placed")
+        for node in ahead {
+            // The node's top edge, from its own anchor.
+            let top = node.position.y + (1 - node.anchorPoint.y) * node.size.height
+            let box = try #require(manifest.room.prop("plant")).contentBox
+            let inkTop = node.position.y + Double(box.height)
+            #expect(inkTop < band.bottom, "foreground prop reaches into the frame at 3x")
+            #expect(top >= inkTop)
+        }
+    }
+
+    /// A prop is placed by putting its measured content box's bottom-centre on
+    /// the target point. Checked against the desk, whose art sits 8 px above the
+    /// bottom of its canvas — a naive bottom-anchor would bury it in the floor.
+    @Test func aPropIsAnchoredOnItsContentBoxNotOnItsCanvas() throws {
+        let manifest = try SceneFixtures.manifest()
+        let desk = try #require(manifest.room.prop("desk"))
+        let canvas = manifest.room.propCanvas
+        let anchor = desk.anchor(inCanvas: canvas)
+        // The art does not reach the bottom of the canvas, so the anchor must
+        // sit above it.
+        #expect(desk.contentBox.y + desk.contentBox.height < canvas.height)
+        #expect(anchor.y > 0)
+        let bottomRow = Double(desk.contentBox.y + desk.contentBox.height - 1)
+        #expect(abs(anchor.y * Double(canvas.height)
+                    - Double(canvas.height - 1) + bottomRow) < 1e-9)
+    }
+
     @Test func theSceneOnlyEverSitsAtAnIntegerScale() async throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)

@@ -52,6 +52,15 @@ public struct Manifest: Sendable, Hashable {
         /// Distance in pixels from the top of the 32×64 frame to the top of the
         /// head. The badge hangs off this, not off the frame top.
         public let headTopPx: Int
+        /// The nameplate border colour, **assigned** in the manifest rather than
+        /// sampled from the sprite.
+        ///
+        /// M2 measured the art's own accents and they do not separate: all six
+        /// selected premades' most saturated pixels land inside a 30° arc and
+        /// two are hue-identical. `nil` only if the manifest omits it, in which
+        /// case `TextureStore` falls back to sampling and the weak channel is
+        /// back — so the lint requires the field.
+        public let accentHex: Bitmap.RGBA?
         public let states: [BodyState: StateAnimation]
 
         public func animation(_ state: BodyState) -> StateAnimation? { states[state] }
@@ -86,15 +95,50 @@ public struct Manifest: Sendable, Hashable {
         public func art(_ badge: ToolBadge) -> BadgeArt? { map[badge] }
     }
 
+    /// One single that has actually been identified, and where its art sits
+    /// inside the canvas.
+    ///
+    /// The Modern Office singles are 64×96 canvases with the object dropped in
+    /// wherever it sat on the source sheet — they are neither bottom-aligned nor
+    /// centred, and two objects' baselines differ by as much as 20 px. So the
+    /// scene places a prop by putting `contentBox`'s bottom-centre on a named
+    /// point. That is placement by measurement; a fixed offset would be a guess
+    /// that happened to work for one file.
+    public struct PropRole: Sendable, Hashable {
+        public let file: String
+        /// Opaque bounding box inside the canvas, y **down** (image space).
+        public let contentBox: Box
+
+        public struct Box: Sendable, Hashable {
+            public let x: Int, y: Int, width: Int, height: Int
+        }
+
+        /// SpriteKit anchor (y-up, fractions of the canvas) that puts the
+        /// content box's bottom-centre on the node's position.
+        public func anchor(inCanvas canvas: Size) -> Anchor {
+            guard canvas.width > 0, canvas.height > 0 else { return Anchor(x: 0.5, y: 0) }
+            let bottomRow = contentBox.y + contentBox.height - 1
+            return Anchor(
+                x: (Double(contentBox.x) + Double(contentBox.width) / 2) / Double(canvas.width),
+                y: Double(canvas.height - 1 - bottomRow) / Double(canvas.height))
+        }
+    }
+
     public struct Room: Sendable, Hashable {
         public let tile: Size
         public let builderTiles: [String]
         public let propCanvas: Size
         public let propFiles: [String]
-        /// `false` while the pack names its singles by index only. Until this
-        /// is true nothing here can be called a desk, so the scene draws
+        /// `false` while nothing among the singles has been identified. Until
+        /// this is true nothing here can be called a desk, so the scene draws
         /// placeholder furniture instead of guessing. [I1]
         public let propsIdentified: Bool
+        /// The singles that *have* been identified, keyed by role
+        /// (`"desk"`, `"chair"`, …). Empty is a legal state and means the scene
+        /// falls back to placeholders — the room still draws.
+        public let propRoles: [String: PropRole]
+
+        public func prop(_ role: String) -> PropRole? { propRoles[role] }
     }
 
     // MARK: Stored
@@ -219,6 +263,7 @@ public struct Manifest: Sendable, Hashable {
             variants[id] = CharacterVariant(
                 id: id,
                 headTopPx: (variantObject["head_top_px"] as? Int) ?? 0,
+                accentHex: Self.colour(variantObject["accent_hex"] as? String),
                 states: states)
         }
         guard !variants.isEmpty else { throw LoadError.malformed("characters.variants is empty") }
@@ -262,6 +307,20 @@ public struct Manifest: Sendable, Hashable {
         let builder = try Self.object(roomObject, "builder")
         let props = (roomObject["props"] as? [String: Any]) ?? [:]
         let propCanvasObject = (props["canvas"] as? [String: Any]) ?? [:]
+        var propRoles: [String: PropRole] = [:]
+        for (role, raw) in (props["roles"] as? [String: Any]) ?? [:] {
+            guard let entry = raw as? [String: Any],
+                  let file = entry["file"] as? String,
+                  let box = entry["content_box"] as? [String: Any],
+                  let x = box["x"] as? Int, let y = box["y"] as? Int,
+                  let w = box["w"] as? Int, let h = box["h"] as? Int,
+                  w > 0, h > 0 else {
+                throw LoadError.malformed("room.props.roles.\(role)")
+            }
+            propRoles[role] = PropRole(
+                file: file,
+                contentBox: PropRole.Box(x: x, y: y, width: w, height: h))
+        }
         self.room = Room(
             tile: try Self.size(roomObject, "tile", in: "room"),
             builderTiles: (builder["tiles"] as? [String]) ?? [],
@@ -269,7 +328,8 @@ public struct Manifest: Sendable, Hashable {
                 width: (propCanvasObject["w"] as? Int) ?? 64,
                 height: (propCanvasObject["h"] as? Int) ?? 96),
             propFiles: (props["files"] as? [String]) ?? [],
-            propsIdentified: (props["identified"] as? Bool) ?? false)
+            propsIdentified: (props["identified"] as? Bool) ?? false,
+            propRoles: propRoles)
         guard !self.room.builderTiles.isEmpty else {
             throw LoadError.malformed("room.builder.tiles is empty")
         }
@@ -290,6 +350,17 @@ public struct Manifest: Sendable, Hashable {
             throw LoadError.malformed("\(context).\(key) is missing w/h")
         }
         return Size(width: w, height: h)
+    }
+
+    /// `"#RRGGBB"` → colour. Anything else is `nil` rather than a guessed
+    /// value: a mis-parsed accent would silently reinstate the weak channel the
+    /// assigned hues exist to replace.
+    static func colour(_ text: String?) -> Bitmap.RGBA? {
+        guard var hex = text?.trimmingCharacters(in: .whitespaces) else { return nil }
+        if hex.hasPrefix("#") { hex.removeFirst() }
+        guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
+        return Bitmap.RGBA(
+            UInt8((value >> 16) & 0xFF), UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF))
     }
 
     /// Manifest anchors are recorded in image space (y down); SpriteKit anchors

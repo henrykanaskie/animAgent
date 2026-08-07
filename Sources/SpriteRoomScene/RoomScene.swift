@@ -90,6 +90,54 @@ public final class RoomScene: SKScene {
             }
         }
 
+        // Furniture, behind the desk row and against the wall. Deterministic
+        // positions, one per seat pitch, so the room does not rearrange itself
+        // as agents come and go — and far enough back that at `3x`, which
+        // frames a single seat, none of it is in shot.
+        //
+        // This is the composition fix, and it is deliberately thin. I7's
+        // standing instruction is that a background detail competes with the
+        // characters at exactly the zoom where they are hardest to read, so
+        // there are two kinds of object, they alternate, and both went through
+        // the same desaturating import pass as the floor.
+        let backRowY = layout.baselineY + Double(tile)
+        for seat in 0..<layout.seatCapacity {
+            let role = seat.isMultiple(of: 2) ? "board" : "plant"
+            let x = Double(layout.seatColumn(seat) * tile + tile / 2) + Double(tile) * 1.5
+            guard x < layout.width else { continue }
+            place(role: role, at: ScenePoint(x: x, y: backRowY))
+        }
+
+        // A row of plants in front of the walkway, **strictly below the content
+        // band**.
+        //
+        // The rule is the interesting part, not the plants. Decoration placed
+        // outside the band is invisible at the tightest fitting scale and comes
+        // into frame only as the camera pulls back — so it can never compete
+        // with a character at the zoom where characters are hardest to read,
+        // which is exactly what I7's "remove the background detail" warning is
+        // about, and it fills the foreground at `1x`, where there is otherwise a
+        // flat field of floor under everyone's nameplate.
+        if let plant = store.manifest.room.prop("plant") {
+            let y = contentBand.bottom - Double(plant.contentBox.height) - 4
+            for seat in 0..<layout.seatCapacity {
+                // Lined up under the back row, so the spacing reads as
+                // deliberate rather than scattered.
+                let x = layout.seatPosition(seat).x + Double(tile) * 1.5
+                guard x < layout.width else { continue }
+                place(role: "plant", at: ScenePoint(x: x, y: y))
+            }
+        }
+
+        // A chair at every seat, under whoever is sitting there. The side-view
+        // chair the pack ships has its backrest on the left, so a person on it
+        // faces right — which is the way every seated character faces, because
+        // the pack drew no front- or back-facing sit. Drawn a hair behind the
+        // body so the character is on the chair rather than in front of it.
+        for seat in 0..<layout.seatCapacity {
+            place(role: "chair", at: layout.seatPosition(seat), depthBias: -0.25)
+        }
+
         // A desk at every seat, occupied or not — an office has empty desks,
         // and drawing them only when someone arrives would make the room
         // rearrange itself as agents come and go.
@@ -107,18 +155,55 @@ public final class RoomScene: SKScene {
         // Aisle characters sit a whole row nearer the camera, so a character
         // walking past is always in front of the desks — which is why the
         // walkway exists.
-        let deskBitmap = SceneBitmaps.placeholderDesk()
-        if let deskTexture = store.texture(bitmap: deskBitmap, key: "desk:placeholder") {
-            for seat in 0..<layout.seatCapacity {
-                let node = SKSpriteNode(texture: deskTexture)
-                node.anchorPoint = CGPoint(x: 0, y: 0)
-                node.size = CGSize(width: deskBitmap.width, height: deskBitmap.height)
-                let position = layout.deskPosition(seat)
-                node.position = CGPoint(x: position.x, y: position.y)
-                node.zPosition = Character.Layer.rowDepth(position.y) + 0.5
-                world.addChild(node)
+        for seat in 0..<layout.seatCapacity {
+            let position = layout.deskPosition(seat)
+            if place(role: "desk", at: position, depthBias: 0.5) { continue }
+            // Nothing in the manifest is called a desk. Draw an obvious
+            // placeholder rather than picking a single that looks desk-shaped.
+            // [I1]
+            let bitmap = SceneBitmaps.placeholderDesk()
+            guard let texture = store.texture(bitmap: bitmap, key: "desk:placeholder") else {
+                continue
             }
+            let node = SKSpriteNode(texture: texture)
+            node.anchorPoint = CGPoint(x: 0.5, y: 0)
+            node.size = CGSize(width: bitmap.width, height: bitmap.height)
+            node.position = CGPoint(x: position.x, y: position.y)
+            node.zPosition = Character.Layer.rowDepth(position.y) + 0.5
+            world.addChild(node)
         }
+    }
+
+    /// Every furniture node drawn from an identified manifest role. Read-only;
+    /// nothing in the scene depends on it, and it exists so a test can check
+    /// what was placed rather than trusting that something was.
+    var propNodesForTesting: [SKSpriteNode] { propNodes }
+
+    private var propNodes: [SKSpriteNode] = []
+
+    /// Draws one identified prop with its **content box's** bottom-centre on
+    /// `point`. Returns false, having drawn nothing, when the manifest has no
+    /// such role.
+    ///
+    /// The anchor comes from the measured box rather than from the canvas,
+    /// because the Modern Office singles are 64×96 canvases with the object
+    /// dropped in wherever it sat on the source sheet: the desk's baseline is at
+    /// row 87 and the plant's at row 75, in canvases of identical size. Any
+    /// fixed offset would be right for one file and wrong for the next.
+    @discardableResult
+    private func place(role: String, at point: ScenePoint, depthBias: CGFloat = 0) -> Bool {
+        guard let prop = store.manifest.room.prop(role),
+              let texture = store.texture(path: prop.file) else { return false }
+        let canvas = store.manifest.room.propCanvas
+        let anchor = prop.anchor(inCanvas: canvas)
+        let node = SKSpriteNode(texture: texture)
+        node.anchorPoint = CGPoint(x: anchor.x, y: anchor.y)
+        node.size = CGSize(width: canvas.width, height: canvas.height)
+        node.position = CGPoint(x: point.x, y: point.y)
+        node.zPosition = Character.Layer.rowDepth(point.y) + depthBias
+        world.addChild(node)
+        propNodes.append(node)
+        return true
     }
 
     // MARK: Intents
@@ -213,16 +298,59 @@ public final class RoomScene: SKScene {
         applyScale()
     }
 
+    /// The strip the camera frames, derived from the manifest rather than
+    /// written down: the top is the highest pixel a seated character can put on
+    /// screen (its badge), the bottom is the lowest (an aisle character's
+    /// nameplate). Everything outside it is room, and room is what the wall and
+    /// the floor are for.
+    var contentBand: (bottom: Double, top: Double) {
+        let manifest = store.manifest
+        let headTop = manifest.characters.variants.values.map(\.headTopPx).min() ?? 0
+        // Character.init parks the badge at `canvasHeight - headTop + 1` above
+        // the feet, anchored at its own bottom.
+        let badgeTop = Double(manifest.characters.canvas.height - headTop + 1)
+            + Double(manifest.badges.canvas.height)
+        // SceneBitmaps.nameplate is glyphHeight + 6 tall, hung 2 px under the
+        // feet.
+        let plateDrop = Double(PixelFont.standard.glyphHeight + 6 + 2)
+        return layout.contentBand(
+            badgeTopAboveFeet: badgeTop, plateDropBelowFeet: plateDrop)
+    }
+
+    /// Where to point the camera vertically.
+    ///
+    /// The band has to *fit*, but centring it wastes the difference on the
+    /// floor: the band's bottom is reserved for a character standing in the
+    /// aisle, and most of the time nobody is, so the foreground is a flat field
+    /// of floor while the wall above is cropped. So the camera prefers to centre
+    /// the **seat row's** own content and is then clamped by however much slack
+    /// the scale actually left — which is zero at the tightest fitting scale, so
+    /// the preference never costs a clipped nameplate. Nothing about this
+    /// depends on who is on screen, so the camera does not jump when someone
+    /// steps into the aisle.
+    func cameraY(band: (bottom: Double, top: Double), sceneHeight: Double) -> Double {
+        let half = sceneHeight / 2
+        // The same plate drop, applied at the seat row instead of the aisle.
+        let seatedPlateBottom = layout.baselineY - (layout.aisleY - band.bottom)
+        let preferred = (seatedPlateBottom + band.top) / 2
+        let lowest = band.top - half        // any lower and the badge is cropped
+        let highest = band.bottom + half    // any higher and the plate is cropped
+        guard lowest <= highest else { return (band.bottom + band.top) / 2 }
+        return min(max(preferred, lowest), highest)
+    }
+
     private func applyScale() {
         let seats = charactersBySeat()
         let span = layout.occupiedSpan(seats: seats)
         let contentWidth = max(1, span.maxX - span.minX)
+        let band = contentBand
+        let contentHeight = max(1, band.top - band.bottom)
         let roomCamera = RoomCamera(manifest: store.manifest)
         let fitting = roomCamera.largestFittingScale(
             viewportWidth: Double(viewport.width),
             viewportHeight: Double(viewport.height),
             contentWidth: contentWidth,
-            contentHeight: layout.height)
+            contentHeight: contentHeight)
         let scale = max(roomCamera.minimumScale, min(preferredScale, fitting))
         effectiveScale = scale
 
@@ -237,7 +365,7 @@ public final class RoomScene: SKScene {
         let centreX = (span.minX + span.maxX) / 2
         camera_.position = CGPoint(
             x: (centreX).rounded(),
-            y: (layout.height / 2).rounded())
+            y: cameraY(band: band, sceneHeight: sceneSize.height).rounded())
     }
 
     /// Seat 0 is always in the frame even when empty: the main agent's anchor

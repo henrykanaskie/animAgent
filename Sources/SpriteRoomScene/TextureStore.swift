@@ -133,25 +133,30 @@ public final class TextureStore {
 
     // MARK: Accent
 
-    /// The variant's own accent hue, measured from its art.
+    /// The variant's accent, from `accent_hex` in the manifest.
     ///
-    /// I7 guarantees every selected character carries something above 0.55
-    /// saturation and the processed room carries nothing above 0.18, so the
-    /// most saturated pixel in a character's first idle frame is its accent by
-    /// construction. Sampling it beats hard-coding a palette that would drift
-    /// from the art the moment the cast changes.
+    /// **Assigned, not sampled, and that is the point.** The obvious
+    /// implementation — take the most saturated pixel of the sprite — is what
+    /// this used to do, and M2 measured the result: all six selected premades'
+    /// accents land inside a 30° arc, 07 and 17 are hue-identical, and 07/19
+    /// differ by 3.5°, because the generator dresses one body in variations of
+    /// one warm palette. A second identity channel that does not separate is
+    /// worse than none, because it looks like one.
     ///
-    /// **It is a weak channel and should not be relied on.** Measured across
-    /// the M0 cast, all six accents land inside a 30° arc of hue — 07 and 17
-    /// are hue-identical, and 07/19 and 17/19 differ by 3.5° — because the
-    /// generator dresses one body in variations of the same warm palette. The
-    /// nameplate *text* is what separates the cast; the border is a second
-    /// glance, not a first one. See the M2 report.
+    /// So the manifest carries six hues 60° apart and this reads them. The
+    /// accent is drawn as the nameplate border — a colour the *scene* puts on
+    /// screen — so assigning it is not a claim about any pixel in the sprite,
+    /// and `scripts/lint-palette.py` checks the separation rather than
+    /// asserting it.
     ///
-    /// This wants to be `accent_hex` in the manifest, chosen for mutual
-    /// separation rather than sampled — an art-director call, not a scene one.
+    /// Sampling survives only as the fallback for a manifest that predates the
+    /// field, so a room built against an older manifest still draws.
     public func accent(variant: String) -> Bitmap.RGBA {
         if let cached = accents[variant] { return cached }
+        if let assigned = manifest.characters.variant(variant)?.accentHex {
+            accents[variant] = assigned
+            return assigned
+        }
         var best = Bitmap.RGBA(220, 220, 230)
         var bestSaturation = -1.0
         if let path = manifest.characters.variant(variant)?

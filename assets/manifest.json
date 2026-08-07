@@ -42,6 +42,7 @@
       "down"
     ],
     "frame_rate": 8,
+    "accent_note": "accent_hex is assigned, not sampled. The art's own most saturated pixels do not separate \u2014 all six selected premades land inside a 30 degree hue arc and two of them are hue-identical (measured at M2). These six are 60 degrees apart. The accent is drawn by the scene as the nameplate border; it is not a claim about any pixel in the sprite. scripts/lint-palette.py checks the separation.",
     "unsourceable_states": {
       "read": "no 'read a book' animation exists in Modern Interiors; docs/04-ART-DIRECTION.md permits dropping it",
       "attention": "badge only, by design \u2014 no honest body animation exists [I1]"
@@ -286,7 +287,9 @@
               ]
             }
           }
-        }
+        },
+        "accent_hex": "#FF884D",
+        "accent_provenance": "assigned"
       },
       "07": {
         "provenance": "pack",
@@ -527,7 +530,9 @@
               ]
             }
           }
-        }
+        },
+        "accent_hex": "#C4FF4D",
+        "accent_provenance": "assigned"
       },
       "09": {
         "provenance": "pack",
@@ -768,7 +773,9 @@
               ]
             }
           }
-        }
+        },
+        "accent_hex": "#4DFF88",
+        "accent_provenance": "assigned"
       },
       "10": {
         "provenance": "pack",
@@ -1009,7 +1016,9 @@
               ]
             }
           }
-        }
+        },
+        "accent_hex": "#4DC3FF",
+        "accent_provenance": "assigned"
       },
       "17": {
         "provenance": "pack",
@@ -1250,7 +1259,9 @@
               ]
             }
           }
-        }
+        },
+        "accent_hex": "#884DFF",
+        "accent_provenance": "assigned"
       },
       "19": {
         "provenance": "pack",
@@ -1491,7 +1502,9 @@
               ]
             }
           }
-        }
+        },
+        "accent_hex": "#FF4DC4",
+        "accent_provenance": "assigned"
       }
     }
   },
@@ -1667,8 +1680,62 @@
         "w": 64,
         "h": 96
       },
-      "identified": false,
-      "note": "The pack names singles by index only, so none of these is known to be a desk, chair or monitor without opening it. Identifying the handful the room layout needs is scene work, not import work.",
+      "identified": true,
+      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 4 roles below were identified by rendering the singles and looking at them; the other 335 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas.",
+      "roles": {
+        "board": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_171.png",
+          "single_index": 171,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye at M5; the pack ships no names for its singles",
+          "what": "presentation board on a stand, floor standing, chart on the face",
+          "content_box": {
+            "x": 2,
+            "y": 46,
+            "w": 60,
+            "h": 46
+          }
+        },
+        "chair": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_104.png",
+          "single_index": 104,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye at M5; the pack ships no names for its singles",
+          "what": "office chair, side view, backrest to the left - a person on it faces right, which is the way every seated character faces",
+          "content_box": {
+            "x": 4,
+            "y": 42,
+            "w": 24,
+            "h": 46
+          }
+        },
+        "desk": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_34.png",
+          "single_index": 34,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye at M5; the pack ships no names for its singles",
+          "what": "plain office desk, side view, top slab plus two legs",
+          "content_box": {
+            "x": 0,
+            "y": 64,
+            "w": 32,
+            "h": 24
+          }
+        },
+        "plant": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_99.png",
+          "single_index": 99,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye at M5; the pack ships no names for its singles",
+          "what": "small potted plant, floor standing",
+          "content_box": {
+            "x": 0,
+            "y": 40,
+            "w": 32,
+            "h": 36
+          }
+        }
+      },
       "files": [
         "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_1.png",
         "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_10.png",

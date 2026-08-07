@@ -73,6 +73,26 @@ struct NameplateTests {
         #expect(widest.width <= layout.seatSpacingTiles * layout.tile)
     }
 
+    /// Two subagents can stop within a second of each other and both walk to
+    /// the delivery row, so the slot pitch has to clear the widest plate — and
+    /// the plate got wider at M5 to carry the discriminator.
+    @Test func theWidestPlateAlsoFitsInsideTheDeliverySlotPitch() {
+        let widest = SceneBitmaps.nameplate(
+            String(repeating: "W", count: SceneBitmaps.nameplateGlyphLimit),
+            accent: Bitmap.RGBA(255, 0, 0))
+        #expect(Double(widest.width) <= RoomLayout.deliverySlotPitch)
+    }
+
+    /// The budget is spent as 8 glyphs of type + separator + 3 of discriminator.
+    /// If those stop adding up to the limit, one of the three is being silently
+    /// clipped.
+    @Test func theGlyphBudgetAddsUp() {
+        #expect(SceneDirector.nameplateTypeGlyphs
+                + 1
+                + SceneDirector.nameplateDiscriminatorGlyphs
+                == SceneBitmaps.nameplateGlyphLimit)
+    }
+
     @Test func thePlateHasABorderInTheAccentHueAndInkInTheMiddle() {
         let accent = Bitmap.RGBA(255, 64, 0)
         let plate = SceneBitmaps.nameplate("MAIN", accent: accent)

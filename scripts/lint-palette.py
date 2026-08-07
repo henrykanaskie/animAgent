@@ -42,6 +42,20 @@ ROOM_MAX_SAT = 0.25
 CHAR_MIN_SAT = 0.55
 MIN_VALUE_CONTRAST = 0.40
 
+# Accent separation, added at M5.
+#
+# docs/04-ART-DIRECTION.md has always said "one accent hue per variant, chosen
+# for mutual separation". Until M5 that was an assertion, and M2 measured it to
+# be false of the source art: all six selected premades' most saturated pixels
+# land inside a 30 degree arc and two of them are hue-identical. The manifest
+# now carries an assigned `accent_hex` per variant instead, and this is the
+# check that keeps the sentence true. A per-variant accent that does not
+# separate is not a second identity channel, it is a decoration that looks like
+# one, which is worse.
+MIN_ACCENT_HUE_SEPARATION = 40.0   # degrees, minimum over every pair
+MIN_ACCENT_SAT = 0.45
+MIN_ACCENT_VALUE = 0.60
+
 # Pixels below this alpha are ignored. A near-transparent pixel is composited
 # most of the way back to whatever is behind it, so judging the palette on it
 # would fail files over colour the viewer never sees.
@@ -56,6 +70,19 @@ def hsv(r, g, b):
     if v is None:
         v = _hsv_cache[key] = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
     return v
+
+
+def parse_hex(s):
+    """"#RRGGBB" -> (r, g, b), or None if it is not that."""
+    if not isinstance(s, str):
+        return None
+    t = s.strip().lstrip("#")
+    if len(t) != 6:
+        return None
+    try:
+        return tuple(int(t[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
 
 
 def scan(path):
@@ -196,6 +223,47 @@ def main(argv=None):
                 % (name, vmin_v, room_mean_val, contrast * 100,
                    MIN_VALUE_CONTRAST * 100, dark_file))
 
+    # --- accents ----------------------------------------------------------
+    accents = {}
+    for name in sorted(variants):
+        hexes = variants[name].get("accent_hex")
+        if hexes is None:
+            failures.append("accent: variant %s declares no accent_hex" % name)
+            continue
+        parsed = parse_hex(hexes)
+        if parsed is None:
+            failures.append("accent: variant %s has an unreadable accent_hex %r"
+                            % (name, hexes))
+            continue
+        accents[name] = (hexes, parsed)
+
+    for name, (hexes, (r, g, b)) in sorted(accents.items()):
+        h, s, v = hsv(r, g, b)
+        if s < MIN_ACCENT_SAT:
+            failures.append("accent: variant %s accent %s is only %.0f%% saturated "
+                            "(needs %.0f%%) — it will not read as an accent at 1x"
+                            % (name, hexes, s * 100, MIN_ACCENT_SAT * 100))
+        if v < MIN_ACCENT_VALUE:
+            failures.append("accent: variant %s accent %s has value %.2f (needs %.2f) — "
+                            "too dark to read against the nameplate plate"
+                            % (name, hexes, v, MIN_ACCENT_VALUE))
+
+    worst_pair = None
+    names = sorted(accents)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            ha = hsv(*accents[a][1])[0] * 360.0
+            hb = hsv(*accents[b][1])[0] * 360.0
+            d = abs(ha - hb)
+            d = min(d, 360.0 - d)
+            if worst_pair is None or d < worst_pair[0]:
+                worst_pair = (d, a, b)
+            if d < MIN_ACCENT_HUE_SEPARATION:
+                failures.append(
+                    "accent separation: variants %s (%s) and %s (%s) are %.1f degrees "
+                    "apart in hue, under the %.0f degree floor — they do not separate"
+                    % (a, accents[a][0], b, accents[b][0], d, MIN_ACCENT_HUE_SEPARATION))
+
     # Anything declared under assets/ that did not resolve is a missing asset,
     # not prose. Fail loudly rather than measuring a smaller set than declared.
     for s in sorted(prose):
@@ -221,6 +289,15 @@ def main(argv=None):
               % (worst_sat[1], worst_sat[0], CHAR_MIN_SAT))
         print("            weakest contrast    %.3f (variant %s, floor %.2f)"
               % (worst_con[5], worst_con[0], MIN_VALUE_CONTRAST))
+    print("accents:    %d assigned" % len(accents))
+    if worst_pair is not None:
+        print("            closest pair     %.1f deg  (%s vs %s, floor %.0f)"
+              % (worst_pair[0], worst_pair[1], worst_pair[2], MIN_ACCENT_HUE_SEPARATION))
+    if args.verbose:
+        for name in sorted(accents):
+            h, s, v = hsv(*accents[name][1])
+            print("            %-6s %-8s hue %5.1f  sat %.2f  val %.2f"
+                  % (name, accents[name][0], h * 360, s, v))
 
     if failures:
         print("\nI7 palette lint FAILED — %d violation(s):" % len(failures), file=sys.stderr)
