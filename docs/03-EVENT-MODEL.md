@@ -83,16 +83,27 @@ rule. It creates the session and its main agent and has no other effect.
 | `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. |
 | `PermissionRequest` | **An agent-level marker, and nothing else.** Records for that agent: a permission gate is open, plus the set of `tool_use_id`s it held open at that instant. No join by name, no join by recency, no `tool_use_id` read from the event — it carries none. Emits no delta and does not clear the attention badge. See "The interactively denied tool call" below. |
 | `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
-| `Notification` | Main agent raises an attention badge; emits `attentionChanged`. Badge only — no body animation exists for this and repurposing one would be fiction. [I1] Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and no `agent_id`, so it can only mean the main thread. |
+| `Notification` | Raises an attention badge; emits `attentionChanged`. Badge only — no body animation exists for this and repurposing one would be fiction. [I1] Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and **no `agent_id`, not even when the gate belongs to a subagent** — so it names no character, and which one it badges is decided by the rule under "Who the badge lands on" below. |
 
 **Notification timing, because the badge is a timed thing.** `permission_prompt`
 arrives 6.0 s after the permission gate opens, not instantly (three occurrences,
-6.014 / 6.006 / 6.032 s after `PermissionRequest`). `idle_prompt` arrives
-**60.02 s after `Stop`** and fires exactly **once** — a session left idle a
-further 145 s produced no second one. So an `idle_prompt` badge means "this has
-been waiting a while", not "this is waiting"; `Stop` with an empty open-call set
-already says the latter, immediately and for free. Nothing may drive a
-"currently idle" state off `idle_prompt`, and nothing may expect a repeat.
+6.014 / 6.006 / 6.032 s after `PermissionRequest`; a fourth at M6c, 6.016 s).
+`idle_prompt` arrives **60.02 s after `Stop`** and fires once per **idle
+stretch**. So an `idle_prompt` badge means "this has been waiting a while", not
+"this is waiting"; `Stop` with an empty open-call set already says the latter,
+immediately and for free. Nothing may drive a "currently idle" state off
+`idle_prompt`.
+
+**Once per stretch, not once per session.** This document used to say "exactly
+once — a session left idle a further 145 s produced no second one". The
+measurement is right and the non-repeat *within* one stretch is right; the word
+"once" read as once per session, and that is wrong.
+`fixtures/denial-then-work.jsonl` has **two**, at t=99.783 and t=171.469, 60.03 s
+and 60.02 s after the `Stop`s at 39.751 and 111.444, with real work in between.
+It fires once per `Stop` that is followed by 60 s of quiet. Nothing may expect a
+repeat *inside* a stretch, and nothing may assume at-most-one across a session —
+in particular, badge state must be idempotent in both directions rather than
+one-shot.
 
 ## The attention badge
 
@@ -114,6 +125,54 @@ per-type icon would need art nobody has drawn. An unrecognised
 `notification_type` is carried verbatim and still badges, which is the
 question-mark badge's reasoning on a second axis — we know an alert fired, we do
 not know which kind, and the honest generic is not a guess.
+
+### Who the badge lands on
+
+**A `Notification` names no character.** It carries no `agent_id` — and M6c
+settled that this is true even when the gate belongs to a subagent, which is the
+case that made the original rule fiction. In `fixtures/subagent-permission.jsonl`
+a `general-purpose` subagent's `Bash` hits the gate, the `PermissionRequest`
+carries `agent_id: ab2378e6a85dea269`, and the `permission_prompt`
+`Notification` 6.016 s later carries none at all. Read through the identity rule
+alone the second event is a main-thread event, so **the main character said
+"needs your permission" while the agent actually blocked was a subagent** — and
+worse, in that capture the main thread was genuinely working, inside a
+synchronous `Agent` call. That is the room asserting something the data does not
+say. [I1]
+
+The marker ADR-001 introduced records exactly which agents have an open gate, so
+the badge is attributed from it rather than from the notification's silence:
+
+| `notification_type` | Badged |
+|---|---|
+| `permission_prompt`, ≥1 agent in the session marked with an open gate | **every marked agent** |
+| `permission_prompt`, no agent marked | the main thread |
+| `idle_prompt`, or anything unrecognised | the main thread |
+
+**Every marked agent, not "the" marked agent.** Concurrent gates are real and
+captured: `fixtures/concurrent-permission-gates.jsonl` has two subagents' gates
+open together for **31.8 s**. Each of those agents genuinely is waiting on a
+human, so each badge is true, and a rule that picked one of them would have to
+invent a reason. The gates are on different `agent_id`s, which is exactly what a
+per-agent mark handles and a session-level flag could not.
+
+**The no-mark fallback is not a corner case, it is the ordinary path.** For a
+main-thread gate the main thread *is* the marked agent, so this table changes
+nothing about the required fixtures. And when nothing is marked at all — a
+session where `PermissionRequest` never arrived — the notification still
+happened and nothing tells us whose it is; the main agent is the honest default,
+which is the same fallback this document already takes for an unlinked subagent.
+[I1]
+
+**`idle_prompt` is about the session, not about a gated call.** It fires 60 s
+after a `Stop`, when nothing is being asked of anyone in particular, so it goes
+to the main thread whatever is marked. An unrecognised `notification_type` goes
+the same way for the same reason: we know an alert fired, we do not know it is a
+gate, and assuming one would be a guess.
+
+Ahead of all of it sits the identity rule: if a `Notification` ever *does* carry
+an `agent_id`, that answers the question and no inference is wanted. The
+decision lives in exactly one place, `WorldModel.attentionTargets(for:of:resolved:)`.
 
 ### When it clears
 
@@ -139,6 +198,16 @@ main thread's badge. Without that restriction an async subagent churning
 is genuinely still at a dialog — `fixtures/three-subagents.jsonl` is full of
 exactly those interleavings — and so would the phantom `SubagentStop` the TUI's
 suggestion helper emits on every interactive turn.
+
+**The rule is unchanged now that a badge can sit on a subagent**, because it was
+already agent-scoped rather than session-scoped. A gated subagent's badge clears
+on *that subagent's* next consumed event, which on the approve path is the gated
+call's own `PostToolUse`: **5.525 s** in `fixtures/subagent-permission.jsonl`,
+against the 1.81 s the main-thread approve path measures — the difference is
+when the close landed, not a different rule. Main-thread traffic does not clear
+it, which is the same restriction read in the other direction, and it is what
+lets `fixtures/concurrent-permission-gates.jsonl` answer one of two open gates
+and take down exactly one of the two badges.
 
 **Three kinds do not clear it.** `Notification` itself; anything `unhandled`,
 which by the standing rule changes nothing at all; and `PermissionRequest`,
@@ -244,18 +313,13 @@ allowed to depend on that, because a `*` registration written by hand, or a
 future release that widens what a registration covers, would deliver them
 anyway.
 
-**`PermissionRequest` is consumed but not yet registered**, and until it is,
-the deadline rule below can only fire for a session whose hooks were installed
-by hand or by the capture rig. That gap is deliberate rather than an oversight:
-the registration shape for this event has never been captured — the fixtures
-came from a rig that registered every event name at once, and the repo does not
-record which matcher form each one answered to — and this project's standing
-rule is that a registration shape is captured, not guessed
-(*"Do not add a matcher to it without re-capturing and confirming it still
-fires"*). Adding a wrong one produces a hook that silently never fires, which
-looks exactly like a working install. A capture settling it is in flight; when
-it lands, the entry goes into `HookInstaller.events` and
-`.claude/settings.example.json` together and this paragraph goes away.
+**`PermissionRequest` is registered**, with matcher `*`, in
+`HookInstaller.events` and `.claude/settings.example.json` together — that is the
+shape it was captured firing under, not a guess. This paragraph used to say it
+was consumed but *not* registered, and that has been stale since the entry
+landed; it mattered, because without the registration the marker never arms and
+every rule below is dead code in a real install. The badge attribution above
+depends on the same registration for the same reason.
 
 ## Pairing rule
 
@@ -348,12 +412,19 @@ deadline table below allows.
 
 Agent attribution for rule 1 is the **ordinary identity rule and nothing else**:
 `agent_id` present → that subagent, absent → the main thread. **Risk 3 of the
-ADR, unverified:** every captured `PermissionRequest` is main-thread, so nobody
-yet knows whether a *subagent's* gate carries an `agent_id`. If it does, the rule
-is already right. If it does not, a subagent's gate would mark the main thread
-and shorten the wrong agent's calls. The decision lives in exactly one place —
-`WorldModel.gateOwner(of:)` — so a correction is a small local edit rather than
-a hunt.
+ADR is settled, in the rule's favour** — a subagent's gate does carry an
+`agent_id` (`fixtures/subagent-permission.jsonl`, M6c; eight further
+`PermissionRequest`s across six sessions agree). The decision still lives in
+exactly one place, `WorldModel.gateOwner(of:)`.
+
+**That per-agent scoping is load-bearing, not incidental.** ADR-001 excludes the
+synchronous-`Agent` hazard by claiming a main thread inside a synchronous `Agent`
+call is not simultaneously raising a permission prompt. It is:
+`subagent-permission.jsonl` has the parent's `Agent` call open from t=3.504 to
+t=19.805 with the child's dialog on screen from t=6.279. The conclusion survives
+only because the gate is marked on the **child**, so nothing can shorten the
+parent's call. A session-scoped mark — the natural simplification, since the mark
+holds no `tool_use_id` — would reintroduce the bug. Do not widen the scope.
 
 **What it can get wrong**, stated rather than papered over: the mark covers *all*
 of the agent's open calls, because nothing in the event names the gated one. A

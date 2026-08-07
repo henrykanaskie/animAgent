@@ -38,7 +38,11 @@ public enum AgentID: Hashable, Sendable, Comparable, CustomStringConvertible {
 /// M0c captured exactly two values under a pty, in real interactive sessions:
 /// `permission_prompt` ("Claude needs your permission") and `idle_prompt`
 /// ("Claude is waiting for your input"). Neither carries a `tool_use_id` or an
-/// `agent_id`, so a `Notification` can only ever mean the main thread.
+/// `agent_id` — not even when the gate belongs to a subagent, which M6c
+/// verified in `fixtures/subagent-permission.jsonl`. So a `Notification` names
+/// no character of its own, and which one it badges is decided by
+/// `WorldModel.attentionTargets(for:of:resolved:)` from the permission-gate
+/// marks, which *do* carry an `agent_id`.
 ///
 /// `other` keeps the raw value rather than discarding it. `Notification` is by
 /// construction the hook Claude Code fires *at the user*, so a third value
@@ -50,11 +54,16 @@ public enum AttentionKind: Sendable, Hashable, CustomStringConvertible {
     /// `permission_prompt`. Fires **6.0 s after** `PermissionRequest`, not with
     /// the dialog — three occurrences within 30 ms of each other.
     case permissionPrompt
-    /// `idle_prompt`. Fires **60.02 s after `Stop`**, exactly once; a further
-    /// 145 s of silence produced no repeat. It means "this has been waiting a
-    /// while", *not* "this is waiting" — `Stop` with an empty open-call set
-    /// already says the latter, immediately and for free. Nothing may drive a
-    /// live idle state off it.
+    /// `idle_prompt`. Fires **60.02 s after `Stop`**, once per *idle stretch* —
+    /// not once per session. A single stretch produces exactly one however long
+    /// it lasts (a further 145 s of silence produced no repeat at M0c), but a
+    /// session that goes quiet again after working produces another:
+    /// `fixtures/denial-then-work.jsonl` has two, 60.03 s and 60.02 s after its
+    /// two `Stop`s. Nothing may expect at most one.
+    ///
+    /// It means "this has been waiting a while", *not* "this is waiting" —
+    /// `Stop` with an empty open-call set already says the latter, immediately
+    /// and for free. Nothing may drive a live idle state off it.
     case idlePrompt
     /// Any other `notification_type`, verbatim. `nil` when the key was absent.
     case other(String?)

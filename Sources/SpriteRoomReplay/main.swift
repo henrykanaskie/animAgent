@@ -6,9 +6,21 @@
 //   spriteroom-replay fixtures/three-subagents.jsonl --speed 1000
 //
 // Fixture time, not wall time, is what the model sees: every event is ingested
-// at its own `_receivedAt`, and the closing sweep runs at a fixture instant
-// past the longest deadline. `--speed` only changes how long the *harness*
-// waits between events, never what the model believes the time is. [I4]
+// at its own `_receivedAt`. `--speed` only changes how long the *harness* waits
+// between events, never what the model believes the time is. [I4]
+//
+// The clock advances *between* events as well as at them. Before each event the
+// model is walked forward to that event's instant, sweeping at each open call's
+// own deadline on the way, so an abandonment is reported when it happens rather
+// than at the end of the run — `WorldModel.advance(to:)`. Without that, ADR-001
+// was undemonstrable here: `denial-then-work`'s shortened deadline falls at
+// t=94.98 with 157 s of session left, and a harness that only swept at the end
+// printed `sessionEnded` at 252.06 and could not tell 60 s from 900 s.
+//
+// The closing sweep is unchanged and still runs at a fixture instant past the
+// longest deadline, because after the last event there is no more information
+// about when anything happened. Orphans that outlive their stream —
+// `killed-session`, `permission-prompt` — are still reported exactly there.
 
 import Foundation
 import SpriteRoomCore
@@ -97,6 +109,11 @@ struct FixtureReport {
     var deltas = 0
     var unhandled: [String: Int] = [:]
     var orphansAtEndOfStream: [(agent: AgentRef, call: OpenCall)] = []
+    /// Calls the reaper closed *while the stream was still running*, each at its
+    /// own deadline. Non-zero is the interesting case and the only one that
+    /// prints a line — ADR-001's whole point is a deadline that falls inside a
+    /// session that then keeps working.
+    var abandonedMidStream = 0
     var abandonedBySweep = 0
     var openAfterSweep = 0
 
@@ -138,6 +155,20 @@ func replay(_ url: URL, options: Options) async -> FixtureReport {
         }
         previous = entry.receivedAt
 
+        // Walk the model forward to this event, reaping at each deadline that
+        // falls on the way. Before the decode, so that a malformed payload does
+        // not skip it — a deadline expiring is a fact about the world, not
+        // about the line we are looking at. [I4]
+        for step in await model.advance(to: entry.receivedAt) {
+            report.deltas += step.deltas.count
+            for delta in step.deltas {
+                if case .callAbandoned = delta { report.abandonedMidStream += 1 }
+                if !options.quiet {
+                    print("  [\(relative(step.instant, from: origin))] \(delta)")
+                }
+            }
+        }
+
         guard let event = entry.event else {
             // Not JSON, or no session_id/cwd. Counted, never thrown. [I5]
             report.malformed += 1
@@ -156,9 +187,14 @@ func replay(_ url: URL, options: Options) async -> FixtureReport {
         }
     }
 
-    // Orphans: what the event stream itself never closed. For every fixture but
-    // `killed-session` this must be empty — if `tool-failure` needs the reaper,
-    // a close path is wrong.
+    // Orphans: what is still open when the stream runs out — the calls the
+    // event stream never closed and whose deadlines have not yet fallen. For
+    // every fixture but `killed-session` and the denial captures this must be
+    // empty; if `tool-failure` needs the reaper at all, a close path is wrong.
+    //
+    // A mid-stream reap removes a call from this list, which is right: a call
+    // the reaper already closed *inside* the stream is not an orphan left over
+    // at the end of one. `abandonedMidStream` is where those are reported.
     let atEndOfStream = await model.snapshot()
     report.orphansAtEndOfStream = atEndOfStream.openCalls
     report.unhandled = await model.unhandledCounts
@@ -214,6 +250,12 @@ for url in urls {
     print("   events \(report.events)  deltas \(report.deltas)  malformed \(report.malformed)")
     print("   unhandled: \(unhandled.isEmpty ? "none" : unhandled)")
 
+    // Printed only when it happened. A zero here is already legible from the
+    // delta log, and keeping the line out of the fixtures that have nothing to
+    // say leaves the six required ones reading exactly as they did.
+    if report.abandonedMidStream > 0 {
+        print("   reaped mid-stream, each at its own deadline: \(report.abandonedMidStream)")
+    }
     if report.orphansAtEndOfStream.isEmpty {
         print("   orphaned open calls at end of stream: 0")
     } else {

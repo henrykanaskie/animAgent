@@ -76,6 +76,21 @@ public struct OpenCall: Sendable, Hashable, Comparable, CustomStringConvertible 
     }
 }
 
+/// One sweep of `WorldModel.advance(to:)`, and the fixture instant it ran at.
+///
+/// The instant is the point: it is always some open call's own deadline, so a
+/// replay can say when an abandonment actually happened instead of when the
+/// harness got round to noticing.
+public struct SweepStep: Sendable, Hashable {
+    public let instant: Date
+    public let deltas: [WorldDelta]
+
+    public init(instant: Date, deltas: [WorldDelta]) {
+        self.instant = instant
+        self.deltas = deltas
+    }
+}
+
 /// The only thing that leaves `WorldModel`. Value types, ordered,
 /// self-contained.
 public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
@@ -97,10 +112,14 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     case reportDelivered(agent: AgentRef)
     /// This character is, or is no longer, waiting on a human. `nil` clears it.
     ///
-    /// Raised by `Notification`, which carries no `agent_id` and so can only
-    /// mean the main thread. **Cleared by the next consumed event from the same
-    /// agent** — see `WorldModel.clearsAttention(_:)` for why that is the rule
-    /// and what it costs.
+    /// Raised by `Notification`. The event carries no `agent_id`, so *which*
+    /// character it names is inferred — from the permission-gate marks, which do
+    /// carry one — rather than read; see
+    /// `WorldModel.attentionTargets(for:of:resolved:)`. One `Notification` can
+    /// therefore produce several of these, one per agent genuinely at a gate.
+    /// **Cleared by the next consumed event from the same agent** — see
+    /// `WorldModel.clearsAttention(_:)` for why that is the rule and what it
+    /// costs.
     ///
     /// A *change*, never a repeat: two identical notifications are one fact.
     case attentionChanged(agent: AgentRef, attention: AttentionKind?)

@@ -161,10 +161,14 @@ import Testing
         #expect(!raised, "\(name) ended with an attention badge still up")
     }
 
-    /// `idle_prompt` lands a full minute after `Stop` and fires exactly once.
-    /// It means "waiting a while", not "waiting" — nothing may drive a live
-    /// idle state off it, and nothing may expect a repeat.
-    @Test func idlePromptArrivesAMinuteAfterStopAndOnlyOnce() async throws {
+    /// `idle_prompt` lands a full minute after `Stop`, and once within an idle
+    /// stretch however long that stretch lasts. It means "waiting a while", not
+    /// "waiting" — nothing may drive a live idle state off it.
+    ///
+    /// **Once per stretch, not once per session** — see
+    /// `idlePromptFiresOncePerIdleStretchNotOncePerSession` below. This capture
+    /// holds a single stretch, which is why one is the right number *here*.
+    @Test func idlePromptArrivesAMinuteAfterStopAndOnceWithinTheStretch() async throws {
         let entries = try Fixtures.entries("idle-notification")
         let stop = try #require(entries.first { $0.event?.kind == .stop })
         let notifications = entries.filter {
@@ -186,6 +190,41 @@ import Testing
         #expect(await model.snapshot().agents.allSatisfy { $0.attention == nil })
     }
 
+    /// **`idle_prompt` fires once per idle *stretch*, not once per session.**
+    ///
+    /// `03-EVENT-MODEL.md` said "exactly once", sourced from an M0c session that
+    /// contained one idle stretch and was left idle a further 145 s without a
+    /// repeat. The non-repeat *within* a stretch is right; "once" read as once
+    /// per session is not. `fixtures/denial-then-work.jsonl` settles it: two,
+    /// 60.03 s and 60.02 s after each of two `Stop`s, with real work in between.
+    ///
+    /// Nothing in the model assumed at-most-once, and this pins that. Each
+    /// stretch raises its own badge because the user's prompt cleared the
+    /// previous one first; `setAttention`'s idempotence only suppresses a repeat
+    /// of a badge that is *still up*, which is a different fact.
+    @Test func idlePromptFiresOncePerIdleStretchNotOncePerSession() async throws {
+        let entries = try Fixtures.entries("denial-then-work")
+        let idles = entries.filter { $0.event?.kind == .notification(attention: .idlePrompt) }
+        #expect(idles.count == 2, "the two idle stretches are the point of this test")
+
+        let stops = entries.filter { $0.event?.kind == .stop }
+        #expect(stops.count >= 2)
+        for (stop, idle) in zip(stops, idles) {
+            let gap = idle.receivedAt.timeIntervalSince(stop.receivedAt)
+            #expect(abs(gap - 60.02) < 0.1, "idle_prompt arrived \(gap)s after its Stop")
+        }
+
+        // Both raise, and each is cleared by the user coming back before the
+        // next one arrives. Two raises, two clears, in order.
+        let (_, deltas, _) = try await Fixtures.replay("denial-then-work")
+        let idleBadges = deltas.compactMap { delta -> Bool? in
+            guard case let .attentionChanged(_, attention) = delta else { return nil }
+            return attention != nil
+        }
+        #expect(idleBadges.filter { $0 }.count == 3, "one permission prompt and two idle ones")
+        #expect(idleBadges == [true, false, true, false, true, false])
+    }
+
     /// `SessionEnd` takes the character and the badge with it. No separate
     /// clear delta: a badge on a character that no longer exists is not a
     /// state.
@@ -198,6 +237,229 @@ import Testing
             "agentDeparted", "populationChanged",   // SessionEnd
         ])
         #expect(await model.snapshot().agents.isEmpty)
+    }
+
+    // MARK: Raising — *which* character, when the notification names none
+
+    /// The subagent id whose `Bash` sits at the dialog in
+    /// `fixtures/subagent-permission.jsonl`.
+    static let gatedSubagent = AgentID.subagent("ab2378e6a85dea269")
+
+    /// The refs of one fixture's session, and its entries.
+    private func session(
+        _ name: String
+    ) throws -> (entries: [HookLogEntry], main: AgentRef) {
+        let entries = try Fixtures.entries(name)
+        let first = try #require(entries.first?.event)
+        return (entries, AgentRef(
+            project: first.cwd, session: first.sessionID, agent: .mainThread))
+    }
+
+    private func ref(_ main: AgentRef, _ agent: AgentID) -> AgentRef {
+        AgentRef(project: main.project, session: main.session, agent: agent)
+    }
+
+    /// **The mismatch that made the badge fiction, stated from the payloads.**
+    ///
+    /// `PermissionRequest` carries the gated agent's `agent_id`;  the
+    /// `Notification` that follows it 6.016 s later carries none at all. Read
+    /// through the identity rule alone the second one is a main-thread event, so
+    /// the badge landed on the main character while the agent actually stuck at
+    /// the dialog was a subagent. [I1]
+    @Test func aSubagentsGateAndItsNotificationDisagreeAboutWhoIsBlocked() throws {
+        let (entries, _) = try session("subagent-permission")
+        let gate = try #require(entries.first { $0.event?.kind == .permissionRequest })
+        let notification = try #require(entries.first {
+            if case .notification = $0.event?.kind { return true } else { return false }
+        })
+
+        #expect(gate.event?.agentID == Self.gatedSubagent)
+        #expect(notification.event?.agentID == .mainThread)
+        #expect(notification.event?.kind == .notification(attention: .permissionPrompt))
+        let delay = notification.receivedAt.timeIntervalSince(gate.receivedAt)
+        #expect(abs(delay - 6.016) < 0.1, "notification arrived \(delay)s after the gate")
+    }
+
+    /// **One marked agent: the badge goes on the agent that is actually
+    /// blocked.**
+    ///
+    /// And the main thread does not get one — which matters here more than
+    /// usual, because in this capture the main thread is genuinely working: its
+    /// `Agent` call ran synchronously and is open for the child's whole life, so
+    /// under the old rule the main character wore "needs your permission" over a
+    /// call that was running fine.
+    @Test func oneMarkedAgentTakesTheBadgeAndTheMainThreadDoesNot() async throws {
+        let (entries, main) = try session("subagent-permission")
+        let child = ref(main, Self.gatedSubagent)
+        let model = WorldModel()
+
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            if case .notification = event.kind { break }
+        }
+
+        let snapshot = await model.snapshot()
+        #expect(snapshot.agent(child)?.attention == .permissionPrompt)
+        #expect(snapshot.agent(main)?.attention == nil)
+        // The main character is working, truthfully, and shows a tool badge.
+        #expect(snapshot.agent(main)?.isWorking == true)
+    }
+
+    /// **Zero marked agents: the main thread, exactly as before.**
+    ///
+    /// The same capture with its `PermissionRequest` withheld, which is not a
+    /// hypothetical shape — it is what every session looked like before ADR-001
+    /// consumed that event, and what one still looks like if the registration is
+    /// missing from `~/.claude/settings.json`. The notification did happen and
+    /// nothing tells us whose it is, so the main agent is the honest default
+    /// rather than a guess. [I1]
+    @Test func withNothingMarkedTheBadgeFallsBackToTheMainThread() async throws {
+        let (entries, main) = try session("subagent-permission")
+        let child = ref(main, Self.gatedSubagent)
+        let model = WorldModel()
+
+        for entry in entries {
+            guard let event = entry.event, event.kind != .permissionRequest else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            if case .notification = event.kind { break }
+        }
+
+        #expect(await model.permissionGateMark(child) == nil)
+        #expect(await model.snapshot().agent(main)?.attention == .permissionPrompt)
+        #expect(await model.snapshot().agent(child)?.attention == nil)
+    }
+
+    /// **Several marked agents: every one of them, because every one of them
+    /// really is waiting on a human.**
+    ///
+    /// `fixtures/concurrent-permission-gates.jsonl` — two subagents launched in
+    /// one assistant message, gates at t=6.446 and t=7.919, the first answered
+    /// at t=38.263. **31.8 s with two gates open**, which is why "attribute it
+    /// to the single marked agent" is not a rule that can be written.
+    @Test func everyMarkedAgentTakesTheBadgeWhenSeveralGatesAreOpen() async throws {
+        let (entries, main) = try session("concurrent-permission-gates")
+        let model = WorldModel()
+
+        var raises: [AgentRef] = []
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            for delta in await model.ingest(event, at: entry.receivedAt) {
+                if case let .attentionChanged(agent, .some(.permissionPrompt)) = delta {
+                    raises.append(agent)
+                }
+            }
+            if case .notification = event.kind { break }
+        }
+
+        #expect(raises.count == 2, "two gates were open; got \(raises)")
+        #expect(raises.allSatisfy { $0.agent != .mainThread })
+        #expect(Set(raises).count == 2)
+        #expect(await model.snapshot().agent(main)?.attention == nil)
+        // Deterministic order, so the delta stream is reproducible. [I3]
+        #expect(raises == raises.sorted())
+    }
+
+    /// **The clear rule when the badge is on a subagent — it did not have to
+    /// change, and this is the test that says so.**
+    ///
+    /// "The next consumed event from the same agent" was already agent-scoped.
+    /// With a badge on a gated subagent that reads: the approval closes the
+    /// child's own `Bash`, and that close takes the child's badge down. 5.5 s
+    /// here, against the 1.81 s the main-thread approve path measures — the
+    /// difference is the `PostToolUse` landing later, not a different rule.
+    ///
+    /// Main-thread traffic in between must not clear it, which is the same
+    /// restriction that stops subagent traffic clearing the main thread's badge,
+    /// read in the other direction.
+    @Test func aSubagentsBadgeClearsOnTheSubagentsOwnNextEvent() async throws {
+        let (entries, main) = try session("subagent-permission")
+        let child = ref(main, Self.gatedSubagent)
+        let model = WorldModel()
+
+        var raisedAt: Date?
+        var clearedAt: Date?
+        var clearedBy: String?
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            for delta in await model.ingest(event, at: entry.receivedAt) {
+                guard case let .attentionChanged(agent, attention) = delta,
+                      agent == child else { continue }
+                if attention != nil {
+                    raisedAt = entry.receivedAt
+                } else {
+                    clearedAt = entry.receivedAt
+                    clearedBy = event.kind.name
+                }
+            }
+            // The main thread never wore it at any point in the stream.
+            #expect(await model.snapshot().agent(main)?.attention == nil,
+                    "\(event.kind.name) put the badge on the main character")
+        }
+
+        let raised = try #require(raisedAt)
+        let cleared = try #require(clearedAt)
+        #expect(clearedBy == "PostToolUse")
+        #expect(abs(cleared.timeIntervalSince(raised) - 5.525) < 0.1,
+                "subagent approve-path duration \(cleared.timeIntervalSince(raised))")
+    }
+
+    /// The other half of the concurrent case: answering one gate takes down one
+    /// badge and leaves the other up, because the other agent is still at a
+    /// dialog. A session-scoped badge could not express this.
+    @Test func answeringOneOfTwoGatesClearsOnlyThatAgentsBadge() async throws {
+        let (entries, main) = try session("concurrent-permission-gates")
+        let model = WorldModel()
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            // Stop just after the first gate is answered.
+            if case .postToolUse = event.kind, event.agentID != .mainThread { break }
+        }
+
+        let badged = await model.snapshot().agents.filter { $0.attention != nil }
+        #expect(badged.count == 1, "expected one badge left up, got \(badged.map(\.ref))")
+        let stillWaiting = try #require(badged.first?.ref)
+        #expect(stillWaiting.agent == .subagent("a7298874eca5a457d"))
+        // Still badged because still marked: it is genuinely at a dialog.
+        #expect(await model.permissionGateMark(stillWaiting) != nil)
+        #expect(await model.snapshot().agent(main)?.attention == nil)
+    }
+
+    /// `idle_prompt` is about the session sitting at the prompt, not about a
+    /// gated call, so it stays on the main thread even while a subagent's gate
+    /// is marked. Unrecognised types go the same way, for the same reason: we
+    /// know an alert fired, we do not know it is a gate.
+    @Test func idlePromptStaysOnTheMainThreadEvenWithAGateMarked() async throws {
+        let (entries, main) = try session("subagent-permission")
+        let child = ref(main, Self.gatedSubagent)
+        let armed = WorldModel()
+
+        // Stop at the gate: the subagent is marked, nothing is badged yet.
+        var gateAt: Date?
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            await armed.ingest(event, at: entry.receivedAt)
+            if event.kind == .permissionRequest { gateAt = entry.receivedAt; break }
+        }
+        let lastAt = try #require(gateAt)
+        #expect(await armed.permissionGateMark(child) != nil)
+
+        // The real `idle_prompt` payload from `idle-notification`, routed into
+        // this session by the one sanctioned rewrite helper. Only its address
+        // changes; no capture holds an idle prompt during a subagent gate.
+        let idlePayload = try #require(try Fixtures.firstEntry("idle-notification") {
+            $0.kind == .notification(attention: .idlePrompt)
+        }).payload
+        let idle = try #require(Fixtures.rewriting(idlePayload, [
+            "session_id": main.session, "cwd": main.project,
+        ]))
+        await armed.ingest(idle, at: lastAt.addingTimeInterval(60))
+
+        #expect(await armed.snapshot().agent(main)?.attention == .idlePrompt)
+        #expect(await armed.snapshot().agent(child)?.attention == nil)
+        // The mark is untouched: a badge decision is not a gate decision.
+        #expect(await armed.permissionGateMark(child) != nil)
     }
 
     // MARK: Clearing — what must *not* clear it

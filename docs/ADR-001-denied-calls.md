@@ -541,6 +541,108 @@ misled six months from now.
 
 ---
 
+## Follow-up — acting on the verification, 2026-08-07
+
+**Added by `ingest-engineer` after the section above.** Everything above this
+heading is left as written, including the two statements the captures contradict
+and the stale-comment list; this records what was done about them. **The rule is
+unchanged.** Nothing here is a design change to (d) — the three rules ship
+exactly as recommended and as implemented.
+
+### The three stale comments — corrected
+
+All three said some version of "risk 3 is unobserved". They now cite
+`fixtures/subagent-permission.jsonl` instead.
+
+- `WorldModel.gateOwner(of:)` — the risk-3 commentary is now the settled fact,
+  **and it records the per-agent scoping as load-bearing**, which was the
+  verification's substantive point. The doc comment names the
+  synchronous-`Agent` interleaving in that fixture and says not to widen the
+  scope to the session, because the exclusion ADR-001 states as structural is in
+  fact this scoping.
+- `WorldModel.armPermissionGate(ref:)` — "all six `PermissionRequest`s in M0c
+  are lone calls in their own turns" is gone. Twelve now, two of them
+  overlapping in `concurrent-permission-gates`, and the comment says which case
+  remains unobserved: *one agent* holding two gates at once.
+- `PermissionGateTests.everyCapturedPermissionRequestIsMainThread` — replaced by
+  `aSubagentsGateIsAttributedToTheSubagent`, which asserts the useful thing the
+  old name implied: `permission-prompt`'s gates are still main-thread, and
+  `subagent-permission`'s marks the subagent while leaving the parent's open
+  `Agent` call unmarked.
+
+`docs/03-EVENT-MODEL.md` carries the same correction, and its "consumed but not
+yet registered" paragraph — stale since the entry landed in
+`HookInstaller.events` — is gone with it.
+
+### The harness caveat — fixed
+
+> *"A mid-stream sweep in the harness would make it visible; that is the harness
+> owner's call, and it is out of scope here."*
+
+Taken. `spriteroom-replay` now walks the model forward to each event rather than
+jumping there, sweeping at every open call's own deadline that falls in the gap
+(`WorldModel.advance(to:)`). `denial-then-work` reports
+
+```
+  [  94.984] callAbandoned    3714f3ba/main Bash(toolu_01WXAhzmcL2iKm1mdYfuLczp) deadlineExpired
+```
+
+— the shortened deadline, at the instant it falls, with 157 s of the session's
+real work still to come — where it previously printed `sessionEnded` at 252.062.
+`parallel-denial`, the weaker second instance, likewise reports 146.709 instead
+of `sessionEnded` at 209.157. Both print a `reaped mid-stream` line.
+
+Two things it deliberately does **not** do:
+
+- **The closing sweep is untouched**, still at `last event + longestDeadline + 1`.
+  After the last event there is no more information about when anything happened,
+  and moving that instant would change what `killed-session` and
+  `permission-prompt` print without telling anyone anything new.
+  `denied-batch-cancel` therefore still reports at 911.356: its stream is 10.4 s
+  long and its deadline falls at 904.33, outside the stream entirely, so no
+  in-stream sweep can reach it.
+- **It reaps nothing early.** Every sweep instant is some open call's own
+  deadline and never past the event being walked to, so a call that closes
+  through the event stream inside its deadline is never touched.
+  `fixtures/tool-failure.jsonl` — which must reach zero open calls *without* the
+  reaper, or a close path is wrong — replays byte-identically, and
+  `advancingTheClockChangesNothingInTheRequiredFixtures` asserts the same, delta
+  for delta, across all seven required fixtures.
+
+### The badge consequence — fixed, outside this ADR but caused by its finding
+
+> *"The `Notification` that follows a subagent's gate carries **no** `agent_id`
+> … That is an M6 badge defect, not an ADR-001 defect."*
+
+Correct on both counts, and fixed. The badge is now attributed from **the marker
+this ADR introduced**: a `permission_prompt` badges every agent in the session
+whose gate is open, falling back to the main thread when none is marked;
+`idle_prompt` and unrecognised types stay on the main thread. The rule and its
+reasoning are in `docs/03-EVENT-MODEL.md` under "Who the badge lands on".
+
+Worth noting what that does to the marker's status: it now has a *second*
+consumer, and a visible one. Rule 1's mark used to affect only a deadline; it
+now decides which character wears a badge. Risk 4 — "`PermissionRequest` might
+stop firing, or start firing for things that are not gates" — therefore costs
+more than it did. It is still the same standing bet, and it is still the right
+one, but a reader weighing it should weigh the badge too.
+
+`concurrent-permission-gates` is what makes the plural necessary: two gates on
+two agents for 31.8 s, which the ADR refused to assume could not happen and
+which M6c then observed.
+
+### Fixture status, unchanged and recommended
+
+`denial-then-work` and `parallel-denial` are **not** in `Fixtures.required`.
+The verification argues they belong beside `permission-prompt`, and the argument
+is good — `denial-then-work` is the only capture in which the shortened deadline
+falls strictly inside the stream, and it is now the fixture two tests are built
+on. Adding them is a deliberate change to a signed-off exit criterion and to the
+expected-delta table beside it, so it is left for the maintainer rather than
+taken in passing.
+
+---
+
 ## The alternatives, and why I did not recommend them
 
 **Do nothing; leave it to the reaper.** Legitimate, and cheapest, and I do not

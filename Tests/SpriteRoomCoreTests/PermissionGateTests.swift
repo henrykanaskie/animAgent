@@ -107,16 +107,47 @@ import Testing
         #expect(checked == 2)
     }
 
-    /// Every captured `PermissionRequest` is main-thread — which is ADR-001's
-    /// risk 3, recorded here as an observation rather than as an assumption.
-    /// If a subagent gate turns out to carry `agent_id`, the rule works
-    /// unchanged; if it does not, `WorldModel.gateOwner(of:)` is the one place
-    /// that has to change.
-    @Test func everyCapturedPermissionRequestIsMainThread() throws {
-        let (entries, _) = try permissionPrompt()
-        for candidate in entries where candidate.event?.kind == .permissionRequest {
+    /// **ADR-001's risk 3, settled in the rule's favour: a subagent's gate
+    /// carries the subagent's `agent_id`, and is attributed to the subagent.**
+    ///
+    /// This test used to be `everyCapturedPermissionRequestIsMainThread`, which
+    /// was true of `permission-prompt` and was the whole evidence base. It said
+    /// more than it asserted, and M6c captured the file that lets it assert the
+    /// useful thing instead. Both halves are checked: the main-thread gates are
+    /// still main-thread, and the subagent one lands on the subagent.
+    ///
+    /// It is load-bearing rather than tidy. Per-agent scoping is what keeps the
+    /// synchronous-`Agent` case safe — in this same fixture the parent's `Agent`
+    /// call is open across the child's dialog, so a session-scoped mark would
+    /// mark the parent and let a synthetic prompt shorten it.
+    @Test func aSubagentsGateIsAttributedToTheSubagent() async throws {
+        let (mainThreadGates, _) = try permissionPrompt()
+        for candidate in mainThreadGates where candidate.event?.kind == .permissionRequest {
             #expect(candidate.event?.agentID == .mainThread)
         }
+
+        let entries = try Fixtures.entries("subagent-permission")
+        let first = try #require(entries.first?.event)
+        let child = AgentRef(
+            project: first.cwd, session: first.sessionID,
+            agent: .subagent("ab2378e6a85dea269"))
+        let main = AgentRef(project: first.cwd, session: first.sessionID, agent: .mainThread)
+
+        let gate = try #require(entries.first { $0.event?.kind == .permissionRequest })
+        #expect(gate.event?.agentID == child.agent)
+
+        let model = WorldModel()
+        for candidate in entries {
+            guard let event = candidate.event else { continue }
+            await model.ingest(event, at: candidate.receivedAt)
+            if event.kind == .permissionRequest { break }
+        }
+        #expect(await model.permissionGateMark(child) == ["toolu_01FDPVqz93DqdjxorZPzz2Y9"])
+        // The parent is mid-`Agent` and mid-dialog-on-its-child's-behalf, and
+        // its call is *not* marked. That is the exclusion ADR-001 states as
+        // structural and which is in fact this scoping.
+        #expect(await model.permissionGateMark(main) == nil)
+        #expect(await model.snapshot().agent(main)?.isWorking == true)
     }
 
     // MARK: Rule 1 — the mark arms and records the right set
@@ -327,6 +358,78 @@ import Testing
         #expect(reason == .deadlineExpired)
         #expect(await model.snapshot().totalOpenCalls == 0)
         #expect(await model.abandonedTotal == 1)
+    }
+
+    /// **The same fix against the capture that can actually distinguish 60 s
+    /// from 900 s — and with the clock advancing through the stream, which is
+    /// how a replay sees it.**
+    ///
+    /// `permission-prompt.jsonl` ends 40 s after its denial, so its `SessionEnd`
+    /// always closes the orphan first and no deadline value is observable from
+    /// the stream alone. `fixtures/denial-then-work.jsonl` is ADR-001's fourth
+    /// requested capture and does not have that problem: the denied `Bash` opens
+    /// at t=3.138, the mark lands at t=3.151, the user's next prompt at t=34.984
+    /// puts the deadline at **t=94.98**, and the session then does three more
+    /// turns of real work before ending at t=252.06. **157 s of stream after the
+    /// deadline.**
+    ///
+    /// Nothing here is injected but the walk itself: the deltas, the instants
+    /// and the 60 s are all the fixture's.
+    @Test func theShortenedDeadlineFiresInsideTheStreamWithTheSessionStillWorking()
+    async throws {
+        let denied = "toolu_01WXAhzmcL2iKm1mdYfuLczp"
+        let (model, timeline, entries) = try await Fixtures
+            .replayAdvancingTheClock("denial-then-work")
+        let origin = try #require(entries.first?.receivedAt)
+        let end = try #require(entries.last?.receivedAt)
+
+        let abandoned = try #require(timeline.first {
+            $0.delta.tag == "callAbandoned" && $0.delta.toolUseID == denied
+        })
+        guard case let .callAbandoned(_, _, tool, reason) = abandoned.delta else {
+            Issue.record("expected a callAbandoned, got \(abandoned.delta)")
+            return
+        }
+        #expect(tool == "Bash")
+        // The reaper closed it, on its own deadline — not `SessionEnd` at
+        // t=252.06, which is what a replay that only swept at the end reported.
+        #expect(reason == .deadlineExpired)
+
+        let at = abandoned.instant.timeIntervalSince(origin)
+        #expect(abs(at - 94.98) < 0.1, "abandoned at \(at)s, expected the shortened deadline")
+
+        // Derived from the fixture rather than restated: prompt + G.
+        let prompt = try #require(entries.first {
+            $0.event?.kind == .userPromptSubmit && $0.receivedAt > origin
+        })
+        #expect(abandoned.instant == prompt.receivedAt
+            .addingTimeInterval(Reaper.permissionGateGraceInterval))
+
+        // And the session kept working for a long time afterwards, which is the
+        // whole reason this capture can prove what `permission-prompt` cannot.
+        let tail = end.timeIntervalSince(abandoned.instant)
+        #expect(abs(tail - 157.08) < 0.5, "only \(tail)s of stream after the deadline")
+        #expect(timeline.contains {
+            $0.instant > abandoned.instant && $0.delta.tag == "callOpened"
+        }, "no further work in the stream after the deadline")
+
+        #expect(await model.abandonedTotal == 1)
+        #expect(await model.snapshot().agents.isEmpty)
+    }
+
+    /// The defect this replaced, pinned so it cannot come back quietly: a walk
+    /// that never advances the clock between events reports the same call as
+    /// `sessionEnded` at t=252.06, and that instant says nothing about the
+    /// deadline at all.
+    @Test func withoutAdvancingTheClockTheDeadlineIsInvisible() async throws {
+        let denied = "toolu_01WXAhzmcL2iKm1mdYfuLczp"
+        let (_, deltas, _) = try await Fixtures.replay("denial-then-work")
+        let closes = deltas.filter { $0.toolUseID == denied && $0.tag == "callAbandoned" }
+        guard case let .callAbandoned(_, _, _, reason) = try #require(closes.first) else {
+            Issue.record("expected a callAbandoned")
+            return
+        }
+        #expect(reason == .sessionEnded)
     }
 
     /// Pulled *in*, never out. A `Read` marked at a gate carries a 30 s

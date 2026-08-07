@@ -140,14 +140,24 @@ public actor WorldModel {
     /// is followed 1.81 s later by its `PostToolUse`, and the denied call's is
     /// followed by the user's next `UserPromptSubmit`.
     ///
-    /// **Same agent, not same session.** A `Notification` carries no
-    /// `agent_id`, so it is the main thread's; symmetrically only events with
-    /// no `agent_id` say anything about the main thread. Without that
-    /// restriction an async subagent churning through `Read`s would wipe the
-    /// badge off a main thread that is genuinely still stuck at a dialog —
+    /// **Same agent, not same session.** Only events with no `agent_id` say
+    /// anything about the main thread. Without that restriction an async
+    /// subagent churning through `Read`s would wipe the badge off a main thread
+    /// that is genuinely still stuck at a dialog —
     /// `fixtures/three-subagents.jsonl` is full of exactly those interleavings
     /// — and so would the phantom `SubagentStop` the TUI's suggestion helper
     /// emits on every interactive turn.
+    ///
+    /// **It reads the same when the badge is on a subagent**, which it now can
+    /// be — see `attentionTargets(for:of:resolved:)`. A badge raised on a gated
+    /// subagent clears on *that subagent's* next consumed event, which on the
+    /// approve path is the gated call's own `PostToolUse`: 5.5 s in
+    /// `fixtures/subagent-permission.jsonl`, against 1.81 s for the main-thread
+    /// approve path. Main-thread traffic does not clear it, and that is the
+    /// point — in `fixtures/concurrent-permission-gates.jsonl` one subagent's
+    /// gate is answered while a second subagent is still at its own, and only
+    /// the first agent's badge comes down. The rule did not have to change to
+    /// cope with this; it was already agent-scoped.
     ///
     /// **Three kinds are excluded.** `notification` itself, obviously — it is
     /// the raise. `unhandled`, which must change nothing at all, by the same
@@ -194,21 +204,82 @@ public actor WorldModel {
     /// precisely what `HookEvent.agentID` already computed at decode. No
     /// special case, no inference, no fallback of our own.
     ///
-    /// **Risk 3, stated rather than papered over: every captured
-    /// `PermissionRequest` is main-thread, so nobody has yet observed whether
-    /// one raised by a *subagent* carries an `agent_id`.** If it does, this rule
-    /// is already right and needs no change. If it does not, a subagent's gate
-    /// would mark the main thread, and the wrong agent's calls would be
-    /// shortened by rule 3 of the ADR. A capture settling that is in flight.
+    /// **Risk 3 is settled, in this rule's favour, and it is now a cited fact
+    /// rather than an assumption.** `fixtures/subagent-permission.jsonl`: a
+    /// `general-purpose` subagent's gated `Bash` produces a `PermissionRequest`
+    /// carrying `agent_id: ab2378e6a85dea269`, matching the `SubagentStart`
+    /// 2.76 s earlier and the gated `PreToolUse` 18 ms earlier. M6c saw eight
+    /// more `PermissionRequest`s across six sessions and every subagent gate
+    /// carried its agent's id.
     ///
-    /// Inventing a workaround for a fact we do not have would be fiction [I1],
-    /// so this does the ordinary thing and keeps the correction cheap: if the
-    /// capture says `agent_id` is absent for subagent gates, the fix is a new
-    /// body for *this function* — most likely returning `nil` so nothing is
-    /// marked when attribution is unknown — and callers already handle that.
-    /// Nothing else in the model asks the question.
+    /// **That is load-bearing, not incidental.** Per-agent scoping is what makes
+    /// the synchronous-`Agent` case safe: in the same fixture the main thread's
+    /// `Agent` call is open from t=3.504 to t=19.805 *while* the child's dialog
+    /// is on screen, so a session-scoped mark — the natural simplification,
+    /// since the mark holds no `tool_use_id` — would mark the parent's `Agent`
+    /// call and let a synthetic `UserPromptSubmit` shorten it. ADR-001 states
+    /// that exclusion as structural and it is not; this scoping is the reason it
+    /// holds. Do not widen it.
+    ///
+    /// It still returns an optional, and callers still handle `nil`: this is the
+    /// one place the question is asked, so a future capture that complicates it
+    /// is a new body for this function rather than a hunt.
     private static func gateOwner(of event: HookEvent) -> AgentRef? {
         AgentRef(project: event.cwd, session: event.sessionID, agent: event.agentID)
+    }
+
+    /// **Which characters a `Notification` badges.**
+    ///
+    /// The problem this answers: `PermissionRequest` carries `agent_id`, and the
+    /// `Notification` that follows it 6.0 s later **does not**
+    /// (`fixtures/subagent-permission.jsonl`, verified at M6c — a subagent's
+    /// gate, then a `Notification` with no `agent_id` at all). Read through the
+    /// identity rule alone it is therefore a main-thread event, so the badge
+    /// landed on the main character while the agent actually blocked at the
+    /// dialog was a subagent. The room was asserting something the data does not
+    /// say, which is the one thing it may never do. [I1]
+    ///
+    /// We hold the information to do better, because ADR-001's marker already
+    /// records exactly which agents have an open gate:
+    ///
+    /// - **`permission_prompt`** badges **every agent in this session currently
+    ///   marked with an open permission gate.** Each of them genuinely is
+    ///   waiting on a human, so each badge is true. It is deliberately a *set*:
+    ///   `fixtures/concurrent-permission-gates.jsonl` holds two subagents' gates
+    ///   open together for 31.8 s, so "the single marked agent" is not a thing
+    ///   that always exists.
+    /// - **No agent marked → the main thread**, as before. The notification did
+    ///   happen and we cannot say whose it is; the main agent is the honest
+    ///   default and the one `docs/03-EVENT-MODEL.md` already falls back to
+    ///   elsewhere. This is also the ordinary path for a plain main-thread gate,
+    ///   where the main thread *is* the marked agent — so nothing about the
+    ///   required fixtures moves.
+    /// - **`idle_prompt`** is about the session sitting at the prompt, not about
+    ///   a gated call, so it stays on the main thread whatever is marked. Same
+    ///   for any `notification_type` we do not recognise: we know an alert
+    ///   fired, we do not know it is a gate, and inferring one would be a guess.
+    ///
+    /// The first check is the identity rule, which outranks all of this: if a
+    /// future release ever puts an `agent_id` on a `Notification`, the data has
+    /// answered and no inference is wanted.
+    private func attentionTargets(
+        for attention: AttentionKind, of event: HookEvent, resolved ref: AgentRef
+    ) -> [AgentRef] {
+        guard ref.agent == .mainThread else { return [ref] }
+        guard attention == .permissionPrompt else { return [ref] }
+        let marked = markedAgents(project: event.cwd, session: event.sessionID)
+        return marked.isEmpty ? [ref] : marked
+    }
+
+    /// Every agent of one session whose permission-gate mark is armed, in
+    /// deterministic order (main thread first, subagents lexicographically).
+    private func markedAgents(project: String, session: String) -> [AgentRef] {
+        guard let sessionState = projects[project]?.sessions[session] else { return [] }
+        return sessionState.agents
+            .filter { $0.value.permissionGate != nil }
+            .keys
+            .sorted()
+            .map { AgentRef(project: project, session: session, agent: $0) }
     }
 
     private func apply(_ event: HookEvent, at now: Date, into deltas: inout [WorldDelta]) {
@@ -323,9 +394,13 @@ public actor WorldModel {
             // repurposing an unrelated one would be fiction; the badge is the
             // whole representation. [I1]
             //
-            // The event carries no `agent_id`, so `ref` is the main thread by
-            // the identity rule rather than by a special case here.
-            setAttention(attention, ref: ref, into: &deltas)
+            // *Which* character (or characters) it lands on is the one
+            // interesting question, and it is answered in exactly one place —
+            // `attentionTargets(for:of:resolved:)`. A `permission_prompt` badges
+            // every agent with an open gate; everything else badges `ref`.
+            for target in attentionTargets(for: attention, of: event, resolved: ref) {
+                setAttention(attention, ref: target, into: &deltas)
+            }
         }
     }
 
@@ -366,6 +441,67 @@ public actor WorldModel {
             deltas.append(.populationChanged(project: project, count: projects[project]?.agentCount ?? 0))
         }
         return deltas
+    }
+
+    /// Advance the model's notion of "now" to `instant`, closing each expired
+    /// call **at the instant its own deadline falls** rather than all together
+    /// on arrival. Returns one entry per sweep that changed something. [I4]
+    ///
+    /// `sweep(at:)` answers "what is expired *now*", which is the right question
+    /// for a live clock ticking once a second and the wrong one for a replay,
+    /// which jumps from one captured event to the next. A deadline falling in
+    /// the gap gets reported at the far end of the jump — or, if a `SessionEnd`
+    /// closes the call first, never reported at all. That is not a cosmetic
+    /// difference: ADR-001's shortened deadline for
+    /// `fixtures/denial-then-work.jsonl` falls at t=94.98 with 157 s of real
+    /// session activity still to come, so a replay that only sweeps at the end
+    /// cannot distinguish the shipped 60 s from the 900 s it replaced.
+    ///
+    /// **It cannot reap anything early**, which is the property the whole thing
+    /// rests on: each step is one ordinary `sweep(at:)` at an instant this
+    /// method never invents — every instant is some open call's own deadline,
+    /// and never past `instant`. No new close path exists here; this only
+    /// chooses when the existing sweep runs. `fixtures/tool-failure.jsonl` is
+    /// the regression that proves it, because every call in it closes through
+    /// the event stream well inside its deadline, so stepping the clock across
+    /// it must still produce no sweep at all.
+    ///
+    /// Deliberately *not* wired into `LiveDriver`: against a real clock the
+    /// 1 s tick already runs far finer than the shortest deadline in the table,
+    /// and there is no gap to step across.
+    public func advance(to instant: Date) -> [SweepStep] {
+        var steps: [SweepStep] = []
+        while let due = earliestDeadline(), due <= instant {
+            let deltas = sweep(at: due)
+            // A sweep at the earliest deadline closes at least the call that
+            // owns it, so the next one is strictly later and this terminates.
+            // The guard is belt and braces: a step that moved nothing would
+            // move nothing forever.
+            if deltas.isEmpty { break }
+            steps.append(SweepStep(instant: due, deltas: deltas))
+        }
+        return steps
+    }
+
+    /// The soonest deadline any open call in the world still carries.
+    ///
+    /// Asked of the model rather than remembered by the caller on purpose:
+    /// ADR-001's shortening rewrites a deadline and **emits no delta**, so
+    /// anything reconstructing deadlines from the delta stream would still
+    /// believe the denied `Bash` expires at 900 s.
+    private func earliestDeadline() -> Date? {
+        var earliest: Date?
+        for project in projects.values {
+            for session in project.sessions.values {
+                for agent in session.agents.values {
+                    for call in agent.openCalls.values
+                    where earliest == nil || call.deadline < earliest! {
+                        earliest = call.deadline
+                    }
+                }
+            }
+        }
+        return earliest
     }
 
     // MARK: Snapshot
@@ -457,11 +593,15 @@ public actor WorldModel {
     /// Raises or clears the attention badge, emitting a delta only on a real
     /// change.
     ///
-    /// Idempotent in both directions. `idle_prompt` fires exactly once so a
-    /// repeat is not expected, but a second identical `permission_prompt` is
-    /// the same fact and must not produce a second badge change — a delta
-    /// stream that repeats itself makes the scene's suppression memory the only
-    /// thing standing between a stable badge and a flicker.
+    /// Idempotent in both directions, and it may not assume any notification
+    /// arrives at most once. `idle_prompt` fires once per *idle stretch*, not
+    /// once per session — `fixtures/denial-then-work.jsonl` has two, 60 s after
+    /// each of two `Stop`s — and a second identical `permission_prompt` is the
+    /// same fact. Neither may produce a second badge change: a delta stream that
+    /// repeats itself makes the scene's suppression memory the only thing
+    /// standing between a stable badge and a flicker. A repeat *after* a clear
+    /// is a new fact and does emit, which is what the two idle stretches in that
+    /// fixture look like.
     private func setAttention(
         _ attention: AttentionKind?, ref: AgentRef, into deltas: inout [WorldDelta]
     ) {
@@ -481,12 +621,16 @@ public actor WorldModel {
     /// Rule 1. Record that a gate is open for this agent, and which calls it
     /// held open at that instant.
     ///
-    /// Re-arming over an existing mark is deliberate. Two gates outstanding at
-    /// once has never been captured — all six `PermissionRequest`s in M0c are
-    /// lone calls in their own turns — and ADR-001 is explicit that *nothing
-    /// may assume* it cannot happen. Taking the later snapshot is the
-    /// conservative reading: it is the agent's open-call set as of the most
-    /// recent thing we know it is blocked on.
+    /// Re-arming over an existing mark is deliberate, and it is now the
+    /// conservative reading of something observed rather than of something
+    /// merely untested. ADR-001 refused to assume "at most one gate at a time"
+    /// and M6c refuted it: `fixtures/concurrent-permission-gates.jsonl` holds
+    /// two gates open together for 31.8 s. They are on two *different* agents —
+    /// one agent holding two at once has still never been seen, which follows
+    /// from the TUI serialising a batch's tool calls — so this path is the
+    /// unobserved one, and taking the later snapshot is the safe answer for it:
+    /// the agent's open-call set as of the most recent thing we know it is
+    /// blocked on.
     private func armPermissionGate(ref: AgentRef) {
         guard let state = projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] else {
             // No character to mark. Conjuring one out of a gate is not this

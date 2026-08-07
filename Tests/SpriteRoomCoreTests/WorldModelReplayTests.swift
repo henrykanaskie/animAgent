@@ -354,6 +354,41 @@ import Testing
         #expect(await model.abandonedTotal == 0, "the reaper should not have been needed")
     }
 
+    /// **And still without it when the clock advances through the stream.**
+    ///
+    /// This is the regression risk in making the replay harness sweep
+    /// mid-stream: a sweep that ran too eagerly would close these calls at their
+    /// deadlines instead of letting the close paths do it, and the one property
+    /// this fixture exists to prove would be gone — silently, because the
+    /// fixture would still finish at zero open calls either way.
+    ///
+    /// It cannot happen, and here is why rather than just that: no call in this
+    /// capture is open past its own deadline. `advance(to:)` only ever sweeps at
+    /// an instant that is some open call's deadline and never past the event it
+    /// is walking to, so with nothing expired there is no sweep at all.
+    @Test func toolFailureNeedsNoReaperEvenWithTheClockAdvancing() async throws {
+        let (model, timeline, _) = try await Fixtures.replayAdvancingTheClock("tool-failure")
+        #expect(!timeline.contains { $0.delta.tag == "callAbandoned" })
+        #expect(await model.snapshot().totalOpenCalls == 0)
+        #expect(await model.abandonedTotal == 0, "a mid-stream sweep closed a call early")
+    }
+
+    /// **The six required fixtures, plus `permission-prompt`, replay identically
+    /// with the clock advancing.** Same deltas, same order.
+    ///
+    /// The guarantee the mid-stream sweep had to keep. None of them holds a
+    /// deadline that falls inside its own stream — `killed-session`'s orphan
+    /// expires at t=909 in a 9.2 s capture, `permission-prompt`'s shortened one
+    /// at t=117.5 in a stream that ends at t=103.5 — so stepping the clock
+    /// across them must be a no-op, and if one ever gains such a deadline this
+    /// is the test that says so instead of a diff nobody reads.
+    @Test(arguments: Fixtures.required)
+    func advancingTheClockChangesNothingInTheRequiredFixtures(name: String) async throws {
+        let (_, plain, _) = try await Fixtures.replay(name)
+        let (_, stepped, _) = try await Fixtures.replayAdvancingTheClock(name)
+        #expect(stepped.map(\.delta) == plain, "\(name): the mid-stream sweep moved a delta")
+    }
+
     /// `PostToolBatch` re-reports the `Read` that `PostToolUseFailure` already
     /// closed. A second `.callClosed` would drive the scene's open-call count
     /// negative and surface later as a character stuck idle while working.

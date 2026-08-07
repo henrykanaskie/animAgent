@@ -53,6 +53,41 @@ enum Fixtures {
         return (model, deltas, entries)
     }
 
+    /// The same walk as `replay(_:)`, except the model's clock is **advanced to
+    /// each event on the way** rather than jumping there — `WorldModel.advance(to:)`
+    /// sweeps at every deadline that falls in the gap between two captured
+    /// events, at the deadline's own instant.
+    ///
+    /// This is exactly what `spriteroom-replay` does, and it is what lets a
+    /// replay report an abandonment when it happened instead of at the end of
+    /// the run. `fixtures/denial-then-work.jsonl` is the fixture that needs it:
+    /// ADR-001's shortened deadline falls at t=94.98 with 157 s of real session
+    /// activity still to come, and a `SessionEnd` at t=252.06 that would
+    /// otherwise take the credit.
+    ///
+    /// Every delta comes back paired with the fixture instant it was produced
+    /// at, because for these the instant *is* the claim under test.
+    static func replayAdvancingTheClock(
+        _ name: String, reaper: Reaper = Reaper()
+    ) async throws -> (
+        model: WorldModel,
+        timeline: [(instant: Date, delta: WorldDelta)],
+        entries: [HookLogEntry]
+    ) {
+        let entries = try entries(name)
+        let model = WorldModel(reaper: reaper)
+        var timeline: [(instant: Date, delta: WorldDelta)] = []
+        for entry in entries {
+            for step in await model.advance(to: entry.receivedAt) {
+                timeline += step.deltas.map { (step.instant, $0) }
+            }
+            guard let event = entry.event else { continue }
+            timeline += await model.ingest(event, at: entry.receivedAt)
+                .map { (entry.receivedAt, $0) }
+        }
+        return (model, timeline, entries)
+    }
+
     /// A captured payload with named top-level keys replaced.
     ///
     /// The one sanctioned way to make a synthetic event in this target. Every

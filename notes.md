@@ -1440,3 +1440,89 @@ three legs — structural (`canBecomeKey`/`canBecomeMain`/`acceptsFirstResponder
 false, `SKView` subclass refusing first responder), 560 samples showing the app
 never activated and frontmost never changed, and real keystrokes through twenty
 reveal/retract cycles. **No milestone in M0–M5 carries a partial any more.**
+
+---
+
+## 2026-08-07 — ADR-001 implemented, verified, and three defects it exposed
+
+**ADR-001 shipped.** A denied call's worst case drops 900 s → 60 s. The three
+close paths are byte-for-byte identical: the disarm went into `removeCall`, the
+single funnel every close and abandon already passes through, so which ids they
+close and which deltas they emit is unchanged. No `WorldDelta` case was added,
+so the scene and app needed no edits at all.
+
+Two details worth keeping. The rule **pulls in only** — `min(existing, now + G)`
+— because a `Read` marked at a gate carries 30 s of its own, and granting it 60
+would make a rule that exists to *shorten* extend a call's life. And the test
+pinning `G` **derives** the two straddles by walking `three-subagents` rather
+than restating them, so a future capture with a longer straddle turns the
+argument into a red test instead of a stale comment.
+
+I caught one thing on review: the implementer consumed `PermissionRequest` but
+left it **unregistered**, reasoning that no capture recorded its matcher shape
+and that guessing produces a hook which silently never fires while looking like
+a working install. Good instinct, wrong premise — the M0c sandbox registered it
+as `matcher: "*"` and it fired six times. Without that line the model consumes
+an event that never arrives and the entire rule is dead code.
+
+### The verification pass earned its keep
+
+**Risk 3 resolved in the rule's favour:** `PermissionRequest` does carry
+`agent_id` for a subagent gate.
+
+**But the ADR's reasoning had a false step.** It claimed a main thread blocked
+inside a synchronous `Agent` call cannot simultaneously raise a permission
+prompt. It can — captured, `Agent` open 3.504→19.805 with a dialog up from
+6.279. The conclusion survives *only* because the event carries the child's
+`agent_id`, which makes rule 1's per-agent scoping **load-bearing rather than
+incidental**. Anyone later "simplifying" it to session scope would silently
+break that case. A confirmation would have taught us nothing; this taught us
+which line not to touch.
+
+"At most one gate at a time" was refuted — two subagents' gates open together
+for 31.8 s — at no cost, because the ADR had refused to assume it. Risk 1 was
+marked **open, not reproducible**: the TUI serialised every batch across four
+attempts, and four attempts is not a proof when `parallel-tools` shows the
+headless runner does parallelise.
+
+### Three defects in already-shipped work
+
+**1. The attention badge named the wrong character.** `PermissionRequest`
+carries `agent_id`; the `Notification` that follows it does **not**. So a
+subagent's gate raised "needs your permission" on the *main* character — while
+that character's own `Agent` call was running fine. The room asserting something
+the data does not say, in work committed hours earlier. [I1]
+
+Fixed using ADR-001's marker, which already knows who is gated: raise on every
+agent with an armed gate, all of them, since concurrent gates are real. Fall
+back to the main thread when nothing is marked — which is the ordinary path and
+why the seven required fixtures' output is byte-identical. The clear rule needed
+no change because it was already agent-scoped, and that was *tested* rather than
+assumed.
+
+**2. `idle_prompt` fires once per idle stretch, not once per session.** We had
+documented it wrong from a single observation. `denial-then-work` has two.
+Nothing in the model had assumed at-most-once, but a comment had cited the
+falsehood as its justification, and a test name asserted it.
+
+**3. The replay harness could not demonstrate ADR-001.** It swept once at the
+end, so `denial-then-work` — captured specifically to prove the fix, with 157 s
+of real activity after the shortened deadline — reported `sessionEnded` at
+252.062 and never evaluated the deadline at all. Now sweeps as fixture time
+advances: `callAbandoned … deadlineExpired` at **94.984**, then the session
+carries on working.
+
+The regression risk there was real and was guarded: a mid-stream sweep that is
+too eager would close `tool-failure`'s calls early and destroy the exact property
+that fixture exists to prove. It is byte-identical, and a test compares stepped
+against unstepped delta streams for all seven required fixtures, delta for
+delta.
+
+### A process note on myself
+
+I used `git add -A` twice while several agents were editing. The first swept
+another agent's half-finished file into the M5 commit and left `HEAD` not
+compiling for twenty minutes; the second pulled four in-progress capture scripts
+into an unrelated commit. Explicit paths only from here. The build gate now
+catches the first failure mode at commit time; nothing catches the second but
+discipline.
