@@ -295,20 +295,45 @@ def build_room():
 def build_badges():
     real = os.path.join(PROCESSED, "badges", SIZE)
     fake = os.path.join(PLACEHOLDER, "badges", SIZE)
+
+    # Where each cut badge came from, written by scripts/process-assets.py at the
+    # moment it did the cutting. Read rather than restated so the two scripts
+    # cannot disagree about which cell produced which badge.
+    cut = {}
+    unsourceable = {}
+    sidecar = os.path.join(real, "sources.json")
+    if os.path.exists(sidecar):
+        with open(sidecar) as f:
+            blob = json.load(f)
+        cut = blob.get("badges", {})
+        unsourceable = blob.get("unsourceable", {})
+
     out = {}
     for name in BADGE_NAMES:
         entry = None
         p = os.path.join(real, "%s.png" % name)
         if os.path.exists(p):
-            entry = {"file": rel(p), "provenance": "pack",
-                     "source": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % SIZE}
+            entry = {"file": rel(p), "provenance": "pack"}
+            entry.update(cut.get(name, {}))
+            entry["provenance"] = "pack"
         else:
             p = os.path.join(fake, "%s.png" % name)
             if os.path.exists(p):
-                entry = {"file": rel(p), "provenance": "placeholder",
-                         "needs_swap_at": "M5",
-                         "blocked_on": "the standalone LimeZu 'Modern User Interface' pack, "
-                                       "which is not on disk"}
+                entry = {"file": rel(p), "provenance": "placeholder"}
+                # Why it is still a placeholder, in the words of the script that
+                # searched. Before M5b this said "blocked on a purchase"; the
+                # purchase happened, so the honest answer is now "the pack does
+                # not contain this icon", and the entry says which pack and what
+                # was looked at. A placeholder that still blames a purchase
+                # decision would send someone to buy the pack again.
+                reason = unsourceable.get(name)
+                if reason:
+                    entry["unsourceable"] = reason
+                    entry["searched"] = "Modern Interiors, Modern Office and Modern "
+                    entry["searched"] += "User Interface, every 32px cell of all three "
+                    entry["searched"] += "UI sheets rendered and inspected at M5b"
+                else:
+                    entry["needs_swap_at"] = "M5"
         if entry is None:
             continue
         if name in BADGE_LABELS:
@@ -323,7 +348,18 @@ def build_badges():
                    "note": "bottom-centre; the bubble tail points down at the head"},
         "note": "Badge colour is intentionally left unprocessed. A badge floats above "
                 "the room rather than being part of it, so the I7 room saturation "
-                "ceiling does not apply to it.",
+                "ceiling does not apply to it. Re-checked at M5b against real pack "
+                "art rather than placeholders: the composited badges are a light "
+                "bubble carrying a value-0.42 glyph, so they neither own the darkest "
+                "pixel on screen nor add saturation to the room layer.",
+        "frame": {
+            "source": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % SIZE,
+            "rect": [164, 16, 24, 34],
+            "note": "Every badge shares this bubble. It is not a lookalike of the "
+                    "question_mark badge's frame — it is the same 692-pixel "
+                    "component with no glyph in it, so a swap cannot change the "
+                    "badge silhouette.",
+        },
         "map": out,
     }
     if os.path.exists(extra):
@@ -353,7 +389,19 @@ def main():
             "required": True,
             "text": "Pixel art by LimeZu — limezu.itch.io",
             "url": "https://limezu.itch.io",
-            "note": "Modern Interiors states credits are required. Ships in the About panel.",
+            "note": "Three packs, one author, so one credit line still covers all of "
+                    "them: Modern Interiors and Modern User Interface both state "
+                    "credits required; Modern Office says credits are appreciated. "
+                    "The strictest term governs. Ships in the About panel.",
+            "packs": ["Modern Interiors", "Modern Office (Revamped)",
+                      "Modern User Interface"],
+            "restrictions": "All three forbid resale and redistribution and permit "
+                            "editing. Modern User Interface additionally forbids NFT "
+                            "minting — a clause neither other pack carries, and the "
+                            "only licence term in this project that restricts a use "
+                            "rather than a distribution. Nothing here mints anything, "
+                            "but the clause travels with the art, so any future use of "
+                            "these badges inherits it.",
         },
     }
     for key, fn in (("characters", build_characters), ("room", build_room),

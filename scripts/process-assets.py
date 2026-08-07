@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Asset import pass. Cuts the two purchased packs into what the scene loads.
+"""Asset import pass. Cuts the three purchased packs into what the scene loads.
 
-Two, not three: Modern User Interface was never purchased, so six of the seven
-tool badges have no source art and ship as placeholders. See README.md.
+Three as of M5b: Modern User Interface was bought, and two of the six
+placeholder tool badges now have real art. Four still do not — the pack has no
+magnifier, no globe, no plug and no terminal anywhere in it, which is a fact
+about the download and not a scheduling problem. See docs/04-ART-DIRECTION.md.
 
 docs/04-ART-DIRECTION.md: "Do the pass in a script committed to the repo, not by
 hand in an image editor. Hand-edited assets cannot be regenerated when the pack
@@ -17,7 +19,8 @@ Three layers, three treatments:
             Colour is passed through UNTOUCHED — I7 gives the characters the
             saturation and the dark values, so processing them would destroy
             the very contrast the lint checks for.
-  BADGE     Modern Interiors UI sheet, cut by measured rectangles. Colour
+  BADGE     Modern Interiors UI sheet, cut by measured rectangles, plus Modern
+            User Interface icons composited into the *same* bubble frame. Colour
             untouched: a badge is UI floating above the room, not part of it.
 
 Python 3 stdlib only. No pip, no Pillow.
@@ -42,6 +45,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(REPO, "assets")
 OFFICE = os.path.join(ASSETS, "Modern_Office_Revamped_v1.2")
 INTERIORS = os.path.join(ASSETS, "moderninteriors-win")
+USERINTERFACE = os.path.join(ASSETS, "modernuserinterface-win")
 OUT = os.path.join(ASSETS, "processed")
 STATE = os.path.join(OUT, ".import-state.json")
 
@@ -149,6 +153,92 @@ BADGE_RECTS = {
     "attention": (324, 22, 24, 28),      # red "!" bubble, for Notification
 }
 
+# ---------------------------------------------------------------------------
+# Badges composed from two packs — added at M5b, when Modern User Interface
+# was finally bought
+# ---------------------------------------------------------------------------
+
+# The empty speech bubble in Modern Interiors' UI sheet. This is not a bubble
+# that merely *resembles* the question-mark badge's frame — it is the same
+# artwork: the connected component at (164,16) is 24x34 and 692 opaque pixels,
+# exactly like the one at (260,16), and differencing the two leaves precisely
+# the "?" glyph and nothing else. So compositing into it cannot change the badge
+# silhouette, which is what docs/04-ART-DIRECTION.md promised the M5 swap would
+# preserve.
+BADGE_FRAME_RECT = (164, 16, 24, 34)
+
+# Where a glyph may go inside that frame: the light interior, measured off the
+# frame rather than guessed. x 2..21 and y 2..25 in frame-local coordinates —
+# the border is a 2px band and the tail hangs below row 27.
+BADGE_FRAME_INTERIOR = (2, 2, 20, 24)
+
+# Modern User Interface sheets, at the 32x set.
+MUI_SHEETS = {
+    "style1": "Modern_UI_Style_%d_%s.png",
+}
+
+# The icons we could actually find, by 32px cell on Modern_UI_Style_1_32x32.png.
+#
+# THE SHEET IS ON A TRUE GRID, unlike Modern Interiors' emote sheet: 1952x1376
+# is exactly 61x43 cells of 32, and every icon used here is wholly inside one
+# cell. What is *not* consistent is the offset within the cell — the two icons
+# below start at (8,8) and (8,10) and others in the same block start at (4,10)
+# or (6,8) — so the cut is still "find the cell, then take the bounding box of
+# what is in it", never "take the cell". A fixed offset would clip.
+#
+# Style 1 rows 18-22 hold a darker recolour of the same 41-glyph flat icon set
+# that rows 6-10 hold. The dark set is the one used: the bubble interior is
+# RGB(235,225,246), value 0.965, and the dark glyphs bottom out at value 0.42
+# against the light set's 0.61. Inside a bright bubble that difference is the
+# whole legibility of the badge at 1x.
+MUI_BADGE_ICONS = {
+    # badge name: (sheet key, cell x, cell y, what the glyph actually is)
+    "document":  ("style1", 28, 22, "page with a pencil across its corner"),
+    "checklist": ("style1", 31, 18, "bulleted list, three markers and three rules"),
+}
+
+# Badges this pack does not answer, and the reason, carried into the manifest so
+# nobody has to re-derive it. Every 32px cell of both style sheets and the
+# gamepad sheet was rendered and inspected at M5b: 337 distinct alpha masks on
+# Style 1, 283 on Style 2, 28 more that straddle cell boundaries. The whole
+# icon vocabulary is 41 flat glyphs (lock, unlock, 3x3 grid, back chevron,
+# person, cog, home, list, trash, check, cross, plus, minus, four arrows, sort,
+# refresh, swap, fast-forward, mail, play, back, up/down triangles, funnel,
+# person, question mark, trophy, info, pause, plinth, speaker, mute, sliders,
+# play-in-box, twitter, facebook, discord, edit, cart) plus a media strip
+# (monitor, monitor-with-cursor, phone, image, dropdown, speech bubbles,
+# checkbox, music, mute) plus an RPG item set (gifts, stars, jars, backpacks,
+# hearts, coins, a hand mirror, a closed book, a gear, a phone-in-hand).
+#
+# None of it is a magnifier, a globe or a plug. The nearest misses were left
+# alone on purpose and are named here so the next person does not "find" them
+# again: the hand mirror at cell (14,9) is a circle on a handle and would read
+# as a magnifier at 1x, and the monitor at cell (19,3) is the only screen in the
+# pack. Pressing either into service is the failure M5 refused when it left the
+# cog and the hammer alone. [I1]
+MUI_ABSENT = {
+    "magnifier": "no magnifier, loupe or search glyph exists in Modern User "
+                 "Interface (all three sheets inspected cell by cell at M5b). The "
+                 "closest shape is an RPG hand mirror at Style_1 cell (14,9), which "
+                 "is a mirror.",
+    "globe": "no globe, world or planet glyph exists in any of the three packs. "
+             "Modern Interiors' only match on the name is "
+             "animated_Christmas_snowball_globe, a snow globe.",
+    "plug": "no plug, socket, outlet, cable or connector glyph exists in any of "
+            "the three packs.",
+    "terminal": "no console, prompt or shell glyph exists. The only screen in the "
+                "pack is a monitor at Style_1 cell (19,3), and it sits inside the "
+                "pack's media strip beside monitor-with-cursor, phone, image and "
+                "speaker — so the pack's own semantics for it are 'display', not "
+                "'shell'. Rejected on that ground alone and not on legibility: "
+                "composited into the badge frame it measures glyph IoU 0.31 "
+                "against document and 0.43 against checklist, which is no worse "
+                "than pairs already shipping. A display standing in for a shell "
+                "is the cog-and-hammer rule. Overruling this is one line — add "
+                "\"terminal\": (\"style1\", 19, 3, ...) to MUI_BADGE_ICONS in "
+                "scripts/process-assets.py and rebuild.",
+}
+
 SIZE_SETS = ("16x16", "32x32", "48x48")
 DEFAULT_SIZES = ("32x32",)
 
@@ -215,6 +305,27 @@ def strip_shadow(w, h, px):
     return len(seen)
 
 
+def _bbox_in(w, h, px, x0, y0, rw, rh):
+    """Bounding box of the opaque pixels inside one rectangle, in sheet coords."""
+    bx0 = by0 = None
+    bx1 = by1 = -1
+    for y in range(y0, min(y0 + rh, h)):
+        for x in range(x0, min(x0 + rw, w)):
+            if px[(y * w + x) * 4 + 3] == 0:
+                continue
+            if bx0 is None or x < bx0:
+                bx0 = x
+            if x > bx1:
+                bx1 = x
+            if by0 is None or y < by0:
+                by0 = y
+            if y > by1:
+                by1 = y
+    if bx0 is None:
+        return None
+    return bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1
+
+
 def room_colour(r, g, b):
     """Desaturate and value-compress one colour. Pure; memoised by the caller."""
     hh, ss, vv = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
@@ -261,7 +372,9 @@ def _params_key():
             "export": {k: list(v) for k, v in CHAR_EXPORT.items()},
             "badges": BADGE_RECTS,
             "canvas": BADGE_CANVAS,
-            "rev": 3,
+            "badge_frame": [BADGE_FRAME_RECT, BADGE_FRAME_INTERIOR],
+            "badge_icons": {k: list(v) for k, v in MUI_BADGE_ICONS.items()},
+            "rev": 4,
         },
         sort_keys=True,
     )
@@ -440,11 +553,20 @@ class Importer:
     # -- badges -------------------------------------------------------------
 
     def badges(self, sizes):
-        """Cut the sourceable badges out of the UI sheet onto a common canvas.
+        """Cut the sourceable badges onto a common canvas.
 
-        Only the icons we could actually find go here. The other five badges in
-        the tool->badge table have no icon in any pack on disk and are generated
-        by scripts/generate-placeholders.py instead — see docs/FINDINGS-M0.md.
+        Two sources, one canvas:
+
+          * Modern Interiors' emote bubbles, cut whole — `question_mark` and
+            `attention` are complete badges as drawn.
+          * Modern User Interface icons dropped inside the *same* bubble frame.
+            The frame is that pack's own empty bubble, so this composites two
+            pieces of located pack art and draws nothing. Both licences permit
+            editing; neither permits redistribution, and assets/ is gitignored.
+
+        Only badges whose icon was actually found go here. The rest have no icon
+        in any pack on disk — see MUI_ABSENT for what was looked for and where —
+        and stay with scripts/generate-placeholders.py. [I1]
         """
         for size in sizes:
             unit = int(size.split("x")[0])
@@ -459,7 +581,15 @@ class Importer:
             key = "badge:" + _digest(src)
             w, h, px = pnglite.load(src)
             cw, ch = BADGE_CANVAS[0] * scale, BADGE_CANVAS[1] * scale
+            sources = {}
             for name, (x0, y0, rw, rh) in BADGE_RECTS.items():
+                sources[name] = {
+                    "provenance": "pack",
+                    "sheet": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % size,
+                    "rect": [x0 * scale, y0 * scale, rw * scale, rh * scale],
+                    "cut_by": "connected-component bounding box on the emote sheet, "
+                              "which is not cell-aligned",
+                }
                 x0, y0, rw, rh = x0 * scale, y0 * scale, rw * scale, rh * scale
                 dst = os.path.join(OUT, "badges", size, "%s.png" % name)
                 if self._fresh(dst, key):
@@ -479,8 +609,117 @@ class Importer:
                         di = ((oy + y) * cw + ox + x) * 4
                         buf[di : di + 4] = px[si : si + 4]
                 self._emit(dst, cw, ch, buf)
-            self.log("  badges/%s: %d sourced (%s)"
-                     % (size, len(BADGE_RECTS), ", ".join(sorted(BADGE_RECTS))))
+
+            composed = self.badge_composites(size, scale, w, h, px, key, sources)
+            self._write_badge_sources(size, sources)
+            self.log("  badges/%s: %d cut whole, %d composed, %d still unsourceable (%s)"
+                     % (size, len(BADGE_RECTS), composed, len(MUI_ABSENT),
+                        ", ".join(sorted(MUI_ABSENT))))
+
+    def badge_composites(self, size, scale, fw, fh, fpx, framekey, sources):
+        """Drop Modern User Interface icons into the Modern Interiors bubble.
+
+        The icon is located by 32px cell and then cut by the bounding box of
+        whatever is inside that cell. Both halves matter. The cell is what makes
+        the coordinate reproducible and reviewable — anyone can open the sheet
+        and go to (28,22). The bounding box is what makes the cut correct, since
+        this pack pads its icons into the cell at no fixed offset: the two used
+        here start at (8,8) and (8,10), and siblings in the same block start at
+        (4,10) and (6,8). Taking the cell whole would centre nothing.
+        """
+        if not os.path.isdir(USERINTERFACE):
+            self.log("  badges %s: Modern User Interface absent — %d badges stay "
+                     "placeholders" % (size, len(MUI_BADGE_ICONS)))
+            return 0
+        cw, ch = BADGE_CANVAS[0] * scale, BADGE_CANVAS[1] * scale
+        fx, fy, frw, frh = [v * scale for v in BADGE_FRAME_RECT]
+        ix, iy, iw, ih = [v * scale for v in BADGE_FRAME_INTERIOR]
+
+        loaded = {}
+        made = 0
+        for name, (sheet_key, cx, cy, what) in sorted(MUI_BADGE_ICONS.items()):
+            stem = MUI_SHEETS[sheet_key] % (int(sheet_key[-1]), size)
+            src = os.path.join(USERINTERFACE, size, stem)
+            if not os.path.exists(src):
+                self.log("  badges %s: %s absent — %s stays a placeholder"
+                         % (size, stem, name))
+                continue
+            if src not in loaded:
+                loaded[src] = pnglite.load(src)
+            sw, sh, spx = loaded[src]
+            cell = 32 * scale
+            if sw % cell or sh % cell:
+                self.log("  badges %s: %s is %dx%d, not a whole number of %dpx cells "
+                         "— %s stays a placeholder" % (size, stem, sw, sh, cell, name))
+                continue
+            box = _bbox_in(sw, sh, spx, cx * cell, cy * cell, cell, cell)
+            if box is None:
+                self.log("  badges %s: %s cell (%d,%d) is empty — %s stays a "
+                         "placeholder" % (size, stem, cx, cy, name))
+                continue
+            bx, by, bw, bh = box
+            if bw > iw or bh > ih:
+                self.log("  badges %s: %s cell (%d,%d) is %dx%d, larger than the "
+                         "%dx%d bubble interior — %s stays a placeholder"
+                         % (size, stem, cx, cy, bw, bh, iw, ih, name))
+                continue
+
+            sources[name] = {
+                "provenance": "pack",
+                "sheet": "Modern User Interface / %s/%s" % (size, stem),
+                "cell": [cx, cy],
+                "bbox_in_cell": [bx - cx * cell, by - cy * cell, bw, bh],
+                "glyph": what,
+                "frame_sheet": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % size,
+                "frame_rect": [fx, fy, frw, frh],
+                "cut_by": "32px cell on a sheet that divides exactly, then the "
+                          "bounding box inside that cell — the pack pads icons "
+                          "into their cell at no fixed offset",
+                "composed": "Modern User Interface icon inside Modern Interiors' own "
+                            "empty speech bubble, which is pixel-identical to the "
+                            "frame the question_mark badge already uses",
+            }
+            dst = os.path.join(OUT, "badges", size, "%s.png" % name)
+            key = "compose:%s:%s" % (framekey, _digest(src))
+            if self._fresh(dst, key):
+                made += 1
+                continue
+
+            buf = pnglite.new(cw, ch)
+            fox, foy = (cw - frw) // 2, ch - frh
+            for y in range(frh):
+                for x in range(frw):
+                    si = ((fy + y) * fw + fx + x) * 4
+                    di = ((foy + y) * cw + fox + x) * 4
+                    buf[di : di + 4] = fpx[si : si + 4]
+            gx = fox + ix + (iw - bw) // 2
+            gy = foy + iy + (ih - bh) // 2
+            for y in range(bh):
+                for x in range(bw):
+                    si = ((by + y) * sw + bx + x) * 4
+                    if spx[si + 3] == 0:
+                        continue
+                    di = ((gy + y) * cw + gx + x) * 4
+                    buf[di : di + 4] = spx[si : si + 4]
+            self._emit(dst, cw, ch, buf)
+            made += 1
+        return made
+
+    def _write_badge_sources(self, size, sources):
+        """Record where every badge came from, for build-manifest.py to read.
+
+        The manifest has to say which sheet and which coordinates produced each
+        badge, and the honest place for that is the script that did the cutting
+        — not a second hardcoded table in the manifest builder that could drift
+        from this one.
+        """
+        d = os.path.join(OUT, "badges", size)
+        if not os.path.isdir(d):
+            return
+        blob = {"badges": sources, "unsourceable": MUI_ABSENT}
+        with open(os.path.join(d, "sources.json"), "w") as f:
+            json.dump(blob, f, indent=1, sort_keys=True)
+            f.write("\n")
 
     # -- housekeeping -------------------------------------------------------
 
@@ -533,6 +772,13 @@ def main(argv=None):
             file=sys.stderr,
         )
         return 2
+    # Modern User Interface is not fatal: without it two more badges fall back to
+    # placeholders and everything else imports unchanged. That is the degradation
+    # the whole placeholder mechanism exists for.
+    if not os.path.isdir(USERINTERFACE):
+        print("note: %s is absent; %d badge(s) will stay placeholders."
+              % (os.path.relpath(USERINTERFACE, REPO), len(MUI_BADGE_ICONS)),
+              file=sys.stderr)
 
     imp = Importer(force=args.force, quiet=args.quiet)
     imp.log("import -> %s" % os.path.relpath(OUT, REPO))

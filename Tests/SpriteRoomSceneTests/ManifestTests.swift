@@ -93,16 +93,103 @@ struct ManifestTests {
         }
     }
 
-    /// Six of the seven badges are placeholders and one is real. The scene does
-    /// not care which — it reads the manifest either way — but the manifest
-    /// must keep saying which, so the M5 swap stays reviewable.
+    /// Which badges are real art and which are still placeholders. The scene
+    /// does not care — it reads the manifest either way — but the manifest must
+    /// keep saying which, so the swap stays reviewable.
+    ///
+    /// **Changed at M5b, and the change is a tightening.** This used to accept
+    /// "pack" or "placeholder" for any badge and pin only `question_mark`,
+    /// which meant a badge silently reverting to a placeholder was green. It
+    /// now names the exact split, so both directions of drift fail: sourcing a
+    /// badge without updating the spec, and losing one that was sourced.
+    ///
+    /// The split is a fact about the downloads, not a schedule. `document` and
+    /// `checklist` came from Modern User Interface when it was bought.
+    /// `magnifier`, `terminal`, `globe` and `plug` stay placeholders because
+    /// **no icon for them exists in any of the three purchased packs** — every
+    /// 32px cell of all three UI sheets was rendered and inspected. If you are
+    /// changing this list, change it because you found art, and put the cell
+    /// coordinates in `scripts/process-assets.py` where the others are. [I1]
     @Test func badgeProvenanceIsRecorded() throws {
         let manifest = try SceneFixtures.manifest()
+        let fromPack: Set<ToolBadge> = [.document, .checklist, .questionMark]
         for badge in ToolBadge.allCases {
             let art = try #require(manifest.badges.art(badge))
-            #expect(["pack", "placeholder"].contains(art.provenance), "\(badge)")
+            let expected = fromPack.contains(badge) ? "pack" : "placeholder"
+            #expect(art.provenance == expected, "\(badge) is \(art.provenance)")
         }
-        #expect(manifest.badges.art(.questionMark)?.provenance == "pack")
+    }
+
+    /// A badge that is still a placeholder has to say *why*, and the reason has
+    /// to be the true one.
+    ///
+    /// Before M5b every placeholder carried `blocked_on: the standalone LimeZu
+    /// "Modern User Interface" pack, which is not on disk`. That pack is now on
+    /// disk, so an entry still saying it would send the next person to buy
+    /// something twice. `scripts/process-assets.py` replaces it with what was
+    /// searched and what was found — including the near misses it rejected, so
+    /// nobody rediscovers that pack's hand mirror and files it as a magnifier.
+    ///
+    /// Read out of the raw JSON rather than the decoded `Manifest`: these keys
+    /// are provenance for humans reviewing the swap, and the scene has no
+    /// business decoding them. Adding them to `BadgeArt` would put a field in
+    /// `Sources/` that nothing renders.
+    @Test func remainingPlaceholdersSayWhyTheyAreStillPlaceholders() throws {
+        let url = SceneFixtures.repositoryRoot
+            .appending(path: "assets").appending(path: "manifest.json")
+        let raw = try JSONSerialization.jsonObject(with: try Data(contentsOf: url))
+        let map = try #require(
+            ((raw as? [String: Any])?["badges"] as? [String: Any])?["map"] as? [String: Any])
+
+        var placeholders = 0
+        for badge in ToolBadge.allCases {
+            let entry = try #require(map[badge.manifestKey] as? [String: Any],
+                                     "no entry for \(badge.manifestKey)")
+            guard entry["provenance"] as? String == "placeholder" else { continue }
+            placeholders += 1
+            let why = try #require(entry["unsourceable"] as? String,
+                                   "\(badge.manifestKey) gives no reason")
+            #expect(!why.isEmpty)
+            #expect(entry["searched"] != nil, "\(badge.manifestKey) does not say where it looked")
+            #expect(entry["blocked_on"] == nil,
+                    "\(badge.manifestKey) still blames a purchase that has been made")
+        }
+        #expect(placeholders == 4, "expected four unsourceable badges, found \(placeholders)")
+    }
+
+    /// Every badge shares one bubble, which is why the swap needed no code and
+    /// no layout change: the canvas and the anchor did not move.
+    ///
+    /// The frame is recorded in the manifest as a rectangle on Modern Interiors'
+    /// UI sheet, and it is the *same* component the `question_mark` badge is cut
+    /// from with nothing inside it — so a composited badge cannot have a
+    /// different silhouette from a badge that was cut whole.
+    @Test func everyBadgeSharesOneCanvasAndOneAnchor() throws {
+        let manifest = try SceneFixtures.manifest()
+        #expect(manifest.badges.canvas.width == 24)
+        #expect(manifest.badges.canvas.height == 34)
+        #expect(manifest.badges.anchor.x == 0.5)
+        #expect(manifest.badges.anchor.y == 0.0)
+    }
+
+    /// The badge PNGs are all exactly the declared canvas.
+    ///
+    /// This is the check that would have caught a composite drawn at the icon's
+    /// own size instead of the badge's: the scene sizes its badge node from
+    /// `badges.canvas` and would have stretched it, silently, at every scale.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyBadgeFileIsExactlyTheDeclaredCanvas() throws {
+        let manifest = try SceneFixtures.manifest()
+        var checked = 0
+        var files = ToolBadge.allCases.compactMap { manifest.badges.art($0)?.file }
+        if let attention = manifest.badges.attention?.file { files.append(attention) }
+        for file in files {
+            let image = try PixelImage.bitmap(contentsOf: manifest.url(file))
+            #expect(image.width == manifest.badges.canvas.width, "\(file)")
+            #expect(image.height == manifest.badges.canvas.height, "\(file)")
+            checked += 1
+        }
+        #expect(checked == ToolBadge.allCases.count + 1)
     }
 
     @Test func attentionIsABadgeStateAndNotABodyState() throws {

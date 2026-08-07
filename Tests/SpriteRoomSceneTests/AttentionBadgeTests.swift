@@ -203,9 +203,13 @@ struct AttentionBadgeTests {
         let manifest = try SceneFixtures.manifest()
         let art = try #require(manifest.badges.attention)
         #expect(!art.file.isEmpty)
-        // M0b sourced it from the pack. It and `question_mark` are the only two
-        // real badges we have; the other six are placeholders pending a
-        // purchase.
+        // M0b sourced it from the pack, and it is still pack art. Corrected at
+        // M5b: this used to say it and `question_mark` were the only two real
+        // badges and that the other six were "pending a purchase". The purchase
+        // was made. It supplied `document` and `checklist`; the four that are
+        // still placeholders are so because no icon for them exists in any pack
+        // we own, which is not a thing a purchase fixes. See
+        // `ManifestTests.badgeProvenanceIsRecorded` for the exact split.
         #expect(art.provenance == "pack")
         #expect(manifest.badges.states[Manifest.Badges.attentionKey] != nil)
         // And it is not a tool badge.

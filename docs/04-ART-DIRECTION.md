@@ -1,22 +1,40 @@
 # 04 — Art direction
 
-Revised after selecting the source art, then **corrected at M0 against the
-files**. Two LimeZu packs are on disk and a third was assumed and is not:
+Revised after selecting the source art, **corrected at M0 against the files**,
+and corrected again at **M5b when the third pack was bought**. All three LimeZu
+packs are now on disk:
 
 - **Modern Interiors** (`assets/moderninteriors-win/`) — characters, the
   character generator, base interiors, and an emote set. Present.
 - **Modern Office (Revamped)** — desks, chairs, monitors. The room. Present.
-- **Modern User Interface** — assumed to be the badge icon set. **Not
-  purchased, not on disk.** Six of the seven tool badges depend on it and are
-  placeholders until it arrives. See `docs/FINDINGS-M0.md`.
+- **Modern User Interface** (`assets/modernuserinterface-win/`) — **purchased at
+  M5b.** It is a real application-icon set and it supplied `document` and
+  `checklist`. It does **not** contain a magnifier, a globe, a plug or a
+  console, so four badges are still placeholders — see the badge table below,
+  which now records what was searched rather than what is awaited.
 
-Licence terms for the two packs we use are equivalent in substance — commercial
-and non-commercial use permitted, editing permitted, redistribution forbidden —
-but **not identical in wording, and the difference matters**: Modern Office says
-credits are *appreciated*; Modern Interiors says **credits required
-(`limezu.itch.io`)**. The stricter term governs. Two consequences that are not
-negotiable: `assets/` is gitignored or the repo is private, and the credit line
-ships in an About panel.
+Licence terms for the three packs are equivalent in substance — commercial and
+non-commercial use permitted, editing permitted, resale and redistribution
+forbidden — but **not identical in wording, and the differences matter**:
+
+- Modern Office says credits are *appreciated*.
+- Modern Interiors says **credits required (`limezu.itch.io`)**.
+- Modern User Interface says **credits required**, and adds a clause neither
+  other pack carries: **every permission it grants is "except NFT minting"**.
+  It is the only licence term in this project that restricts a *use* rather
+  than a distribution, and it travels with the art — anything built out of
+  these badges inherits it.
+
+The strictest term governs on each axis. Three consequences that are not
+negotiable: `assets/` is gitignored or the repo is private, the credit line
+ships in an About panel, and nothing here is minted.
+
+**One credit line still covers all three packs**, because all three are by the
+same author and both "credits required" licences name the same destination.
+`assets/manifest.json` carries it as `credit.text` — "Pixel art by LimeZu —
+limezu.itch.io" — with `credit.packs` listing all three and
+`credit.restrictions` recording the NFT clause, so the About panel needs no
+change and the term is not lost.
 
 A third folder, `assets/Modern tiles_Free/`, is the free sampler of Modern
 Interiors. Its licence forbids commercial use **and forbids editing the sprites
@@ -65,11 +83,12 @@ Replaced by three independent layers that never fight each other:
 
 Nothing is held. Delete every reference to a held prop.
 
-The badge layer was assumed to come from a Modern User Interface pack. It does
-not — that pack is not on disk, and one badge comes from Modern Interiors'
-emote set while six are placeholders. The layering is unaffected: the badge is
-an independent sprite above the head, and where it comes from is a sourcing
-question, not a design one.
+The badge layer draws from **two** packs as of M5b. The frame — a 24×34 speech
+bubble — is Modern Interiors' own empty emote bubble; the glyph inside it is
+either a Modern Interiors emote (`question_mark`, `attention`, cut whole) or a
+Modern User Interface icon dropped into that frame (`document`, `checklist`).
+The layering is unaffected: the badge is still one independent sprite above the
+head, on one canvas, on one anchor.
 
 Placement is by measurement, not eyeball. A character is bottom-aligned in its
 32×64 frame and its head starts partway down, so the manifest records
@@ -111,13 +130,27 @@ left the room with no floor, no characters, and no badges:
 |---|---|---|
 | `Room_Builder_Office` | exact 32px, no off-grid content | safe to slice — this is floors and walls, and there is no singles alternative |
 | Premade character sheets | exact 56×20 of 32×64 | safe to slice |
-| `UI_32x32.png` | divides exactly into 18×16 cells, but the artwork is **not cell-aligned** | slice by measured bounds, never by the nominal grid |
+| `UI_32x32.png` (Modern Interiors) | divides exactly into 18×16 cells, but the artwork is **not cell-aligned** | slice by measured bounds, never by the nominal grid |
+| `Modern_UI_Style_1_32x32.png` | divides exactly into 61×43 cells, and every icon is **wholly inside one cell** — but at no fixed offset within it | cell coordinate to find it, bounding box inside that cell to cut it |
 
-The UI case is the one to be careful with. The speech-bubble emotes sit at a
-+4px x offset and are 28–34px tall, so they hang across the cell boundary below
-them; cutting on the grid clips every one. `scripts/process-assets.py` cuts them
-by connected-component bounding box, which is reproducible. Do not eyeball
-offsets — if a future sheet resists this, stop and report rather than guessing.
+The Modern Interiors UI case is the one to be careful with. The speech-bubble
+emotes sit at a +4px x offset and are 28–34px tall, so they hang across the cell
+boundary below them; cutting on the grid clips every one.
+`scripts/process-assets.py` cuts them by connected-component bounding box, which
+is reproducible. Do not eyeball offsets — if a future sheet resists this, stop
+and report rather than guessing.
+
+**Modern User Interface is better behaved, and was verified rather than
+assumed** (M5 found the emote sheet was not cell-aligned, so this was checked
+first and not taken on trust). All three of its sheets divide exactly into 32px
+cells — 61×43, 49×34 and 51×51 — and 85% of its connected components fit inside
+a single cell, the rest being panels, bars and frames that were never
+candidates. But the icons are **padded into their cells at no consistent
+offset**: of the flat icon block, some start at (8,8), some at (8,10), some at
+(4,10), some at (6,8). So the cut is still two steps — the 32px cell locates the
+icon and is what makes the coordinate reviewable, and the bounding box inside
+that cell is what makes the cut correct. Taking the cell whole would centre
+nothing; assuming a fixed pad would clip.
 
 ## Body states
 
@@ -203,26 +236,75 @@ Collapse aggressively. A user cannot distinguish twelve icons at `2x`.
 | plug | `mcp__*` (any) |
 | question mark | anything unmapped |
 
-**Six of these seven have no icon.** M0 checked every pack on disk. Modern
-Interiors' `4_User_Interface_Elements` is an *emote* set — hearts, `?`, `!`,
-sleep `Z`, music notes, moons, a sun, coins, weapons — not an application icon
-set. There is no document, no magnifier, no terminal, no globe, no checklist and
-no plug anywhere in it. The standalone **Modern User Interface** pack this
-document assumed would supply them has not been purchased.
+**Three of these seven are real art. Four are not, and no purchase will fix
+them.** Corrected at M5b, replacing this section's previous claim that six were
+blocked on buying Modern User Interface.
 
-| Badge | Status |
-|---|---|
-| question mark | **sourced** — blue `?` emote bubble |
-| document, magnifier, terminal, globe, checklist, plug | **placeholder**, drawn by `scripts/generate-placeholders.py` |
-| attention (`Notification`) | **sourced** — red `!` emote bubble |
+| Badge | Status | Source |
+|---|---|---|
+| document | **sourced** — M5b | Modern UI `Style_1` cell (28,22), a page with a pencil across its corner |
+| checklist | **sourced** — M5b | Modern UI `Style_1` cell (31,18), a bulleted list |
+| question mark | **sourced** — M0b | Modern Interiors emote sheet, blue `?` bubble |
+| attention (`Notification`) | **sourced** — M0b | Modern Interiors emote sheet, red `!` bubble |
+| magnifier, terminal, globe, plug | **placeholder** | nothing to source — see below |
 
-The placeholders reuse the pack's speech-bubble frame, so the silhouette does
-not change when a real icon replaces one, and the swap is a manifest edit.
+The two new badges are **composited, not drawn**: the Modern UI icon is dropped
+into Modern Interiors' own *empty* speech bubble at `UI_32x32.png` (164,16,24,34).
+That bubble is not a lookalike of the `question_mark` badge's frame — it is the
+same 692-pixel component with no glyph in it, proved by differencing the two,
+which leaves exactly the `?` and nothing else. So a composited badge cannot have
+a different silhouette from one cut whole, and the canvas and anchor did not
+move. Both licences permit editing, and the composite is done by
+`scripts/process-assets.py`, so it survives a pack update.
 
-Do not substitute a nearby emote for a missing badge. The pack has a cog and a
-hammer, and neither of them is a terminal; picking one because it is *sort of*
-tool-shaped is the same failure as inventing a badge for an unknown tool.
-Unmapped tools get the question mark and are logged — never guess. [I1]
+The exact coordinates live in `MUI_BADGE_ICONS` in that script and are copied
+into every manifest entry — sheet, cell, bounding box inside the cell, frame
+rect. Anyone can reopen the same file and disagree.
+
+### The four that stay placeholders, and what was actually searched
+
+M5b rendered and inspected **every 32px cell of all three Modern UI sheets** —
+337 distinct alpha masks on Style 1, 283 on Style 2, plus the 28 components that
+straddle cell boundaries, plus the gamepad sheet. The pack's entire vocabulary
+is 41 flat application glyphs (lock, unlock, 3×3 grid, back chevron, person,
+cog, home, list, trash, check, cross, plus, minus, four arrows, sort, refresh,
+swap, fast-forward, mail, play, back, up/down triangles, funnel, question mark,
+trophy, info, pause, plinth, speaker, mute, sliders, play-in-box, twitter,
+facebook, discord, edit, cart), a media strip (monitor, monitor-with-cursor,
+phone, image, dropdown, speech bubbles, checkbox, music, mute) and an RPG item
+set (gifts, stars, jars, backpacks, hearts, coins, a hand mirror, a closed book,
+a gear, a phone-in-hand). All three size sets are the same artwork: the 16× and
+48× sheets are exact 0.5× and 1.5× of the 32× ones.
+
+None of it is a magnifier, a globe or a plug. A filename search across all 52726
+PNGs in the three packs for `globe|plug|socket|world|search|magnif|terminal|
+console|map` returns one hit, `animated_Christmas_snowball_globe` — a snow globe.
+
+The near misses were left alone deliberately, and are named here so nobody
+"finds" them again:
+
+- The **hand mirror** at `Style_1` cell (14,9) is a circle on a handle and would
+  read as a magnifier at `1x`. It is a mirror, from a fantasy inventory set.
+- The **monitor** at `Style_1` cell (19,3) is the only screen in the pack, and
+  it sits inside the media strip beside monitor-with-cursor, phone, image and
+  speaker — so the pack's own semantics for it are *display*, not *shell*.
+  Rejected on that ground and **not** on legibility, which was measured rather
+  than asserted: composited into the badge frame it scores glyph IoU 0.31
+  against `document` and 0.43 against `checklist`, no worse than pairs already
+  shipping.
+
+This is the same call M5 made when it left the cog and the hammer alone rather
+than calling them a document and a terminal, and the reasoning has not changed:
+picking an icon because it is *sort of* tool-shaped is the same failure as
+inventing a badge for an unknown tool. Unmapped tools get the question mark and
+are logged — never guess. [I1]
+
+**The placeholders do not, in fact, reuse the pack's bubble** — an earlier
+version of this document said they did. Measured at M5b: their frame is a
+hand-drawn lookalike with a heavier, darker border, which is why they read
+*louder* than the real badges beside them. That is harmless and arguably
+correct — a placeholder should be conspicuous — but the sentence was wrong and
+is corrected rather than left standing.
 
 **Multiple open calls:** show the badge for the *lowest-ordinal* tool in the
 table, plus a small `×N`. Deterministic ordering keeps the badge stable while
@@ -244,6 +326,20 @@ So the rule becomes a **preprocessing pass**, not an authoring instruction:
    transform over them would destroy exactly the contrast the lint protects.
 3. Badges also pass through untouched. A badge floats above the room rather
    than being part of it, so the room saturation ceiling does not bind it.
+
+   **Re-checked at M5b against real art rather than placeholders, because an
+   exemption granted to art nobody had seen is not an exemption anyone
+   checked.** It still holds, and now for a measured reason rather than a
+   structural one. The composited badges are a light bubble (interior
+   `RGB(235,225,246)`, value 0.965) carrying a glyph that bottoms out at value
+   0.42 and 0.34 saturation. So they are neither the most saturated element on
+   screen — the characters' accents clear 0.598 — nor the darkest, the
+   characters' darkest pixel being 0.314. The exemption is not being used to
+   smuggle in art that would have failed the room test; the badges would pass
+   the room's saturation ceiling anyway, and only fail to be *room* art because
+   they are brighter than the room's value band, which is the direction that
+   costs nothing. If a future badge is ever the darkest or most saturated thing
+   on screen, this exemption is the wrong answer and the badge is.
 4. `scripts/lint-palette.py` runs over `assets/manifest.json` after processing.
    Thresholds unchanged: room under 25% saturation, every character carrying
    something above 55%, at least 40% value contrast between a character's
@@ -481,14 +577,20 @@ drop-down jump as agents come and go) or a fractional zoom (which I6 forbids).
 
 ## Placeholders
 
-Mostly discharged. Characters, room, furniture and one badge are real art as of
-M5. What remains a placeholder:
+Mostly discharged. Characters, room, furniture and **three** badges are real art
+as of M5b. What remains a placeholder:
 
-- **Six tool badges** — document, magnifier, terminal, globe, checklist, plug.
-  Blocked on the Modern User Interface pack, which is **still not purchased**.
-  `scripts/generate-placeholders.py` draws them at the real badge canvas inside
-  the real bubble frame, so the swap is a manifest edit with no code change and
-  no layout change. This is the one open purchase decision in the project.
+- **Four tool badges** — magnifier, terminal, globe, plug. **Not blocked on a
+  purchase any more.** Modern User Interface was bought at M5b, supplied
+  `document` and `checklist`, and contains no icon for these four; the search is
+  recorded above and in each manifest entry's `unsourceable` field.
+  `scripts/generate-placeholders.py` draws them at the real badge canvas, so the
+  swap stays a manifest edit with no code change and no layout change — as it
+  just demonstrated, twice.
+
+  The way to close these is different in kind from the last one: either find a
+  pack that has them, or commission four 16×16 glyphs. There is no third pack
+  left to buy in this family.
 - A **fallback character set**, generated only on `--characters`. Not in the
   manifest. It exists so that a missing pack degrades to something that renders
   rather than to a crash.
@@ -505,8 +607,8 @@ to M5.
 | Script | Does |
 |---|---|
 | `scripts/pnglite.py` | minimal PNG decode/encode, stdlib only. No pip anywhere in this pipeline. |
-| `scripts/process-assets.py` | the import pass — room recolour, shadow strip, character slicing, badge cutting. Idempotent. |
-| `scripts/generate-placeholders.py` | draws what no pack supplies. |
+| `scripts/process-assets.py` | the import pass — room recolour, shadow strip, character slicing, badge cutting and badge compositing. Idempotent; verified byte-identical across a forced rerun. It also writes `assets/processed/badges/32x32/sources.json`, which records the sheet, cell and bounding box behind every badge, and the search result behind every badge that has none. |
+| `scripts/generate-placeholders.py` | draws what no pack supplies. Still draws all six, but two of them are now only the fallback behind real art. |
 | `scripts/build-manifest.py` | generates `assets/manifest.json` from disk, re-stating every path. |
 | `scripts/lint-palette.py` | the I7 gate. Non-zero exit names the file and the value. |
 

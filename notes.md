@@ -1255,3 +1255,188 @@ prompt is open at a time" is not safe** — all six captured `PermissionRequest`
 were lone calls in their own turns, so the parallel case was simply never
 exercised. The recommendation does not assume it. That is the difference between
 an ADR and a rationalisation.
+
+---
+
+## 2026-08-07 — M5b, the Modern User Interface pack arrives
+
+Appended to M5 rather than rewriting it. **M5's criterion 1 was PARTIAL on one
+stated blocker — "buy LimeZu Modern User Interface" — and that blocker is now
+closed.** It did not close the way M5 expected it to, and the difference is the
+finding.
+
+**Two of the six placeholder badges are now real pack art: `document` and
+`checklist`.** Four are not, and this is the part that matters: **the remaining
+four are not blocked on a purchase any more, because the pack does not contain
+them.** Modern User Interface has no magnifier, no globe, no plug and no
+console glyph. That is a fact about the download, not a schedule, and the
+manifest now says so in each entry's `unsourceable` field instead of pointing at
+a purchase that has been made.
+
+### What was actually searched, because "it isn't there" needs evidence
+
+Every 32px cell of all three of the pack's sheets was rendered and looked at:
+337 distinct alpha masks on `Style_1`, 283 on `Style_2`, the 28 components that
+straddle cell boundaries, and the gamepad sheet. The 16× and 48× sheets are
+exact 0.5× and 1.5× of the 32× ones, so there is nothing extra at another size.
+A filename sweep over all **52726** PNGs in the three packs for
+`globe|plug|socket|world|search|magnif|terminal|console|map` returned exactly one
+hit — `animated_Christmas_snowball_globe`, a snow globe.
+
+The pack's whole vocabulary is 41 flat application glyphs, a media strip
+(monitor, monitor-with-cursor, phone, image, dropdown, checkbox, speaker,
+music), and an RPG inventory set. It is a real icon set — `edit` and `list` are
+exactly the icons `document` and `checklist` want — it simply has no search, no
+world and no connector.
+
+### Cell alignment: checked first, and better behaved than M5's sheet
+
+M5 found Modern Interiors' emote sheet was *not* cell-aligned — bubbles hang
+across the row below, so grid-slicing clipped every one — so this pack was
+verified rather than trusted. All three sheets divide exactly into 32px cells
+(61×43, 49×34, 51×51) and **85% of components fit wholly inside one cell**, the
+rest being panels and bars that were never candidates. But the icons are padded
+into their cells at **no consistent offset** — the flat block alone starts at
+(8,8), (8,10), (4,10) and (6,8) — so the cut is two steps: the cell coordinate
+locates the icon and makes it reviewable, the bounding box inside that cell
+makes the cut correct. Taking the cell whole would centre nothing.
+
+### The badges are composited, and the frame is not a lookalike
+
+A bare 18×18 tan icon on a room whose mean value is 0.785 is invisible, and it
+would also have broken the badge language: two badges are speech bubbles with a
+tail that points at the head, and the manifest carries one canvas and one anchor
+for all seven.
+
+So the icon goes *inside* Modern Interiors' own **empty** speech bubble at
+`UI_32x32.png` (164,16,24,34). That bubble is not a similar bubble — it is the
+same 692-pixel component as the `question_mark` badge's frame with nothing in
+it, which differencing the two confirms: the diff is exactly the `?` and
+nothing else. So the composite provably cannot change the badge silhouette,
+which is the property `04-ART-DIRECTION.md` promised the swap would preserve.
+Interior `RGB(235,225,246)` at value 0.965 against a glyph bottoming out at
+0.42 — the dark recolour of the icon set (`Style_1` rows 18–22) was chosen over
+the light one (rows 6–10, floor 0.61) for exactly that contrast.
+
+**Zero code change, as advertised.** `Sources/` is untouched. The canvas is
+still 24×34, the anchor still bottom-centre, and `TextureStore` loaded the new
+files without knowing anything had happened.
+
+### The monitor, and why it is still a placeholder
+
+The one real judgment call. `Style_1` cell (19,3) is a computer monitor — the
+only screen in the pack — and it is tempting as `terminal`.
+
+It stays out, on semantics rather than legibility, and the legibility half was
+measured rather than asserted so the two could be separated. Composited into the
+badge frame the monitor scores glyph IoU **0.31** against `document` and **0.43**
+against `checklist`, which is *better* than pairs already shipping (`terminal`
+vs `plug` at 0.57, `question_mark` vs `attention` at 0.56). So "it would be
+confusable" would have been a convenient claim and it is false.
+
+What is true is that the monitor sits inside the pack's media strip, next to
+monitor-with-cursor, phone, image and speaker. The pack's own semantics for it
+are *display*, not *shell*. A display standing in for a shell is the cog and the
+hammer again, and M5's call on those was right. **Overruling this is one line** —
+add `"terminal": ("style1", 19, 3, ...)` to `MUI_BADGE_ICONS` and rerun — and
+the rejected candidate is rendered at 1× and 8× in the proof set so the decision
+can be looked at rather than argued about.
+
+The other near miss, recorded so nobody rediscovers it: the **hand mirror** at
+`Style_1` (14,9) is a circle on a handle and reads as a magnifier at 1×. It is
+an RPG mirror.
+
+### Distinguishability, with numbers
+
+Pairwise IoU of the glyph inside the bubble interior, over the seven tool badges
+plus `attention`. Lower is more distinct.
+
+- Closest pair overall: **`terminal` vs `plug`, 0.57** — both placeholders.
+- Then `question_mark` vs `attention` at 0.56, which never co-occur: attention
+  outranks every tool badge and replaces it.
+- The two new badges: `document` vs `checklist` **0.40**, `document` vs
+  `question_mark` 0.35, `checklist` vs `question_mark` 0.45.
+- Most distinct pair: `document` vs `globe`, 0.10.
+
+So the swap did not make anything harder to tell apart, and the tightest pair in
+the set is still two placeholders. Rendered at the 1× floor in
+`scratchpad/m5-badges/`: isolated, in the room over real characters and real
+processed floor and wall, ink-flattened for the silhouette test, and at 6×–8×
+for reading. Every pixel in those comes from a file the manifest names.
+
+### Licence, and a clause the other two packs do not have
+
+Modern User Interface permits commercial and non-commercial use and editing, and
+forbids resale and redistribution — same as the others — but every permission it
+grants is qualified **"except NFT minting"**, and it **requires credits**.
+
+The existing credit line still covers all three packs: one author, and both
+"credits required" licences name `limezu.itch.io`. So the About panel needs no
+change. What was missing was the record, and the manifest now carries
+`credit.packs` (all three) and `credit.restrictions` (the NFT clause, noted as
+travelling with the art rather than with this build). `assets/` was already
+gitignored.
+
+### Lint, unchanged and unweakened
+
+Room max saturation **0.183** (ceiling 0.25), room mean value **0.785**, room
+darkest **0.659**, weakest character saturation **0.598** (floor 0.55), weakest
+value contrast **0.472** (floor 0.40), closest accent pair **59.7°** (floor 40°).
+480 room files, 502276 visible pixels. Identical to M5 — badges are not measured
+by the room or character checks, and nothing about the room or the cast changed.
+
+**M5's badge exemption from the room saturation ceiling was re-derived rather
+than inherited**, since an exemption granted to art nobody had seen is not an
+exemption anyone checked. It holds, and now for a measured reason: the badges
+top out at 0.34 saturation and value 0.42, so they are neither the most
+saturated thing on screen (characters clear 0.598) nor the darkest (characters
+reach 0.314). The exemption is not smuggling anything past the gate.
+
+Import is byte-identical across a forced rerun; so is the manifest.
+
+### Tests: one assertion tightened, two added, one comment corrected
+
+- `ManifestTests.badgeProvenanceIsRecorded` used to accept `"pack"` or
+  `"placeholder"` for any badge and pin only `question_mark` — so a badge
+  quietly reverting to a placeholder was green. It now names the exact split
+  (`document`, `checklist`, `question_mark` are pack; the other four are
+  placeholders), which fails in **both** directions of drift.
+- `remainingPlaceholdersSayWhyTheyAreStillPlaceholders` is new: a placeholder
+  must carry an `unsourceable` reason and a `searched` note, and must **not**
+  carry the old `blocked_on`, which would send the next person to buy a pack
+  that is already on disk. Read out of the raw JSON, because these keys are
+  provenance for a human reviewing the swap and the scene has no business
+  decoding them — adding them to `BadgeArt` would put a field in `Sources/` that
+  nothing renders.
+- `everyBadgeFileIsExactlyTheDeclaredCanvas` is new and gated on the art: it
+  would have caught a composite emitted at the icon's own size, which the scene
+  would then have stretched silently at every scale.
+- `AttentionBadgeTests` had a comment asserting only two badges were real and
+  the rest were "pending a purchase". Corrected in place.
+
+**Both new assertions were verified to actually fail.** Run in a throwaway
+`git worktree` at `HEAD` — which holds the pre-swap manifest — they report
+`art.provenance → "placeholder" == expected → "pack"` twice and
+`entry["unsourceable"] → nil`. A test that has never been seen red is not
+evidence.
+
+291 tests pass; clean `swift build --build-tests -Xswiftc -warnings-as-errors`.
+
+### Still open
+
+1. **Four badges — magnifier, terminal, globe, plug — have no source art in any
+   pack we own.** This is no longer a purchase decision in this family; it is
+   either a different pack or four commissioned 16×16 glyphs. Or accept four
+   placeholders, which is what the room ships today and is honest.
+2. The `terminal`-as-monitor call above, if the reviewer disagrees. One line.
+
+---
+
+## 2026-08-07 — M3 criterion 2 closed by hand
+
+The user ran `--probe focus --cycles 20 --countdown 10` with TextEdit frontmost
+and confirmed no lost or reordered keystrokes. M3's focus criterion now has all
+three legs — structural (`canBecomeKey`/`canBecomeMain`/`acceptsFirstResponder`
+false, `SKView` subclass refusing first responder), 560 samples showing the app
+never activated and frontmost never changed, and real keystrokes through twenty
+reveal/retract cycles. **No milestone in M0–M5 carries a partial any more.**

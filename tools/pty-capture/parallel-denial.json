@@ -1,0 +1,101 @@
+{
+ "cmd": [
+  "/Users/henrykanaskie/.local/bin/claude"
+ ],
+ "cwd": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m0-capture",
+ "env_clear": [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_BRIDGE_SESSION_ID",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_PID",
+  "CLAUDE_EFFORT",
+  "AI_AGENT",
+  "CLAUDE_CODE_SSE_PORT"
+ ],
+ "env_set": {
+  "TERM": "xterm-256color",
+  "COLUMNS": "120",
+  "LINES": "40"
+ },
+ "log": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m6c/parallel-denial.raw",
+ "hard_timeout": 700,
+ "drain": 5,
+ "cols": 120,
+ "rows": 40,
+ "steps": [
+  {
+   "await": "forshortcuts|Try\\s*\"|Welcometo",
+   "timeout": 90
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "send": "Issue exactly two Bash tool calls in ONE single message, in parallel, in the same tool block. Call A: bash m6short.sh   Call B: touch /private/tmp/claude-501/m6-deny.txt   Do not run them one after the other and do not explain first - just make both calls in one block."
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter",
+   "note": "submit"
+  },
+  {
+   "await": "1\\.\\s*Yes",
+   "timeout": 90,
+   "note": "DIALOG for call B (touch); call A should already be running"
+  },
+  {
+   "sleep": 8
+  },
+  {
+   "key": "down"
+  },
+  {
+   "sleep": 0.4
+  },
+  {
+   "key": "down"
+  },
+  {
+   "sleep": 0.4
+  },
+  {
+   "key": "enter",
+   "note": "choose 3. No -> DENY call B"
+  },
+  {
+   "sleep": 25,
+   "note": "settle after denial; A still running"
+  },
+  {
+   "send": "Reply with just the number 4 and nothing else."
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter",
+   "note": "USER PROMPT while long sibling still running"
+  },
+  {
+   "sleep": 120,
+   "note": "wait past A's real completion (240s job)"
+  },
+  {
+   "send": "/exit"
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter"
+  },
+  {
+   "sleep": 8
+  }
+ ]
+}

@@ -8,13 +8,19 @@ so real art is a manifest swap with no code change."
 As of M0 the character and room layers are fully sourced from the purchased
 packs, so this script's job has narrowed to what is genuinely absent:
 
-  * Six of the seven tool badges. The tool->badge table in
-    docs/03-EVENT-MODEL.md names document, magnifier, terminal, globe,
-    checklist and plug. None of them exist in any pack on disk — Modern
-    Interiors' 4_User_Interface_Elements is an emote set (hearts, "?", "!",
-    music, moons), not an application icon set. The standalone LimeZu "Modern
-    User Interface" pack that docs/04 assumes would supply them has not been
-    purchased. Until it is, these six are drawn here.
+  * Four of the seven tool badges — magnifier, terminal, globe and plug.
+    Corrected at M5b: this used to say six, blocked on buying LimeZu "Modern
+    User Interface". That pack was bought. It supplied `document` and
+    `checklist`, which scripts/process-assets.py now cuts and composites, and
+    it turned out to contain no magnifier, no globe, no plug and no console
+    glyph at all — every 32px cell of all three of its sheets was rendered and
+    inspected. So the remaining four are not blocked on a purchase any more;
+    they are simply not drawn by anyone we have bought. [I1]
+
+    All six are still generated. The two that now have pack art keep a
+    placeholder on disk as the fallback for a checkout whose assets/processed/
+    is missing — the manifest prefers the real cut whenever it exists, exactly
+    as it does for every other badge.
 
   * A character variant, drawn only when --characters is passed. Not used by
     the manifest today; kept because the moment a pack goes missing or a
@@ -41,10 +47,15 @@ OUT = os.path.join(REPO, "assets", "placeholder")
 # so swapping a real icon in at M5 needs no layout change anywhere.
 BADGE_CANVAS = (24, 34)
 
-# Badges still missing, with the glyph each one draws. Names are exactly the
-# badge names in the docs/03-EVENT-MODEL.md table — that table is the contract
-# and this file does not get to rename anything in it.
+# Badges drawn here, with the glyph each one draws. Names are exactly the badge
+# names in the docs/03-EVENT-MODEL.md table — that table is the contract and
+# this file does not get to rename anything in it.
+#
+# `document` and `checklist` have real pack art as of M5b and are kept only as
+# the fallback described in the module docstring. The other four have no source
+# art anywhere and are what a placeholder is actually for.
 MISSING_BADGES = ("document", "magnifier", "terminal", "globe", "checklist", "plug")
+STILL_UNSOURCEABLE = ("magnifier", "terminal", "globe", "plug")
 
 # Placeholder ink. Deliberately high saturation: a badge sits above the room, so
 # I7's room ceiling does not bind it, and a washed-out placeholder is one nobody
@@ -155,7 +166,11 @@ def make_badges(scale, quiet):
         pnglite.save(p, w, h, buf)
         made.append(p)
     if not quiet:
-        print("  badges/%s: %d placeholders (%s)" % (size, len(made), ", ".join(MISSING_BADGES)))
+        fallback = [n for n in MISSING_BADGES if n not in STILL_UNSOURCEABLE]
+        print("  badges/%s: %d placeholders — %d unsourceable (%s), %d kept as "
+              "fallback behind pack art (%s)"
+              % (size, len(made), len(STILL_UNSOURCEABLE), ", ".join(STILL_UNSOURCEABLE),
+                 len(fallback), ", ".join(fallback)))
     return made
 
 

@@ -17,7 +17,13 @@
     "required": true,
     "text": "Pixel art by LimeZu \u2014 limezu.itch.io",
     "url": "https://limezu.itch.io",
-    "note": "Modern Interiors states credits are required. Ships in the About panel."
+    "note": "Three packs, one author, so one credit line still covers all of them: Modern Interiors and Modern User Interface both state credits required; Modern Office says credits are appreciated. The strictest term governs. Ships in the About panel.",
+    "packs": [
+      "Modern Interiors",
+      "Modern Office (Revamped)",
+      "Modern User Interface"
+    ],
+    "restrictions": "All three forbid resale and redistribution and permit editing. Modern User Interface additionally forbids NFT minting \u2014 a clause neither other pack carries, and the only licence term in this project that restricts a use rather than a distribution. Nothing here mints anything, but the clause travels with the art, so any future use of these badges inherits it."
   },
   "characters": {
     "canvas": {
@@ -2095,48 +2101,103 @@
       ],
       "note": "bottom-centre; the bubble tail points down at the head"
     },
-    "note": "Badge colour is intentionally left unprocessed. A badge floats above the room rather than being part of it, so the I7 room saturation ceiling does not apply to it.",
+    "note": "Badge colour is intentionally left unprocessed. A badge floats above the room rather than being part of it, so the I7 room saturation ceiling does not apply to it. Re-checked at M5b against real pack art rather than placeholders: the composited badges are a light bubble carrying a value-0.42 glyph, so they neither own the darkest pixel on screen nor add saturation to the room layer.",
+    "frame": {
+      "source": "Modern Interiors / 4_User_Interface_Elements/UI_32x32.png",
+      "rect": [
+        164,
+        16,
+        24,
+        34
+      ],
+      "note": "Every badge shares this bubble. It is not a lookalike of the question_mark badge's frame \u2014 it is the same 692-pixel component with no glyph in it, so a swap cannot change the badge silhouette."
+    },
     "map": {
       "document": {
-        "file": "assets/placeholder/badges/32x32/document.png",
-        "provenance": "placeholder",
-        "needs_swap_at": "M5",
-        "blocked_on": "the standalone LimeZu 'Modern User Interface' pack, which is not on disk"
+        "file": "assets/processed/badges/32x32/document.png",
+        "provenance": "pack",
+        "bbox_in_cell": [
+          8,
+          8,
+          18,
+          18
+        ],
+        "cell": [
+          28,
+          22
+        ],
+        "composed": "Modern User Interface icon inside Modern Interiors' own empty speech bubble, which is pixel-identical to the frame the question_mark badge already uses",
+        "cut_by": "32px cell on a sheet that divides exactly, then the bounding box inside that cell \u2014 the pack pads icons into their cell at no fixed offset",
+        "frame_rect": [
+          164,
+          16,
+          24,
+          34
+        ],
+        "frame_sheet": "Modern Interiors / 4_User_Interface_Elements/UI_32x32.png",
+        "glyph": "page with a pencil across its corner",
+        "sheet": "Modern User Interface / 32x32/Modern_UI_Style_1_32x32.png"
       },
       "magnifier": {
         "file": "assets/placeholder/badges/32x32/magnifier.png",
         "provenance": "placeholder",
-        "needs_swap_at": "M5",
-        "blocked_on": "the standalone LimeZu 'Modern User Interface' pack, which is not on disk"
+        "unsourceable": "no magnifier, loupe or search glyph exists in Modern User Interface (all three sheets inspected cell by cell at M5b). The closest shape is an RPG hand mirror at Style_1 cell (14,9), which is a mirror.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
       },
       "terminal": {
         "file": "assets/placeholder/badges/32x32/terminal.png",
         "provenance": "placeholder",
-        "needs_swap_at": "M5",
-        "blocked_on": "the standalone LimeZu 'Modern User Interface' pack, which is not on disk"
+        "unsourceable": "no console, prompt or shell glyph exists. The only screen in the pack is a monitor at Style_1 cell (19,3), and it sits inside the pack's media strip beside monitor-with-cursor, phone, image and speaker \u2014 so the pack's own semantics for it are 'display', not 'shell'. Rejected on that ground alone and not on legibility: composited into the badge frame it measures glyph IoU 0.31 against document and 0.43 against checklist, which is no worse than pairs already shipping. A display standing in for a shell is the cog-and-hammer rule. Overruling this is one line \u2014 add \"terminal\": (\"style1\", 19, 3, ...) to MUI_BADGE_ICONS in scripts/process-assets.py and rebuild.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
       },
       "globe": {
         "file": "assets/placeholder/badges/32x32/globe.png",
         "provenance": "placeholder",
-        "needs_swap_at": "M5",
-        "blocked_on": "the standalone LimeZu 'Modern User Interface' pack, which is not on disk"
+        "unsourceable": "no globe, world or planet glyph exists in any of the three packs. Modern Interiors' only match on the name is animated_Christmas_snowball_globe, a snow globe.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
       },
       "checklist": {
-        "file": "assets/placeholder/badges/32x32/checklist.png",
-        "provenance": "placeholder",
-        "needs_swap_at": "M5",
-        "blocked_on": "the standalone LimeZu 'Modern User Interface' pack, which is not on disk"
+        "file": "assets/processed/badges/32x32/checklist.png",
+        "provenance": "pack",
+        "bbox_in_cell": [
+          8,
+          10,
+          16,
+          16
+        ],
+        "cell": [
+          31,
+          18
+        ],
+        "composed": "Modern User Interface icon inside Modern Interiors' own empty speech bubble, which is pixel-identical to the frame the question_mark badge already uses",
+        "cut_by": "32px cell on a sheet that divides exactly, then the bounding box inside that cell \u2014 the pack pads icons into their cell at no fixed offset",
+        "frame_rect": [
+          164,
+          16,
+          24,
+          34
+        ],
+        "frame_sheet": "Modern Interiors / 4_User_Interface_Elements/UI_32x32.png",
+        "glyph": "bulleted list, three markers and three rules",
+        "sheet": "Modern User Interface / 32x32/Modern_UI_Style_1_32x32.png"
       },
       "plug": {
         "file": "assets/placeholder/badges/32x32/plug.png",
         "provenance": "placeholder",
-        "needs_swap_at": "M5",
-        "blocked_on": "the standalone LimeZu 'Modern User Interface' pack, which is not on disk"
+        "unsourceable": "no plug, socket, outlet, cable or connector glyph exists in any of the three packs.",
+        "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b"
       },
       "question_mark": {
         "file": "assets/processed/badges/32x32/question_mark.png",
         "provenance": "pack",
-        "source": "Modern Interiors / 4_User_Interface_Elements/UI_32x32.png",
+        "cut_by": "connected-component bounding box on the emote sheet, which is not cell-aligned",
+        "rect": [
+          260,
+          16,
+          24,
+          34
+        ],
+        "sheet": "Modern Interiors / 4_User_Interface_Elements/UI_32x32.png",
         "label": "question mark"
       }
     },
