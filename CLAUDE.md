@@ -126,11 +126,24 @@ A task is done when **all** of these hold. Agent opinion is not on this list.
    depending on someone reading the log. It also defeats the stale-cache
    failure mode: a warm cache cannot hide a warning from this command, because
    a build carrying one could not have succeeded.
-2. `swift test` passes.
+2. `swift test` passes **from the committed state** — a checkout holding
+   `assets/manifest.json` and no art.
+
+   `assets/` is not redistributable, so the tests that read pixels are gated on
+   `SceneArt.isAvailable` (`Tests/SpriteRoomSceneTests/SceneFixtures.swift`) and
+   skip on a fresh clone. `ArtAvailabilityTests` always runs and prints how many
+   skipped, so a green run never silently implies the art was checked. On a
+   machine that is *supposed* to hold the art — a release build, a packaging
+   step — run `SPRITE_ROOM_REQUIRE_ART=1 swift test`, which turns missing art
+   from a skip into a failure.
 3. The replay harness runs `fixtures/` end to end with no orphaned state at the
    end of the run.
 4. The diff touches only files in the task's declared scope.
 5. Docs that the change invalidated have been updated in the same change.
+
+Gating a test on a precondition it cannot control — no window server, no art on
+disk — is not disabling it, **provided the skip is visible in the run's output**.
+Silencing an assertion is. That is the whole boundary.
 
 If you cannot satisfy 1–3, the task is not done and you say so plainly. Do not
 report partial work as complete. Do not disable a test to make it pass.
