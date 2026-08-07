@@ -126,3 +126,41 @@ adding 3 s to every tool call in the session.
 - `unknown-events` is 5 real + 7 synthetic. Necessarily so — Claude Code cannot
   be made to emit an event it does not have. Synthetic lines are flagged
   `"_synthetic": true`.
+
+---
+
+## 2026-08-07 — `tool-failure` fixture, closing M0a's gap
+
+Captured myself rather than spending the one agent slot on it.
+
+**Found.** Both non-`PostToolUse` close paths, in one 8-event session:
+
+- `Read` of a missing file → `PreToolUse` → **`PostToolUseFailure`**. No
+  `PostToolUse` for that `tool_use_id` ever arrives.
+- `Bash` refused at the permission gate → `PreToolUse` → **nothing**. Neither
+  close event fires. The call's only close is its appearance in the `tool_calls[]`
+  of the following `PostToolBatch`.
+
+**And one thing nobody had noticed:** `PostToolBatch` *re-reports* the `Read`
+call that `PostToolUseFailure` had already closed. So the two close paths
+overlap rather than partition. Closing must therefore be idempotent — an
+already-closed `tool_use_id` must be a no-op and must not emit a second
+`.callClosed`. A duplicate close would drive the scene's open-call count
+negative and surface much later as a character stuck idle while it is working.
+That is a nastier bug than the leak it sits next to, because it fails in the
+opposite direction and looks like nothing is wrong.
+
+**Changed.**
+
+- `fixtures/tool-failure.jsonl` — 8 real events. Required coverage is now six
+  fixtures, not five; `03-EVENT-MODEL.md` updated to match.
+- Added the idempotency rule to the close-path section of `03-EVENT-MODEL.md`.
+- Wrote the acceptance condition into both the doc and `fixtures/README.md`:
+  this fixture must replay to zero open calls **without the deadline sweep
+  firing**. If M1 needs the reaper to drain it, the close paths are wrong and
+  the reaper is hiding it.
+
+M0a's gap list is now empty. The remaining unverified items (`SessionStart`
+interactive, `Notification`, `PermissionRequest`/`PermissionDenied`) all need an
+interactive TTY session, which cannot be driven from this harness. They stay
+marked unverified in the doc rather than being guessed at.

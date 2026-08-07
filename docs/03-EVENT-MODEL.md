@@ -85,6 +85,13 @@ gate emits `PreToolUse` and then **neither** `PostToolUse` nor
 `PostToolUse` leaks an open call on each one and produces the character that
 types forever. [I4]
 
+**Closing is idempotent.** `PostToolBatch` re-reports calls that a preceding
+`PostToolUse` or `PostToolUseFailure` already closed — both appear for the same
+`tool_use_id` in `fixtures/tool-failure.jsonl`. Closing an already-closed id
+must be a no-op and must **not** emit a second `.callClosed`. A delta stream
+with duplicate closes makes the scene's open-call count drift negative, which
+shows up much later as a character stuck idle while it is working.
+
 ## Reaping
 
 Every open call has a deadline. Defaults, revisit with data:
@@ -173,9 +180,13 @@ subagent anchors to the main agent rather than guessing. [I1]
 - `three-subagents` — spawn, overlap, staggered stops.
 - `killed-session` — `PreToolUse` with no matching close, no `SessionEnd`.
   Proves I4 via the deadline path.
+- `tool-failure` — a `PostToolUseFailure` close, and a permission-denied call
+  whose only close is the following `PostToolBatch`. Proves both non-
+  `PostToolUse` close paths. Must replay to zero open calls *without* the
+  deadline sweep firing; if the reaper is needed, the close paths are wrong.
 - `unknown-events` — payloads with an unrecognised `hook_event_name`.
 
-A change to the ingest layer that does not run green against all five is not
+A change to the ingest layer that does not run green against all six is not
 done.
 
 Capture at **project scope**, in a throwaway directory, never at user scope. A

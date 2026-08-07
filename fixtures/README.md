@@ -133,3 +133,31 @@ absent from our table (`UserPromptExpansion`); a payload with **no**
 
 Exists to prove that every one of those decodes to `.unhandled` and is counted,
 that none of them throws, and that none of them changes the world.
+
+## `tool-failure`
+
+8 events, all **real**, captured after the rest of M0a to close the gap that
+milestone left open. One session, two deliberately unhappy tool calls, and it is
+the only fixture that exercises both non-`PostToolUse` close paths:
+
+1. A `Read` of a missing file. `PreToolUse` → **`PostToolUseFailure`**, with the
+   message in `error` and no `PostToolUse` for that `tool_use_id` at all.
+2. A `Bash` call refused at the permission gate. `PreToolUse` → **nothing**.
+   Neither `PostToolUse` nor `PostToolUseFailure` ever arrives. Its only close
+   is its appearance in the `tool_calls[]` of the following `PostToolBatch`,
+   with `tool_response` reading "This Bash command contains multiple
+   operations. The following part requires approval: ...".
+
+Case 2 is the whole reason this fixture exists. An ingest layer that closes only
+on `PostToolUse` leaks an open call on **every declined permission prompt**, and
+that leak is precisely the character-that-types-forever failure I4 exists to
+prevent. A replay of this fixture must end with zero open calls **without**
+relying on a deadline sweep — if it needs the reaper, the close paths are wrong.
+
+Note also that `PostToolBatch` re-reports the already-closed `Read` call from
+case 1. Closing an already-closed `tool_use_id` must therefore be idempotent and
+must not emit a second `callClosed` delta.
+
+Produced with `tools/hook-logger/` at project scope, `--permission-mode default`
+so the permission gate was live, prompting for a read of a nonexistent file
+followed by a `Bash` command requiring approval in a non-interactive session.
