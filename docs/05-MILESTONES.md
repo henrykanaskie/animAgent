@@ -51,8 +51,16 @@ Still not the notch. A plain resizable window, so scene work is not blocked on
 panel work.
 
 **Exit:**
-- Placeholder characters render for every agent in a replayed fixture.
-- All seven animation states play.
+- Characters render for every agent in a replayed fixture.
+- All **six** body states play: `idle`, `working`, `walk`, `deliver`, `spawn`,
+  `depart`. Was seven — `read` is dropped, because M0 confirmed Modern Interiors
+  ships no `read a book` animation. `attention` is badge-only by design and is
+  not a body state. [I1]
+- Nameplates render and are legible at the resulting zoom. M0 found the cast is
+  **not** separable by silhouette — the closest usable pair differs by 7.3% of
+  outline and several premades are silhouette-identical — so the nameplate is a
+  primary identity channel, not decoration. A room whose characters are
+  distinguishable only by hue fails this criterion.
 - Badge appears on `PreToolUse`, disappears on the matching `PostToolUse`.
 - `RoomCamera` unit tests: population → integer scale, never fractional.
 - Replaying `three-subagents` at real time produces no flicker: no character

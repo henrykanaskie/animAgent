@@ -164,3 +164,80 @@ M0a's gap list is now empty. The remaining unverified items (`SessionStart`
 interactive, `Notification`, `PermissionRequest`/`PermissionDenied`) all need an
 interactive TTY session, which cannot be driven from this harness. They stay
 marked unverified in the doc rather than being guessed at.
+
+---
+
+## 2026-08-07 — M0b, art ground truth
+
+`04-ART-DIRECTION.md` was written from store pages. Measured against the files,
+**eleven of its claims were wrong** and eight held. The corrections are in the
+doc; these are the ones that changed the plan.
+
+**Two headline findings.**
+
+*Six of the seven tool badges cannot be sourced.* The pack assumed to supply
+them — Modern User Interface — was never purchased. Modern Interiors'
+`4_User_Interface_Elements` turns out to be an **emote** set: hearts, `!`, `?`,
+sleep-Z, moons, weapons. No document, magnifier, terminal, globe, checklist or
+plug anywhere in it. Only `question_mark` exists as real art, and a genuine red
+`!` badge for `Notification` turned up as a bonus. The other six ship as
+placeholders with provenance recorded in the manifest, so M2 is unblocked and
+M5 has an explicit shopping list. This is the one thing that needs a purchase
+decision.
+
+*The silhouette rule is refuted, and that is the more interesting failure.*
+`04-ART-DIRECTION.md` and `art-director.md` both assert "silhouette carries
+identity at 1x" — flatten two variants to black and you should still tell them
+apart. Measured: of 20 premades, four fail I7 saturation outright; of the 16
+that qualify, the best possible 6-subset differs by only **88px in 2048, 7.3% of
+combined outline**, and several premades are silhouette-*identical* at distance
+zero (01≡02, 05≡11≡14≡20). No selection fixes this — the bodies are identical by
+construction, since the generator varies clothing and hair colour over a shared
+frame.
+
+The rule was kept, not weakened, and the consequence recorded instead: **the
+nameplate is now a primary identity channel rather than decoration.** That
+promotes an unresolved dependency into a blocker — no font ships with either
+pack, so a licence-clean pixel font must be sourced before S4 ("six agents,
+every character individually identifiable") can pass. Filed as its own task.
+
+**Measurements that replaced assumptions.** Character canvas is **32×64**, not
+32×32. Direction order is `right, up, left, down`, proved by exact mirror-pairing
+of the horizontal blocks. `sit` is confirmed side-view only — all four direction
+blocks mirror-pair, so no back-view sit exists anywhere and the side-view room
+layout is the design, not a compromise. `gift` **does** exist, so `deliver`
+needed no redesign. `read a book` does **not** exist, so that state is dropped —
+six body states, not seven.
+
+The 32× set is complete: 5330 shadowless singles at all three sizes with zero
+filename differences. The buyer report of content missing at 32 and 48 is
+refuted.
+
+**Changed downstream.**
+
+- `05-MILESTONES.md` M2 said "all seven animation states play." Now six, named
+  explicitly, with a nameplate-legibility criterion added — since a room whose
+  characters differ only in hue now fails S4 by construction.
+- `.gitignore` switched from `assets/` to `assets/*` plus a negation for
+  `assets/manifest.json`. Git cannot re-include a file inside a wholly-ignored
+  directory, so the obvious spelling would have silently done nothing. The
+  manifest holds filenames and numbers, no artwork, so tracking it redistributes
+  nothing — and without it a fresh clone cannot build the scene at all.
+- The blanket rule "build from singles, not sheets" is refuted as stated. Floors,
+  characters and badges ship **only** as sheets; taken literally the rule leaves
+  the room with no floor. Narrowed to where singles exist.
+- The Windows-VM character generator is obsolete — 20 premades ship per size.
+
+**Lint passes on real art, and it earned it.** Room max saturation 0.183 against
+a 0.25 ceiling; weakest character saturation 0.598 against 0.55; value contrast
+0.472 against 0.40. It **failed first** at 0.386 contrast, and the fix was
+lightening the room band rather than lowering the threshold. The lint was also
+verified to actually fail — four injected violations produce four named errors
+and exit 1 — which caught a real bug in it: it had been silently skipping
+manifest paths outside `assets/`.
+
+**Left alone deliberately.** `assets/Modern tiles_Free/` is still on disk. Its
+licence forbids commercial use *and* forbids editing sprites for commercial
+projects, so a single file from it in the manifest would quietly make the whole
+build non-commercial. Nothing references it and no script reads it. Deleting
+someone else's files is not mine to do unasked — recommended, not done.

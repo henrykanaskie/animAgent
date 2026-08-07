@@ -1,9 +1,23 @@
 # Purchased LimeZu art. The licence permits use but not redistribution.
 # See docs/04-ART-DIRECTION.md.
-assets/
+#
+# Note this ignores the *contents*, not the directory. `assets/` on its own
+# excludes the directory wholesale, and git cannot re-include a file inside an
+# excluded directory — the negation below would silently do nothing.
+assets/*
+
+# ...except the manifest, which is the contract the scene builds against. It
+# holds filenames and numbers, no artwork, so tracking it redistributes nothing.
+# Without it a fresh clone cannot build the scene at all, and M5's "final art
+# drops in as a manifest swap with zero code change" is only reviewable if the
+# manifest is in the history. Regenerate with scripts/build-manifest.py.
+!assets/manifest.json
 
 .build/
 .swiftpm/
 DerivedData/
 *.xcuserstate
 .DS_Store
+
+__pycache__/
+*.pyc
