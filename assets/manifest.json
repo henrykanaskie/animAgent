@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "generated_by": "scripts/build-manifest.py",
-  "note": "Generated from files on disk. Do not hand-edit while placeholders remain; rerun the generator. From M5, when every provenance reads 'pack', this becomes a hand-owned file.",
+  "note": "Generated from files on disk. Do not hand-edit; rerun the generator. It stays generated: four badges are permanently provenance 'authored' because no owned pack draws them, so not every entry will ever read 'pack'.",
   "size_set": "32x32",
   "render": {
     "filtering": "nearest",

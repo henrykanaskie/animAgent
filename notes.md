@@ -1760,3 +1760,64 @@ commit before this work, so every "before" number stays reproducible.
    entry plus a provenance flip — but they would want to be sure it is an
    improvement, because the authored set is measurably more distinguishable than
    anything the search turned up.
+
+---
+
+## 2026-08-07 — Final verification pass
+
+An independent build-verifier over committed state at `e7833c9`, in an isolated
+worktree — which, because `assets/` is gitignored, *is* the fresh-clone state.
+
+**The machinery is sound and I could not shake it.** Cold build clean under the
+full gate. 303 tests, exit 0, 20 skipped with the loud notice. All 16 fixtures
+replay to zero open calls. `tool-failure` still needs no reaper;
+`denial-then-work` still reaps at 94.984 mid-stream. `parallel-tools` asserts
+set-ness after *every* event, `killed-session` asserts the call is still open
+just before the deadline as well as gone after, and there is no `sleep` anywhere
+in the tests. No disabled, skipped, or weakened test: 303 `@Test` annotations
+counted from source, 303 tests run.
+
+Two mechanisms earned specific praise, and both were things I had asked for
+without expecting them to be built this well. The art gate's skip count is
+**counted from the test sources at runtime** and cross-checked against a pinned
+number, so a test silently gaining *or losing* the gate fails the suite rather
+than quietly changing what "passing" means. And all three script guards were
+verified by *running them*, not by reading them — `build-manifest.py` and
+`process-assets.py` both refuse and exit 2 with the manifest byte-identical
+after. Notably `process-assets.py`'s guard runs *before* its `prune()` step,
+which deletes any PNG absent from the freshly built state — the same destructive
+shape, correctly sequenced.
+
+**Every failure it found was in `README.md`**, which was committed at `46b43ce`
+and never maintained through the six commits after it. `CLAUDE.md`'s done-rule 5
+— docs the change invalidated are updated in the same change — was not honoured
+for it, by me, six times.
+
+1. **The pack count was wrong for the third time**, and this instance had teeth.
+   README said "unpack the two purchased packs" while its own Requirements
+   section, 45 lines above, said three. Following it literally produces a
+   manifest where `document` and `checklist` are authored rather than pack — and
+   `badgeProvenanceIsRecorded` is *not* art-gated, so a new contributor's first
+   `swift test` goes red on a manifest the README told them to build.
+2. **A warning box advertised a footgun that had been fixed.** README warned that
+   `build-manifest.py` "cheerfully writes an empty manifest over the tracked one
+   and exits 0". It does not — that guard landed in `9029d67`. Teaching a reader
+   to distrust a script that is now safe is the inverse of the usual doc rot and
+   arguably worse.
+3. **The fresh-clone table enshrined the blind gate.** It listed `swift test` as
+   *failing* with 16 tests (it passes, 303, 20 skipped), quoted 232 tests twice,
+   and — worst — put plain `swift build` in the copy-pasteable block. That exact
+   blindness is this project's second-worst historical finding, and the README
+   was still handing it to newcomers.
+4. **A closed item was still listed as open** — project age-out, closed at
+   `0f701b3` with a documented 90 s / 30 min policy and an injected-clock test.
+
+All four fixed, plus the manifest's own `note` field, which promised that "when
+every provenance reads `pack`, this becomes a hand-owned file" — a future the
+project has explicitly abandoned, since four badges are permanently authored.
+
+**The pattern worth naming:** every defect this pass found was in the artefact
+nobody's tests touch. The code has 303 assertions guarding it and came through
+clean; the README has none and drifted four separate ways. Documentation that
+makes checkable claims should be checked, or it becomes the least trustworthy
+thing in the repository while looking like the most welcoming.
