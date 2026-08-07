@@ -1,0 +1,65 @@
+{
+ "cmd": [
+  "/Users/henrykanaskie/.local/bin/claude"
+ ],
+ "cwd": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m0-capture",
+ "env_clear": [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_BRIDGE_SESSION_ID",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_PID",
+  "CLAUDE_EFFORT",
+  "AI_AGENT",
+  "CLAUDE_CODE_SSE_PORT"
+ ],
+ "env_set": {
+  "TERM": "xterm-256color",
+  "COLUMNS": "120",
+  "LINES": "40"
+ },
+ "log": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m0c/final-interactive.raw",
+ "hard_timeout": 300,
+ "drain": 5,
+ "cols": 120,
+ "rows": 40,
+ "steps": [
+  {
+   "await": "forshortcuts|Try\\s*\"|Welcometo",
+   "timeout": 90,
+   "note": "tui ready - SessionStart window"
+  },
+  {
+   "sleep": 10,
+   "note": "startup window, standard HTTP-only rig"
+  },
+  {
+   "send": "Read src/alpha.txt and then read src/beta.txt. Do not run any other tool."
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter",
+   "note": "submit"
+  },
+  {
+   "sleep": 45,
+   "note": "work"
+  },
+  {
+   "send": "/exit"
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter"
+  },
+  {
+   "sleep": 10
+  }
+ ]
+}

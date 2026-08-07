@@ -28,10 +28,31 @@ opaque string (`a` + 17 hex chars).
 appears on the main thread of a session started with `--agent`, where there is
 no `agent_id`. Only rule 3 decides main-vs-subagent.
 
+`agent_type` may also be the **empty string** — present as a key, with no value.
+M0c saw this on every interactive `SubagentStop` from the TUI's suggestion
+helper. Rule 4 says "absent → default variant"; an empty string is neither
+absent nor a usable nameplate, so treat empty as absent.
+
 Nothing may wait for a lifecycle event to create identity. A session, and its
 main-thread agent, are created **lazily on the first consumed event** that
-carries their `session_id`. `SessionStart` did not fire at all in any captured
-headless session, so any model that requires it starts empty and stays empty.
+carries their `session_id`. `SessionStart` has never been seen by this app's
+transport — not in five headless runs, and not in fourteen real interactive
+sessions driven under a pty at M0c — so any model that requires it starts empty
+and stays empty.
+
+M0c established *why*, and the reason is stronger than the one M0a recorded.
+`SessionStart` does fire; it is simply **never delivered to a `type: "http"`
+hook**. A `command` hook registered in the same entry received it in all 8
+sessions where both were registered, while the HTTP endpoint received none. So
+this is not a property of headless mode, and it will not be fixed by a matcher.
+See `docs/FINDINGS-M0.md`.
+
+There is a second reason lazy creation is load-bearing, also from M0c: **`/clear`
+ends the session and silently starts a new one.** It emits `SessionEnd` with
+`reason: "clear"`, and the next prompt in the same process carries a different
+`session_id` whose first event is an ordinary `UserPromptSubmit`. One `claude`
+process hosts a sequence of sessions, and only the first of them could ever have
+had a startup event at all.
 
 *Consumed*, not "any event" — an earlier draft of this line said any event, and
 that contradicted the rule that an unhandled event changes nothing. Unhandled
@@ -51,7 +72,7 @@ rule. It creates the session and its main agent and has no other effect.
 
 | Event | Effect on the world |
 |---|---|
-| `SessionStart` | Decoration only: record `source`, `model`, `session_title`. Never a precondition — it did not fire in any captured session, so the session and its main agent are created lazily by whatever event arrives first. |
+| `SessionStart` | **Unreachable over HTTP — do not build on it.** The event is real and fires on every session (`source: startup` / `clear`, plus `model` on startup), but 2.1.224 never delivers it to a `type: "http"` hook, and this app registers nothing else. Keep the decode so the name is recognised rather than counted unhandled; the handler will not run. `session_title` does not exist in the payload — the field list here was wrong. |
 | `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is idle, because nothing has been called yet. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] |
 | `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. |
 | `PreToolUse` | Open a call keyed by `tool_use_id`. Character enters/keeps working. |
@@ -60,8 +81,17 @@ rule. It creates the session and its main agent and has no other effect.
 | `PostToolBatch` | Close every `tool_use_id` in `tool_calls[]`. A primary close path, not a sweep — see below. |
 | `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → departs. |
 | `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. |
-| `SessionEnd` | Close every open call in the session. All characters leave. [I4] |
-| `Notification` | Main agent shows an attention badge (`permission_prompt`, `idle_prompt`). Badge only — no body animation exists for this. **[unverified]** — never observed in headless capture, which has no one to notify. |
+| `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
+| `Notification` | Main agent shows an attention badge. Badge only — no body animation exists for this. Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and no `agent_id`, so it can only mean the main thread. |
+
+**Notification timing, because the badge is a timed thing.** `permission_prompt`
+arrives 6.0 s after the permission gate opens, not instantly (three occurrences,
+6.014 / 6.006 / 6.032 s after `PermissionRequest`). `idle_prompt` arrives
+**60.02 s after `Stop`** and fires exactly **once** — a session left idle a
+further 145 s produced no second one. So an `idle_prompt` badge means "this has
+been waiting a while", not "this is waiting"; `Stop` with an empty open-call set
+already says the latter, immediately and for free. Nothing may drive a
+"currently idle" state off `idle_prompt`, and nothing may expect a repeat.
 
 Everything else decodes to `.unhandled` and is counted, not dropped silently.
 A rising `.unhandled` count is how we notice the hook surface has grown.
@@ -71,6 +101,20 @@ event names we do not consume, including `UserPromptExpansion`, `StopFailure`,
 `PreCompact`, `PostCompact`, `PermissionRequest`, `PermissionDenied`,
 `TaskCreated`, and `TaskCompleted`. All of them will reach the listener under a
 `*` registration. They must decode, be counted, and change nothing.
+
+Two of those are no longer hypothetical either, and M0c settled what they are
+worth:
+
+- **`PermissionRequest` is real and fires over HTTP**, ~16 ms after the
+  `PreToolUse` for the same call. It carries `tool_name`, `tool_input` and
+  `permission_suggestions[]` — and **no `tool_use_id`**. It therefore cannot be
+  joined to an open call without pairing by tool name, which the pairing rule
+  below forbids. It is a "this agent is blocked on a human" signal, not a close
+  signal. Not consumed.
+- **`PermissionDenied` still has never fired.** **[unverified]** — registered
+  over both HTTP and `command` delivery and tested against both denial paths a
+  user has (selecting "No" at the dialog, and Esc to cancel). Neither produced
+  it. The name exists; the condition that emits it is unknown.
 
 The app registers only the eleven events above, so in normal operation the
 others never arrive at all — but the listener is not allowed to depend on that,
@@ -100,9 +144,40 @@ agent is working  ⟺  !openCalls.isEmpty
 `PostToolBatch` is not optional tidying. A tool call refused at the permission
 gate emits `PreToolUse` and then **neither** `PostToolUse` nor
 `PostToolUseFailure`; its only close is its appearance in the following
-`PostToolBatch`. Every declined permission prompt is that case. Handling only
-`PostToolUse` leaks an open call on each one and produces the character that
-types forever. [I4]
+`PostToolBatch`. Handling only `PostToolUse` leaks an open call on each one and
+produces the character that types forever. [I4]
+
+**That paragraph used to end "Every declined permission prompt is that case."
+M0c proved it false, and the correction is not a small one.** There are two
+denial shapes:
+
+| Denial | Close path |
+|---|---|
+| Headless auto-deny — `fixtures/tool-failure.jsonl` | the following `PostToolBatch` |
+| **Interactive user denial** — "No" at the dialog, or Esc — `fixtures/permission-prompt.jsonl` | **none at all** |
+
+In `fixtures/permission-prompt.jsonl` the denied call
+`toolu_0199hyfQtR1Hf3i3feHZvivV` receives no `PostToolUse`, no
+`PostToolUseFailure`, no mention in any `PostToolBatch` (the following one lists
+only the later approved call), and its turn produces no `Stop`. Nothing in the
+stream closes it. Its only closes are `SessionEnd` and the deadline sweep.
+
+Nothing above is weakened: `PostToolBatch` remains a mandatory primary close
+path. What was wrong was the coverage claim. **`PostToolBatch` covers the
+headless denial and none of the interactive ones**, and interactive denial is
+the common case for a real user.
+
+The consequence is live: `Bash` carries the 15-minute deadline, so clicking
+"No" on a `Bash` prompt currently leaves that character working for fifteen
+minutes. That is the signature bug of this project on the most ordinary
+interaction there is. **Deliberately not fixed here** — the close-path model is
+verified and load-bearing and changing it is the maintainer's call. The options
+on the table, recorded so the next person does not have to rediscover them:
+a shorter deadline for a call known to be sitting at a permission gate; treating
+a session's next `UserPromptSubmit` as closing anything still open from the
+previous prompt; or consuming `PermissionRequest` and joining it by
+`tool_name` + `tool_input`, which the pairing rule forbids and which should
+probably stay forbidden. The first two do not break any existing rule.
 
 **Closing is idempotent.** `PostToolBatch` re-reports calls that a preceding
 `PostToolUse` or `PostToolUseFailure` already closed — both appear for the same
@@ -188,6 +263,19 @@ is "this subagent finished and its result went to its parent." The walk is a
 Because the main agent's anchor is always on screen, a report from an
 off-screen subagent is still visible: it walks in, delivers, leaves.
 
+**`SubagentStop` arrives for agents that never started.** Interactive sessions
+run an internal helper that generates the TUI's follow-up suggestions, and it
+emits a `SubagentStop` carrying an `agent_id`, an `agent_type` of `""`, and an
+`agent_transcript_path` — with no `SubagentStart`, and in sessions where the
+`Agent` tool was never called at all. Four occurrences at M0c, 1.69–2.08 s after
+`Stop`, in every interactive turn that used a tool.
+
+So `SubagentStop` for an unknown `agent_id` **must** be a no-op. It is not a
+tidy edge case; it fires on ordinary turns, and a model that spawns a character
+in order to walk it off screen puts a nameless phantom in the room several times
+per session. [I1] This is implemented as of M1 and is now evidenced by
+`fixtures/interactive-session.jsonl` rather than argued from taste.
+
 **Do not time the walk off the spawning tool call.** Subagents launch
 asynchronously: the `Agent` call's `PreToolUse`/`PostToolUse` pair closes in
 ~16 ms while the subagent runs for minutes. A subagent's life is
@@ -238,6 +326,25 @@ them were not visible in the M0 capture:
 A change to the ingest layer that does not run green against all six is not
 done.
 
+**Interactive coverage, added at M0c.** Three further captures, from real TUI
+sessions driven under an allocated pty rather than `claude -p`. They are not in
+the required six — that list is an exit criterion that has already been signed
+off and is not mine to rewrite — but they are ground truth and they cover events
+the six cannot contain:
+
+- `interactive-session` — a real interactive session, start to `/exit`. Settles
+  `SessionStart` by absence, and carries the phantom `SubagentStop`.
+- `permission-prompt` — a real permission dialog, denied then approved. Carries
+  `PermissionRequest`, both `Notification` types' first half, and the
+  never-closed denied call. **This one does not replay to zero open calls
+  without the reaper**, by nature, exactly like `killed-session`.
+- `idle-notification` — `Notification` with `notification_type: idle_prompt`,
+  60 s after `Stop`.
+
+`permission-prompt` is the one that should join the required set if the
+interactive-denial close path above is ever resolved, because it is the fixture
+that would prove the fix.
+
 Capture at **project scope**, in a throwaway directory, never at user scope. A
 `*` registration in `~/.claude/settings.json` injects hooks into the developer's
 own live session; project scope isolates the run and lets the `cwd` assertion
@@ -262,6 +369,16 @@ repo, and a test asserts the two agree.
 `UserPromptSubmit` and `PostToolBatch` are registered **without** a matcher.
 That is the shape both were captured working under; neither takes a tool name,
 so a matcher has nothing to match.
+
+`Notification` is registered with matcher `*` and was confirmed at M0c to fire
+under exactly that shape, with no other `Notification` entry present.
+
+**The `SessionStart` registration is inert.** It costs nothing and is worth
+keeping so the entry is already correct if a future release starts delivering
+it, but no HTTP hook in 2.1.224 ever receives that event — tested against six
+matcher forms at once (none, `*`, `startup`, `resume`, `clear`, `compact`) over
+8 sessions. Nothing should be surprised that it never arrives, and nothing
+should be built on it arriving.
 
 M4 verified the registration end to end against the real file: install, a
 session in a directory with no project-level settings whose events arrived

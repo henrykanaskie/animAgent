@@ -35,9 +35,27 @@ claude -p "<scenario prompt>" --permission-mode acceptEdits --model sonnet
 Isolation was verified after capture: every `cwd` in every fixture is the
 sandbox directory, and none is this repository.
 
-Because these are headless `-p` runs, **no `SessionStart` event appears in any
-fixture** — see `docs/FINDINGS-M0.md`. That absence is real, not an artefact of
-the logger.
+**No `SessionStart` event appears in any fixture** — see `docs/FINDINGS-M0.md`.
+That absence is real, not an artefact of the logger, and it is *not* caused by
+headless mode. M0c drove fourteen real interactive sessions under a pty and
+`SessionStart` did not arrive over HTTP in any of them either. The event fires;
+it is simply never delivered to a `type: "http"` hook in 2.1.224. A `command`
+hook registered in the *same* entry received it every time.
+
+### Interactive captures (M0c)
+
+`interactive-session`, `permission-prompt` and `idle-notification` were captured
+from a **real interactive TUI session**, not `claude -p`. A non-tty shell cannot
+drive the TUI, so the session was run under an allocated pty
+(`os.openpty` + `TIOCSWINSZ`) with keystrokes written into the master side. The
+driver is `tools/pty-capture/ptydrive.py`. Every run was bounded by a hard
+timeout and the child was killed by process group at the end.
+
+These three needed an interactive session because the events in them cannot
+occur without one: nothing prompts for permission and nobody goes idle in a
+headless run. The rig, the port and the project-scoped `.claude/settings.json`
+are otherwise identical to the headless captures above, and the same `cwd`
+assertion was re-run: 27 events, all in the sandbox, none in this repository.
 
 ---
 
@@ -162,3 +180,76 @@ must not emit a second `callClosed` delta.
 Produced with `tools/hook-logger/` at project scope, `--permission-mode default`
 so the permission gate was live, prompting for a read of a nonexistent file
 followed by a `Bash` command requiring approval in a non-interactive session.
+
+---
+
+## `interactive-session.jsonl` — 10 events
+
+The first fixture from a **real interactive TUI session**. One session, one
+prompt, two sequential `Read` calls, a clean `/exit`. Peak concurrent open
+calls: 1. Replays to zero open calls without the reaper.
+
+Exists to settle `SessionStart`, and it settles it by absence: the session was
+started in an already-trusted directory under the standard project-scoped rig,
+`SessionEnd` arrived normally at the end, and **no `SessionStart` ever arrived**.
+The hook block was demonstrably loaded, so this is not a registration failure.
+`SessionStart` does fire — a `command` hook sees it — but an HTTP hook never
+does. Lazy session creation is therefore mandatory for reasons that have nothing
+to do with headless mode.
+
+It also carries the second interactive-only finding: a **`SubagentStop` with no
+`SubagentStart` and no `Agent` tool call anywhere in the session** (line 9). It
+has an `agent_id` and an `agent_type` of `""` — present, but empty. Nothing in
+this session ever spawned a subagent. Any model that creates a character on
+`SubagentStop` draws a phantom here; the correct behaviour, already implemented
+at M1, is that `SubagentStop` for an unknown `agent_id` is a no-op.
+
+---
+
+## `permission-prompt.jsonl` — 13 events
+
+One interactive session, two `Bash` calls that both hit the permission gate. The
+first is **denied** by selecting "3. No" at the real dialog; the second is
+**approved** by selecting "1. Yes". Both produce a `PermissionRequest` and a
+`Notification`.
+
+Exists to prove three things, and it contradicts the event model on the third:
+
+1. `PermissionRequest` is real and fires over HTTP. It carries `tool_name`,
+   `tool_input` and `permission_suggestions[]` — and **no `tool_use_id`**, so it
+   cannot be joined to an open call.
+2. `Notification` is real, and `notification_type` is `permission_prompt`, one
+   of the two values the badge design assumes.
+3. **The denied call is never closed by anything.**
+   `toolu_0199hyfQtR1Hf3i3feHZvivV` opens at line 2 and no `PostToolUse`, no
+   `PostToolUseFailure` and no `PostToolBatch` ever names it. The
+   `PostToolBatch` at line 10 lists only `toolu_015N71EzzTiFqrnLirnMGCCz`, the
+   *approved* call. There is not even a `Stop` for the denied turn.
+
+Point 3 is the reason this fixture matters. `03-EVENT-MODEL.md` says a call
+refused at the permission gate is closed by the following `PostToolBatch` and
+that "every declined permission prompt is that case". That is true of the
+headless auto-deny in `tool-failure.jsonl` and **false of an interactive user
+denial**, which is the far more common event. Unlike `tool-failure`, this
+fixture **cannot** replay to zero open calls without the deadline sweep — it is
+a `killed-session`-shaped file that arises from a user clicking "No".
+
+`PermissionDenied` did **not** fire, on either the "3. No" path or the Esc path,
+though it was registered for both HTTP and `command` delivery.
+
+---
+
+## `idle-notification.jsonl` — 4 events
+
+One interactive session: a prompt, an answer, then nothing. The session was left
+untouched at the prompt for 180 s.
+
+Exists to prove the second `notification_type`. A `Notification` with
+`notification_type: "idle_prompt"` and `message: "Claude is waiting for your
+input"` arrives **60.02 s after `Stop`**, and arrives exactly **once** — it did
+not repeat over the following two minutes of continued idleness. Both values the
+attention badge is specified against are now observed rather than assumed.
+
+Note what this fixture does *not* contain: no tool call, and therefore no open
+call. The notification is the only thing that happens between `Stop` and
+`SessionEnd`.

@@ -316,6 +316,289 @@ a `--agent` session, so it must never be used to detect a subagent.
 
 ---
 
+## Payloads — M0c follow-up: the interactive events
+
+Owner: `test-engineer`. Captured 2026-08-07, Claude Code **2.1.224**, same
+machine and same sandbox as M0a. This section closes the three rows M0a had to
+leave `[unverified]`, and it overturns two things M0a and the event model both
+believed.
+
+M0a's blocker was that a TUI cannot be driven from a non-tty shell. The fix was
+to **allocate a pty** — `os.openpty()`, a `TIOCSWINSZ` ioctl for the window
+size, the child's stdin/stdout/stderr on the slave side and keystrokes written
+into the master. `tools/pty-capture/ptydrive.py` is that driver; the three step
+scripts beside it reproduce the three captures. It works: fourteen real
+interactive sessions were driven, prompts submitted, a permission dialog
+answered by arrow keys, and `/exit` typed.
+
+Evidence: **80 hook events over HTTP across 14 distinct interactive sessions**,
+plus a parallel `command`-hook channel described below. Every `cwd` is the
+sandbox; zero events from this repository. The inherited `CLAUDECODE`,
+`CLAUDE_CODE_ENTRYPOINT` and related variables were stripped from the child's
+environment so it could not mistake itself for a nested session.
+
+### `SessionStart` fires. It is never delivered to an HTTP hook.
+
+This is the finding that changes the most, and M0a's conclusion was wrong in an
+interesting direction. M0a wrote "`SessionStart` never fires". It does fire.
+What it never does is arrive over the transport this app uses.
+
+The experiment that separates the two: register **both** an HTTP hook and a
+`command` hook in the *same* `SessionStart` entry, and point the command hook at
+a script that relays its stdin, byte for byte, to a second logger on another
+port. Same event, same entry, same run.
+
+Result, over 8 sessions: the command hook received `SessionStart` **every
+time**; the HTTP logger received it **zero times**. Tested with six matcher
+forms simultaneously — no matcher, `"*"`, `startup`, `resume`, `clear`,
+`compact` — and with the sandbox already trusted, so no trust dialog delayed
+settings loading.
+
+A third observation makes it near-certain the HTTP hook is not dispatched at
+all, rather than dispatched and failing: with the logger deliberately killed,
+the TUI printed `UserPromptSubmit hook error / connect ECONNREFUSED
+127.0.0.1:8787` and `Stop hook error` in the same session where the relay proved
+`SessionStart` had fired — and **no `SessionStart` hook error was ever shown**.
+(The TUI has no message surface at startup, so this corroborates rather than
+proves the internal mechanism. The operational fact does not depend on it.)
+
+The payload, verbatim from the command hook:
+
+```json
+{"session_id": "ed6adb3e-3554-4525-bb67-f3bf0f156548",
+ "transcript_path": "/Users/.../ed6adb3e-....jsonl",
+ "cwd": ".../m0-capture",
+ "hook_event_name": "SessionStart",
+ "source": "startup",
+ "model": "claude-opus-5"}
+```
+
+And on `/clear`, where `model` is absent:
+
+```json
+{"session_id": "ee2691cf-9d2b-4268-ad6b-c2594930bcef",
+ "transcript_path": "...", "cwd": ".../m0-capture",
+ "hook_event_name": "SessionStart", "source": "clear"}
+```
+
+**There is no `session_title` field.** `03-EVENT-MODEL.md`'s consume table told
+us to record `source`, `model` and `session_title`; only the first two exist,
+and the row is unreachable anyway.
+
+What this changes:
+
+- **Lazy session creation stays, and its justification gets stronger.** It was
+  resting on "headless does not emit it", which was a fact about `-p`. It now
+  rests on "our transport never receives it", which is a fact about us. Nothing
+  may wait for `SessionStart`, in any mode.
+- The `SessionStart` row in the consume table is not "decoration only". It is
+  **dead code** — the app registers HTTP hooks exclusively, so the handler can
+  never run. Session `source` and `model` are not recordable by this app.
+- No fixture can contain a `SessionStart`, because the logger is an HTTP
+  endpoint. The two payloads above are the record.
+
+### `/clear` ends the session and silently starts another
+
+Unrelated to the above but found alongside it. Typing `/clear` emits
+`SessionEnd` with `reason: "clear"`, and the next prompt in the *same process*
+carries a **different `session_id`**. Confirmed twice:
+`3ccda105…` → `04b14e25…`, and `67f619ac…` → `ee2691cf…`.
+
+So `SessionEnd` is not "the process is going away", and one `claude` process
+hosts a sequence of sessions over its life. The new session announces itself
+with nothing at all — its first event is an ordinary `UserPromptSubmit`. Lazy
+creation handles this correctly and by accident; it is worth knowing that it is
+load-bearing for `/clear`, not only for startup.
+
+Observed `SessionEnd` reasons: `clear`, `prompt_input_exit`.
+
+### `Notification` is real, and both badge values are real
+
+Settled, and the badge design in `03-EVENT-MODEL.md` is vindicated exactly as
+written. Two `notification_type` values observed, which are the two the doc
+names:
+
+```json
+{"hook_event_name": "Notification",
+ "message": "Claude needs your permission",
+ "notification_type": "permission_prompt"}
+```
+
+```json
+{"hook_event_name": "Notification",
+ "message": "Claude is waiting for your input",
+ "notification_type": "idle_prompt"}
+```
+
+Full field set: `session_id`, `transcript_path`, `cwd`, `prompt_id`,
+`hook_event_name`, `message`, `notification_type`. Note there is **no
+`tool_use_id`** and **no `agent_id`** on either — a `Notification` routes to a
+project and a session, and within the session it can only mean the main thread.
+`permission_mode` is absent too, which is a small asymmetry with every other
+event.
+
+Timings, because the badge is a timed thing:
+
+- `permission_prompt` arrives **6.0 s after** the `PermissionRequest`, three
+  times, within 30 ms (6.014, 6.006, 6.032). It is not instantaneous with the
+  dialog appearing; there is a deliberate delay.
+- `idle_prompt` arrives **60.02 s after `Stop`** and fires **once**. Two runs,
+  60.021 s and 60.031 s. In the longer run the session then sat idle for a
+  further 145 s and no second notification came.
+
+The 60 s figure matters: an attention badge driven off `idle_prompt` appears a
+full minute after the agent actually went quiet, so it is a "this has been
+waiting a while" signal, not an "it is waiting" signal. `Stop` with an empty
+open-call set already says the latter.
+
+Registration note: `Notification` fires with `"matcher": "*"`, which is the form
+the app registers and the form in `.claude/settings.example.json`. Verified
+under the standard rig with no other `Notification` entry present.
+
+### `PermissionRequest` is real. `PermissionDenied` is not — still.
+
+`PermissionRequest` fires over HTTP, reliably, 6 times across the captures. It
+lands **~16 ms after the `PreToolUse`** for the same call:
+
+```json
+{"session_id": "...", "cwd": ".../m0-capture",
+ "prompt_id": "...", "permission_mode": "default",
+ "effort": {"level": "high"},
+ "hook_event_name": "PermissionRequest",
+ "tool_name": "Bash",
+ "tool_input": {"command": "touch /private/tmp/claude-501/m0c-probe.txt",
+                "description": "Create probe file"},
+ "permission_suggestions": [
+   {"type": "addDirectories", "directories": ["/private/tmp/claude-501"],
+    "destination": "session"},
+   {"type": "setMode", "mode": "acceptEdits", "destination": "session"}]}
+```
+
+**It has no `tool_use_id`.** That is the whole story for the close-path
+question. `PermissionRequest` identifies a tool call by `tool_name` and
+`tool_input` and nothing else, and `03-EVENT-MODEL.md`'s pairing rule forbids
+joining on tool name for good reason. So it is **not** a cleaner signal than the
+`PostToolBatch` path — it is not a close signal at all, and it cannot even name
+the call it is about. What it is good for is the fact that the agent is now
+blocked on a human.
+
+`PermissionDenied` **never fired**. It was registered for HTTP *and* for
+`command` relay, and tested on both denial paths a user actually has:
+
+- Selecting "3. No" at the dialog. Nothing.
+- Pressing Esc to cancel. Nothing.
+
+The name exists in 2.1.224's event array. It stays `[unverified]` — absence of
+observation is still not evidence of absence, and I have not found the condition
+that produces it.
+
+### The finding I did not go looking for: an interactively denied call is never closed
+
+This is the one that contradicts a load-bearing part of the event model, so it
+is stated carefully and it is **not** acted on here.
+
+`03-EVENT-MODEL.md` says:
+
+> A tool call refused at the permission gate emits `PreToolUse` and then
+> **neither** `PostToolUse` nor `PostToolUseFailure`; its only close is its
+> appearance in the following `PostToolBatch`. Every declined permission prompt
+> is that case.
+
+The first sentence is right. The last sentence is wrong. In
+`fixtures/permission-prompt.jsonl`, the user selects "3. No" and the call
+`toolu_0199hyfQtR1Hf3i3feHZvivV`:
+
+- gets no `PostToolUse`,
+- gets no `PostToolUseFailure`,
+- is **not** named by the `PostToolBatch` that follows (which lists only the
+  later, approved call), and
+- gets no `Stop` for its turn either.
+
+Nothing in the stream ever closes it. The Esc-cancel path behaves identically —
+in that capture the `PreToolUse` is followed only by `PermissionRequest`,
+`Notification`, and eventually `SessionEnd`.
+
+So there are two different permission-denial shapes and M0a only saw one:
+
+| Denial | Close path |
+|---|---|
+| Headless auto-deny (`tool-failure.jsonl`) | the following `PostToolBatch` |
+| Interactive user denial, "No" or Esc | **none** — `SessionEnd` or the reaper |
+
+`PostToolBatch` is still a mandatory primary close path; nothing here weakens
+that. What is wrong is the belief that it covers *every* denial. Interactively
+it covers none of them.
+
+The product consequence is concrete. `Bash` carries the 15-minute deadline
+(rightly — M4 made that case). So today, a user who clicks "No" on a `Bash`
+permission prompt leaves a character typing for **fifteen minutes**. That is the
+signature bug of this project [I4], on the single most common interactive
+interaction there is, and no fixture before this one could have caught it
+because no fixture came from a session with a human in it.
+
+I am not fixing it. `PostToolBatch` is load-bearing and verified, the close-path
+model is not mine to redesign, and there are at least three defensible answers
+(a short deadline for a call known to be sitting at a permission gate; treating
+the next `UserPromptSubmit` in a session as closing anything still open from the
+previous prompt; consuming `PermissionRequest` as a state marker and joining it
+by `tool_name` + `tool_input`, which the pairing rule currently forbids). The
+first two do not require breaking the pairing rule. Recording it, with the
+fixture that proves it, and handing it over.
+
+### `SubagentStop` with no subagent
+
+Interactive sessions emit a `SubagentStop` for an agent that never started. It
+appears in `fixtures/interactive-session.jsonl` and in three other captures —
+four occurrences, in sessions where **no `Agent` tool was ever called**:
+
+```json
+{"agent_id": "a9f8fcc5e1dfe8a82", "agent_type": "",
+ "hook_event_name": "SubagentStop", "stop_hook_active": false,
+ "agent_transcript_path": ".../subagents/agent-a9f8fcc5e1dfe8a82.jsonl",
+ "last_assistant_message": "now read src/gamma.txt",
+ "background_tasks": [], "session_crons": []}
+```
+
+`last_assistant_message` is always a follow-up suggestion ("now read
+src/gamma.txt", "delete the duplicate copies in slow/ and nohook/"), so this is
+an internal helper the TUI runs to populate its suggestion UI. It arrives
+**1.69–2.08 s after `Stop`** (four occurrences).
+
+It is not on every turn. Of the eight interactive sessions that reached a
+`Stop`, the four that made at least one tool call all produced it, and the four
+whose turn made no tool call all did not. None of the eight ever called the
+`Agent` tool or emitted a `SubagentStart`.
+
+Two things follow:
+
+- `agent_type` can be the **empty string** — present as a key, but empty. The
+  identity rules say "absent → default variant"; an empty string is neither
+  absent nor a usable nameplate. It must be treated as absent.
+- A model that spawns a character on `SubagentStop` puts a nameless phantom in
+  the room on **every interactive turn**. M1 already decided `SubagentStop` for
+  an unknown `agent_id` is a no-op, on the reasoning that spawning a character
+  just to walk it off screen is silly. That decision was right for a better
+  reason than the one it was made for, and it is now evidenced rather than
+  argued. [I1]
+
+### What was left alone
+
+`~/.claude/settings.json` was **not touched**. sha256
+`682e430ad33a11f0e6d5d2e5e17d7696cc1f117083fe8b5d5d784304d822a9b1`, unchanged
+throughout, and matching the value M4 recorded. All capture ran against the
+project-scoped `.claude/settings.json` in the sandbox, which was restored to its
+M0a contents after the delivery-channel experiment.
+
+One file was necessarily modified: `~/.claude.json` gained a
+`hasTrustDialogAccepted` entry for the sandbox directory. An interactive session
+in an untrusted folder shows a trust gate and loads no settings until it is
+answered — which is itself worth recording, because **hooks do not fire at all
+in an untrusted directory**, including `SessionEnd`. That is state, not
+settings, it is unavoidable for any interactive capture, and it is one key on a
+throwaway path.
+
+---
+
 ## Art
 
 Owner: `art-director`. Measured 2026-08-07 against the files in `assets/`, using

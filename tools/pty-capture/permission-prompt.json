@@ -1,0 +1,113 @@
+{
+ "cmd": [
+  "/Users/henrykanaskie/.local/bin/claude"
+ ],
+ "cwd": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m0-capture",
+ "env_clear": [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_BRIDGE_SESSION_ID",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_PID",
+  "CLAUDE_EFFORT",
+  "AI_AGENT",
+  "CLAUDE_CODE_SSE_PORT"
+ ],
+ "env_set": {
+  "TERM": "xterm-256color",
+  "COLUMNS": "120",
+  "LINES": "40"
+ },
+ "log": "/private/tmp/claude-501/-Users-henrykanaskie-coding-projects-teamwork/60be21b1-4f19-46c1-ba09-6b3325f959e6/scratchpad/m0c/final-perm.raw",
+ "hard_timeout": 600,
+ "drain": 5,
+ "cols": 120,
+ "rows": 40,
+ "steps": [
+  {
+   "await": "forshortcuts|Try\\s*\"|Welcometo",
+   "timeout": 90
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "send": "Run exactly this bash command and nothing else: touch /private/tmp/claude-501/m0c-probe.txt"
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter",
+   "note": "submit 1"
+  },
+  {
+   "await": "1\\.\\s*Yes",
+   "timeout": 120,
+   "note": "DIALOG 1"
+  },
+  {
+   "sleep": 12,
+   "note": "notification window"
+  },
+  {
+   "key": "down"
+  },
+  {
+   "sleep": 0.4
+  },
+  {
+   "key": "down"
+  },
+  {
+   "sleep": 0.4
+  },
+  {
+   "key": "enter",
+   "note": "choose 3. No -> DENY"
+  },
+  {
+   "sleep": 40,
+   "note": "observe deny close path"
+  },
+  {
+   "send": "Now run exactly this bash command and nothing else: touch /private/tmp/claude-501/m0c-probe2.txt"
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter",
+   "note": "submit 2"
+  },
+  {
+   "await": "1\\.\\s*Yes",
+   "timeout": 150,
+   "note": "DIALOG 2"
+  },
+  {
+   "sleep": 6
+  },
+  {
+   "key": "enter",
+   "note": "choose 1. Yes -> APPROVE"
+  },
+  {
+   "sleep": 35
+  },
+  {
+   "send": "/exit"
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "key": "enter"
+  },
+  {
+   "sleep": 10
+  }
+ ]
+}
