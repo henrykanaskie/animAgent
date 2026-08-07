@@ -1,0 +1,82 @@
+import Testing
+@testable import SpriteRoomScene
+
+/// The mapping table from `docs/03-EVENT-MODEL.md`, and the determinism that
+/// makes criterion 6 hold.
+struct ToolBadgeTests {
+
+    @Test(arguments: [
+        ("Edit", ToolBadge.document), ("Write", .document), ("NotebookEdit", .document),
+        ("Read", .magnifier), ("Glob", .magnifier), ("Grep", .magnifier),
+        ("Bash", .terminal), ("BashOutput", .terminal), ("KillShell", .terminal),
+        ("WebSearch", .globe), ("WebFetch", .globe),
+        ("TodoWrite", .checklist), ("Agent", .checklist),
+    ])
+    func theTableMapsAsWritten(tool: String, badge: ToolBadge) {
+        #expect(ToolBadge.badge(forTool: tool) == badge)
+    }
+
+    @Test func everyMCPToolIsThePlug() {
+        #expect(ToolBadge.badge(forTool: "mcp__slack__send") == .plug)
+        #expect(ToolBadge.badge(forTool: "mcp__anything_at_all") == .plug)
+    }
+
+    /// Never invent a badge for a tool you do not recognise. The question mark
+    /// is honest; a guess is not. [I1]
+    @Test func anythingUnrecognisedIsTheQuestionMark() {
+        #expect(ToolBadge.badge(forTool: "SomeToolShippedTomorrow") == .questionMark)
+        #expect(ToolBadge.badge(forTool: "") == .questionMark)
+        #expect(ToolBadge.isUnmapped("SomeToolShippedTomorrow"))
+        #expect(!ToolBadge.isUnmapped("Bash"))
+    }
+
+    @Test func ordinalsFollowTheTableOrder() {
+        #expect(ToolBadge.document < ToolBadge.magnifier)
+        #expect(ToolBadge.magnifier < ToolBadge.terminal)
+        #expect(ToolBadge.terminal < ToolBadge.globe)
+        #expect(ToolBadge.globe < ToolBadge.checklist)
+        #expect(ToolBadge.checklist < ToolBadge.plug)
+        #expect(ToolBadge.plug < ToolBadge.questionMark)
+    }
+
+    @Test func noOpenCallsMeansNoBadge() {
+        #expect(BadgeSelection.select(openToolNames: [String]()) == .none)
+        #expect(BadgeSelection.none.badge == nil)
+    }
+
+    /// Lowest ordinal wins, plus the total. Most-recent-wins would flicker;
+    /// ordering does not. [I3]
+    @Test func lowestOrdinalWinsAndTheCountIsTheWholeSet() {
+        let selection = BadgeSelection.select(openToolNames: ["Bash", "Read", "Write"])
+        #expect(selection.badge == .document)
+        #expect(selection.count == 3)
+    }
+
+    /// The property criterion 6 rests on: the selection cannot depend on the
+    /// order calls happened to arrive in.
+    @Test func selectionIsIndependentOfOrder() {
+        let tools = ["Bash", "Read", "mcp__x__y", "WebFetch", "TodoWrite"]
+        let reference = BadgeSelection.select(openToolNames: tools)
+        for _ in 0..<200 {
+            #expect(BadgeSelection.select(openToolNames: tools.shuffled()) == reference)
+        }
+    }
+
+    @Test func addingACallOfALowerOrdinalIsTheOnlyThingThatChangesTheBadge() {
+        var open = ["Bash"]
+        #expect(BadgeSelection.select(openToolNames: open).badge == .terminal)
+        open.append("KillShell")            // same badge, higher count
+        #expect(BadgeSelection.select(openToolNames: open).badge == .terminal)
+        #expect(BadgeSelection.select(openToolNames: open).count == 2)
+        open.append("Read")                 // lower ordinal, badge moves
+        #expect(BadgeSelection.select(openToolNames: open).badge == .magnifier)
+    }
+
+    @Test func manifestKeysRoundTrip() {
+        for badge in ToolBadge.allCases {
+            #expect(ToolBadge(manifestKey: badge.manifestKey) == badge)
+        }
+        #expect(ToolBadge(manifestKey: "question_mark") == .questionMark)
+        #expect(ToolBadge(manifestKey: "not_a_badge") == nil)
+    }
+}

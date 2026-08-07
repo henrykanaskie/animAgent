@@ -310,3 +310,103 @@ tool's `PostToolUse`). `SubagentStart` arrives *before* that `PostToolUse` in
 `three-subagents`, so the link must be applied retroactively. No M1 criterion
 needs it, and the doc already says an unlinked subagent anchors to the main
 agent.
+
+---
+
+## 2026-08-07 — M2, the room on screen
+
+All seven criteria pass, verified from a clean rebuild: no warnings, 135 tests,
+`RoomCamera` importing only `Foundation`, no `@unchecked Sendable`, `.nearest`
+applied in exactly one place. And for the first milestone with pixels, verified
+by *looking* — the screenshots are in the scratchpad, not just asserted.
+
+**The most valuable finding is an engine detail that nearly invalidated the
+evidence.** `SKRenderer.update(atTime:)` does not evaluate the `SKAction` tree
+at all. An `SKAction`-driven character is therefore frozen at spawn in any
+offscreen render — every screenshot would have shown a room of motionless
+figures while the tests passed. Animation was rewritten onto an explicit clock
+(`Character.advance(to:)`), driven by `SKScene.update(_:)` in the window and by a
+simulated clock offscreen. Side benefit: the choreography became deterministic
+and unit-testable, which is what made the collision tests below possible at all.
+
+**I sent this milestone back once, and was wrong about why.** I flagged the
+delivery frame because the reporting subagent's nameplate appeared to collide
+with the anchor's. The plates were not intersecting — they were on different
+rows. What painted over `MAIN` was the walker's **body**: accumulated z put an
+aisle character above a seated character's nameplate. The right fix was
+therefore structural rather than positional, and it is stronger than what I
+asked for: nameplates and badges now occupy a z band above every body, so no
+body can occlude any identity in any arrangement. The rect test I asked for
+would not have caught the original defect; the layering invariant test does.
+
+Suppressing the walker's plate was considered and rejected, correctly — in a
+cast M0 proved is not separable by silhouette, an unidentifiable character is
+the same failure as an illegible one, just quieter, and it would fire exactly
+when the room is dramatising something and you are looking at it.
+
+**The requested test then caught a second collision nobody had seen:** two
+subagents reporting within a second of each other both walk to the same delivery
+point. Two agents stopping near-simultaneously is common, so the delivery point
+became a row of slots at 80px pitch — slots rather than a queue, because a
+queued character stands about waiting and nothing in the data says it waited.
+[I1]
+
+There is an honest correction inside that: the first version of the test stepped
+a second of scene time per delta batch, which compresses the event stream against
+the animation clock and manufactures coincidences that cannot happen in a real
+replay. The criterion says *at real time*, so the test now runs the same fixed
+1/60 step as the offscreen harness — 2,900+ frames, every pair checked each
+frame. The compressed run was not wrong to be alarming, though; it is why the
+slots exist.
+
+**Residual, not half-built:** plate-plate collision is now impossible for
+`three-subagents` and for concurrent reports, but not structurally impossible in
+general — two characters walking the same row in opposite directions can still
+cross. The general answer is label collision avoidance, which is a real feature
+and was correctly flagged rather than started.
+
+**Desk-vs-character depth is now a decision rather than an accident.** Desks had
+been pinned at a fixed z while characters computed theirs from row, so the
+character always won by default. Desks now take the same row-depth function plus
+a half: at 32px the only cue that a character is sitting *at* a desk rather than
+beside one is whether the desk's near edge crosses the body. Aisle characters
+are a row nearer the camera, so anyone walking past is still in front of the
+furniture — which is what the walkway is for.
+
+**Two findings handed to the art-director, not acted on.** Accent hues do not
+separate the cast: measuring the most-saturated pixel of each of the six
+variants, all six land inside a **30° arc**, and 07 and 17 are hue-identical.
+`04-ART-DIRECTION.md` claims one accent hue per variant "chosen for mutual
+separation"; the generator in fact dresses one body in variations of one warm
+palette. So accent colour is a weak second glance, and the nameplate *text* is
+doing all of the identity work. The manifest should carry an explicit
+`accent_hex` per variant chosen for separation rather than sampled from the art.
+Separately, `room.props.identified` is `false`, so no single among the 339 can
+honestly be called a desk — desks are hatched placeholders, and the manifest
+needs a role mapping before real furniture can be placed. Sampling and
+documenting rather than inventing a palette or guessing a filename was the right
+call. [I1]
+
+**Judgment calls worth keeping:** floor and wall tiles are chosen by
+*measurement* — load all 141 builder tiles, keep the fully-opaque single-colour
+ones, take the darker as floor — so no filename appears in the code and a
+re-slice does not break the room. Characters walk in from one seat-pitch out
+rather than the room edge, because at the edge the whole entrance happens off
+camera. `×N` counts total open calls, not calls of the badged tool.
+
+**The nameplate font is written, not sourced.** A 5×7 bitmap typeface embedded
+as a constant, authored as `#`/`.` strings. An antialiased system font beside
+nearest-filtered pixel art is the fastest way to make the scene look broken. It
+is one constant and one call site, so the sourced-font blocker stands unchanged
+and this does not pre-empt it.
+
+**Deferred to M4:** the parent→child link. `tool_response.agentId` is not decoded
+by Core and no delta carries it, so exposing it means touching Core — out of
+scope for the scene. Every reporting subagent currently anchors to the main
+agent, which is the documented fallback. [I1]
+
+**Not provable here:** `screencapture -l` fails with "could not create image from
+window" because this terminal has no Screen Recording permission. The window does
+open and its render loop runs, and the window shots come from the live `SKView`,
+but that is in-process capture, not OS-level proof the pixels reached the
+display. M3 or a human glance settles it.
