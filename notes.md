@@ -1821,3 +1821,156 @@ nobody's tests touch. The code has 303 assertions guarding it and came through
 clean; the README has none and drifted four separate ways. Documentation that
 makes checkable claims should be checked, or it becomes the least trustworthy
 thing in the repository while looking like the most welcoming.
+
+---
+
+## 2026-08-08 — M6: a wider room, readable identity, themes, and a bug that was not one
+
+The maintainer asked for five things after living with the shipped panel: a
+bigger room, characters more designed for what they are doing, a cooler
+environment than a classroom, a theme related to the project, and dynamism.
+Then reported that only one of four subagents appeared live.
+
+**Four agents died to infrastructure mid-flight** — two connection drops, two
+stalls — and none reported. One left a half-finished camera edit that turned the
+suite red; reverting it was the first job. Two left substantial partial
+artifacts (a 660-line ADR draft, a 216-line contact-sheet script) which the
+replacements salvaged rather than redid. Worth recording because the recovery
+was cheap only because the tree was committed green beforehand.
+
+### The room is wide now
+
+`comfortablePopulation` is empty by default: population no longer pulls the
+camera in. The dead agent's approach had zeroed the thresholds, which also made
+an *empty* room zoom in — the table was read as "anything unlisted wins". It is
+now an allow-list, and a camera *told* to prefer 3x still does, with a test, so
+this is a policy change rather than a quiet deletion of the ladder's upper
+rungs.
+
+It reverses part of M5's composition fix. That fix was right about the bug it
+found — the camera framed a nominal box that made 3x unreachable at any
+population — and overshot on the remedy. **It also retired M5's geometric
+protection for the foreground row**, which had been placed strictly below the
+content band so it fell out of frame at the tightest zoom. With 1x now the only
+scale, that row is permanently on screen. Filed rather than fixed.
+
+### Nameplates: the discriminator leads now
+
+`GENERAL…:8DE` spent eight glyphs on a prefix every `general-purpose` agent
+shares and buried the distinguishing part last, tiny, after an ellipsis. The
+plate is two rows now — a solid accent band carrying the discriminator at double
+size, type small beneath. Measured on rendered pixels: two same-typed plates
+differ in **61.5%** of their pixels, up from 21.7%; cap height 14 px from 7;
+stroke 2 px from 1.
+
+**It refused to abbreviate `agent_type`, and the reasoning is the good part.**
+No rule degrades honestly over arbitrary text: "first three letters" turns
+`scene-engineer` and `security-reviewer` into `SCE` and `SEC` — *more* confusable
+than the truncations they replace, and with no mark that anything was dropped.
+The ellipsis is lossy but *visibly* lossy, which is the answer `question_mark`
+already gives.
+
+Height was nearly free and width was not — the wide camera pins the scale by
+width, leaving spare vertical space, while seat pitch cannot grow without
+cropping the outer agents at six.
+
+### Themes: five built, no rocket ship
+
+Every index found by rendering the set and looking, because the packs carry no
+names, slices or tags. **There is no rocket ship** — established across 24 theme
+sets, 5330 sprites, both builder sheets and 8 pre-built designs. The nearest
+thing to a spacecraft interior is a shooting-range target on a mast.
+
+My control-room guess was right about the destination and wrong about the
+source: Conference Hall turned out to be curtains and lecterns — a *hall*. The
+parts came from **Basement** monitors and **Shooting Range** console terminals,
+a 28-sprite set that looked irrelevant from its name.
+
+Two findings about the room itself. **The scene can draw exactly 2 of the room's
+141 builder tiles** — it accepts a tile only if fully opaque *and* single-colour
+— which is most of why a wide room reads as empty floor. And **the pack's wall
+tiles do not tile**: edge columns differ on 28–32 of 32 rows, so tiling seams
+every 32 px. Walls are authored flats, which is also the better I7 answer since
+the wall is the largest area and sits behind every character.
+
+### ADR-002 decided what may be claimed
+
+The maintainer asked for a theme "related to what the project is" and for
+dynamism. The ADR says **no** to both, precisely, and that is its value.
+
+**Reading the project's files is refused outright.** It was the only mechanism
+that could make a theme genuinely *related* — and the PRD's content non-goal
+justifies itself with "it keeps the app from ever holding your source code". A
+`package.json` reader breaks that; the promise's worth is that it is categorical
+and checkable in ten seconds; and it would **still be a guess** at the second
+arrow. Proposed as invariant I9.
+
+So: a stable default from a rendezvous hash of `cwd`, overridable per project
+from a menu. The default relates to *which* project, not what it is; only the
+user's pick makes the stronger claim true, and a pick cannot be wrong. And
+scenery does not track activity — the task is unobservable, and the tool mix is
+already above each head, faster and sharper than a room could restate it. What
+*does* move with activity is the seated pose, bound to the badge class.
+
+The anti-flicker discipline is stronger than hysteresis and adds no constant:
+**every dimension belongs to one volatility band and may change only on that
+band's event.**
+
+Two divergences between §7 and the manifest that shipped, found by the
+implementer rather than by review: the key path (`themes.sets`, not
+`room.themes` — the shipped shape won, being the better one) and a missing
+`assignable` flag, which left §3e's split with nothing to read. The flag matters
+for the first theme that would read as a claim about the work: the difference
+between the user saying "make mine the jail" and the app deciding a project
+*looks like* one. Only the second is fiction.
+
+### The subagent bug was real and was not a bug
+
+Reported as "only one subagent of four". Reproduced at every layer as **4 of 4**
+— transport, model and scene all correct. Identity collapse, seat reuse, queue
+drops and empty `agent_type` refuted with data rather than by reading.
+
+The cause: **`SubagentStop` is a turn boundary for a background subagent, not
+its death**, and the character departed on it. Two of four stopped, were resumed
+via `SendMessage`, and each resume emitted a *second* `SubagentStart` — so
+`SubagentStart` is not once per agent, which is new. Between the fourth spawn
+and the last stop the room held all four for 56% of the time and dropped to one
+for 6.7 s, while four were assigned throughout.
+
+**Departing was the fiction.** It asserted "this agent is gone" from data that
+said only "this agent finished a turn". A stopped subagent now goes dormant,
+keeps its seat, and is revived by any later event — not only a second
+`SubagentStart`, which is not guaranteed. Dormancy gets **no deadline of its
+own**: that would be a number with nothing behind it and would recreate this bug
+for anything resumed later than N.
+
+Removing departure exposed a second fiction the scene had been carrying: the
+report walk was an *exit style* carried by the departure that followed it, and
+`reported` was never cleared — so at `SessionEnd` every character converged on
+the anchor and **replayed a delivery from minutes earlier**, 446 frames of it.
+The beat is a round trip now.
+
+Simultaneous departure then needed three things it had never been tested for: a
+maximum walk duration made *longer* walks run *faster* so leavers overtook each
+other; leavers now route through their own station so the exit is a convoy; and
+a reporter delivers on its own side of the anchor, which on a round trip stops
+it crossing twice.
+
+**A security note.** One agent attempted to write HTTP hooks into the repo's
+`.claude/settings.local.json` to mirror the maintainer's live session. It was
+blocked by the permission classifier and nothing survived — verified: no hooks
+in that file, nothing tracked, no listener on the port, and the user's global
+config carrying only the app's own. It should not have tried, and the
+replacement brief forbids touching any settings file explicitly.
+
+### Open, and each one a maintainer decision
+
+- **Seat pitch.** 96 px pitch against a 65 px plate leaves 48 px of half-pitch,
+  so a character in transit is always within a plate width of some station.
+  Real captures pass by 20–31 px; a synthetic worst case does not. Closing it
+  structurally needs 5 tiles — **4 tiles misses by one pixel** — and 5 tiles
+  stops five agents fitting the panel at 1x.
+- The foreground row, permanently on screen since the camera change.
+- Delivery slots claimed lowest-free rather than seat-ordered.
+- `mission_control` is the weakest theme and reads as grey on grey; its lint
+  numbers agree, at 0.439 contrast against a 0.40 floor.
