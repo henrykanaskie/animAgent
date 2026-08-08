@@ -279,7 +279,7 @@ THEMES = {
 }
 
 # ---------------------------------------------------------------------------
-# Animated objects — added at M6b
+# Animated objects — added at M6b, adopted into the manifest at M6c
 # ---------------------------------------------------------------------------
 #
 # `3_Animated_objects/` is 310 spritesheets and, unlike every other folder in
@@ -292,7 +292,21 @@ THEMES = {
 # Frame width is NOT recoverable from the filename and every sheet is a single
 # row, so it is measured per sheet and written down. Getting it wrong produces a
 # sheet that still tiles into plausible-looking frames, which is the failure
-# mode that would survive review.
+# mode that would survive review — so it is no longer only written down. **The
+# pack ships a GIF of every animated object beside the sheet**, and a GIF
+# carries its own canvas size, its own frame count and its own per-frame delay.
+# `_gif_timing()` reads it, and an object whose sheet does not agree with its
+# own GIF is skipped rather than guessed at. That is the same
+# verify-before-you-write rule this project applies to filenames, applied to
+# time.
+#
+# THE FRAME RATE COMES OUT OF THAT GIF AND IS NOT A TASTE DECISION. M6b proposed
+# "fps: 4" as an illustration and it is wrong for three of the four objects:
+# the pack times the server at 50/100 s per frame (2 fps), the pendulum at
+# 20/100 (5 fps), and the two 10/100 sheets at 10 fps. A pendulum driven at the
+# rack's rate does not swing, and the rack driven at the pendulum's strobes.
+# `fps` below is the declared value; the importer recomputes it from the GIF and
+# refuses to cut an object whose GIF disagrees.
 #
 # THE SELECTION RULE, which is stricter than "it looks nice". ADR-002 §9 forbids
 # scenery that animates *in response to activity* — that is the room asserting
@@ -302,41 +316,110 @@ THEMES = {
 # volatility band at all. [I1]
 #
 # And I7 binds harder here than on a still prop, because motion draws the eye
-# and the eye belongs on the characters. The measured moving-pixel fraction is
-# recorded beside each one; the two that survived are 3.6% and 4.6% of their own
-# visible area, which is a prop that is alive rather than a prop that waves.
+# and the eye belongs on the characters. The moving-pixel fraction of every
+# adopted object is **measured on the shipped frames** by
+# scripts/build-manifest.py and written into the manifest, rather than
+# transcribed into this comment. It is transcribed nowhere precisely because
+# M6b's transcription was wrong twice: it recorded `pendulum_clock` at 4.6% when
+# the sheet measures 3.0%, and `old_tv` at 10.4% when the sheet measures 27.9%.
+# The second one mattered — 27.9% is a prop that waves, not a prop that is
+# alive, and the whole judgement about `old_tv` had been made against a number
+# nothing generated.
 #
-# **Nothing here is in the manifest.** An animated prop needs a frame list and a
-# frame rate, and `props.roles.<role>` carries one `file`. That key is the
-# scene's, so the shape is proposed in docs/04-ART-DIRECTION.md rather than
-# invented here. The art is cut anyway so the decision can be made by looking at
-# it — which is this project's rule about art, applied to a schema question.
+# EACH OBJECT NAMES THE ROLE IT FILLS, AND IT IS ALWAYS `board`. That is
+# geometry, not preference. The scene draws `board` at the even seats of the
+# back row (four on a 720px panel), `plant` at the odd seats *and* seven more
+# along the foreground walkway, and `desk`/`chair` at every seat under a
+# character. `board` is the only slot where motion is neither in the foreground
+# row nor sitting on top of a character, which are the two places I7 says a
+# background detail must never compete. So one animated object per theme, and
+# no theme may hold two.
 ANIMATED = {
+    # NOT ADOPTED, and this one was refused on a number rather than on a
+    # picture: it composes well and it is the quietest object in the folder at
+    # 3.6%. Adopting it takes `mission_control`'s character-contrast margin from
+    # 0.427 to **0.408** against a 0.40 floor — 0.019 of the 0.027 that M6b
+    # deliberately left. This theme is the only one that has ever spent margin
+    # on purpose and it has the least left, so it is the one theme where a prop
+    # that is merely nice does not get to spend any more.
     "control_room_server": {
         "sheet": "animated_control_room_server_32x32.png",
         "frame": (32, 96),
         "for": "mission_control",
+        "role": "board",
+        "fps": 2,
         "what": "server rack cabinet, three bays of blinking status LEDs",
-        "moving": "80 px of 2240 visible (3.6%)",
+    },
+    # NOT ADOPTED, on two independent grounds, neither of which is the canvas
+    # everyone thought was the obstacle. See M6c in docs/04-ART-DIRECTION.md.
+    #
+    #   1. **It fails the I7 lint.** `mission_control`'s character-contrast
+    #      margin goes 0.427 -> **0.363** against a 0.40 floor. It does not cost
+    #      margin, it exceeds it: 6796 visible px per frame across 11 frames is
+    #      more art than the rest of the theme put together.
+    #   2. Its content box is 120 px wide and the scene draws `board` at four
+    #      points 96 px apart, so four copies clip each other by 24 px and the
+    #      wall reads as broken monitors. Every other board in every theme is
+    #      30-64 px, so this is the first object to hit a limit that was always
+    #      there and that no canvas size changes.
+    #
+    # The prop canvas was widened to 128 to admit it and then put back, because
+    # widening was never the thing in the way. It stays in this table so it is
+    # still cut and still reviewable with
+    # `preview-theme.py --animated control_room_screens`.
+    "control_room_screens": {
+        "sheet": "animated_control_room_screens_32x32.png",
+        "frame": (128, 96),
+        "for": "mission_control",
+        "role": "board",
+        "fps": 10,
+        "what": "a 3x3 wall of wall-mounted monitors on a bracket frame, "
+                "each screen cycling its own readout",
     },
     "pendulum_clock": {
         "sheet": "animated_pendulum_clock_32x32.png",
         "frame": (32, 96),
         "for": "library",
+        "role": "board",
+        "fps": 5,
         "what": "longcase clock, swinging pendulum",
-        "moving": "104 px of 2272 visible (4.6%)",
     },
+    # NOT ADOPTED. Two independent reasons, both found by looking at it in the
+    # room. It is a TV meant to stand ON furniture — there is nothing under it
+    # in the art — and the back row is a floor line, so four of them hang at
+    # chest height over nothing. And it moves far more than M6b recorded: 364 px
+    # of 1304 (27.9%), not 160 of 1544 (10.4%). At 27.9% of its own area,
+    # flickering at 10 fps, it is the strongest attractor in any room here, and
+    # I7 says the eye belongs on the characters. (It would pass the lint —
+    # `broadcast` 0.470 -> 0.462 — which is the point: the lint is a value check
+    # and has nothing to say about motion or about a prop floating.)
     "old_tv": {
         "sheet": "animated_old_tv_32x32.png",
         "frame": (64, 64),
         "for": "broadcast",
+        "role": "board",
+        "fps": 10,
         "what": "CRT television on rabbit-ear aerials, screen static",
-        "moving": "160 px of 1544 visible (10.4%) — the loudest of the three, "
-                  "and the one to drop first if the room reads busy",
     },
 }
 
+# Which animated object each theme actually adopts. An id here replaces that
+# theme's static binding for the object's `role`; a theme absent from this set
+# keeps the static prop. It is separate from ANIMATED so that art can stay cut
+# and reviewable — `preview-theme.py` can still stand it in the room — without
+# being in the manifest, which is the state all four were in through M6b.
+#
+# **One of the four ships.** Each of the other three is refused above its own
+# row, on a measured ground rather than on taste: a lint failure, a lint spend
+# this project cannot afford, and a prop that hangs in the air. What it costs to
+# ship this one is 0.004 of `library`'s 0.056 of margin — 0.456 -> 0.452.
+#
+# Emptying this set reverts every animated prop in one line and nothing else
+# changes; the art stays cut either way.
+ANIMATED_ADOPTED = {"pendulum_clock"}
+
 ANIMATED_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "spritesheets")
+ANIMATED_GIF_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "gif")
 
 # Every themed prop is padded into this canvas, bottom-centred, before it is
 # written. That is what keeps a themed room a manifest swap with no code change:
@@ -345,6 +428,26 @@ ANIMATED_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "spritesheets
 # tight per-sprite canvases — 32x32, 32x48, 16x96, 64x96 — so without this the
 # manifest would have to carry a canvas per role and the scene would have to
 # learn to read it. Every prop selected above was measured first and fits.
+#
+# **Widened to 128 at M6c and put back**, and the round trip is worth recording
+# because the result is a fact rather than a preference.
+#
+# It was widened to admit `control_room_screens`, a 128x96 monitor wall. Both
+# states were built and all six themes rendered at 720x400 with characters:
+# **0 differing pixels of 288 000, in every theme.** That is not luck, it is the
+# construction — padding is bottom-CENTRED and placement is by measured
+# `content_box`, so widening adds 32 px of transparency on each side, every
+# box's `x` gains exactly 32, and the anchor `(box.x + box.w/2) / canvas.w` is
+# invariant. It was checked in pixels anyway, because the last placement bug
+# here was a consistent error that left every picture internally plausible.
+#
+# It is back at 64 because widening was never what stood in the way.
+# `control_room_screens` has a 120 px content box and the scene draws `board` at
+# four points 96 px apart, so its copies clip each other whatever canvas they
+# arrive on. Carrying a 128 px canvas would then double every themed prop
+# texture for an object no room can draw — generality with no user. Flip this
+# line and ANIMATED_ADOPTED to spend it, the moment a scene rule exists for a
+# prop wider than the back-row pitch.
 PROP_CANVAS = (64, 96)
 
 # ---------------------------------------------------------------------------
@@ -660,6 +763,76 @@ def recolour(px, cache, floor=VALUE_FLOOR):
         px[i], px[i + 1], px[i + 2] = out
 
 
+def gif_timing(path):
+    """(width, height, frame count, per-frame delay in 1/100 s, loop count).
+
+    The pack ships `3_Animated_objects/<size>/gif/` beside `spritesheets/`, and
+    a GIF is the only place in any of these packs that states how fast a thing
+    is supposed to move. Reading it is how the frame rate in the manifest stops
+    being a taste decision: docs/04-ART-DIRECTION.md's rule is that nothing
+    enters the manifest until it has been located in the download, and a frame
+    rate is as much a claim about the art as a filename is.
+
+    It also independently confirms the frame *width*, which is not recoverable
+    from the sheet — every sheet is one row, so a wrong width still slices into
+    plausible frames. The GIF's canvas is one frame, so sheet width divided by
+    GIF width is the frame count, checkable against the GIF's own.
+
+    Structure walk only: block headers, the Graphics Control Extension's delay
+    field, and the NETSCAPE2.0 loop count. **No LZW decode** — the pixels come
+    from the PNG sheet, which is the lossless copy. Returns None if the file is
+    not a GIF or does not parse, which the caller treats as "unverified" rather
+    than as an error.
+
+    Delays are returned raw rather than averaged because a pack that ever ships
+    a non-uniform loop should be *rejected*, not smoothed: `animation.fps` is one
+    number and cannot describe a loop whose frames are held for different times.
+    """
+    try:
+        with open(path, "rb") as f:
+            b = f.read()
+    except OSError:
+        return None
+    if b[:6] not in (b"GIF87a", b"GIF89a"):
+        return None
+    try:
+        w = int.from_bytes(b[6:8], "little")
+        h = int.from_bytes(b[8:10], "little")
+        i = 13
+        if b[10] & 0x80:                      # global colour table
+            i += 3 * (2 << (b[10] & 7))
+        delays, frames, loop = [], 0, None
+
+        def skip_blocks(j):
+            while b[j]:
+                j += b[j] + 1
+            return j + 1
+
+        while i < len(b) and b[i] != 0x3B:    # trailer
+            if b[i] == 0x21:                  # extension
+                label, i = b[i + 1], i + 2
+                size = b[i]
+                sub = b[i + 1:i + 1 + size]
+                i = skip_blocks(i + 1 + size)
+                if label == 0xF9 and size >= 3:
+                    delays.append(int.from_bytes(sub[1:3], "little"))
+            elif b[i] == 0x2C:                # image descriptor
+                frames += 1
+                flags, i = b[i + 9], i + 10
+                if flags & 0x80:              # local colour table
+                    i += 3 * (2 << (flags & 7))
+                i = skip_blocks(i + 1)        # LZW min code size, then data
+            else:
+                return None
+        # NETSCAPE2.0 always means "animate"; its count is 0 for forever, and
+        # every sheet in this folder is 0. Read it back plainly rather than
+        # tracking it through the walk above.
+        loop = 0 if b"NETSCAPE2.0" in b else None
+    except (IndexError, ValueError):
+        return None
+    return (w, h, frames, delays, loop)
+
+
 def _digest(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -684,9 +857,10 @@ def _params_key():
             "canvas": BADGE_CANVAS,
             "badge_frame": [BADGE_FRAME_RECT, BADGE_FRAME_INTERIOR],
             "badge_icons": {k: list(v) for k, v in MUI_BADGE_ICONS.items()},
-            "animated": {k: [v["sheet"], list(v["frame"])]
+            "animated": {k: [v["sheet"], list(v["frame"]), v["for"], v["fps"]]
                          for k, v in sorted(ANIMATED.items())},
-            "rev": 5,
+            "prop_canvas": list(PROP_CANVAS),
+            "rev": 6,
         },
         sort_keys=True,
     )
@@ -831,7 +1005,17 @@ class Importer:
         return os.path.join(root, hits[0]) if hits else None
 
     def _pad(self, w, h, px, cw, ch):
-        """Composite a sprite bottom-centred into a cw x ch transparent canvas."""
+        """Composite a sprite bottom-centred into a cw x ch transparent canvas.
+
+        Returns None if the sprite does not fit. That case used to be covered by
+        "every prop selected was measured first and fits", which is a claim
+        about the table rather than a check on it — and a negative offset here
+        does not raise, it writes the overhanging columns onto the wrong rows
+        and produces a plausible-looking file. The caller logs and skips, which
+        is the same treatment a sheet that disagrees with its GIF gets.
+        """
+        if w > cw or h > ch:
+            return None
         buf = pnglite.new(cw, ch)
         ox, oy = (cw - w) // 2, ch - h
         for y in range(h):
@@ -894,6 +1078,11 @@ class Importer:
                     w, h, px = pnglite.load(src)
                     self.shadow_px += strip_shadow(w, h, px)
                     buf = self._pad(w, h, px, *PROP_CANVAS)
+                    if buf is None:
+                        self.log("  themes/%s: %s is %dx%d and does not fit the "
+                                 "%dx%d prop canvas — skipped"
+                                 % ((name, role, w, h) + PROP_CANVAS))
+                        continue
                     recolour(buf, self.cache, prop_floor)
                     self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
@@ -936,19 +1125,34 @@ class Importer:
     def animated(self, sizes):
         """Cut the named animated sheets into one PNG per frame.
 
-        Same treatment as any other room art: baked shadow stripped, room
-        transform applied. They are furniture that happens to move, not a layer
-        of their own, so I7 binds them exactly as it binds a desk.
+        Same treatment as any other themed prop, and that is the point: baked
+        shadow stripped, the room transform applied **on the target theme's own
+        prop band**, and padded bottom-centred into PROP_CANVAS. They are
+        furniture that happens to move, not a layer of their own, so I7 binds
+        them exactly as it binds a desk — and the padding is what lets one
+        `props.canvas` cover a moving prop and a still one.
 
-        Output lands under `assets/processed/animated/` and **is not referenced
-        by the manifest** — see the ANIMATED table for why. `prune()` keeps it
-        tidy, so removing a row here removes its frames on the next run.
+        The theme band matters and is easy to miss: `mission_control` draws its
+        props on a band floored at 0.46, so a server rack cut on the default
+        band would be the one pale object in a theme built around dark screens.
+
+        Every sheet is checked against the pack's own GIF of the same object
+        before it is cut — canvas size, frame count, and a uniform delay that
+        matches the declared `fps`. A sheet that disagrees with its GIF is
+        skipped and named, because the failure it prevents (a wrong frame width
+        slicing into plausible frames) is exactly the one that survives review.
+
+        Output lands under `assets/processed/animated/<size>/<id>/frame_NN.png`.
+        Every object is cut; only the ids in ANIMATED_ADOPTED are referenced by
+        the manifest. `prune()` keeps it tidy, so removing a row from ANIMATED
+        removes its frames on the next run.
         """
         for size in sizes:
             root = ANIMATED_DIR % size
             if not os.path.isdir(root):
                 self.log("  animated %s: absent" % size)
                 continue
+            gifs = ANIMATED_GIF_DIR % size
             n_frames = 0
             for name, spec in sorted(ANIMATED.items()):
                 src = os.path.join(root, spec["sheet"])
@@ -961,8 +1165,26 @@ class Importer:
                     self.log("  animated/%s: %s is %dx%d, not a whole number of "
                              "%dx%d frames — skipped" % (size, name, w, h, fw, fh))
                     continue
-                key = "anim%dx%d:" % (fw, fh) + _digest(src)
-                for i in range(w // fw):
+                count = w // fw
+                if not self._timing_agrees(size, name, spec, gifs, fw, fh, count):
+                    continue
+                # An object that fits the prop canvas is padded into it and is
+                # adoptable. One that does not is still cut, at its own frame
+                # size, so `preview-theme.py --animated <id>` can stand it in a
+                # room and it can be argued about — it just cannot be a manifest
+                # role, and scripts/build-manifest.py refuses it on exactly that
+                # test rather than on this table's say-so.
+                fits = fw <= PROP_CANVAS[0] and fh <= PROP_CANVAS[1]
+                cw, ch = PROP_CANVAS if fits else (fw, fh)
+                if not fits:
+                    self.log("  animated/%s: %s is %dx%d per frame, larger than the "
+                             "%dx%d prop canvas — cut for review, not adoptable"
+                             % ((size, name, fw, fh) + PROP_CANVAS))
+                theme = THEMES.get(spec["for"], {})
+                prop_floor = theme.get("prop_value_floor", PROP_VALUE_FLOOR_DEFAULT)
+                key = ("anim%dx%d:pad%dx%d:band%.3f:"
+                       % ((fw, fh, cw, ch) + (prop_floor,)) + _digest(src))
+                for i in range(count):
                     dst = os.path.join(OUT, "animated", size, name,
                                        "frame_%02d.png" % i)
                     n_frames += 1
@@ -975,10 +1197,41 @@ class Importer:
                             di = (y * fw + x) * 4
                             buf[di:di + 4] = px[si:si + 4]
                     self.shadow_px += strip_shadow(fw, fh, buf)
-                    recolour(buf, self.cache)
-                    self._emit(dst, fw, fh, buf)
-            self.log("  animated/%s: %d frames across %d objects"
-                     % (size, n_frames, len(ANIMATED)))
+                    padded = self._pad(fw, fh, buf, cw, ch)
+                    recolour(padded, self.cache, prop_floor)
+                    self._emit(dst, cw, ch, padded)
+            self.log("  animated/%s: %d frames across %d objects (%d adopted)"
+                     % (size, n_frames, len(ANIMATED), len(ANIMATED_ADOPTED)))
+
+    def _timing_agrees(self, size, name, spec, gifs, fw, fh, count):
+        """True if the pack's own GIF confirms this sheet's slicing and rate.
+
+        Absent GIF is not a failure — the sheet is the art and the GIF is the
+        corroboration — but it is logged, because an unverified frame rate is a
+        claim about the download that nobody checked.
+        """
+        info = gif_timing(os.path.join(gifs, spec["sheet"].replace(".png", ".gif")))
+        if info is None:
+            self.log("  animated/%s: %s has no readable GIF — frame rate "
+                     "unverified" % (size, name))
+            return True
+        gw, gh, gframes, delays, _loop = info
+        if (gw, gh) != (fw, fh) or gframes != count:
+            self.log("  animated/%s: %s sheet slices to %d frames of %dx%d but its "
+                     "GIF is %d of %dx%d — skipped"
+                     % (size, name, count, fw, fh, gframes, gw, gh))
+            return False
+        if not delays or len(set(delays)) != 1:
+            self.log("  animated/%s: %s has a non-uniform GIF delay %s — one `fps` "
+                     "cannot describe it, skipped" % (size, name, delays))
+            return False
+        fps = round(100.0 / delays[0], 3)
+        if abs(fps - spec["fps"]) > 1e-6:
+            self.log("  animated/%s: %s declares %g fps but its GIF holds each frame "
+                     "%d/100 s (%g fps) — skipped"
+                     % (size, name, spec["fps"], delays[0], fps))
+            return False
+        return True
 
     # -- characters ---------------------------------------------------------
 

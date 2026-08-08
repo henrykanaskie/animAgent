@@ -2175,3 +2175,112 @@ is correct. `docs/04-ART-DIRECTION.md` has the shape.
 `swift build --build-tests -Xswiftc -warnings-as-errors` clean, `swift test` 396
 passing, lint passed unweakened. The manifest gained one key's worth of content
 (`badges.states.sleep`) and no new key.
+
+## 2026-08-08 — M6c: the animated props land, and three of the four do not
+
+Both open decisions came back approved: the `animation` key as designed, and
+`props.canvas` widened to 128 to admit `control_room_screens`. **One prop
+ships**, the canvas is back at 64, and every refusal is a number.
+
+| id | theme | verdict |
+|---|---|---|
+| `pendulum_clock` | `library` | **ships.** 64 px of 2096 moving (3.1%), 5 fps |
+| `control_room_screens` | `mission_control` | fails the lint: 0.427 → **0.363** against a 0.40 floor |
+| `control_room_server` | `mission_control` | 0.427 → **0.408**. Reported, not spent |
+| `old_tv` | `broadcast` | floats, and moves 27.9% — not the 10.4% I recorded |
+
+### The widening does not disturb placement, and it is not the thing in the way
+
+Built both states and rendered all six themes at 720×400 with characters:
+**0 differing pixels of 288 000, every theme.** Every lint number identical to
+three decimals in all six. That is what the construction predicts — padding is
+bottom-*centred*, placement is by measured `content_box`, so every box's `x`
+gains exactly 32 and the anchor `(box.x + box.w/2)/canvas.w` is invariant — but
+the last bug here was a consistent error that left every picture internally
+plausible, so it was checked in pixels and not in arithmetic.
+
+Then the object it was widened for turned out not to be blocked by the canvas at
+all. **`control_room_screens` has a 120 px content box and the scene draws
+`board` at four points 96 px apart**, so four copies clip each other by 24 px
+whatever canvas they arrive on. At `1x` it is not a screen wall, it is broken
+monitors. Every other board in the six themes is 30–64 px wide, so this is the
+first object ever to hit a limit that was always there, and the fix is
+`RoomLayout`'s pitch or a draw-once rule — a scene change, not mine. The canvas
+went back to 64: carrying 128 doubles every themed prop texture for an object no
+room can draw. `preview-theme.py` now warns on it, because it is a defect that
+does not exist in a manifest — it only exists once four copies are on screen.
+
+Then it failed the lint anyway, by a mile. I would rather have found that first.
+
+### One animated prop per theme, because `board` is the only slot
+
+The scene draws `board` at the back row's even seats, `plant` at the odd seats
+*and* seven more along the always-on-screen foreground walkway, and desk and
+chair under every character. `board` is the only place motion is neither in the
+foreground nor on top of a character. So a theme holds at most one, and the four
+objects were competing for two slots, not four.
+
+The corollary is the cost, and it is not small: **`board` is also every theme's
+identity object and its dark anchor** — the chalkboard, the drum kit, the
+two-screen post. `library` gives up its chalkboard for the clock. The bookcases
+in both rows carry the theme without it, and I think it is worth it, but the
+classroom read is genuinely weaker and the maintainer should know that is what
+was traded. `ANIMATED_ADOPTED` is one line; emptying it reverts everything and
+the art stays cut.
+
+### Two of my own M6b numbers were wrong
+
+`pendulum_clock` I recorded at 104 of 2272 (4.6%); it is 64 of 2096 (3.0%).
+`old_tv` I recorded at 160 of 1544 (10.4%); it is **364 of 1304 (27.9%)**. The
+second one mattered — at 27.9% flickering at 10 fps it is the loudest thing in
+any room here, and the whole judgement that it was merely "the one to drop first"
+was made against a figure nothing generated. They are now computed by
+`build-manifest.py` on the shipped frames and written into the manifest, so they
+cannot drift again.
+
+`old_tv` would have passed the lint (`broadcast` 0.470 → 0.462). That is worth
+saying plainly: the lint is a value check and has nothing to say about motion, or
+about a television hanging in mid-air because the art has no stand under it and
+the back row is a floor line.
+
+### The frame rate was in the download the whole time
+
+`3_Animated_objects/<size>/gif/` sits beside `spritesheets/`, and a GIF carries
+its own per-frame delay. It is the only place in any of these packs that says how
+fast a thing moves. My proposed `fps: 4` is wrong for three of the four: the
+server is 2 fps, the pendulum 5, the two 10/100 s sheets 10. `process-assets.py`
+now reads it and **refuses to cut a sheet whose GIF disagrees** on canvas, frame
+count or rate — which also independently confirms the frame width, the one thing
+a one-row sheet cannot tell you and that a wrong value still slices into
+plausible frames. Verify-before-you-write, applied to time.
+
+### Smaller things
+
+- `_pad` returns None rather than writing overhanging columns onto the wrong
+  rows, and callers log and skip. `build-manifest.py` refuses to make a role of
+  frames that are not the declared canvas. Both replace the comment "every prop
+  selected was measured first and fits" with a check.
+- `content_box` for an animated role is the **union over all frames**. For the
+  clock it equals frame 0's box, so a `file`-only reader loses nothing — but that
+  is a measurement, not a guarantee, and the scene's clearance test reads that
+  height.
+- `preview-theme.py` no longer reaches outside the manifest for animation.
+  `--animated <id>` survives as the review path for an unadopted candidate, which
+  is how the three refusals above were looked at.
+
+**`ADR-002` §9 still says "Animated props. `3_Animated_objects/` exists and stays
+out."** That sentence is now false. The ADR needs an amendment recording the
+idle-only rule that replaced it; ADR-002 was out of scope here, so this is a
+flag, not a fix.
+
+### Gate
+
+Import verified byte-identical across an incremental rerun and a `--force`
+rerun. Lint passed unweakened, all six themes reported before and after.
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` and `swift test` (396,
+with `SPRITE_ROOM_REQUIRE_ART=1`) both clean **against the new manifest in a
+worktree at HEAD** — the main tree cannot build right now because another agent
+is mid-edit in `Sources/SpriteRoomScene/` and `RoomSceneTests.swift` references a
+`RoomLayout.deliverySlotPitch` that does not exist yet. That is their in-flight
+work, not this change: this diff touches no Swift at all.

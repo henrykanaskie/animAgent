@@ -981,10 +981,13 @@ screen at a time. Thresholds are unchanged and were not touched.
 |---|---:|---:|---:|---:|
 | `briefing` | 0.817 | 0.182 | 0.667 | 0.503 |
 | `broadcast` | 0.784 | 0.114 | 0.667 | 0.470 |
-| `library` | 0.770 | 0.183 | 0.667 | 0.456 |
+| `library` | 0.766 | 0.183 | 0.667 | 0.452 |
 | `mission_control` | 0.741 | 0.182 | 0.604 | 0.427 |
 | `office` | 0.793 | 0.183 | 0.659 | 0.480 |
 | `stage` | 0.786 | 0.183 | 0.667 | 0.472 |
+
+`library`'s two numbers moved at M6c — 0.770/0.456 before — and nothing else in
+this table did. That is the whole price of the one animated prop that ships.
 
 All six pass. The saturation column passes **by construction** rather than by
 luck — the import transform clamps every room pixel to 0.18 — so the honest
@@ -1080,6 +1083,13 @@ mistake with a body instead of a glyph. [I1]
 
 ### 3. Animated objects: cut, measured, and waiting on one manifest key
 
+> **Superseded by M6c, below.** The `animation` key was approved and one of the
+> four objects here ships. Three of the four numbers in the table below were
+> wrong and two of the three verdicts were wrong; the M6c section corrects them
+> and says how they were caught. It is kept because the shape it proposed is the
+> shape that landed, and because being wrong about `old_tv` by a factor of three
+> is the argument for generating these figures rather than typing them.
+
 `3_Animated_objects/` is 310 spritesheets and this project had never opened it.
 **Unlike every other folder in these packs, they are named** — there is no
 render-and-guess step, the file is called
@@ -1147,6 +1157,178 @@ and is correct — the same degradation `characters.poses` already has. `fps` is
 per prop rather than global because a pendulum and a rack of LEDs do not tick at
 the same rate, and 8 fps (the character rate) makes a 3-frame LED loop strobe.
 
+## Animated props: one ships — M6c
+
+The maintainer approved the `animation` key as proposed and approved widening
+`props.canvas` to 128 to admit `control_room_screens`. **One of the four objects
+ships, the canvas is back at 64, and every refusal below is a number rather than
+a preference.**
+
+### What ships
+
+| id | theme | role | frames | fps | moving px | lint cost |
+|---|---|---|---:|---:|---|---|
+| `pendulum_clock` | `library` | `board` | 4 | 5 | 64 of 2096 (**3.1%**) | 0.456 → 0.452 |
+
+At 720×400 with four agents seated, one frame of that loop differs from the next
+by **192 pixels of 288 000** — 0.067% of the panel. That is a prop that is alive
+rather than a prop that waves, which is the line I7 draws once a prop can move.
+
+### What does not, and why
+
+**`control_room_screens` — fails the lint.** `mission_control`'s character
+contrast goes **0.427 → 0.363** against a 0.40 floor. It does not spend the
+margin, it exceeds it: 6796 visible pixels per frame across 11 frames is more
+art than the rest of the theme put together, and the lint pools per file. Two
+things about this are worth keeping.
+
+*The canvas was never the obstacle.* Widening to 128 was tried, measured and put
+back. Its content box is **120 px wide and the scene draws `board` at four points
+96 px apart**, so its copies clip each other by 24 px whatever canvas they arrive
+on — at `1x` the wall reads as broken monitors, not as a wall. Every other board
+in every theme is 30–64 px, so this is the first object to hit a limit that was
+always there. `scripts/preview-theme.py` now warns when a board is wider than the
+back-row pitch, because that is a defect no manifest can show you: it only exists
+once four copies are on screen.
+
+*What would have to change.* Not the canvas — `RoomLayout`'s back-row pitch, or a
+scene rule that a prop wider than the pitch is drawn once rather than per seat.
+Both are scene changes.
+
+**`control_room_server` — costs margin this theme does not have.** It composes
+cleanly and it is the quietest object in the folder at 3.6%. Adopting it takes
+`mission_control` from **0.427 to 0.408**. M6b spent that theme's margin on
+purpose, deliberately, to buy a dark anchor; it has 0.027 left and this is not
+what to spend it on. Reported rather than spent, which is what was asked.
+
+**`old_tv` — floats, and moves three times as much as anyone thought.** It is a
+television meant to stand *on* furniture: there is nothing under it in the art,
+and the back row is a floor line, so four of them hang at chest height over
+nothing. And it is **364 px of 1304 (27.9%) moving, not 160 of 1544 (10.4%)** —
+the M6b figure was transcribed and wrong by a factor of three. It would pass the
+lint (`broadcast` 0.470 → 0.462), and that is the point: the lint is a value
+check and has nothing to say about motion or about a prop hanging in the air.
+
+### The rule that decided all four
+
+**An animated prop can only occupy `board`, so a theme may hold at most one.**
+That is geometry, not preference. The scene draws `board` at the back row's even
+seats — four on a 720 px panel — `plant` at the odd seats *and* seven more along
+the foreground walkway, and `desk`/`chair` at every seat under a character.
+`board` is the only slot where motion is neither in the always-on-screen
+foreground row nor sitting on top of a character, which are the two places I7
+says a background detail must not compete.
+
+The corollary is the cost that has to be weighed every time: **`board` is also
+every theme's identity object and its dark anchor** — the chalkboard, the drum
+kit, the two-screen post. Adopting an animated prop spends it. `library` gives up
+its chalkboard for the clock, and that is a real loss of the classroom read; the
+bookcases in both rows carry the theme without it. `ANIMATED_ADOPTED` in
+`scripts/process-assets.py` is one line and emptying it reverts every animated
+prop, with the art still cut.
+
+### The frame rate is in the download
+
+**The pack ships a GIF of every animated object beside the spritesheet**, and a
+GIF states its own per-frame delay. That is the only place in any of these packs
+that says how fast a thing is supposed to move, and M6b's proposed `fps: 4` is
+wrong for three of the four:
+
+| id | GIF delay | fps |
+|---|---:|---:|
+| `control_room_server` | 50/100 s | 2 |
+| `pendulum_clock` | 20/100 s | 5 |
+| `old_tv`, `control_room_screens` | 10/100 s | 10 |
+
+`scripts/process-assets.py` reads it, and **refuses to cut a sheet whose GIF
+disagrees with the table** — on canvas size, on frame count, or on rate. That
+also independently confirms the frame *width*, which is not recoverable from a
+one-row sheet and which a wrong value still slices into plausible frames. This is
+the verify-before-you-write rule applied to time: a frame rate is as much a claim
+about the art as a filename is.
+
+A non-uniform GIF delay is a hard skip rather than an average, because one `fps`
+cannot describe a loop that holds its frames for different times.
+
+### The key, as landed
+
+```json
+"roles": {
+  "board": {
+    "file": "assets/processed/animated/32x32/pendulum_clock/frame_00.png",
+    "content_box": { "x": 16, "y": 6, "w": 32, "h": 72 },
+    "animation": {
+      "frames": ["…/frame_00.png", "…/frame_01.png", "…/frame_02.png", "…/frame_03.png"],
+      "fps": 5,
+      "loop": true,
+      "fps_source": "…",
+      "moving_px": 64,
+      "visible_px": 2096,
+      "measured_on": "the shipped frames, by scripts/build-manifest.py"
+    },
+    "source_set": "Modern Interiors 3_Animated_objects",
+    "source_sheet": "animated_pendulum_clock_32x32.png",
+    "provenance": "pack",
+    "what": "longcase clock, swinging pendulum",
+    "replaces_static": "assets/processed/themes/library/32x32/singles/board.png"
+  }
+}
+```
+
+Exactly as approved: **one additive object beside `file`, and `file` is first and
+is frame 0**, so a reader that knows nothing about animation draws it and is
+correct. The scene does not read `animation` yet and nothing about that is a bug.
+
+Four notes on the fields, because three of them are not in the proposal:
+
+- **`content_box` is the union over every frame**, not frame 0's. The scene
+  anchors a prop by its box and draws every frame on one canvas at one position,
+  so a box describing only frame 0 would be false for the rest of the loop, and
+  the foreground-clearance test reads that box's height. For `pendulum_clock` the
+  union equals frame 0's box, so the two readings agree and a `file`-only reader
+  loses nothing — but that is a measurement, not a guarantee.
+- **`moving_px`/`visible_px` are generated, not written down.** They are I7's
+  number for a moving prop, and M6b transcribed them wrong twice. Generated
+  figures cannot drift from the art.
+- **`loop` is always `true` and there is no other value.** ADR-002 §6/§9: a prop
+  idles on its own loop and never animates in reaction to an event. Nothing here
+  takes input from the delta stream, so a prop blinks the same way whether six
+  agents are working or none, and therefore claims nothing. [I1] There is no
+  key by which it could.
+- **`replaces_static`** names the still prop the theme would otherwise draw. The
+  static single is still cut and still on disk, which is what makes reverting one
+  line rather than a re-import.
+
+**ADR-002 §9 currently says "Animated props. `3_Animated_objects/` exists and
+stays out."** That sentence is now false and the ADR needs an amendment saying
+what replaced it — the idle-only rule above. Writing it is not this document's
+job and ADR-002 was out of scope for this change; it is flagged here so it is not
+lost.
+
+### The prop canvas was widened to 128 and put back, and nothing moved
+
+Both states were built and all six themes rendered at 720×400 with characters:
+**0 differing pixels of 288 000, in every theme.** Every lint number was
+identical too, to three decimals, in all six.
+
+That is not luck, it is the construction — padding is bottom-*centred* and
+placement is by measured `content_box`, so widening adds 32 px of transparency on
+each side, every box's `x` gains exactly 32, and the anchor
+`(box.x + box.w/2) / canvas.w` is invariant. It was checked in pixels anyway,
+because the last placement bug here was a *consistent* error that left every
+picture internally plausible, and arithmetic is what produced that bug.
+
+It is back at 64 because the object it was widened for cannot be drawn by the
+room at any canvas size, and carrying 128 would double every themed prop texture
+for nothing. The proof stands: the widening is free the moment something needs
+it.
+
+`scripts/process-assets.py` now also **refuses to pad a sprite that does not
+fit** rather than silently writing the overhanging columns onto the wrong rows,
+and `scripts/build-manifest.py` refuses to make a role of frames that are not the
+declared canvas. Both replace a claim in a comment — "every prop selected was
+measured first and fits" — with a check.
+
 ## Scripts
 
 | Script | Does |
@@ -1157,11 +1339,12 @@ the same rate, and 8 fps (the character rate) makes a 3-frame LED loop strobe.
 | `scripts/build-manifest.py` | generates `assets/manifest.json` from disk, re-stating every path. |
 | `scripts/lint-palette.py` | the I7 gate, over `room` **and every theme**, on the same thresholds. Non-zero exit names the file and the value. |
 | `scripts/contact-sheet.py` | renders index-named singles onto labelled contact sheets, because the packs ship no names. `--set`/`--office` for singles, `--sheet` to label a Room Builder grid by row-col, `--pick` to confirm specific candidates at 4×. A review tool: it writes to a scratch directory and never touches `assets/`. |
-| `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. `--state` seats the cast in any body state, `--badge` puts a `badges.states` entry over every occupied seat, and `--animated <id> --frames` stands an animated object in the back row and writes one PNG per frame. A prop placement bug was fixed here at M6b — see above. |
+| `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. `--state` seats the cast in any body state, `--badge` puts a `badges.states` entry over every occupied seat, `--frames` writes one PNG per frame of whatever animated prop the theme carries, and `--animated <id>` is the review path for a candidate the manifest has **not** adopted. Warns when a `board` is wider than the back-row pitch, which is a defect only four copies on screen can show. A prop placement bug was fixed here at M6b — see above. |
 
 Order: process → generate-art → manifest → lint.
 
-`process-assets.py` also cuts `assets/processed/animated/` — art that is
-deliberately outside the manifest, pending the `animation` key above. It is
-pruned like everything else, so deleting a row from `ANIMATED` deletes its
-frames on the next run.
+`process-assets.py` cuts `assets/processed/animated/` for **every** object in
+`ANIMATED`, whether or not the manifest adopts it, so a candidate can always be
+stood in a room with `preview-theme.py --animated <id>` and argued about. Only
+the ids in `ANIMATED_ADOPTED` reach the manifest. It is pruned like everything
+else, so deleting a row from `ANIMATED` deletes its frames on the next run.

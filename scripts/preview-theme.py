@@ -30,7 +30,8 @@ Usage
     preview-theme.py --out DIR --theme library
     preview-theme.py --out DIR --population 3
     preview-theme.py --out DIR --state working --badge sleep
-    preview-theme.py --out DIR --animated control_room_server --frames
+    preview-theme.py --out DIR --theme library --frames        # every frame
+    preview-theme.py --out DIR --animated old_tv --frames      # a candidate
 
 Python 3 stdlib only.
 """
@@ -68,6 +69,13 @@ AISLE_Y = BASELINE_Y - TILE                            # 32
 WALL_BASE_Y = FLOOR_ROWS * TILE                        # 128
 DRAWN_ROWS = range(-6, ROWS + 9)
 DRAWN_COLUMNS = range(-8, COLUMNS + 9)
+
+# The back row draws `board` at every even seat, so consecutive copies are
+# SEAT_SPACING_TILES apart. A board whose content is wider than that overlaps
+# its own neighbours and clips them, which is not a thing you can see in a
+# manifest — it is only visible once four copies are on screen. M6c hit it with
+# a 120px monitor wall. Every shipping board is 30-64 px.
+BACK_ROW_PITCH = SEAT_SPACING_TILES * TILE                 # 96
 
 # RoomScene.swift: the back row sits one tile behind the seat line, and the
 # foreground row sits below the content band. The band needs badge and plate
@@ -182,20 +190,65 @@ def prop_origin(role, canvas, x, y):
     return left, top
 
 
-# Animated objects live outside the manifest — see ANIMATED in
-# scripts/process-assets.py — so the one thing in this file that is not read out
-# of assets/manifest.json is where their frames sit on disk. It is a review
-# path for art that has not been adopted yet, and it goes away the moment the
-# manifest carries them.
+# Animated props are in the manifest as of M6c: a role may carry an `animation`
+# object beside `file`, and `file` is frame 0. So the normal path here reads
+# them out of assets/manifest.json like everything else, and `--frame`/`--frames`
+# only choose which frame of the loop to draw.
+#
+# `--animated <id>` remains, and it is the review path for an object that has
+# NOT been adopted. It stands any directory under assets/processed/animated/ in
+# the `board` slot of whatever theme is being drawn, measuring its content box
+# here the same way scripts/build-manifest.py measures an adopted one. That is
+# how a candidate gets looked at in the room before it is written down, which is
+# the rule this whole tool exists to serve.
 ANIMATED_ROOT = os.path.join(REPO, "assets", "processed", "animated", "32x32")
 
 
-def animated_frames(name):
+def union_content_box(paths):
+    """Tight box of the opaque pixels over every frame. Same measure as the
+    manifest's, so a candidate and an adopted prop are judged identically."""
+    x0, y0, x1, y1 = None, None, -1, -1
+    for p in paths:
+        w, h, px = load(p)
+        for y in range(h):
+            for x in range(w):
+                if px[(y * w + x) * 4 + 3] <= 127:
+                    continue
+                x0 = x if x0 is None else min(x0, x)
+                y0 = y if y0 is None else min(y0, y)
+                x1, y1 = max(x1, x), max(y1, y)
+    if x0 is None:
+        return None
+    return {"x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1}
+
+
+def animated_override(name):
+    """A role-shaped dict for an animated object the manifest has not adopted."""
     d = os.path.join(ANIMATED_ROOT, name)
     if not os.path.isdir(d):
+        return None
+    paths = [os.path.join("assets", "processed", "animated", "32x32", name, f)
+             for f in sorted(os.listdir(d)) if f.endswith(".png")]
+    if not paths:
+        return None
+    box = union_content_box(paths)
+    if box is None:
+        return None
+    return {"file": paths[0], "content_box": box,
+            "animation": {"frames": paths, "fps": 0, "loop": True}}
+
+
+def role_frames(role):
+    """Every frame a role draws — one for a still prop, N for an animated one.
+
+    `file` first and always correct is the whole point of the `animation` key's
+    shape, so this reads `file` and treats `animation.frames` as an override
+    rather than the other way round.
+    """
+    if not role:
         return []
-    return [os.path.join("assets", "processed", "animated", "32x32", name, f)
-            for f in sorted(os.listdir(d)) if f.endswith(".png")]
+    frames = (role.get("animation") or {}).get("frames")
+    return list(frames) if frames else [role["file"]]
 
 
 def render(theme, name, population, out_path, characters, seed_variants,
@@ -225,31 +278,34 @@ def render(theme, name, population, out_path, characters, seed_variants,
             blit(buf, PANEL_W, PANEL_H, src, TILE, TILE, sx, sy)
 
     canvas = theme["props"]["canvas"]
-    roles = theme["props"]["roles"]
+    roles = dict(theme["props"]["roles"])
+    # A candidate that is not in the manifest stands in the `board` slot — the
+    # standing object against the back wall, and the only one of the four whose
+    # art does not also appear in the foreground row or under a character.
+    if animated:
+        override = animated_override(animated)
+        if override is not None:
+            roles["board"] = override
+    board = roles.get("board")
+    if board is not None and board["content_box"]["w"] > BACK_ROW_PITCH:
+        print("  warning: %s board content is %d px wide against a %d px back-row "
+              "pitch — its four copies overlap and clip each other"
+              % (name, board["content_box"]["w"], BACK_ROW_PITCH), file=sys.stderr)
+
     drawn = []   # (depth, kind, payload) — painter's order, matching zPosition
 
     def add_prop(role_name, x, y, bias=0.0):
         role = roles.get(role_name)
         if role is None:
             return
+        frames = role_frames(role)
         left, top = prop_origin(role, canvas, x, y)
-        drawn.append((y + bias, "prop", (role["file"], left, top)))
+        drawn.append((y + bias, "prop", (frames[frame % len(frames)], left, top)))
 
     # Back row: board and plant alternating, one tile behind the seat line.
-    #
-    # An `animated` object replaces the `board` half of that alternation, which
-    # is the slot it would take if it were adopted: it is the standing object
-    # against the back wall, and it is the only slot whose art does not also
-    # appear in the foreground row.
-    anim = animated_frames(animated) if animated else []
     for seat in range(SEAT_CAPACITY):
         x = seat_column(seat) * TILE + TILE // 2 + TILE * 1.5
         if x >= WIDTH:
-            continue
-        if anim and seat % 2 == 0:
-            w, h, _px = load(anim[frame % len(anim)])
-            drawn.append((BACK_ROW_Y, "prop",
-                          (anim[frame % len(anim)], x - w / 2.0, BACK_ROW_Y + h - 1)))
             continue
         add_prop("board" if seat % 2 == 0 else "plant", x, BACK_ROW_Y)
 
@@ -312,10 +368,14 @@ def main(argv=None):
                     help="body state to seat the cast in (default: working)")
     ap.add_argument("--badge", help="draw this badges.states entry over every "
                                     "occupied seat, e.g. sleep")
-    ap.add_argument("--animated", help="an assets/processed/animated/ object id "
-                                       "to stand in the back row")
+    ap.add_argument("--animated", help="review path: an assets/processed/animated/ "
+                                       "object id that the manifest has NOT adopted, "
+                                       "stood in the back row's board slot")
     ap.add_argument("--frames", action="store_true",
-                    help="with --animated, write one PNG per animation frame")
+                    help="write one PNG per animation frame of whatever the theme's "
+                         "animated prop is (or of --animated)")
+    ap.add_argument("--frame", type=int, default=0,
+                    help="draw this frame of the loop (default 0, which is `file`)")
     ap.add_argument("--manifest", default=MANIFEST)
     args = ap.parse_args(argv)
 
@@ -351,15 +411,10 @@ def main(argv=None):
         badge = {"file": entry["file"],
                  "head_top_px": m["characters"]["variants"][variants[0]]["head_top_px"]}
 
-    n_frames = 1
-    if args.animated:
-        n_frames = len(animated_frames(args.animated))
-        if n_frames == 0:
-            print("error: no frames under assets/processed/animated/32x32/%s — "
-                  "run scripts/process-assets.py" % args.animated, file=sys.stderr)
-            return 2
-        if not args.frames:
-            n_frames = 1
+    if args.animated and animated_override(args.animated) is None:
+        print("error: no frames under assets/processed/animated/32x32/%s — "
+              "run scripts/process-assets.py" % args.animated, file=sys.stderr)
+        return 2
 
     os.makedirs(args.out, exist_ok=True)
     names = args.theme or sorted(sets)
@@ -368,11 +423,21 @@ def main(argv=None):
             print("error: no theme %r (have: %s)" % (name, ", ".join(sorted(sets))),
                   file=sys.stderr)
             return 2
+        # How many frames this theme actually has. A theme with no animated prop
+        # has one, whatever --frames says, rather than silently writing six
+        # copies of the same picture.
+        if args.animated:
+            loop = len(animated_override(args.animated)["animation"]["frames"])
+        else:
+            loop = max([len(role_frames(r))
+                        for r in sets[name]["props"]["roles"].values()] or [1])
+        n_frames = loop if args.frames else 1
         for f in range(n_frames):
-            suffix = "_f%02d" % f if (args.animated and args.frames) else ""
+            suffix = "_f%02d" % f if (args.frames and loop > 1) else ""
             out = os.path.join(args.out, "%s%s.png" % (name, suffix))
             how = render(sets[name], name, args.population, out, seated, variants,
-                         badge=badge, animated=args.animated, frame=f)
+                         badge=badge, animated=args.animated,
+                         frame=f if args.frames else args.frame)
             print("%-16s %-9s %s" % (name, how, os.path.relpath(out)))
     return 0
 

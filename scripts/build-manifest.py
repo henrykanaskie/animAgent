@@ -293,22 +293,131 @@ def build_room():
     }
 
 
-def _theme_table():
-    """The THEMES table from scripts/process-assets.py, or {} if unreadable.
+def _importer():
+    """scripts/process-assets.py as a module, or None if unreadable.
 
     Imported rather than duplicated. The importer owns which single fills which
-    slot — that is the thing that was established by looking at the art — and a
-    second copy here would be a second source of truth that drifts. The
-    hyphenated filename is why this needs importlib rather than `import`.
+    slot, which animated object a theme adopts, and what canvas everything was
+    padded into — those are the things that were established by looking at the
+    art — and a second copy here would be a second source of truth that drifts.
+    The hyphenated filename is why this needs importlib rather than `import`.
     """
     import importlib.util
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "process-assets.py")
     if not os.path.exists(path):
-        return {}
+        return None
     spec = importlib.util.spec_from_file_location("_process_assets", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return getattr(mod, "THEMES", {})
+    return mod
+
+
+def _theme_table():
+    mod = _importer()
+    return getattr(mod, "THEMES", {}) if mod else {}
+
+
+def _animated_table():
+    """(ANIMATED, adopted ids, prop canvas) from the importer.
+
+    `adopted` is deliberately a separate set from the table: the importer cuts
+    every animated object it knows about so that `preview-theme.py` can stand
+    any of them in a room and be looked at, and only the adopted ones reach the
+    manifest. That is the same split docs/04-ART-DIRECTION.md asks for between
+    art that exists and art that ships.
+    """
+    mod = _importer()
+    if mod is None:
+        return {}, set(), (64, 96)
+    return (getattr(mod, "ANIMATED", {}),
+            set(getattr(mod, "ANIMATED_ADOPTED", ())),
+            tuple(getattr(mod, "PROP_CANVAS", (64, 96))))
+
+
+def animated_role(name, spec, canvas):
+    """`{file, content_box, animation}` for one adopted animated object.
+
+    Three things here are measured on the shipped frames rather than declared.
+
+    **`content_box` is the union over every frame**, not frame 0's. The scene
+    anchors a prop by its box and draws every frame on one canvas at one
+    position, so a box that described only frame 0 would be a claim about the
+    prop that is false for the rest of the loop — and the foreground-clearance
+    test in the scene reads that box's height. Where the union equals frame 0's
+    box, as it does for everything adopted so far, the two readings agree and
+    `file`-only readers lose nothing.
+
+    **`moving_px` / `visible_px`** are the I7 number for a moving prop. Motion
+    draws the eye and the eye belongs on the characters, so how much of the
+    object moves is the thing to look at before adopting one. It is generated
+    here so it cannot drift from the art the way a transcribed figure did at
+    M6b.
+
+    **`fps` was verified against the pack's own GIF at import**, which is the
+    only place in these packs that states how fast anything moves.
+    """
+    d = os.path.join(PROCESSED, "animated", SIZE, name)
+    if not os.path.isdir(d):
+        return None
+    files = sorted(f for f in os.listdir(d) if f.endswith(".png"))
+    if not files:
+        return None
+    paths = [os.path.join(d, f) for f in files]
+    frames = [pnglite.load(p) for p in paths]
+    w, h, _ = frames[0]
+    if any((fw, fh) != (w, h) for fw, fh, _ in frames):
+        return None
+    # One `props.canvas` covers every role, so a role whose frames are not on it
+    # is not a role. This is the check that keeps `control_room_screens` out
+    # rather than a comment in the importer's table: it is 128 px wide, the
+    # canvas is 64, and the manifest would otherwise claim a size that is false
+    # of the art. It fails loudly because a silently dropped role leaves a theme
+    # with no backdrop.
+    if (w, h) != tuple(canvas):
+        print("  note: %s frames are %dx%d, not the %dx%d prop canvas — not "
+              "adoptable as a role" % ((name, w, h) + tuple(canvas)), file=sys.stderr)
+        return None
+
+    box = None
+    for p in paths:
+        b = content_box(p)
+        if b is None:
+            continue
+        if box is None:
+            box = dict(b)
+            continue
+        x1 = max(box["x"] + box["w"], b["x"] + b["w"])
+        y1 = max(box["y"] + box["h"], b["y"] + b["h"])
+        box["x"] = min(box["x"], b["x"])
+        box["y"] = min(box["y"], b["y"])
+        box["w"] = x1 - box["x"]
+        box["h"] = y1 - box["y"]
+    if box is None:
+        return None
+
+    base = frames[0][2]
+    visible = moving = 0
+    for i in range(w * h):
+        if any(f[2][i * 4 + 3] > 127 for f in frames):
+            visible += 1
+        if any(f[2][i * 4:i * 4 + 4] != base[i * 4:i * 4 + 4] for f in frames[1:]):
+            moving += 1
+    return {
+        "file": rel(paths[0]),
+        "content_box": box,
+        "animation": {
+            "frames": [rel(p) for p in paths],
+            "fps": spec["fps"],
+            "loop": True,
+            "fps_source": "the pack's own GIF of this object holds every frame "
+                          "for %d/100 s; scripts/process-assets.py reads it and "
+                          "refuses to cut a sheet whose GIF disagrees"
+                          % round(100.0 / spec["fps"]),
+            "moving_px": moving,
+            "visible_px": visible,
+            "measured_on": "the shipped frames, by scripts/build-manifest.py",
+        },
+    }
 
 
 def build_themes():
@@ -333,14 +442,39 @@ def build_themes():
     if not os.path.isdir(base):
         return None
     table = _theme_table()
+    animated, adopted, prop_canvas = _animated_table()
     sets = {}
     for name in sorted(os.listdir(base)):
         tdir = os.path.join(base, name, SIZE)
         if not os.path.isdir(tdir):
             continue
         spec = table.get(name, {})
+        # An adopted animated object replaces this theme's static binding for
+        # the role it names. The static single is still cut and still on disk;
+        # it is simply not what the theme draws, which is the same relationship
+        # the flat builder tile has to the patterned one.
+        anim = {a["role"]: (aid, a) for aid, a in sorted(animated.items())
+                if aid in adopted and a["for"] == name}
         roles = {}
         for role in sorted(spec.get("roles", {})):
+            if role in anim:
+                aid, aspec = anim[role]
+                entry = animated_role(aid, aspec, prop_canvas)
+                if entry is not None:
+                    static = os.path.join(tdir, "singles", "%s.png" % role)
+                    entry.update({
+                        "source_set": "Modern Interiors 3_Animated_objects",
+                        "source_sheet": aspec["sheet"],
+                        "provenance": "pack",
+                        "identified_by": "the animated folder is the one place in "
+                                         "these packs where the files are named; the "
+                                         "frames were still cut and looked at in the "
+                                         "room before this entry was written",
+                        "what": aspec["what"],
+                        "replaces_static": rel(static) if os.path.exists(static) else None,
+                    })
+                    roles[role] = {k: v for k, v in entry.items() if v is not None}
+                    continue
             path = os.path.join(tdir, "singles", "%s.png" % role)
             if not os.path.exists(path):
                 continue
@@ -440,14 +574,26 @@ def build_themes():
                                      "measured in scripts/build-manifest.py"},
                 **declared),
             "props": {
-                "canvas": {"w": 64, "h": 96},
+                "canvas": {"w": prop_canvas[0], "h": prop_canvas[1]},
                 "identified": True,
-                "note": "Every prop is padded bottom-centred into one 64x96 canvas at "
-                        "import so that a single `canvas` covers them all, exactly as "
-                        "the Office room's do. The theme sorter singles arrive on tight "
-                        "per-sprite canvases and are NOT bottom-aligned in them, so a "
-                        "prop is placed by putting its measured content_box "
-                        "bottom-centre on a named point.",
+                "note": "Every prop is padded bottom-centred into one %dx%d canvas at "
+                        "import so that a single `canvas` covers them all. The theme "
+                        "sorter singles arrive on tight per-sprite canvases and are NOT "
+                        "bottom-aligned in them, so a prop is placed by putting its "
+                        "measured content_box bottom-centre on a named point. The "
+                        "canvas widened from 64 to 128 at M6c to admit a 128px-wide "
+                        "animated prop; padding is bottom-centred and placement is by "
+                        "content_box, so nothing moved — checked in pixels against a "
+                        "before/after render of all six themes, not in arithmetic."
+                        % prop_canvas,
+                "animation_note": "A role may carry an `animation` object beside `file`. "
+                                  "`file` is frame 0 and stays first, so a reader that "
+                                  "knows nothing about animation draws it and is "
+                                  "correct. `animation.fps` comes from the pack's own "
+                                  "GIF of the object, `loop` is always true, and the "
+                                  "prop never reacts to an event — ADR-002 §6 rule 1 "
+                                  "and §9. `moving_px`/`visible_px` are I7's number for "
+                                  "a moving prop and are measured on these frames.",
                 "roles": roles,
             },
         }

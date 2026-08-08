@@ -2268,7 +2268,8 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/briefing/32x32/singles/board.png",
@@ -2375,7 +2376,8 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/broadcast/32x32/singles/board.png",
@@ -2482,21 +2484,37 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
           "roles": {
             "board": {
-              "file": "assets/processed/themes/library/32x32/singles/board.png",
-              "source_set": "Modern Interiors Theme Sorter set 5",
-              "single_index": 39,
-              "provenance": "pack",
-              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
-              "what": "green chalkboard on splayed legs",
+              "file": "assets/processed/animated/32x32/pendulum_clock/frame_00.png",
               "content_box": {
-                "x": 0,
-                "y": 32,
-                "w": 64,
-                "h": 48
-              }
+                "x": 16,
+                "y": 6,
+                "w": 32,
+                "h": 72
+              },
+              "animation": {
+                "frames": [
+                  "assets/processed/animated/32x32/pendulum_clock/frame_00.png",
+                  "assets/processed/animated/32x32/pendulum_clock/frame_01.png",
+                  "assets/processed/animated/32x32/pendulum_clock/frame_02.png",
+                  "assets/processed/animated/32x32/pendulum_clock/frame_03.png"
+                ],
+                "fps": 5,
+                "loop": true,
+                "fps_source": "the pack's own GIF of this object holds every frame for 20/100 s; scripts/process-assets.py reads it and refuses to cut a sheet whose GIF disagrees",
+                "moving_px": 64,
+                "visible_px": 2096,
+                "measured_on": "the shipped frames, by scripts/build-manifest.py"
+              },
+              "source_set": "Modern Interiors 3_Animated_objects",
+              "source_sheet": "animated_pendulum_clock_32x32.png",
+              "provenance": "pack",
+              "identified_by": "the animated folder is the one place in these packs where the files are named; the frames were still cut and looked at in the room before this entry was written",
+              "what": "longcase clock, swinging pendulum",
+              "replaces_static": "assets/processed/themes/library/32x32/singles/board.png"
             },
             "chair": {
               "file": "assets/processed/themes/library/32x32/singles/chair.png",
@@ -2589,7 +2607,8 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/mission_control/32x32/singles/board.png",
@@ -2829,7 +2848,8 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/office/32x32/singles/board.png",
@@ -2936,7 +2956,8 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/stage/32x32/singles/board.png",
