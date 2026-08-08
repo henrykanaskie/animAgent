@@ -235,7 +235,7 @@ struct AttentionBadgeTests {
         let manifest = try SceneFixtures.manifest()
         let store = TextureStore(manifest: manifest)
         let variant = try #require(manifest.characters.orderedVariantIDs.first)
-        let character = Character(variant: variant, nameplate: "MAIN", store: store)
+        let character = Character(variant: variant, nameplate: NameplateText(lead: "MAIN"), store: store)
 
         character.apply(badge: BadgeSelection.select(openToolNames: ["Bash", "Bash"]))
         #expect(character.isBadgeVisible)

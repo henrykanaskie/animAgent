@@ -52,10 +52,39 @@ struct NameplateTests {
     }
 
     @Test func longNamesAreTruncatedWithAnEllipsisNotClipped() {
-        let fitted = font.fit("security-reviewer", limit: SceneBitmaps.nameplateGlyphLimit)
-        #expect(fitted.count == SceneBitmaps.nameplateGlyphLimit)
+        let fitted = font.fit("security-reviewer", limit: SceneBitmaps.nameplateRoleGlyphLimit)
+        #expect(fitted.count == SceneBitmaps.nameplateRoleGlyphLimit)
         #expect(fitted.hasSuffix("…"))
         #expect(fitted.hasPrefix("SECURITY-"))
+    }
+
+    /// The role line is short, so the truncation has to stay *visible*. A
+    /// silently chopped type reads as a different, shorter type.
+    @Test func aTruncatedTypeStillSaysItWasTruncated() {
+        #expect(font.fit("general-purpose", limit: SceneBitmaps.nameplateRoleGlyphLimit)
+                == "GENERAL-P…")
+        // The type gets more glyphs than the single-line plate gave it (8 of
+        // 12), not fewer, because it no longer shares the row.
+        #expect(SceneBitmaps.nameplateRoleGlyphLimit > 8)
+    }
+
+    /// Integer scaling is pixel doubling, so a 2× line is exactly the 1× line
+    /// magnified — no second set of letterforms exists to be drawn wrong. [I6]
+    @Test func scalingAGlyphIsExactPixelDoubling() {
+        let one = font.render("R", colour: Bitmap.RGBA(255, 255, 255))
+        let two = font.render("R", colour: Bitmap.RGBA(255, 255, 255), scale: 2)
+        #expect(two.width == one.width * 2)
+        #expect(two.height == one.height * 2)
+        for y in 0..<two.height {
+            for x in 0..<two.width {
+                #expect(two.at(x, y) == one.at(x / 2, y / 2), "mismatch at \(x),\(y)")
+            }
+        }
+    }
+
+    @Test func scaledTextIsExactlyTwiceAsWide() {
+        #expect(font.width(of: "8DE", scale: 2) == font.width(of: "8DE") * 2)
+        #expect(font.height(scale: 2) == font.glyphHeight * 2)
     }
 
     @Test func shortNamesAreNotTouched() {
@@ -64,38 +93,53 @@ struct NameplateTests {
     }
 
     /// The plate has to fit inside one seat's spacing, or two neighbours'
-    /// nameplates overlap and neither reads.
-    @Test func theWidestPlateFitsInsideTheSeatSpacing() {
+    /// nameplates overlap and neither reads — and "fits" is not "touches".
+    ///
+    /// The maintainer's complaint at the wide default was that two plates
+    /// *nearly touch*: the 12-glyph single-line plate was 77 px against a 96 px
+    /// pitch, a 19 px gap. The two-row plate is narrower because the type no
+    /// longer shares its row with the discriminator, so this asserts a real gap
+    /// rather than mere non-overlap.
+    @Test func theWidestPlateLeavesAVisibleGapInsideTheSeatSpacing() {
         let layout = RoomLayout()
-        let widest = SceneBitmaps.nameplate(
-            String(repeating: "W", count: SceneBitmaps.nameplateGlyphLimit),
-            accent: Bitmap.RGBA(255, 0, 0))
-        #expect(widest.width <= layout.seatSpacingTiles * layout.tile)
+        let pitch = layout.seatSpacingTiles * layout.tile
+        let widest = SceneBitmaps.maximumNameplateWidth
+        #expect(widest <= pitch)
+        #expect(pitch - widest >= 24, "only \(pitch - widest) px between neighbours")
     }
 
     /// Two subagents can stop within a second of each other and both walk to
-    /// the delivery row, so the slot pitch has to clear the widest plate — and
-    /// the plate got wider at M5 to carry the discriminator.
+    /// the delivery row, so the slot pitch has to clear the widest plate.
     @Test func theWidestPlateAlsoFitsInsideTheDeliverySlotPitch() {
-        let widest = SceneBitmaps.nameplate(
-            String(repeating: "W", count: SceneBitmaps.nameplateGlyphLimit),
-            accent: Bitmap.RGBA(255, 0, 0))
-        #expect(Double(widest.width) <= RoomLayout.deliverySlotPitch)
+        #expect(Double(SceneBitmaps.maximumNameplateWidth) <= RoomLayout.deliverySlotPitch)
     }
 
-    /// The budget is spent as 8 glyphs of type + separator + 3 of discriminator.
-    /// If those stop adding up to the limit, one of the three is being silently
-    /// clipped.
-    @Test func theGlyphBudgetAddsUp() {
-        #expect(SceneDirector.nameplateTypeGlyphs
-                + 1
-                + SceneDirector.nameplateDiscriminatorGlyphs
-                == SceneBitmaps.nameplateGlyphLimit)
+    /// **Height is the axis the two-row plate spends, and it is bounded.**
+    /// A seated character stands one tile above an aisle character. A plate
+    /// taller than that tile would put a seated plate and an aisle plate in the
+    /// same horizontal strip, at which point `noTwoNameplatesEverIntersect`
+    /// would be resting on x-separation alone — and during the report beat the
+    /// reporter stands 48 px from the anchor, less than two half-plates.
+    @Test func thePlateIsShorterThanTheGapBetweenTheAisleAndTheSeatRow() {
+        let layout = RoomLayout()
+        let drop = layout.baselineY - layout.aisleY
+        #expect(Double(SceneBitmaps.maximumNameplateHeight) < drop)
+    }
+
+    /// The lead line is drawn large; that is the whole point of the split.
+    @Test func theLeadLineIsDrawnLargerThanTheRoleLine() {
+        #expect(SceneBitmaps.nameplateLeadScale >= 2)
+        let plate = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose"),
+            accent: Bitmap.RGBA(255, 136, 77))
+        // A 2× lead is 14 rows of a 26-row plate; the role is 7.
+        #expect(plate.height >= font.glyphHeight * 3)
     }
 
     @Test func thePlateHasABorderInTheAccentHueAndInkInTheMiddle() {
         let accent = Bitmap.RGBA(255, 64, 0)
-        let plate = SceneBitmaps.nameplate("MAIN", accent: accent)
+        let plate = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "Explore"), accent: accent)
         #expect(plate.at(0, 0) == accent)
         #expect(plate.at(plate.width - 1, plate.height - 1) == accent)
 
@@ -105,29 +149,98 @@ struct NameplateTests {
                 ink += 1
             }
         }
-        #expect(ink > 0, "no text on the plate")
+        #expect(ink > 0, "no type line on the plate")
     }
 
-    /// The whole plate is opaque: a nameplate that lets the floor through does
-    /// not read at 1x, which is the size it has to read at.
-    @Test func thePlateIsFullyCovered() {
-        let plate = SceneBitmaps.nameplate("EXPLORE", accent: Bitmap.RGBA(0, 255, 0))
+    /// The accent is no longer a one-pixel outline. M2 refuted hue *sampled
+    /// from the art*; these hues are assigned 60° apart and lint-enforced, so
+    /// they are the one identity channel that measurably works — and a band is
+    /// catchable from the corner of the eye where an outline is not.
+    @Test func theAccentCoversASubstantialShareOfThePlate() {
+        let accent = Bitmap.RGBA(77, 195, 255)
+        let plate = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
+        var count = 0
+        for y in 0..<plate.height {
+            for x in 0..<plate.width where plate.at(x, y) == accent { count += 1 }
+        }
+        let share = Double(count) / Double(plate.width * plate.height)
+        #expect(share > 0.35, "accent covers only \(share) of the plate")
+    }
+
+    /// Six hues 60° apart cannot all be light, so the band's ink is chosen by
+    /// contrast rather than fixed. Every accent the manifest can carry must
+    /// clear the WCAG large-text threshold against whichever ink it gets.
+    @Test func everyAccentGetsALegibleInkOnTheBand() {
+        for hex in ["#FF884D", "#C4FF4D", "#4DFF88", "#4DC3FF", "#884DFF", "#FF4DC4"] {
+            var value: UInt64 = 0
+            Scanner(string: String(hex.dropFirst())).scanHexInt64(&value)
+            let accent = Bitmap.RGBA(
+                UInt8((value >> 16) & 0xFF), UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF))
+            let ink = SceneBitmaps.contrastingInk(on: accent)
+            #expect(SceneBitmaps.contrast(accent, ink) >= 3.0,
+                    "\(hex) scores \(SceneBitmaps.contrast(accent, ink))")
+        }
+    }
+
+    /// The whole plate is opaque: a nameplate that lets the room through does
+    /// not read at 1x, which is the size it has to read at — and a themed room
+    /// with real furniture behind it is coming.
+    @Test func thePlateIsFullyOpaqueNotJustFullyCovered() {
+        let plate = SceneBitmaps.nameplate(
+            NameplateText(lead: "6E7", role: "Explore"), accent: Bitmap.RGBA(0, 255, 0))
         #expect(plate.opaquePixelCount == plate.width * plate.height)
+        for y in 0..<plate.height {
+            for x in 0..<plate.width {
+                #expect(plate.at(x, y).a == 255, "translucent pixel at \(x),\(y)")
+            }
+        }
     }
 
     @Test func differentNamesProduceDifferentPlates() {
         let accent = Bitmap.RGBA(200, 100, 0)
-        let a = SceneBitmaps.nameplate("EXPLORE", accent: accent)
-        let b = SceneBitmaps.nameplate("EXPLORF", accent: accent)
+        let a = SceneBitmaps.nameplate(NameplateText(lead: "", role: "EXPLORE"), accent: accent)
+        let b = SceneBitmaps.nameplate(NameplateText(lead: "", role: "EXPLORF"), accent: accent)
         #expect(a.pixels != b.pixels)
     }
 
     /// Identity has a second channel: two agents with the same name but
-    /// different variants still differ, because the border carries the accent.
+    /// different variants still differ, because the band carries the accent.
     @Test func theAccentSeparatesTwoPlatesWithTheSameName() {
-        let a = SceneBitmaps.nameplate("EXPLORE", accent: Bitmap.RGBA(255, 0, 0))
-        let b = SceneBitmaps.nameplate("EXPLORE", accent: Bitmap.RGBA(0, 0, 255))
+        let a = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "Explore"), accent: Bitmap.RGBA(255, 0, 0))
+        let b = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "Explore"), accent: Bitmap.RGBA(0, 0, 255))
         #expect(a.pixels != b.pixels)
+    }
+
+    /// **An `agent_id` with nothing usable in it gets no headline, not a made-up
+    /// one.** The type is not promoted to the 2× row: five doubled glyphs would
+    /// cut `general-purpose` to `GENE…` and lose more than the layout buys, and
+    /// a synthesised lead would be a label the data never carried. [I1]
+    @Test func aPlateWithNoLeadDrawsTheTypeAloneRatherThanInventingOne() {
+        let accent = Bitmap.RGBA(77, 195, 255)
+        let plain = SceneBitmaps.nameplate(
+            NameplateText(lead: "", role: "general-purpose"), accent: accent)
+        let led = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
+        #expect(plain.height < led.height, "the empty lead still reserved a band")
+        #expect(plain.width == led.width, "the role line still sets the width")
+        #expect(plain.opaquePixelCount == plain.width * plain.height)
+        var ink = 0
+        for y in 0..<plain.height {
+            for x in 0..<plain.width where plain.at(x, y) == SceneBitmaps.nameplateInk {
+                ink += 1
+            }
+        }
+        #expect(ink > 0, "the type vanished with the lead")
+    }
+
+    /// An empty `agent_type` — M0c found it arrives — must not draw a blank row.
+    @Test func anEmptyRoleDrawsNoSecondRow() {
+        let accent = Bitmap.RGBA(255, 136, 77)
+        #expect(SceneBitmaps.nameplate(NameplateText(lead: "8DE", role: ""), accent: accent)
+                == SceneBitmaps.nameplate(NameplateText(lead: "8DE"), accent: accent))
     }
 
     @Test func theBadgeCountPlateRendersTheMultiplier() {

@@ -6,7 +6,7 @@ import SpriteRoomCore
 public enum SpriteIntent: Sendable, Hashable {
     /// Bring a character in. The scene plays `spawn` — the walk cycle from the
     /// room edge — and settles it at `seat`.
-    case spawnCharacter(agent: AgentRef, variant: String, nameplate: String, seat: Int)
+    case spawnCharacter(agent: AgentRef, variant: String, nameplate: NameplateText, seat: Int)
     /// The character's resting state. Only ever emitted when it actually
     /// changed.
     case setBody(agent: AgentRef, state: BodyState, facing: Facing)
@@ -327,28 +327,51 @@ public struct SceneDirector: Sendable {
     /// plate is worth more than the glyphs it costs. The main agent has no
     /// `agent_id` and therefore no suffix, which is not an exception: absence of
     /// `agent_id` *is* the main agent.
-    static func nameplate(for presentation: Presentation) -> String {
-        guard case let .subagent(id) = presentation.ref.agent else { return "main" }
-        let type = presentation.agentType ?? "subagent"
-        guard let suffix = discriminator(id) else {
-            return PixelFont.standard.fit(type, limit: nameplateTypeGlyphs)
+    ///
+    /// **The discriminator now leads instead of trailing.** M5 put it last, in
+    /// the same 5×7 as the type, after an ellipsis — so three `general-purpose`
+    /// plates agreed for eight glyphs and disagreed in the three smallest ones
+    /// at the far end. The information is the same; the ordering was backwards.
+    /// The plate draws `lead` large on the accent band and `role` small beneath,
+    /// so what differs is what you see first. See `SceneBitmaps.nameplate`.
+    ///
+    /// **`agent_type` is not abbreviated, and that is a decision.** `GEN` for
+    /// `general-purpose` needs either a table of names we made up — which is
+    /// exactly what the `question_mark` badge exists to refuse — or a rule, and
+    /// no rule degrades honestly over arbitrary user-defined text. "First three
+    /// letters" turns `scene-engineer` and `security-reviewer` into `SCE` and
+    /// `SEC`, which are *more* confusable than the truncations they replace and
+    /// carry no mark that anything was dropped. "Initials of the hyphenated
+    /// words" invents a code the user never wrote (`GP`, `SR`) and collapses to
+    /// a single letter for a one-word type like `Explore`. Truncation with an
+    /// ellipsis is lossy too, but it is lossy *visibly*, and it is the same
+    /// answer this project already gives everywhere else it cannot represent
+    /// something faithfully. [I1]
+    static func nameplate(for presentation: Presentation) -> NameplateText {
+        guard case let .subagent(id) = presentation.ref.agent else {
+            return NameplateText(lead: "main")
         }
-        return PixelFont.standard.fit(type, limit: nameplateTypeGlyphs)
-            + String(nameplateSeparator) + suffix
+        // M0c found `agent_type` can arrive as the empty string, so absent has
+        // to mean empty as well as nil or the plate draws a blank row.
+        let type = presentation.agentType.flatMap { $0.isEmpty ? nil : $0 } ?? "subagent"
+        guard let discriminator = discriminator(id) else {
+            // No usable characters in the `agent_id`, so there is nothing that
+            // differs and the plate says so by having no lead: the type alone,
+            // on one row. The type does *not* get promoted to the lead line —
+            // a five-glyph 2× line would truncate `general-purpose` to `GENE…`
+            // and lose more than the layout buys. [I1]
+            return NameplateText(lead: "", role: type)
+        }
+        return NameplateText(lead: discriminator, role: type)
     }
 
-    /// Glyphs the type gets before the discriminator, out of
-    /// `SceneBitmaps.nameplateGlyphLimit`.
+    /// Characters of `agent_id` the lead line carries.
     ///
-    /// The split is 8 + 1 + 3 = 12. Three characters rather than two because
-    /// two is not enough to be safe: over six same-typed agents, two hex
-    /// characters collide about 5.5% of the time and three about 0.4%, and a
-    /// collision here is exactly the failure S4 names. The separator earns its
-    /// glyph by telling the reader where the type stops — without it
-    /// `GENERAL3F` reads as one word. `:` is used because no `agent_type` ever
-    /// contains one, while `-` appears inside `general-purpose` itself.
-    static let nameplateTypeGlyphs = 8
-    static let nameplateSeparator: Swift.Character = ":"
+    /// Three rather than two because two is not enough to be safe: over six
+    /// same-typed agents, two hex characters collide about 5.5% of the time and
+    /// three about 0.4%, and a collision here is exactly the failure S4 names.
+    /// A fourth would buy 0.03% and cost 12 px of a plate whose width is the
+    /// axis under pressure.
     static let nameplateDiscriminatorGlyphs = 3
 
     /// The **last** three alphanumerics of `agent_id`, uppercased.

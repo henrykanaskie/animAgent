@@ -43,7 +43,8 @@ struct RoomSceneTests {
         }
         textures += [
             store.texture(
-                bitmap: SceneBitmaps.nameplate("MAIN", accent: Bitmap.RGBA(255, 0, 0)),
+                bitmap: SceneBitmaps.nameplate(
+                    NameplateText(lead: "MAIN"), accent: Bitmap.RGBA(255, 0, 0)),
                 key: "test:nameplate"),
             store.texture(bitmap: SceneBitmaps.badgeCount(3), key: "test:count"),
             store.texture(bitmap: SceneBitmaps.placeholderDesk(), key: "test:desk"),
@@ -86,7 +87,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func aCharacterCanEnterEverySixStateAndReportsIt() throws {
         let store = try Self.store()
-        let character = Character(variant: "06", nameplate: "main", store: store)
+        let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         var seen: Set<BodyState> = []
         for state in BodyState.allCases {
             character.apply(state: state, facing: state == .working ? .right : .down)
@@ -103,7 +104,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func reapplyingTheSameStateDoesNotRestartTheAnimation() throws {
         let store = try Self.store()
-        let character = Character(variant: "06", nameplate: "main", store: store)
+        let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         character.advance(to: 0)
         character.apply(state: .working, facing: .right)
         character.advance(to: 0.30)      // ~frame 2 at 8 fps
@@ -117,7 +118,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func aLoopingStateCyclesAndNeverRunsOffTheEnd() throws {
         let store = try Self.store()
-        let character = Character(variant: "06", nameplate: "main", store: store)
+        let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         character.advance(to: 0)
         character.apply(state: .idle, facing: .down)
         var textures: Set<ObjectIdentifier> = []
@@ -135,7 +136,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func aSpawningCharacterWalksInFromTheEdgeAndSettles() throws {
         let store = try Self.store()
-        let character = Character(variant: "06", nameplate: "main", store: store)
+        let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         character.advance(to: 0)
         character.setResting(.idle, facing: .right)
         character.enter(
@@ -160,7 +161,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func theReportWalkPlaysWalkThenDeliverThenDepart() throws {
         let store = try Self.store()
-        let character = Character(variant: "07", nameplate: "Explore", store: store)
+        let character = Character(variant: "07", nameplate: NameplateText(lead: "6E7", role: "Explore"), store: store)
         character.advance(to: 0)
         character.position = CGPoint(x: 496, y: 64)
         var finished = false
@@ -187,7 +188,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func aPlainDepartureJustWalksOff() throws {
         let store = try Self.store()
-        let character = Character(variant: "09", nameplate: "Explore", store: store)
+        let character = Character(variant: "09", nameplate: NameplateText(lead: "6E7", role: "Explore"), store: store)
         character.advance(to: 0)
         character.position = CGPoint(x: 400, y: 64)
         var finished = false
@@ -206,7 +207,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func dataStateArrivingMidWalkIsAppliedWhenTheWalkEnds() throws {
         let store = try Self.store()
-        let character = Character(variant: "06", nameplate: "main", store: store)
+        let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         character.advance(to: 0)
         character.enter(
             from: ScenePoint(x: -32, y: 32),
@@ -224,7 +225,7 @@ struct RoomSceneTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func theBadgeShowsAndHidesWithTheSelection() throws {
         let store = try Self.store()
-        let character = Character(variant: "06", nameplate: "main", store: store)
+        let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         #expect(!character.isBadgeVisible)
         character.apply(badge: BadgeSelection(badge: .terminal, count: 1))
         #expect(character.isBadgeVisible)
@@ -235,7 +236,7 @@ struct RoomSceneTests {
     @Test func everyCharacterHasANameplate() throws {
         let store = try Self.store()
         for id in store.manifest.characters.orderedVariantIDs {
-            let character = Character(variant: id, nameplate: "Explore", store: store)
+            let character = Character(variant: id, nameplate: NameplateText(lead: "6E7", role: "Explore"), store: store)
             #expect(character.isNameplateVisible)
         }
     }
@@ -494,7 +495,10 @@ struct RoomSceneTests {
                 + Double(manifest.badges.canvas.height)
             #expect(badgeTop <= band.top, "variant \(id) badge pokes out of the frame")
         }
-        let plateHeight = Double(SceneBitmaps.nameplate("MAIN", accent: .clear).height)
+        // The **tallest** plate, not a sample one: the plate grew a second row
+        // at the wide default, and a band derived from `MAIN` alone would have
+        // cropped every subagent's type line.
+        let plateHeight = Double(SceneBitmaps.maximumNameplateHeight)
         // The lowest plate belongs to a character standing in the aisle.
         #expect(layout.aisleY - 2 - plateHeight >= band.bottom)
         #expect(band.top - band.bottom < layout.height,

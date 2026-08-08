@@ -310,9 +310,12 @@ public final class RoomScene: SKScene {
         // the feet, anchored at its own bottom.
         let badgeTop = Double(manifest.characters.canvas.height - headTop + 1)
             + Double(manifest.badges.canvas.height)
-        // SceneBitmaps.nameplate is glyphHeight + 6 tall, hung 2 px under the
-        // feet.
-        let plateDrop = Double(PixelFont.standard.glyphHeight + 6 + 2)
+        // The tallest plate the font and the glyph limits can produce, hung
+        // 2 px under the feet. Asked of `SceneBitmaps` rather than recomputed
+        // here: this used to be `glyphHeight + 6 + 2`, a copy of the plate's
+        // own arithmetic that would have silently cropped the moment the plate
+        // grew a second row.
+        let plateDrop = Double(SceneBitmaps.maximumNameplateHeight + 2)
         return layout.contentBand(
             badgeTopAboveFeet: badgeTop, plateDropBelowFeet: plateDrop)
     }

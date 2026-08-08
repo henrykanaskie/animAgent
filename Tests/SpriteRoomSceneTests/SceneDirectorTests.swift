@@ -395,7 +395,7 @@ struct SceneDirectorTests {
         }
         #expect(seat == 0)
         #expect(variant == Self.cast[0])
-        #expect(nameplate == "main")
+        #expect(nameplate == NameplateText(lead: "main"))
     }
 
     /// Two simultaneous `Explore`s must not wear the same body. This art
@@ -431,8 +431,10 @@ struct SceneDirectorTests {
         guard case let .spawnCharacter(_, _, nameplate, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
-        #expect(nameplate.hasPrefix("SECURIT"))
-        #expect(nameplate.hasSuffix(":8DE"))
+        // The discriminator leads and the type is the second line — the two
+        // halves are carried separately so the plate can size them differently.
+        #expect(nameplate.lead == "8DE")
+        #expect(nameplate.role == "security-reviewer")
 
         var mainDirector = Self.director()
         let mainIntents = mainDirector.apply([
@@ -442,16 +444,22 @@ struct SceneDirectorTests {
         }
         // No `agent_id`, so no discriminator. That is the identity rule, not a
         // special case. [CLAUDE.md]
-        #expect(mainPlate == "main")
+        #expect(mainPlate == NameplateText(lead: "main"))
+        #expect(mainPlate.role == nil, "the main agent has no type line to draw")
     }
 
     /// The failure this whole change exists for: three subagents of one type,
     /// dispatched together, used to render three identical `GENERAL-P…` plates
     /// and were then distinguishable only by seat. [M4, S4]
+    ///
+    /// Tightened: it is not enough that the *plates* differ — they differed at
+    /// M5 too, in the three smallest glyphs at the end of a twelve-glyph line.
+    /// The **lead**, which is the line the plate draws at 2× on the accent
+    /// band, must differ.
     @Test func sameTypedSubagentsGetDifferentPlates() {
         var director = Self.director()
         let ids = ["a894ded5b0c4b18de", "a3b448736697956e7", "a793beae9fa532d0f"]
-        var plates: [String] = []
+        var plates: [NameplateText] = []
         for id in ids {
             let intents = director.apply([
                 .agentAppeared(agent: Self.ref(.subagent(id)),
@@ -460,7 +468,52 @@ struct SceneDirectorTests {
         }
         #expect(plates.count == 3)
         #expect(Set(plates).count == 3, "same-typed subagents share a plate: \(plates)")
-        #expect(plates.allSatisfy { $0.hasPrefix("GENERAL") })
+        #expect(Set(plates.map(\.lead)).count == 3,
+                "the difference is not on the line that is drawn large: \(plates)")
+        #expect(plates.allSatisfy { $0.role == "general-purpose" })
+    }
+
+    /// The rendered plates must differ, and the size of that difference is the
+    /// whole point — so this measures it rather than asserting inequality.
+    ///
+    /// **The claim is a multiplier, not a floor.** How far apart two
+    /// discriminators are is a property of the font: `E` and `F` differ in four
+    /// cells whatever you do, and inventing a floor above that would only be a
+    /// number that happened to pass for the ids in this test. What the change
+    /// buys is that every one of those cells is now drawn four times as large,
+    /// exactly — pixel doubling is exact, so the separation between any two
+    /// plates is exactly 4× what the same pair produced on the old single-line
+    /// plate. That is checked here against the 1× rendering of the same text.
+    @Test func sameTypedSubagentPlatesDifferByFourTimesTheOldSeparation() {
+        let accent = Bitmap.RGBA(255, 136, 77)
+        let font = PixelFont.standard
+        let leads = ["8DE", "6E7", "D0F"]
+
+        func differingPixels(_ first: Bitmap, _ second: Bitmap) -> Int {
+            var count = 0
+            for y in 0..<min(first.height, second.height) {
+                for x in 0..<min(first.width, second.width)
+                where first.at(x, y) != second.at(x, y) { count += 1 }
+            }
+            return count
+        }
+
+        for (index, lead) in leads.enumerated() {
+            for other in leads[leads.index(after: index)...] {
+                let plateA = SceneBitmaps.nameplate(
+                    NameplateText(lead: lead, role: "general-purpose"), accent: accent)
+                let plateB = SceneBitmaps.nameplate(
+                    NameplateText(lead: other, role: "general-purpose"), accent: accent)
+                #expect(plateA.width == plateB.width && plateA.height == plateB.height)
+
+                let atOne = differingPixels(
+                    font.render(lead, colour: Bitmap.RGBA(255, 255, 255)),
+                    font.render(other, colour: Bitmap.RGBA(255, 255, 255)))
+                #expect(atOne > 0, "\(lead) and \(other) render alike at 1×")
+                #expect(differingPixels(plateA, plateB) == atOne * 4,
+                        "\(lead) vs \(other): the lead is not the 1× face doubled")
+            }
+        }
     }
 
     /// The plate is decided once, at spawn, and never rewritten. Showing the
@@ -474,7 +527,7 @@ struct SceneDirectorTests {
         guard case let .spawnCharacter(_, _, plate, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
-        #expect(plate == "EXPLORE:0D1")
+        #expect(plate == NameplateText(lead: "0D1", role: "Explore"))
     }
 
     @Test func theDiscriminatorIsTheTailOfTheAgentIDAndSurvivesOddIDs() {
@@ -489,19 +542,27 @@ struct SceneDirectorTests {
         #expect(SceneDirector.discriminator("") == nil)
     }
 
-    /// Whatever the type is, the plate must stay inside the glyph budget or two
-    /// neighbours' plates overlap and neither reads.
-    @Test func noPlateExceedsTheGlyphBudget() {
+    /// Whatever the type is, the drawn plate must stay inside the seat pitch or
+    /// two neighbours' plates overlap and neither reads.
+    ///
+    /// Checked as **pixels**, not glyphs: `agent_type` is arbitrary
+    /// user-defined text and the plate is what has to fit, so a glyph count is
+    /// one indirection away from the thing that matters.
+    @Test func noPlateExceedsTheSeatPitch() {
         var director = Self.director()
+        let layout = RoomLayout()
         for (index, type) in ["general-purpose", "Explore", "claude-code-guide",
-                              "statusline-setup", "a", ""].enumerated() {
+                              "statusline-setup", "a", "",
+                              "an-agent-type-nobody-anticipated-at-all"].enumerated() {
             let id = String(format: "a%016x", index + 0x1000)
             let intents = director.apply([
                 .agentAppeared(agent: Self.ref(.subagent(id)),
                                agentType: type, lifecycle: .spawning)])
             for case let .spawnCharacter(_, _, plate, _) in intents {
-                #expect(plate.count <= SceneBitmaps.nameplateGlyphLimit,
-                        "\(plate) is \(plate.count) glyphs")
+                let bitmap = SceneBitmaps.nameplate(plate, accent: Bitmap.RGBA(255, 0, 0))
+                #expect(bitmap.width <= SceneBitmaps.maximumNameplateWidth,
+                        "\(plate) drew \(bitmap.width) px")
+                #expect(bitmap.width < layout.seatSpacingTiles * layout.tile)
             }
         }
     }

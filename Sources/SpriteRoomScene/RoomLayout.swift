@@ -128,8 +128,10 @@ public struct RoomLayout: Sendable, Hashable {
             y: aisleY)
     }
 
-    /// One pitch clear of the widest plate `PixelFont` will produce at the
-    /// nameplate's glyph limit.
+    /// Clear of `SceneBitmaps.maximumNameplateWidth`, which is 65 px since the
+    /// plate went to two rows — it was 77 px on one row, so this number used to
+    /// be nearly spent and is not any more. `NameplateTests` checks the bound
+    /// rather than trusting this comment.
     public static let deliverySlotPitch: Double = 80
 
     /// Which way the reporter faces to hand its report over. It stands left of

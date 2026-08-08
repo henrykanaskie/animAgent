@@ -121,10 +121,22 @@ public struct PixelFont: Sendable {
         String(text.uppercased().map { glyphs[$0] != nil ? $0 : Swift.Character(" ") })
     }
 
-    public func width(of text: String) -> Int {
+    /// Width of `text` drawn at `scale`.
+    ///
+    /// **Scale is integer pixel doubling, not resampling.** Every glyph pixel
+    /// becomes a `scale × scale` block, so a doubled line is exactly the 1×
+    /// line magnified — same shapes, same grid, no new letterforms to get
+    /// wrong. That is also the pack's own idiom: the Modern UI 32× sheet is a
+    /// 2× scale-up of a 16 px design, and `04-ART-DIRECTION` requires authored
+    /// glyphs to be drawn at half resolution and doubled so they read as one
+    /// hand beside it. A second hand-authored face at a larger size would have
+    /// been a second set of shapes to prove distinct; this is the same set. [I6]
+    public func width(of text: String, scale: Int = 1) -> Int {
         guard !text.isEmpty else { return 0 }
-        return text.count * (glyphWidth + tracking) - tracking
+        return (text.count * (glyphWidth + tracking) - tracking) * max(1, scale)
     }
+
+    public func height(scale: Int = 1) -> Int { glyphHeight * max(1, scale) }
 
     /// Truncates to `limit` glyphs with a trailing ellipsis. Names like
     /// `security-reviewer` are wider than the seat spacing; a truncated name
@@ -135,27 +147,34 @@ public struct PixelFont: Sendable {
         return String(normalised.prefix(limit - 1)) + "…"
     }
 
-    /// Draws text into a bitmap at the given top-left origin.
+    /// Draws text into a bitmap at the given top-left origin, magnified by an
+    /// integer `scale`.
     public func draw(
-        _ text: String, into bitmap: inout Bitmap, x: Int, y: Int, colour: Bitmap.RGBA
+        _ text: String, into bitmap: inout Bitmap, x: Int, y: Int, colour: Bitmap.RGBA,
+        scale: Int = 1
     ) {
+        let step = max(1, scale)
         var pen = x
         for character in normalise(text) {
             if let rows = glyphs[character] {
                 for (row, bits) in rows.enumerated() {
                     for column in 0..<glyphWidth where bits & UInt8(1 << (4 - column)) != 0 {
-                        bitmap.set(pen + column, y + row, colour)
+                        bitmap.fill(
+                            x: pen + column * step, y: y + row * step,
+                            w: step, h: step, colour)
                     }
                 }
             }
-            pen += glyphWidth + tracking
+            pen += (glyphWidth + tracking) * step
         }
     }
 
     /// Text on its own transparent bitmap.
-    public func render(_ text: String, colour: Bitmap.RGBA) -> Bitmap {
-        var bitmap = Bitmap(width: max(1, width(of: normalise(text))), height: glyphHeight)
-        draw(text, into: &bitmap, x: 0, y: 0, colour: colour)
+    public func render(_ text: String, colour: Bitmap.RGBA, scale: Int = 1) -> Bitmap {
+        var bitmap = Bitmap(
+            width: max(1, width(of: normalise(text), scale: scale)),
+            height: height(scale: scale))
+        draw(text, into: &bitmap, x: 0, y: 0, colour: colour, scale: scale)
         return bitmap
     }
 

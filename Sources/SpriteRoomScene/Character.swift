@@ -94,7 +94,7 @@ public final class Character: SKNode {
     private var moveStartedAt: TimeInterval = 0
     private var moveDuration: TimeInterval = 0
 
-    public init(variant: String, nameplate: String, store: TextureStore) {
+    public init(variant: String, nameplate: NameplateText, store: TextureStore) {
         self.agentVariant = variant
         self.store = store
         super.init()
@@ -141,11 +141,11 @@ public final class Character: SKNode {
 
     // MARK: Nameplate
 
-    public func setNameplate(_ text: String) {
+    public func setNameplate(_ text: NameplateText) {
         let accent = store.accent(variant: agentVariant)
         let bitmap = SceneBitmaps.nameplate(text, accent: accent)
         guard let texture = store.texture(
-            bitmap: bitmap, key: "nameplate:\(agentVariant):\(text)") else { return }
+            bitmap: bitmap, key: "nameplate:\(agentVariant):\(text.textureKey)") else { return }
         nameplateNode.texture = texture
         nameplateNode.size = CGSize(width: bitmap.width, height: bitmap.height)
     }
