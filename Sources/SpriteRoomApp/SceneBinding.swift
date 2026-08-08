@@ -14,15 +14,21 @@ final class SceneBinding {
     let scene: RoomScene
     private var director: SceneDirector
 
-    init(scene: RoomScene) {
+    init(scene: RoomScene, themeID: String? = nil) {
         self.scene = scene
-        self.director = SceneDirector(manifest: scene.store.manifest, layout: scene.layout)
+        // The scene and the director must be given the *same* id. The scene
+        // draws the theme's props; the director resolves each agent's station
+        // within it. Hand them different ids and a character sits at a station
+        // the room is not dressed for — silently, because both halves are
+        // individually valid. [ADR-002 §8 item 5]
+        self.director = SceneDirector(
+            manifest: scene.store.manifest, themeID: themeID, layout: scene.layout)
     }
 
-    convenience init(manifest: Manifest, viewport: CGSize) {
-        let scene = RoomScene(manifest: manifest)
+    convenience init(manifest: Manifest, themeID: String? = nil, viewport: CGSize) {
+        let scene = RoomScene(manifest: manifest, themeID: themeID)
         scene.setViewport(viewport)
-        self.init(scene: scene)
+        self.init(scene: scene, themeID: themeID)
     }
 
     var unmappedTools: [String: Int] { director.unmappedTools }

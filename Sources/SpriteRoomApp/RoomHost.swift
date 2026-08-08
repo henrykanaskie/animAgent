@@ -69,7 +69,10 @@ final class RoomHost {
         view.ignoresSiblingOrder = true
         // The room is the only thing in the panel; nothing here is clickable.
         view.allowsTransparency = false
-        binding = SceneBinding(manifest: manifest, viewport: viewport)
+        // `themeID` is derived from the selection, and nothing is selected yet,
+        // so it is `nil` here by definition — not by omission. The first
+        // `select(_:)` rebuilds with the project's theme.
+        binding = SceneBinding(manifest: manifest, themeID: nil, viewport: viewport)
         view.presentScene(binding.scene)
     }
 
@@ -108,12 +111,13 @@ final class RoomHost {
     /// corresponding station of the new theme — a rebuild, not a §6 rule 2
     /// rewrite.
     ///
-    /// **Seam.** `themeID` does not reach the scene yet: `RoomScene` takes a
-    /// manifest and no theme (ADR-002 §8 item 5, `SpriteRoomScene`), so this
-    /// rebuilds the room it already had. The theme is threaded through the two
-    /// `SceneBinding` constructions below and nowhere else.
+    /// The theme reaches the scene through the two `SceneBinding` constructions
+    /// and nowhere else, which is what keeps a theme change a rebuild rather
+    /// than a mutation. `SceneBinding` hands the same id to both the scene and
+    /// the director; giving them different ids would seat a character at a
+    /// station the room is not dressed for.
     private func rebuild() {
-        binding = SceneBinding(manifest: manifest, viewport: viewport)
+        binding = SceneBinding(manifest: manifest, themeID: themeID, viewport: viewport)
         view.presentScene(binding.scene)
         if let selected {
             binding.apply(registry.reconstruct(selected))
