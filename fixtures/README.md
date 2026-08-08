@@ -59,6 +59,12 @@ assertion was re-run: 27 events, all in the sandbox, none in this repository.
 
 ### Interactive captures (M6c) — the ADR-001 verification set
 
+**The `M6c` label predates the M6 milestone and is not part of it.** It was
+applied at `8a68e84`, before `004b587` opened M6, and `docs/05-MILESTONES.md`
+now carries an M6 whose sub-phases run M6/M6b. The name is left alone because it
+is the label these captures were taken and written up under; read it as a
+capture batch, not as a milestone phase.
+
 Seven further interactive captures, taken to answer the four open questions in
 `docs/ADR-001-denied-calls.md` ("What would have to be true for me to be
 confident"). Same rig, same driver, same sandbox, same port. `cwd` assertion
@@ -263,9 +269,20 @@ Point 3 is the reason this fixture matters. `03-EVENT-MODEL.md` says a call
 refused at the permission gate is closed by the following `PostToolBatch` and
 that "every declined permission prompt is that case". That is true of the
 headless auto-deny in `tool-failure.jsonl` and **false of an interactive user
-denial**, which is the far more common event. Unlike `tool-failure`, this
-fixture **cannot** replay to zero open calls without the deadline sweep — it is
-a `killed-session`-shaped file that arises from a user clicking "No".
+denial**, which is the far more common event. Unlike `tool-failure`, this fixture
+**cannot** replay to zero open calls on its close paths alone: nothing named the
+denied call, so `SessionEnd` force-closes it at 103.461 with reason
+`sessionEnded`. [I4]
+
+**This paragraph used to say the deadline sweep was what closed it, and called
+this a `killed-session`-shaped file. Both are wrong.** The harness reports
+`orphaned open calls at end of stream: 0` and `after deadline sweep: 0
+abandoned` — the sweep never touches this fixture, and `killed-session` is
+precisely the file that has *no* `SessionEnd`. ADR-001's shortened deadline does
+not fire here either: the gate is marked at 2.076 and the next
+`UserPromptSubmit` is at 57.460, putting the deadline at 117.46, which is 14 s
+after the session ends. That is why `denial-then-work` had to be captured —
+this file ends too early to show a deadline falling inside a live session.
 
 `PermissionDenied` did **not** fire, on either the "3. No" path or the Esc path,
 though it was registered for both HTTP and `command` delivery.
@@ -362,7 +379,12 @@ control that shows this is not caused by the gate.
 `toolu_01Hx2iz7zzhiGuNfFCzVRXRg` is a second real instance of the interactive
 denial orphan: open at 49.976, no `PostToolUse`, no `PostToolUseFailure`, named
 in no `PostToolBatch`, no `Stop` for its turn. Like `permission-prompt`, this
-file does **not** replay to zero open calls without the reaper.
+file does **not** replay to zero open calls on its close paths alone — but by a
+different route, which is worth keeping straight. Here ADR-001's shortened
+deadline lands inside the stream and the reaper takes it: mark at 49.991,
+`UserPromptSubmit` at 86.709, so `callAbandoned … deadlineExpired` at **146.709**,
+62 s before `SessionEnd`. `permission-prompt` ends too early for that and is
+force-closed by `SessionEnd` instead.
 
 ---
 
@@ -482,15 +504,33 @@ strictly inside the stream. Under the ADR-001 rule the shortened deadline lands
 at 94.98 s (mark at 3.151, `UserPromptSubmit` at 34.984, G = 60 s), with 157 s of
 real session activity still to come.
 
-Note that `spriteroom-replay` will not show that: it sweeps once, after the last
-event, so `SessionEnd` closes the orphan at 252.062 and the 94.98 s instant is
-never evaluated. The value of this file is as input to a clock-injecting test —
-advance to 94 and the call is open, advance to 95 and it is gone, against real
-data with a real tail. See the verification section of
+`spriteroom-replay` shows exactly that. It prints, for this fixture:
+
+```
+  [  94.984] callAbandoned    3714f3ba/main Bash(toolu_01WXAhzmcL2iKm1mdYfuLczp) deadlineExpired
+   reaped mid-stream, each at its own deadline: 1
+   orphaned open calls at end of stream: 0
+```
+
+**This paragraph used to say the opposite** — that the harness sweeps once after
+the last event, so `SessionEnd` closes the orphan at 252.062 and the 94.98 s
+instant is never evaluated. That was true when it was written and stopped being
+true at `17d6a7d`, which made the harness walk the model forward to each event's
+instant and sweep at every deadline it passes on the way, precisely because
+ADR-001 was otherwise undemonstrable here: a harness that only swept at the end
+could not tell 60 s from 900 s. The claim then survived `403c08d`, which
+retracted a different stale claim in this same file — the `four-subagents`
+timeline below — and was recorded as such in `notes.md` at `7a69a54`. A pass
+over one paragraph is not a pass over the file.
+
+The file is still the input a clock-injecting test wants — advance to 94 and the
+call is open, advance to 95 and it is gone, against real data with a real tail —
+but the harness alone now demonstrates it. See the verification section of
 `docs/ADR-001-denied-calls.md`.
 
-Like `permission-prompt` and `parallel-denial`, it does **not** replay to zero
-open calls without the reaper.
+Like `parallel-denial`, it does **not** reach zero open calls without the reaper:
+the deadline path is what closes `toolu_01WXAhzmcL2iKm1mdYfuLczp`, 157 s before
+the session ends.
 
 One incidental correction it carries: `idle_prompt` fires **twice** here, at
 99.783 and 171.469 — 60.03 s and 60.02 s after the `Stop`s at 39.751 and

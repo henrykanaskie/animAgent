@@ -49,17 +49,20 @@ So, from a clean clone, with no art on disk:
 | Command | Result |
 |---|---|
 | `swift build --build-tests -Xswiftc -warnings-as-errors` | succeeds, no warnings |
-| `swift run spriteroom-replay --all` | passes — all 16 fixtures, zero open calls |
-| `swift test` | **passes**: 303 tests, exit 0, **20 skipped** |
+| `swift run spriteroom-replay --all` | passes — all 17 fixtures, zero open calls |
+| `swift test` | **passes**: 396 tests, exit 0, **31 skipped** |
 
-Measured, not assumed: run from a worktree holding only `assets/manifest.json`.
+Measured, not assumed: `git archive HEAD` into an empty directory — which yields
+a tree holding `assets/manifest.json` and no art — then the three commands above.
+These numbers are from `eedd89c`, 2026-08-08. They move whenever a test or an
+asset path is added, so treat a mismatch as "re-measure", not as a failure.
 
 **A green run with no art is not the same as a green run with art**, so the suite
 says which one you got. `ArtAvailabilityTests` always runs and prints:
 
 ```
-SPRITE ROOM ART: ABSENT — 1052 of 1052 declared asset paths are missing.
-  20 art-dependent tests were SKIPPED. THIS RUN VERIFIED NOTHING ABOUT THE ART.
+SPRITE ROOM ART: ABSENT — 1097 of 1097 declared asset paths are missing.
+  31 art-dependent tests were SKIPPED. THIS RUN VERIFIED NOTHING ABOUT THE ART.
 ```
 
 The skipped count is *counted from the test sources at runtime* and checked
@@ -122,6 +125,29 @@ art the lint reports room max saturation 0.183 against a 0.25 ceiling, weakest
 character saturation 0.598 against 0.55, weakest value contrast 0.472 against
 0.40, and closest accent pair 59.7° against 40°.
 
+Since ADR-002 the lint also measures **each of the six themes separately, on the
+same thresholds**, and that is where the tightest margin now lives: the weakest
+contrast across all six is `mission_control`'s **0.427** against the same 0.40
+floor, not the 0.472 quoted above, which is the base room only. See
+`docs/04-ART-DIRECTION.md` for why that theme spends the margin.
+
+Two further scripts are **review tools, not part of the pipeline** — they write
+to a scratch directory and never touch `assets/`, so they are not in the ordered
+run above:
+
+```sh
+python3 scripts/contact-sheet.py    # index-named singles -> labelled contact sheets
+python3 scripts/preview-theme.py    # composes a theme at 1x at the real panel size
+```
+
+The packs ship no names, slices or tags, so the only way to find out what single
+164 of set 14 is, is to render it and look; `contact-sheet.py` is that. And
+`preview-theme.py` renders **from the manifest the scene loads**, which makes it
+a check on the manifest as well as on the art: if it can draw a theme, the
+manifest carries enough for the scene to. Both are documented in full in
+`docs/04-ART-DIRECTION.md`, including a placement bug fixed in `preview-theme.py`
+at M6b that had every theme accepted against a wrong picture.
+
 > **`build-manifest.py` takes no arguments**, so typing `--help` regenerates the
 > manifest rather than printing usage. It is safe: with the packs absent it
 > refuses to write, exits 2, and leaves the tracked manifest untouched. An
@@ -132,7 +158,7 @@ character saturation 0.598 against 0.55, weakest value contrast 0.472 against
 
 ```sh
 swift build --build-tests -Xswiftc -warnings-as-errors
-swift test                     # 303 tests
+swift test                     # 396 tests
 swift run spriteroom-replay --all
 ```
 
@@ -167,10 +193,29 @@ swift run spriteroom-replay fixtures/three-subagents.jsonl --speed 1000
 always sees fixture time, so a 900 s deadline is still a 900 s deadline.
 
 A passing run ends with `all N fixture(s) replayed with zero open calls after the
-sweep`. `killed-session` is the one fixture that legitimately has an orphan at
-end of stream: nothing ever closes its `Bash` call, and the deadline sweep
-abandons it. That is I4 demonstrated rather than asserted. Any *other* fixture
-needing the sweep means a close path is wrong and the reaper is hiding it.
+sweep`. **Three** fixtures legitimately hold an orphan at end of stream, and the
+final sweep is what closes each:
+
+| Fixture | Why nothing in the stream closes it |
+|---|---|
+| `killed-session` | `kill -9` mid-`Bash`. No `PostToolUse`, no `SessionEnd`, no anything |
+| `concurrent-permission-gates` | a second permission dialog was never answered and the session was killed at the timeout |
+| `denied-batch-cancel` | the gated call was denied at the dialog and the session was killed after |
+
+That is I4 demonstrated rather than asserted. **This paragraph used to name
+`killed-session` as the *only* such fixture and to say that any other fixture
+needing the sweep meant a close path was wrong and the reaper was hiding it.**
+That was written before the ADR-001 verification captures landed, and it was
+actively misleading afterwards: it told a reader that a *correct* run was
+evidence of a broken close path. An interactively denied call is closed by
+nothing at all — not `PostToolUse`, not `PostToolUseFailure`, not
+`PostToolBatch` — so a capture that ends before its session does will always
+orphan. `fixtures/README.md` says so per fixture; this file did not.
+
+The rule the old sentence was reaching for still holds, stated correctly: a
+fixture that reaches `SessionEnd` must replay to zero **without** the sweep, and
+`tool-failure` must reach zero without the reaper at all. If either needs it, a
+close path is wrong.
 
 `fixtures/` is captured ground truth — real payloads from real sessions, not
 edited. Read `fixtures/README.md` before touching it.
@@ -197,12 +242,24 @@ notch a hot zone is synthesised at the middle of the top edge, so the gesture is
 the same everywhere.
 
 The menu bar item is the only control surface: it picks which project's room is
-displayed, toggles the hooks, opens the credit link, and quits.
+displayed, it carries **Room ▸**, it toggles the hooks, opens the credit link,
+and quits.
+
+**Room ▸** is ADR-002's user-facing half: a submenu of the manifest's six themes
+— `office`, `briefing`, `broadcast`, `library`, `mission_control`, `stage` — with
+a tick against the one this project is wearing. A theme is a **per-project**
+choice, so with no project selected the item is disabled rather than writing
+somewhere it would have had to invent a key for. Without a choice, a project gets
+a theme derived from a hash of its `cwd`: stable, and a claim about *which*
+project rather than about what it is. The room never reads your files, and it
+never picks a theme that would read as a claim about the work — see ADR-002 §3b
+and §3e. The pick is the one thing this app persists; see below.
 
 Other hosts and harnesses, all real flags on `spriteroom`:
 
 | Flag | Does |
 |---|---|
+| `--panel` | the notch panel. This is the default, so the flag is only ever needed to override `SPRITEROOM_HOST=window` |
 | `--window` | M2's plain resizable window. A better place to develop the scene than a rectangle that vanishes when you move the mouse. `SPRITEROOM_HOST=window` is the same thing. |
 | `--render DIR --at 6,12,20` | offscreen PNGs at those fixture seconds; opens nothing |
 | `--size WxH` | viewport for `--render` (default 960x540) |
@@ -223,19 +280,53 @@ Other hosts and harnesses, all real flags on `spriteroom`:
 about pixels, and pixels have to be looked at. `SPRITEROOM_DEBUG=1` traces every
 delta and intent.
 
-Nothing is persisted. No event log, no database, no config file — the world is
-live state and dies with the app, and the selected project resets on each launch.
-The only thing the app writes outside the repo is the hook block below.
+**No *event* is persisted.** No event log, no database — the world is live state
+and dies with the app, and the selected project resets on each launch. That much
+has always been true and stays true.
+
+**This paragraph used to say "nothing is persisted … no config file", and that
+the hook block was the only thing the app writes outside the repo. Since ADR-002
+that is wrong**, and it is wrong in the way this project cares about most: a
+flat factual claim about what the app touches on your disk. There are now two
+files, both under `~/Library/Application Support/SpriteRoom/`:
+
+- **`settings-backup.json`** — a copy of your `~/.claude/settings.json`, taken at
+  hook install time so removal can put the original bytes back. See Hooks below.
+- **`themes.json`** — `{"schema": 1, "themes": {"<cwd>": "<themeId>"}}`, written
+  **only** when you pick a theme from Room ▸. Read once at launch, never again,
+  and **never on a hook event path** [I5]. Every failure mode — missing,
+  unreadable, not JSON, wrong `schema` — means "no stored choices" and the app
+  launches on derived themes; an unparseable file is moved aside to
+  `themes.json.bad` rather than deleted.
+
+`themes.json` is not a general preferences store: schema 1 holds themes and the
+next preference is a new ADR, not a new key. `docs/02-ARCHITECTURE.md` has the
+full paragraph and ADR-002 §3d the reasoning.
+
+Both of those the app creates itself. The hook block below, in
+`~/.claude/settings.json`, is still the only file it writes that it did not.
 
 ---
 
 ## Hooks
 
 Nothing reaches the room until Claude Code is told to post to it. The app
-registers **11 hook entries at user scope** in `~/.claude/settings.json`, matcher
-`*`, each a native `{"type": "http"}` hook posting to `http://127.0.0.1:8787/hook`
-with a **2 second timeout**. `.claude/settings.example.json` is that block, with
-the reasoning for every line of it.
+registers **12 hook entries at user scope** in `~/.claude/settings.json`, each a
+native `{"type": "http"}` hook posting to `http://127.0.0.1:8787/hook` with a
+**2 second timeout**. `.claude/settings.example.json` is that block, with the
+reasoning for every line of it.
+
+It was 11 until ADR-001 added `PermissionRequest`, which is consumed as the
+*marker* that an agent has a call sitting at a permission gate — never as a
+close, and never joined to a `tool_use_id`, which it does not carry.
+
+Ten of the twelve carry `matcher: "*"`. **Two do not**: `PostToolBatch` and
+`UserPromptSubmit` are registered with no `matcher` key at all
+(`HookInstaller.eventsWithoutMatcher`), because that is the shape they were
+captured firing under at M0c. This file used to describe the block as matcher
+`*` throughout, which hid the exception. It matters because a wrong matcher is a
+hook that silently never fires and looks exactly like a working install — and
+`PostToolBatch` is the only close path a permission-denied call has.
 
 User scope, not project scope, is the point: registered once, routed by `cwd`, so
 every session on the machine appears in the right room without per-project setup.
@@ -318,9 +409,66 @@ doc is wrong — say so rather than following it.
 
 ## Status
 
-M0 through M5 are committed. `notes.md` records what each one overturned. What is
-honestly still open:
+**M0 through M6 are committed.** M6 landed in twelve commits after the M5
+verification pass, `004b587`..`eedd89c`. `notes.md` records what each milestone
+overturned; `docs/05-MILESTONES.md` carries M6's exit criteria and which of them
+are open. In short, M6 made the room wide at every population, put the
+distinguishing part of a nameplate first and doubled its size, built six themed
+rooms and the Room ▸ picker behind them (ADR-002), stopped a subagent departing
+on a turn boundary, and turned the report walk into a round trip.
 
+This section describes the state at `eedd89c`. Work is in flight on several of
+the items below, so check the git log before treating any of them as untouched.
+
+What is honestly still open:
+
+- **The camera is 1x only, and the foreground row is therefore always on
+  screen.** `comfortablePopulation` is empty by default, so population no longer
+  pulls the camera in — which is the wide room the maintainer asked for, and
+  which retired M5's geometric protection for the foreground row. That row had
+  been placed strictly below the content band so it fell out of frame at the
+  tightest zoom; with 1x the only scale, it never does. Filed rather than fixed,
+  and a maintainer decision either way.
+- **Seat pitch is 96 px against a 65 px nameplate.** That leaves 48 px of
+  half-pitch, so a character in transit is always within a plate width of some
+  station. Real captures pass by 20–31 px and a synthetic worst case does not.
+  Closing it structurally needs a 5-tile pitch — 4 tiles misses by one pixel —
+  and 5 tiles stops five agents fitting the panel at 1x. A trade, not a bug.
+- **Delivery slots are claimed lowest-free, not seat-ordered**, so two reporters
+  arriving on the same side can cross rather than queue in seat order.
+- **`mission_control` has the thinnest palette margin in the set.** It was the
+  weakest theme at M6 and was rebuilt at M6b: it draws its props on a value band
+  floored at 0.46, which took wall-minus-darkest-prop from 0.169 to 0.302 — the
+  *strongest* anchor of the six — and cost it min character contrast, 0.439 to
+  **0.427** against a 0.40 floor. The lint passes unweakened on all six themes;
+  the margin is 0.027 and is the number to watch if that band is ever touched
+  again.
+- **Every character sits in the same pose, deliberately.** ADR-002 §7 specifies
+  a `characters.poses.working` table; the manifest carries no such key, and that
+  is the finding rather than an omission. The pack's second seated row is
+  pixel-identical to the first above image row 39 and every theme's desk and
+  chair cover rows 40–63 — measured at 96 differing pixels of 288,000 across all
+  six rooms. A pose table whose two entries render identically would make §7 look
+  satisfied while the complaint it answers stayed true, and an absent table is at
+  least visibly absent. No other row in the sheet is seated, so nothing else can
+  fill it.
+- **The `sleep` badge is art, not something the room draws.**
+  `badges.states.sleep` is in the manifest with a file on disk, and
+  `SpriteRoomCore` carries the `dormant` lifecycle that would drive it, but
+  `SpriteRoomScene` does not reference it — `badges.states` reaches the scene
+  only through `attentionKey`. A dormant subagent currently draws the same as an
+  idle one. What would settle it: the scene reading a second `badges.states`
+  entry, plus a test that a dormant character wears it and an idle one does not.
+- **Animated props were cut to disk at M6b and were not in the manifest at
+  `eedd89c`**, because `props.roles.<role>` held one `file` and an animated prop
+  needs a frame list and a rate. The additive `animation` key is proposed in
+  `docs/04-ART-DIRECTION.md`, and **it is being landed as this is written** —
+  check the git log rather than this bullet.
+- **`preview-theme.py`'s geometry is still unchecked.** A placement bug in it put
+  every prop up to ~80 px out at 1x, which means every theme accepted at M6 was
+  accepted against a wrong picture. The bug is fixed; nothing verifies the
+  transcription, and closing that needs a pixel comparison against a scene that
+  needs a window server.
 - **The first-run consent dialog has never been clicked** by a human. All five
   decision branches are unit-tested and were driven end to end via `--consent`,
   but synthesising a click needs Accessibility permission the build environment
