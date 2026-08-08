@@ -32,8 +32,15 @@ them and the session doing work they are not reading line by line.
 - Character states: idle, working (with a badge indicating the tool), spawning,
   reporting, leaving.
 - Subagent report animation: walk to the main agent's anchor, deliver, return.
-- Camera zooms in integer steps to fit the current population.
+- Camera scale is an integer step [I6], chosen to fit the viewport. It no longer
+  tracks population: `004b587` made the room draw wide at every population, on
+  the maintainer's instruction that it "doesn't need to be so zoomed in". The
+  ladder is untouched; only the preference changed.
 - Notch panel: hover to reveal, retract on exit.
+- A room **theme per project**: a fixed set of themed prop dressings, one in
+  effect at a time, defaulting to a deterministic function of `cwd` and
+  changeable by the user from the menu bar. Added by `docs/ADR-002-themed-rooms.md`;
+  see the non-goals below for what it does *not* open up.
 
 ## Explicit non-goals — v1
 
@@ -41,12 +48,30 @@ Each of these is a real idea that is deliberately deferred. Do not build them.
 
 - Reading or displaying prompt/response *content*. This is a status surface, not
   a transcript. It also keeps the app from ever holding your source code.
+
+  **The second sentence is the load-bearing one, and it is meant categorically:
+  the app never opens, stats, lists or watches any path under a project's
+  `cwd`.** `cwd` is a routing key and a display string, nothing else. That rules
+  out the one mechanism that could have made a room's theme genuinely reflect
+  *what* a project is — detecting its language, framework or tooling from its
+  files — and `docs/ADR-002-themed-rooms.md` §3b rejects it explicitly rather
+  than leaving it as an unexplored option. The promise is worth more than the
+  feature, and its worth is almost entirely in being unqualified. That ADR
+  proposes promoting this into `CLAUDE.md` as an invariant.
 - Historical playback, timelines, scrubbing.
 - Metrics: token counts, cost, duration charts.
 - Any control over the agents. Read-only, always. No "stop this agent" button.
 - Multiple projects on screen simultaneously.
 - Remote or cloud sessions.
-- Customisation, theming, user-supplied sprites.
+- ~~Customisation, theming, user-supplied sprites.~~ **Half overridden.** The
+  maintainer asked for themed rooms after M5, and `docs/ADR-002-themed-rooms.md`
+  is the decision. What is now in scope: a **fixed** set of themes built from
+  packs we already own, one per project, defaulted deterministically from `cwd`
+  and overridable by the user. What remains a non-goal, unchanged:
+  **user-supplied sprites, user-authored themes, and any customisation beyond
+  picking one entry from that fixed list.** The user picks from the list; they do
+  not add to it. Recorded as an override rather than deleted, so it stays visible
+  that this was a deliberate reversal and what part of it was *not* reversed.
 
 ## Success criteria
 
@@ -61,7 +86,12 @@ Testable, not aspirational:
 - **S5** — A cold observer watching the panel for 15 seconds can correctly say
   how many agents are running and whether any are idle.
 
-S5 is the real one. The others are how you get there.
+- **S6** — The same project draws the same room on every launch, and on two
+  launches of the same binary against the same `cwd`. Added with the per-project
+  theme; it is the property that mechanism most easily loses by accident, and a
+  room that redecorates itself between launches reads as a rendering bug.
+
+S5 is still the real one. The others are how you get there.
 
 ## Failure modes to design against
 
