@@ -37,18 +37,88 @@ final class RoomHost {
 
     private(set) var selected: String?
 
+    /// The themes the manifest declares, and the user's stored picks among
+    /// them. [ADR-002 §3c, §3d]
+    let themes: ThemeCatalog
+    private let themeStore: ThemeStore
+
+    /// **Seam.** ADR-002 §8 item 2's `rendezvous(key:over:)`, which lives in
+    /// `SpriteRoomScene` beside the `fnv1a64` its pinned test vector guards.
+    ///
+    /// Until it is wired the assignable pool is empty anyway — `Manifest` does
+    /// not decode §7's themes yet — so §3c falls straight to its last line and
+    /// this closure is never consulted. It must never grow a hash of its own:
+    /// two implementations of that mapping is how every user's room quietly
+    /// redecorates on the day someone refactors one of them. [§11 item 7]
+    var derive: (_ cwd: String, _ assignablePool: [String]) -> String? = { _, _ in nil }
+
     /// Fires when the menu bar needs to redraw. Push, never pull.
     var onRosterChanged: (([ProjectRegistry.Entry], String?) -> Void)?
 
-    init(manifest: Manifest, viewport: CGSize) {
+    init(
+        manifest: Manifest,
+        viewport: CGSize,
+        themes: ThemeCatalog = .empty,
+        themeStore: ThemeStore? = nil
+    ) {
         self.manifest = manifest
         self.viewport = viewport
+        self.themes = themes
+        self.themeStore = themeStore ?? ThemeStore()
         self.view = RoomView(frame: CGRect(origin: .zero, size: viewport))
         view.ignoresSiblingOrder = true
         // The room is the only thing in the panel; nothing here is clickable.
         view.allowsTransparency = false
         binding = SceneBinding(manifest: manifest, viewport: viewport)
         view.presentScene(binding.scene)
+    }
+
+    /// The theme the room on screen is dressed in — a stored choice or a
+    /// derived one, and the menu does not distinguish them because §3c is one
+    /// function. `nil` when nothing is selected, or when the manifest declares
+    /// no themes at all and the room is the single one this app has always
+    /// drawn.
+    var themeID: String? {
+        guard let selected else { return nil }
+        return themes.themeID(for: selected, stored: themeStore.stored, derive: derive)
+    }
+
+    /// The user picked a room off the menu bar.
+    ///
+    /// Writes through `ThemeStore` and rebuilds. **A theme change is a rebuild,
+    /// not a transition** — §6 rule 4: no cross-fade, no prop animating in. The
+    /// room is simply the other room, and the user just caused the
+    /// discontinuity themselves.
+    ///
+    /// Ignored without a selected project: the preference is keyed on `cwd`,
+    /// and there is no `cwd` to key it on. The menu already disables the item,
+    /// so this is the belt to that braces.
+    func chooseTheme(_ themeID: String) {
+        guard let selected, themes.contains(themeID) else { return }
+        themeStore.choose(themeID, for: selected)
+        rebuild()
+    }
+
+    /// Throw the scene away and build the room again from the same inputs.
+    ///
+    /// The same thing `select` does, for the same reason: `SceneDirector` holds
+    /// per-character presentation state and the honest way to change what the
+    /// room is made of is to make it again. Stations are recomputed from the
+    /// same inputs by the same function, so every agent lands on the
+    /// corresponding station of the new theme — a rebuild, not a §6 rule 2
+    /// rewrite.
+    ///
+    /// **Seam.** `themeID` does not reach the scene yet: `RoomScene` takes a
+    /// manifest and no theme (ADR-002 §8 item 5, `SpriteRoomScene`), so this
+    /// rebuilds the room it already had. The theme is threaded through the two
+    /// `SceneBinding` constructions below and nowhere else.
+    private func rebuild() {
+        binding = SceneBinding(manifest: manifest, viewport: viewport)
+        view.presentScene(binding.scene)
+        if let selected {
+            binding.apply(registry.reconstruct(selected))
+        }
+        onRosterChanged?(registry.entries, selected)
     }
 
     var unmappedTools: [String: Int] { binding.unmappedTools }
@@ -90,9 +160,8 @@ final class RoomHost {
     func select(_ project: String) {
         guard project != selected else { return }
         selected = project
-        binding = SceneBinding(manifest: manifest, viewport: viewport)
-        view.presentScene(binding.scene)
-        binding.apply(registry.reconstruct(project))
-        onRosterChanged?(registry.entries, selected)
+        // The theme changes with the project, and it changes by rebuild for
+        // exactly the reason the scene does. §6 rule 4.
+        rebuild()
     }
 }

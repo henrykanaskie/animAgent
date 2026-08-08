@@ -38,6 +38,20 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     var hooksInstalled: Bool?
     var onToggleHooks: ((Bool) -> Void)?
 
+    /// The themes the manifest declares. `docs/ADR-002-themed-rooms.md` §8
+    /// item 9: the submenu lists **every** one of them. The `assignable` flag
+    /// governs what the derived default may draw, not what a person may pick.
+    var themes: ThemeCatalog = .empty
+    /// The theme the selected project is currently showing — a stored choice or
+    /// a derived one, indistinguishable here, because §3c is one function and
+    /// the room is always showing whatever it returned.
+    var currentThemeID: String?
+    /// The second menu item in this app that writes anything, and it is
+    /// justified the same way the hooks toggle is: it does not touch a running
+    /// agent. It changes what the room is *made of*. The panel stays a pure
+    /// display surface and keeps `ignoresMouseEvents`; nothing about I8 moves.
+    var onPickTheme: ((String) -> Void)?
+
     init(credit: String, creditURL: String) {
         self.credit = credit
         self.creditURL = creditURL
@@ -56,6 +70,11 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             button.toolTip = "Sprite Room"
         }
         menu.delegate = self
+        // Off, so an item that says it is disabled is disabled. AppKit's
+        // automatic enabling decides for itself — it would enable the **Room**
+        // item whenever its submenu had anything clickable in it, which is
+        // precisely the case where "no project is selected" has to win.
+        menu.autoenablesItems = false
         statusItem.menu = menu
     }
 
@@ -123,6 +142,9 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             menu.addItem(item)
         }
 
+        menu.addItem(.separator())
+        menu.addItem(roomItem())
+
         if let hooksInstalled {
             menu.addItem(.separator())
             let item = NSMenuItem(
@@ -149,9 +171,60 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
         menu.addItem(quit)
     }
 
+    /// **Room ▸** — which of the manifest's themes dresses the selected
+    /// project. [ADR-002 §8 item 9]
+    ///
+    /// A theme is a per-project preference, so with no project selected there
+    /// is nothing to key it on and the item is disabled rather than writing
+    /// somewhere it would have had to invent a key for.
+    ///
+    /// The submenu is built even when it is disabled, and even when the
+    /// manifest declares nothing: the same reason an ended project is marked
+    /// rather than deleted, and an empty roster says "No sessions yet" instead
+    /// of showing a blank. A menu item that disappears is indistinguishable
+    /// from a feature that broke.
+    private func roomItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Room", action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: "Room")
+        submenu.autoenablesItems = false
+        item.submenu = submenu
+        item.isEnabled = selected != nil && !themes.isEmpty
+
+        guard !themes.isEmpty else {
+            item.toolTip = "This manifest declares no themes"
+            let empty = NSMenuItem(
+                title: "  No themes in this manifest", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            submenu.addItem(empty)
+            return item
+        }
+        item.toolTip = selected == nil
+            ? "Pick a project first — the room is a per-project choice"
+            : "What this project's room is made of"
+
+        for theme in themes.themes {
+            // No key equivalent, anywhere in this menu. [I8]
+            let entry = NSMenuItem(
+                title: theme.title, action: #selector(pickTheme(_:)), keyEquivalent: "")
+            entry.target = self
+            // The manifest id, never the title: the title is prose and may be
+            // reworded; the id is what is written to `themes.json`.
+            entry.representedObject = theme.id
+            entry.state = theme.id == currentThemeID ? .on : .off
+            entry.isEnabled = selected != nil
+            submenu.addItem(entry)
+        }
+        return item
+    }
+
     @objc private func pick(_ sender: NSMenuItem) {
         guard let project = sender.representedObject as? String else { return }
         onSelect?(project)
+    }
+
+    @objc private func pickTheme(_ sender: NSMenuItem) {
+        guard let themeID = sender.representedObject as? String else { return }
+        onPickTheme?(themeID)
     }
 
     @objc private func toggleHooks() {

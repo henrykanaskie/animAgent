@@ -118,18 +118,49 @@ The app writes the hook block into `~/.claude/settings.json` on first run, after
 asking, and never touches project-level settings files — hooks registered once
 at user scope, routed by `cwd`, is the whole point.
 
-**Nothing else is persisted, and this paragraph used to claim otherwise.** It
-described port and selected project living in a JSON file under
-`~/Library/Application Support/SpriteRoom/`. No such file is read or written.
-The port is a command-line flag; the selected project lives in `ProjectRegistry`
-in memory and resets every launch. The only thing that directory ever holds is
-`settings-backup.json`, written while hooks are installed so the removal path
-can restore the user's file byte for byte.
+**Exactly one preference is persisted, and this paragraph has been wrong about
+persistence once before.** It used to describe port and selected project living
+in a JSON file under `~/Library/Application Support/SpriteRoom/`; no such file
+was ever read or written, and the correction that removed it asked that any
+future preference be *added deliberately* rather than assumed into existence by
+a document. ADR-002 §3d is that deliberate addition, and this is what it added:
 
-That is consistent with "no persistence of events — the world is live state and
-dies with the app" below. If a preference ever does need to survive a launch,
-add it deliberately; do not assume this file already exists because a document
-once said it did.
+**`~/Library/Application Support/SpriteRoom/themes.json`** — the per-project
+room theme, and the only thing this app persists besides the hook backup.
+
+- **Shape.** `{"schema": 1, "themes": {"<cwd>": "<themeId>"}}`, and nothing
+  else. Keys are the exact `cwd` strings the events carried; the theme invents
+  no path normalisation the rest of the app does not already have.
+- **Owner.** `ThemeStore`, in `SpriteRoomApp`, beside `HookInstaller`. **Not**
+  `SpriteRoomCore` and **not** the scene. Core gains no file I/O and keeps its
+  headless testability; the theme enters the scene the same way the selected
+  project does, and the data flow above stays one-directional.
+- **Read once, at launch**, before the first project is displayed. Never again.
+- **Written only when the user picks a theme from the menu bar** — a sibling
+  temp file and a rename over the target, so a crash mid-write cannot truncate
+  it. **Never on a hook event path**; there is no disk I/O anywhere downstream
+  of ingest. [I5]
+- **No failure mode is fatal.** Missing, unreadable, not JSON, wrong `schema`,
+  `themes` not an object — every one of them means "no stored choices", the app
+  launches, and every project takes the theme derived from its `cwd`. An
+  unusable file is moved aside to `themes.json.bad` rather than deleted, so a
+  corrupt file cannot wedge the picker and the user's bytes stay on disk. A
+  write that fails is counted, not surfaced: the picker works for that launch
+  and forgets on the next.
+
+It is **not a general preferences store.** Schema 1 holds themes. The next
+preference is a new ADR, not a new key — ADR-002 §9. If you are reading this
+because you want somewhere to put one, that is the rule you are looking at.
+
+The port is still a command-line flag, and the selected project still lives in
+`ProjectRegistry` in memory and resets every launch. The other thing that
+directory holds is `settings-backup.json`, written while hooks are installed so
+the removal path can restore the user's file byte for byte; nothing about
+`themes.json` goes near it.
+
+Events are still not persisted — the world is live state and dies with the app,
+as "What is deliberately absent" says below. A per-project preference is not an
+event.
 
 ## What is deliberately absent
 

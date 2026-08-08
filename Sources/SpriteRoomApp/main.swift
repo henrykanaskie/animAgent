@@ -543,17 +543,33 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
 
         do {
             let manifest = try Manifest.load(root: root)
-            let host = RoomHost(manifest: manifest, viewport: PanelSize.room.cgSize)
+            // The one file this app persists, read once, here, before the first
+            // project is displayed and never again. [ADR-002 §3d]
+            let themeStore = ThemeStore()
+            let host = RoomHost(
+                manifest: manifest,
+                viewport: PanelSize.room.cgSize,
+                themes: ThemeCatalog.declared(in: manifest),
+                themeStore: themeStore)
             let controller = NotchPanelController(contentView: host.view, size: .room)
             let selector = ProjectSelector(
                 credit: manifest.credit.text, creditURL: manifest.credit.url)
+            selector.themes = host.themes
 
             // Push, one way. The selector is told what exists; it never asks.
-            host.onRosterChanged = { [weak selector] entries, selected in
+            host.onRosterChanged = { [weak selector, weak host] entries, selected in
+                selector?.currentThemeID = host?.themeID
                 selector?.update(entries: entries, selected: selected)
             }
             selector.onSelect = { [weak host] project in
                 host?.select(project)
+            }
+            selector.onPickTheme = { [weak host] themeID in
+                host?.chooseTheme(themeID)
+            }
+            if case .discarded(let path) = themeStore.load {
+                print("themes.json was unreadable and has been set aside at \(path); "
+                    + "every project starts on its derived room")
             }
             if ProcessInfo.processInfo.environment["SPRITEROOM_DEBUG"] != nil {
                 controller.onTransition = { transition, phase in
