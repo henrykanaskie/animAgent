@@ -22,17 +22,6 @@ public final class RoomScene: SKScene {
     /// so the camera frames a character's seat from the moment it starts
     /// walking in rather than snapping open when it arrives.
     private var seatOf: [AgentRef: Int] = [:]
-    /// One standing spot in the row of delivery slots beside an anchor. Two
-    /// rows, one per side, because a reporter approaches from its own side.
-    private struct DeliveryStation: Hashable {
-        var side: Facing
-        var index: Int
-    }
-
-    /// Delivery stations currently spoken for. Claimed when the beat starts,
-    /// released when the reporter is home again — or retired, if it left first.
-    private var reportingSlots: Set<DeliveryStation> = []
-    private var slotOf: [ObjectIdentifier: DeliveryStation] = [:]
 
     /// The scale the director asked for, from population. The viewport can
     /// only ever push this *down* the ladder, never up. [I6]
@@ -159,26 +148,34 @@ public final class RoomScene: SKScene {
             place(role: role, at: ScenePoint(x: x, y: backRowY))
         }
 
-        // A row of plants in front of the walkway, **strictly below the content
-        // band**.
+        // **There is no foreground row, and the rule that replaced it is
+        // stronger than the one it replaced.**
         //
-        // The rule is the interesting part, not the plants. Decoration placed
-        // outside the band is invisible at the tightest fitting scale and comes
-        // into frame only as the camera pulls back — so it can never compete
-        // with a character at the zoom where characters are hardest to read,
-        // which is exactly what I7's "remove the background detail" warning is
-        // about, and it fills the foreground at `1x`, where there is otherwise a
-        // flat field of floor under everyone's nameplate.
-        if let plant = store.room.prop(Self.accentRole) {
-            let y = contentBand.bottom - Double(plant.contentBox.height) - 4
-            for seat in 0..<layout.seatCapacity {
-                // Lined up under the back row, so the spacing reads as
-                // deliberate rather than scattered.
-                let x = layout.seatPosition(seat).x + Double(tile) * 1.5
-                guard x < layout.width else { continue }
-                place(role: "plant", at: ScenePoint(x: x, y: y))
-            }
-        }
+        // M5 put a row of plants in front of the walkway and kept them honest
+        // geometrically: strictly below the content band, so they fell out of
+        // frame at the tightest fitting scale and appeared only as the camera
+        // pulled back. That answered I7's "remove the detail that competes with
+        // the characters" without anyone having to exercise taste — at `3x`,
+        // where characters are biggest and the frame is tightest, the decoration
+        // was not on screen at all.
+        //
+        // **The wide camera retired that protection.** `1x` is the only scale a
+        // normal room uses now, so "out of frame at the tightest scale" stopped
+        // meaning anything: the row was permanently on screen, seven identical
+        // plants across the bottom of every glance, and a permanently-visible
+        // repeated tile is a bigger I7 risk than an occasionally-visible one.
+        //
+        // The replacement is a rule about *depth* rather than about zoom, which
+        // is why it survives a change of camera policy:
+        //
+        //   **Nothing decorative is drawn nearer the camera than the seat row.**
+        //
+        // Everything in front of the desks is now choreography — the aisle and
+        // the delivery rows, where arrivals, departures and reports happen — so
+        // the foreground is not empty floor any more and does not need filling.
+        // Nothing the room draws can ever be between the viewer and a character,
+        // at any scale and any population. `theRoomDrawsNoDecorationInFrontOfThe
+        // Characters` asserts it over every theme.
 
         // A chair at every seat, under whoever is sitting there. The side-view
         // chair the pack ships has its backrest on the left, so a person on it
@@ -285,71 +282,77 @@ public final class RoomScene: SKScene {
             characters[agent]?.apply(badge: selection)
 
         case let .deliverReport(agent, anchorSeat):
-            guard let character = characters[agent], let seat = seatOf[agent] else { break }
-            // Step into the aisle, walk to the anchor, hand over, walk back and
-            // sit down. The anchor is the parent's seat when
-            // `tool_response.agentId` linked them, and seat 0 — the main agent —
-            // when it did not. [I1]
+            guard let character = characters[agent], let seat = seatOf[agent],
+                  // Nobody walks over to themselves. The anchor resolves to the
+                  // reporter's own seat only for the main agent, which has no
+                  // `SubagentStop` and so never reports — this is the guard that
+                  // says so rather than a comment claiming it. [I1]
+                  seat != anchorSeat else { break }
+            // Step out of the seat into the aisle, straight down the reporter's
+            // **own column** onto its **own ring's delivery row**, along that row
+            // to the anchor, hand over, and back the same way.
             //
-            // **The transit is the room's one unguarded window, and it is
-            // structural.** A reporter in the aisle passes every station between
-            // its desk and its anchor's, and a station is 96 px from the next
-            // while the widest plate is 65 — so a character crossing the aisle
-            // is within a plate width of *some* station for most of the walk. If
-            // whoever sits there steps into the aisle in that window — spawning,
-            // leaving, or reporting itself — the two plates touch. Delivering
-            // from the reporter's own side halves the exposure and removes the
-            // crossing of the anchor entirely; nothing in the layout can close
-            // the rest while a seat pitch is narrower than two nameplates.
-            // `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` holds
-            // those two numbers so a change to either surfaces as a failure.
-            let station = claimStation(
-                for: character, side: layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: seat))
+            // **The transit used to be the room's one unguarded window.** A
+            // reporter walking the aisle passed every station between its desk
+            // and its anchor's, and a station is 96 px from the next while the
+            // widest plate is 65 — so it was within a plate width of *some*
+            // station for most of the walk, and if that station's occupant
+            // stepped into the aisle the two plates touched. Widening the seat
+            // pitch does not close that: two characters walking one line in
+            // opposite directions cross at zero separation whatever the pitch
+            // is, and six agents at five tiles do not fit the panel anyway [S4].
+            //
+            // Giving each ring its own row closes it structurally instead. See
+            // `RoomLayout.deliveryRowY(ring:)` for the three-line proof and
+            // `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` for the
+            // arithmetic that holds it.
+            let side = layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: seat)
             character.reportAndReturn(
-                via: ScenePoint(x: Double(character.position.x), y: layout.aisleY),
-                to: layout.deliveryPosition(
-                    anchorSeat: anchorSeat, side: station.side, slot: station.index),
-                facing: layout.deliveryFacing(side: station.side),
-                home: layout.seatApproach(seat),
-                seat: layout.seatPosition(seat)
-            ) { [weak self, weak character] in self?.releaseStation(character) }
+                out: layout.deliveryRoute(anchorSeat: anchorSeat, reporterSeat: seat),
+                facing: layout.deliveryFacing(side: side),
+                home: layout.homeRoute(forSeat: seat),
+                onFinished: {})
 
         case let .exitCharacter(agent, style):
             guard let character = characters.removeValue(forKey: agent) else { break }
             let seat = seatOf.removeValue(forKey: agent)
+            // **Every exit is a walk up the character's own column and out
+            // through the back of the room.** See
+            // `RoomLayout.upstageExit(forSeat:)` for why: a lateral corridor
+            // that reaches the frame edge passes through every column outside
+            // it, and a column is where every other character steps between the
+            // desk row, the aisle and its delivery row. The whole cast can leave
+            // in one frame — `SessionEnd` does exactly that — and seven leavers
+            // going straight back stay a seat pitch apart the entire way, which
+            // is a stronger statement than the convoy argument this replaces
+            // and needs no argument about relative speeds at all.
+            let exit = seat.map(layout.upstageExit(forSeat:))
+                ?? layout.upstageExit(fromX: Double(character.position.x))
             switch style {
-            case let .report(anchorSeat):
-                let station = claimStation(
-                    for: character,
-                    side: seat.map {
-                        layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: $0)
-                    } ?? .left)
-                let delivery = layout.deliveryPosition(
-                    anchorSeat: anchorSeat, side: station.side, slot: station.index)
+            case let .report(anchorSeat) where seat != nil && seat != anchorSeat:
+                let reporterSeat = seat!
+                let side = layout.deliverySide(
+                    anchorSeat: anchorSeat, reporterSeat: reporterSeat)
                 character.reportAndDepart(
-                    via: ScenePoint(x: Double(character.position.x), y: layout.aisleY),
-                    to: delivery,
-                    facing: layout.deliveryFacing(side: station.side),
-                    thenExitAt: layout.nearestEdge(toX: delivery.x)
+                    out: layout.deliveryRoute(
+                        anchorSeat: anchorSeat, reporterSeat: reporterSeat),
+                    facing: layout.deliveryFacing(side: side),
+                    home: layout.homeRoute(forSeat: reporterSeat),
+                    thenExitAt: exit
                 ) { [weak self, weak character] in self?.retire(character) }
-            case .walkOff:
-                // **Out through its own desk's station, not through whatever
-                // patch of aisle it happens to be standing on.** The exit is the
-                // inverse of the entrance — `enter` comes in along the aisle and
-                // steps *up* to the desk; `walkOff` steps down to the same spot
-                // and goes back out the way it came.
-                //
-                // The whole cast can now depart in one frame, `SessionEnd` does
-                // exactly that, and a character mid-report is somewhere in the
-                // aisle rather than at a desk when it happens. Routing every
-                // leaver through its own station is what keeps that convoy a
-                // seat pitch apart — which is wider than the widest nameplate —
-                // instead of letting one leaver set off from a spot 28 px behind
-                // another and walk the length of the room in its plate.
-                let station = seat.map(layout.seatApproach)
-                    ?? ScenePoint(x: Double(character.position.x), y: layout.aisleY)
+            case .report, .walkOff:
+                // No seat, or a self-report: nothing to walk to, so it just
+                // leaves. A character caught **on a delivery row** — mid-report
+                // when the session ended — comes back up its own column first,
+                // because the only clear way off a delivery row is the column it
+                // came down; cutting the corner would drag its plate diagonally
+                // across every row in between.
                 character.departOffScreen(
-                    via: station, to: layout.nearestEdge(toX: station.x)
+                    via: seat.map {
+                        layout.homeRoute(
+                            forSeat: $0, fromY: Double(character.position.y))
+                    } ?? [],
+                    to: exit
                 ) { [weak self, weak character] in self?.retire(character) }
             }
 
@@ -358,40 +361,19 @@ public final class RoomScene: SKScene {
         }
     }
 
-    /// The lowest delivery slot nobody is standing in, reserved for this
-    /// character until it is released.
+    /// **There is nothing left to claim.** Where a reporter stands is a pure
+    /// function of its own seat — its ring picks the row, its half of the room
+    /// picks the side — so two reporters cannot be sent to the same spot and
+    /// there is no reservation to leak, no order to get wrong, and no state that
+    /// has to survive a re-entrant second report.
     ///
-    /// **Occupancy spans the whole round trip, not just the walk out.** A
-    /// reporter holds its slot from the moment it leaves its desk until it is
-    /// back in it, so a second reporter that stops a second later can never be
-    /// sent to a spot the first is still walking home from. That is the case the
-    /// return leg introduced: before, a slot was vacated by a character
-    /// disappearing off the edge of the room, and there was no walk *back*
-    /// through the row of slots for anyone to be standing in.
-    ///
-    /// Re-entrant on purpose. Two of the four agents in
-    /// `fixtures/four-subagents.jsonl` report twice, and a second report that
-    /// lands while the first walk is still in flight restarts the beat — so the
-    /// old reservation is released rather than leaked.
-    private func claimStation(for character: Character, side: Facing) -> DeliveryStation {
-        releaseStation(character)
-        var station = DeliveryStation(side: side, index: 0)
-        while reportingSlots.contains(station) { station.index += 1 }
-        reportingSlots.insert(station)
-        slotOf[ObjectIdentifier(character)] = station
-        return station
-    }
-
-    private func releaseStation(_ character: Character?) {
-        guard let character else { return }
-        if let station = slotOf.removeValue(forKey: ObjectIdentifier(character)) {
-            reportingSlots.remove(station)
-        }
-    }
-
+    /// The bookkeeping this replaces held a set of sideways slots claimed
+    /// lowest-free. That was not seat-ordered, so the farther of two same-side
+    /// reporters could take the nearer slot and then walk home through the
+    /// nearer one's station — a real collision, and the kind that only shows up
+    /// when two subagents stop within a second of each other.
     private func retire(_ character: Character?) {
         guard let character else { return }
-        releaseStation(character)
         animated.removeAll { $0 === character }
         character.removeFromParent()
     }
@@ -435,26 +417,36 @@ public final class RoomScene: SKScene {
         // here: this used to be `glyphHeight + 6 + 2`, a copy of the plate's
         // own arithmetic that would have silently cropped the moment the plate
         // grew a second row.
-        let plateDrop = Double(SceneBitmaps.maximumNameplateHeight + 2)
         return layout.contentBand(
-            badgeTopAboveFeet: badgeTop, plateDropBelowFeet: plateDrop)
+            badgeTopAboveFeet: badgeTop, plateDropBelowFeet: seatedPlateDrop)
     }
+
+    /// How far the tallest plate hangs below a character's feet. One number, one
+    /// place: the band's floor and the camera's bias are both measured from it.
+    private var seatedPlateDrop: Double { Double(SceneBitmaps.maximumNameplateHeight + 2) }
 
     /// Where to point the camera vertically.
     ///
     /// The band has to *fit*, but centring it wastes the difference on the
-    /// floor: the band's bottom is reserved for a character standing in the
-    /// aisle, and most of the time nobody is, so the foreground is a flat field
-    /// of floor while the wall above is cropped. So the camera prefers to centre
-    /// the **seat row's** own content and is then clamped by however much slack
-    /// the scale actually left — which is zero at the tightest fitting scale, so
-    /// the preference never costs a clipped nameplate. Nothing about this
-    /// depends on who is on screen, so the camera does not jump when someone
-    /// steps into the aisle.
+    /// floor: the band's bottom is reserved for a character on the outermost
+    /// delivery row, and most of the time nobody is on any of them, so the
+    /// foreground is a flat field of floor while the wall above is cropped. So
+    /// the camera prefers to centre the **seat row's** own content and is then
+    /// clamped by however much slack the scale actually left — which is zero at
+    /// the tightest fitting scale, so the preference never costs a clipped
+    /// nameplate. Nothing about this depends on who is on screen, so the camera
+    /// does not jump when someone steps out of a chair.
+    ///
+    /// **The preference is measured from the seated plate, not inferred from the
+    /// band.** It used to reconstruct the seated plate's bottom by subtracting
+    /// the band's own depth from the seat row, which is the same number only
+    /// while the band's bottom is exactly one plate below the aisle. The delivery
+    /// rows made that false, and the bias silently weakened by the depth of the
+    /// walkway — the frame drifted down over three tiles of empty floor with no
+    /// test able to see it, because the arithmetic still agreed with itself.
     func cameraY(band: (bottom: Double, top: Double), sceneHeight: Double) -> Double {
         let half = sceneHeight / 2
-        // The same plate drop, applied at the seat row instead of the aisle.
-        let seatedPlateBottom = layout.baselineY - (layout.aisleY - band.bottom)
+        let seatedPlateBottom = layout.baselineY - seatedPlateDrop
         let preferred = (seatedPlateBottom + band.top) / 2
         let lowest = band.top - half        // any lower and the badge is cropped
         let highest = band.bottom + half    // any higher and the plate is cropped

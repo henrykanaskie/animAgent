@@ -11,11 +11,14 @@ import Testing
 @MainActor
 struct NotchPanelTests {
 
-    /// True in a logged-in GUI session. A nonisolated C call, so it is safe to
-    /// evaluate as a test trait.
-    nonisolated static var hasWindowServer: Bool {
-        CGSessionCopyCurrentDictionary() != nil
-    }
+    /// True in a logged-in GUI session.
+    ///
+    /// The question itself now lives in `PanelWindowServer` (`PanelFixtures.swift`),
+    /// alongside the always-on notice and the pinned count that make the skip
+    /// legible — the same arrangement `SceneArt` has for the art. This forwards
+    /// rather than being renamed away so that 26 gate annotations across three
+    /// files did not have to change to close that hole.
+    nonisolated static var hasWindowServer: Bool { PanelWindowServer.isAvailable }
 
     static func panel() -> NotchPanel {
         // Touching `NSApplication.shared` first initialises the connection the

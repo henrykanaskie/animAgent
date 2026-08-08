@@ -108,10 +108,16 @@ struct NameplateTests {
         #expect(pitch - widest >= 24, "only \(pitch - widest) px between neighbours")
     }
 
-    /// Two subagents can stop within a second of each other and both walk to
-    /// the delivery row, so the slot pitch has to clear the widest plate.
-    @Test func theWidestPlateAlsoFitsInsideTheDeliverySlotPitch() {
-        #expect(Double(SceneBitmaps.maximumNameplateWidth) <= RoomLayout.deliverySlotPitch)
+    /// Two subagents can stop within a second of each other and both walk to the
+    /// anchor. They no longer share a line — each delivers on the row that
+    /// belongs to its own ring — so what has to clear the plate is the **row
+    /// pitch**, and it has to clear it in the other axis: a tile taller than the
+    /// tallest plate is what makes two rows unable to share a horizontal strip.
+    @Test func theRowPitchClearsTheTallestPlateSoTwoRowsNeverShareAStrip() {
+        let layout = RoomLayout()
+        #expect(Double(layout.tile) > Double(SceneBitmaps.maximumNameplateHeight))
+        #expect(layout.deliveryRowY(ring: 1) - layout.deliveryRowY(ring: 2)
+                == Double(layout.tile))
     }
 
     /// **Height is the axis the two-row plate spends, and it is bounded.**

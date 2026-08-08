@@ -157,7 +157,7 @@ enum SceneArt {
     /// a theme change that redresses the room and moves no character, the
     /// declared floor being the one drawn, and the measurement behind why the
     /// declaration exists at all (the flat-tile search accepts 2 of 141).
-    static let expectedGatedTestCount = 31
+    static let expectedGatedTestCount = 33
 }
 
 /// Always runs, in both modes, and never fails for the absence of art.

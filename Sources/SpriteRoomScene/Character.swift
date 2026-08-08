@@ -104,6 +104,17 @@ public final class Character: SKNode {
 
     private var script: [Step] = []
     private var stepIndex = 0
+    /// The one step of a script, if any, over which the character fades out.
+    ///
+    /// **Only an exit sets it, and an exit always does.** The departure walk
+    /// used to end off the side of the frame, where the frame edge did the
+    /// hiding for free. It now walks upstage, out through the back of the room,
+    /// because that is the only route in the room that crosses nobody's path —
+    /// and there is no edge back there, only a flat wall, which gives a
+    /// character walking away nothing to disappear behind. So it fades over that
+    /// last leg. That is not a dramatisation: the agent is gone, and the fade is
+    /// the room saying so rather than a node blinking out of existence. [I1]
+    private var fadingStep: Int?
     private var moveFrom = ScenePoint(x: 0, y: 0)
     private var moveTo = ScenePoint(x: 0, y: 0)
     private var moveStartedAt: TimeInterval = 0
@@ -305,18 +316,24 @@ public final class Character: SKNode {
     /// director already emits the badge change in this same batch, off the
     /// `callAbandoned` deltas `SubagentStop` produces. Animate state, not
     /// events. [I2/I3]
+    /// **The route is a list of waypoints, not two points, and that is the
+    /// aisle invariant made mechanical.** `out` steps down the reporter's own
+    /// column to its delivery row and only then moves sideways; `home` reverses
+    /// it. Every lateral leg is therefore inside one row and every vertical leg
+    /// inside one column, which is exactly the property
+    /// `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` proves the
+    /// plates out of each other from. A caller that passes a straight
+    /// desk-to-anchor diagonal would cut the corner and break it, so the shape
+    /// of the route lives in `RoomLayout` and arrives here already correct.
     public func reportAndReturn(
-        via approach: ScenePoint, to delivery: ScenePoint, facing deliveryFacing: Facing,
-        home homeApproach: ScenePoint, seat: ScenePoint, onFinished: @escaping () -> Void
+        out: [ScenePoint], facing deliveryFacing: Facing,
+        home: [ScenePoint], onFinished: @escaping () -> Void
     ) {
-        run(script: [
-            .walk(to: approach, state: .walk),
-            .walk(to: delivery, state: .walk),
-            .play(.deliver, facing: deliveryFacing),
-            .walk(to: homeApproach, state: .walk),
-            .walk(to: seat, state: .walk),
-            .finish(onFinished),
-        ])
+        run(script:
+            out.map { .walk(to: $0, state: .walk) }
+            + [.play(.deliver, facing: deliveryFacing)]
+            + home.map { .walk(to: $0, state: .walk) }
+            + [.finish(onFinished)])
     }
 
     /// The report beat, truncated into an exit: walk to the anchor, hand the
@@ -325,36 +342,44 @@ public final class Character: SKNode {
     /// Only for a character that reported **and** departed in the same frame —
     /// a `SessionEnd` landing on top of a `SubagentStop`. Both facts are real,
     /// so the character plays the beat it earned and then goes.
+    /// The report beat, truncated into an exit: walk the route out, hand the
+    /// report over, walk the route back, and then leave instead of sitting down.
+    ///
+    /// It walks the route *back* rather than cutting to the edge from the
+    /// delivery point, because the delivery point is on a delivery row and the
+    /// only clear way off a delivery row is the column it came down.
     public func reportAndDepart(
-        via approach: ScenePoint, to delivery: ScenePoint, facing deliveryFacing: Facing,
-        thenExitAt edge: ScenePoint, onFinished: @escaping () -> Void
+        out: [ScenePoint], facing deliveryFacing: Facing,
+        home: [ScenePoint], thenExitAt edge: ScenePoint, onFinished: @escaping () -> Void
     ) {
         apply(badge: .none)
-        run(script: [
-            .walk(to: approach, state: .walk),
-            .walk(to: delivery, state: .walk),
-            .play(.deliver, facing: deliveryFacing),
-            .walk(to: edge, state: .depart),
-            .finish(onFinished),
-        ])
+        run(script:
+            out.map { .walk(to: $0, state: .walk) }
+            + [.play(.deliver, facing: deliveryFacing)]
+            + home.map { .walk(to: $0, state: .depart) }
+            + [.walk(to: edge, state: .depart), .finish(onFinished)],
+            fadingOnLastWalk: true)
     }
 
     /// Walk off. `depart` is the walk cycle towards the edge, same composition
     /// as `spawn`.
     public func departOffScreen(
-        via approach: ScenePoint, to edge: ScenePoint, onFinished: @escaping () -> Void
+        via route: [ScenePoint], to edge: ScenePoint, onFinished: @escaping () -> Void
     ) {
         apply(badge: .none)
-        run(script: [
-            .walk(to: approach, state: .depart),
-            .walk(to: edge, state: .depart),
-            .finish(onFinished),
-        ])
+        run(script:
+            route.map { .walk(to: $0, state: .depart) }
+            + [.walk(to: edge, state: .depart), .finish(onFinished)],
+            fadingOnLastWalk: true)
     }
 
-    private func run(script steps: [Step]) {
+    private func run(script steps: [Step], fadingOnLastWalk: Bool = false) {
         script = steps
         stepIndex = 0
+        alpha = 1
+        fadingStep = fadingOnLastWalk
+            ? steps.lastIndex(where: { if case .walk = $0 { return true } else { return false } })
+            : nil
         beginCurrentStep(at: now)
     }
 
@@ -418,6 +443,7 @@ public final class Character: SKNode {
                 position = CGPoint(
                     x: moveFrom.x + (moveTo.x - moveFrom.x) * progress,
                     y: moveFrom.y + (moveTo.y - moveFrom.y) * progress)
+                if stepIndex == fadingStep { alpha = 1 - progress }
                 guard progress >= 1 else { break stepping }
                 let finishedAt = moveStartedAt + moveDuration
                 stepIndex += 1

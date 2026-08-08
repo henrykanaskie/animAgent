@@ -185,12 +185,14 @@ struct RoomSceneTests {
         let seat = ScenePoint(x: 496, y: 64)
         character.position = CGPoint(x: seat.x, y: seat.y)
         var finished = false
+        // Out along the real route: station, then straight down the character's
+        // own column onto its delivery row, then along that row to the anchor.
         character.reportAndReturn(
-            via: ScenePoint(x: 496, y: 32),
-            to: ScenePoint(x: 448, y: 32),
+            out: [ScenePoint(x: 496, y: 32), ScenePoint(x: 496, y: 0),
+                  ScenePoint(x: 448, y: 0)],
             facing: .left,
-            home: ScenePoint(x: 496, y: 32),
-            seat: seat) { finished = true }
+            home: [ScenePoint(x: 496, y: 0), ScenePoint(x: 496, y: 32), seat],
+            onFinished: { finished = true })
 
         var states: [BodyState] = []
         var deliveredAt: CGPoint?
@@ -202,7 +204,7 @@ struct RoomSceneTests {
             time += 1.0 / 60.0
         }
         #expect(states == [.walk, .deliver, .walk, .idle])
-        #expect(deliveredAt == CGPoint(x: 448, y: 32), "the hand-over happens at the anchor")
+        #expect(deliveredAt == CGPoint(x: 448, y: 0), "the hand-over happens at the anchor")
         #expect(finished)
         #expect(character.position == CGPoint(x: seat.x, y: seat.y),
                 "the round trip has to end in the chair it started in")
@@ -220,10 +222,11 @@ struct RoomSceneTests {
         character.position = CGPoint(x: 496, y: 64)
         var finished = false
         character.reportAndDepart(
-            via: ScenePoint(x: 496, y: 32),
-            to: ScenePoint(x: 376, y: 32),
-            facing: .right,
-            thenExitAt: ScenePoint(x: -32, y: 32)) { finished = true }
+            out: [ScenePoint(x: 496, y: 32), ScenePoint(x: 496, y: 0),
+                  ScenePoint(x: 448, y: 0)],
+            facing: .left,
+            home: [ScenePoint(x: 496, y: 0), ScenePoint(x: 496, y: 32)],
+            thenExitAt: ScenePoint(x: 832, y: 32)) { finished = true }
 
         var states: [BodyState] = []
         var time = 0.0
@@ -247,7 +250,7 @@ struct RoomSceneTests {
         character.position = CGPoint(x: 400, y: 64)
         var finished = false
         character.departOffScreen(
-            via: ScenePoint(x: 400, y: 32),
+            via: [ScenePoint(x: 400, y: 32)],
             to: ScenePoint(x: -32, y: 32)) { finished = true }
         character.advance(to: 0)
         #expect(character.state == .depart)
@@ -347,13 +350,14 @@ struct RoomSceneTests {
         #expect(layout.seatColumn(0) == layout.columns / 2)
     }
 
-    @Test func theDeliveryPointIsInTheAisleBesideTheAnchorAndFacesIt() {
+    @Test func theDeliveryPointIsInFrontOfTheAisleBesideTheAnchorAndFacesIt() {
         let layout = RoomLayout()
         #expect(layout.deliveryPosition.x < layout.seatPosition(0).x)
         #expect(layout.deliveryFacing == .right)
-        // In the aisle, not on the desk row: otherwise the reporter walks
-        // through whoever is sitting between it and the anchor.
-        #expect(layout.deliveryPosition.y == layout.aisleY)
+        // In front of the aisle, not on it and not on the desk row: a reporter
+        // walks past the people between it and its anchor rather than through
+        // the patch of floor they step out onto.
+        #expect(layout.deliveryPosition.y < layout.aisleY)
         #expect(layout.aisleY < layout.baselineY)
         for seat in 0..<layout.seatCapacity {
             #expect(layout.seatPosition(seat).y != layout.deliveryPosition.y)
@@ -368,11 +372,16 @@ struct RoomSceneTests {
         let layout = RoomLayout()
         for anchor in 0..<layout.seatCapacity {
             let anchorX = layout.seatPosition(anchor).x
-            for reporter in 0..<layout.seatCapacity where reporter != anchor {
+            // Seat 0 is the anchor, never a reporter — the main agent has no
+            // `SubagentStop` — and it is the one seat sitting on the centre
+            // line, so it could not step towards a parent on the far side
+            // without crossing it. `RoomScene` guards that self-report rather
+            // than leaving it to arithmetic.
+            for reporter in 1..<layout.seatCapacity where reporter != anchor {
                 let side = layout.deliverySide(anchorSeat: anchor, reporterSeat: reporter)
                 let reporterX = layout.seatPosition(reporter).x
-                let delivery = layout.deliveryPosition(anchorSeat: anchor, side: side, slot: 0)
-                #expect(delivery.y == layout.aisleY)
+                let delivery = layout.deliveryPosition(anchorSeat: anchor, reporterSeat: reporter)
+                #expect(delivery.y == layout.deliveryRowY(forSeat: reporter))
                 // Between the two, or level with the reporter — never beyond it,
                 // which is what walking past the anchor would look like.
                 #expect(min(anchorX, reporterX) <= delivery.x)
@@ -383,24 +392,32 @@ struct RoomSceneTests {
         }
     }
 
-    /// The two rows of slots are one seat pitch apart at their nearest point, so
-    /// a reporter arriving from the left and one arriving from the right cannot
-    /// land their plates on each other — the same argument that sizes the pitch
-    /// *within* a row.
-    @Test func theTwoDeliveryRowsClearEachOtherAndThemselves() {
+    /// **A reporter never crosses the room's centre line**, whoever its parent
+    /// is. A nested subagent can be anchored to a parent seated on the far side;
+    /// walking across to it would put its corridor into the other half's rows,
+    /// where the ring that shares its own row lives. It stops a delivery gap
+    /// short of centre instead — still a walk towards the parent, still on its
+    /// own side, and the two halves stay a full seat pitch apart.
+    @Test func noReporterCrossesTheCentreLineToReachAParentOnTheFarSide() {
         let layout = RoomLayout()
+        let centre = layout.seatPosition(0).x
         let widest = Double(SceneBitmaps.maximumNameplateWidth)
-        let left = layout.deliveryPosition(anchorSeat: 0, side: .left, slot: 0)
-        let right = layout.deliveryPosition(anchorSeat: 0, side: .right, slot: 0)
-        #expect(right.x - left.x >= widest)
-        #expect(RoomLayout.deliverySlotPitch >= widest)
-        // Slots step *outward* on each side rather than in a single direction,
-        // or one row would walk over the anchor to reach its second spot.
-        for side in [Facing.left, Facing.right] {
-            let near = layout.deliveryPosition(anchorSeat: 0, side: side, slot: 0)
-            let far = layout.deliveryPosition(anchorSeat: 0, side: side, slot: 1)
-            #expect(abs(far.x - layout.seatPosition(0).x) > abs(near.x - layout.seatPosition(0).x))
+        var closestRight = Double.greatestFiniteMagnitude
+        var closestLeft = -Double.greatestFiniteMagnitude
+        for anchor in 0..<layout.seatCapacity {
+            for reporter in 1..<layout.seatCapacity where reporter != anchor {
+                let delivery = layout.deliveryPosition(anchorSeat: anchor, reporterSeat: reporter)
+                if layout.seatPosition(reporter).x >= centre {
+                    #expect(delivery.x >= centre, "reporter \(reporter) crossed to the left")
+                    closestRight = min(closestRight, delivery.x)
+                } else {
+                    #expect(delivery.x <= centre, "reporter \(reporter) crossed to the right")
+                    closestLeft = max(closestLeft, delivery.x)
+                }
+            }
         }
+        #expect(closestRight - closestLeft >= widest,
+                "the two halves' nearest delivery points are \(closestRight - closestLeft) px apart")
     }
 
     /// **Every walk runs at the same speed, however far it goes.**
@@ -644,12 +661,12 @@ struct RoomSceneTests {
         #expect(scene.charactersOnScreen.isEmpty, "someone never finished leaving")
     }
 
-    /// A leaver goes out through **its own desk's station**, not through
-    /// whatever patch of aisle it happens to be standing on. That is what makes
-    /// the mass departure a convoy: the stations are a seat pitch apart, and a
-    /// character caught mid-report is somewhere between them.
+    /// A leaver goes out **up its own column**, not along the front of everyone
+    /// else's desk. A character caught mid-report is on its delivery row when
+    /// the session ends, so it has to come back up the column it went down
+    /// rather than cut the corner.
     @Test(.enabled(if: SceneArt.isAvailable))
-    func aLeaverCaughtInTheAisleGoesOutThroughItsOwnStation() throws {
+    func aLeaverCaughtMidReportComesHomeUpItsOwnColumnAndLeavesUpstage() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
         scene.setViewport(CGSize(width: 960, height: 540))
@@ -670,72 +687,154 @@ struct RoomSceneTests {
         step(3)
         let reporter = try #require(scene.character(for: cast[3]))
         let station = scene.layout.seatApproach(3)
-        #expect(Double(reporter.position.y) == scene.layout.aisleY)
+        #expect(Double(reporter.position.y) == scene.layout.deliveryRowY(forSeat: 3),
+                "the reporter is not on its own delivery row")
         #expect(Double(reporter.position.x) != station.x, "the reporter never left its own station")
 
         scene.apply(director.apply([.agentDeparted(agent: cast[3])]))
-        // It walks back through its own station before it walks out, and it
-        // leaves on the side its station is on rather than the side it happened
-        // to be standing on.
+        // It comes back up its own column — and it never leaves that column
+        // again, all the way out through the back of the room.
         var reachedStation = false
-        let end = time + 12
+        var strayed = 0
+        let end = time + 14
         while time < end {
             time += 1.0 / 60.0
             scene.advance(to: time)
             if abs(Double(reporter.position.x) - station.x) < 1e-6 { reachedStation = true }
+            if reachedStation, abs(Double(reporter.position.x) - station.x) > 1e-6 { strayed += 1 }
         }
         #expect(reachedStation)
-        #expect(Double(reporter.position.x) == scene.layout.nearestEdge(toX: station.x).x)
+        #expect(strayed == 0, "the leaver left its own column on the way out")
+        #expect(reporter.position == CGPoint(
+            x: scene.layout.upstageExit(forSeat: 3).x,
+            y: scene.layout.upstageExit(forSeat: 3).y))
+        #expect(Double(reporter.position.y) >= scene.layout.wallBaseY,
+                "the leaver did not go out through the back of the room")
+        #expect(reporter.alpha == 0, "the leaver was still visible when it was retired")
     }
 
-    /// **What the room actually guarantees about the aisle, as arithmetic.**
+    /// **What the room guarantees about the aisle, as arithmetic.**
     ///
-    /// Two plates clear each other when their characters are a seat pitch apart,
-    /// which is what keeps the whole cast's exit convoy legible. They do *not*
-    /// clear each other at half a pitch — and half a pitch is where a character
-    /// crossing the aisle spends most of its time. So the guarantee is "clear at
-    /// the stations", not "clear in the aisle", and every route in this file is
-    /// built to put characters at stations rather than between them.
+    /// This test used to say the opposite of its own name: clear *at* the
+    /// stations, not between them. Two plates clear each other at a seat pitch
+    /// and do not at half a pitch — 48 px against a 65 px plate — and half a
+    /// pitch is where a character crossing the aisle spent most of its time. The
+    /// obvious repair was a wider pitch, and it is a trap twice over:
     ///
-    /// The seam this leaves is named in the report walk's own comment: a
-    /// reporter in transit passes within a plate width of every station between
-    /// its desk and its anchor's. Nothing in the layout can close that while a
-    /// pitch is narrower than two plates; the numbers are checked here so that
-    /// a change to either one surfaces as a failure rather than as a redrawn
-    /// room nobody measured.
+    /// - it does not work. Two characters walking one line in opposite
+    ///   directions cross at **zero** separation whatever the pitch is, so no
+    ///   value of the pitch closes the case the seam is made of;
+    /// - it costs S4. Six agents need five gaps, and five tiles of pitch is
+    ///   800 px against a 720 px panel.
+    ///
+    /// So the constraint was the wrong one. The room does not try to keep two
+    /// characters far apart along a shared line — it stops them sharing the line.
+    /// Every position the choreography can put a character in lies on a lattice:
+    ///
+    /// - **columns**, one per seat, a seat pitch apart. Every vertical move a
+    ///   character makes is inside its own column: out of the chair, down to the
+    ///   aisle, down to its delivery row, and back.
+    /// - **rows**, one tile apart: the seat row, the aisle, and one delivery row
+    ///   per ring. Every lateral move is inside one row.
+    ///
+    /// Two plates can only meet if they share a horizontal strip *and* come
+    /// within a plate width in x. The two numbers below are what make that
+    /// impossible for the report beat: a tile is taller than the tallest plate,
+    /// so different rows can never share a strip; a pitch is wider than the
+    /// widest plate, so different columns can never come close enough. What is
+    /// left is two characters on the same row, and the third block below is the
+    /// proof that a delivery row's corridor never reaches another ring's column.
     @Test func theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem() {
         let layout = RoomLayout()
         let widest = Double(SceneBitmaps.maximumNameplateWidth)
+        let tallest = Double(SceneBitmaps.maximumNameplateHeight)
         let pitch = layout.seatPosition(1).x - layout.seatPosition(0).x
+
+        // 1. Columns are further apart than a plate is wide. Neighbouring
+        //    stations are the closest two columns get, so this holds for every
+        //    pair rather than for one.
         #expect(pitch >= widest, "two characters at neighbouring stations overlap")
-        #expect(pitch / 2 < widest, "the seam described above has closed; update this comment")
-        // Neighbouring stations are the closest two stations get, so the bound
-        // holds for every pair rather than for this one.
-        var gaps: [Double] = []
+        var columnGaps: [Double] = []
         for seat in 0..<layout.seatCapacity {
             for other in (seat + 1)..<layout.seatCapacity {
-                gaps.append(abs(layout.seatPosition(seat).x - layout.seatPosition(other).x))
+                columnGaps.append(abs(layout.seatPosition(seat).x - layout.seatPosition(other).x))
             }
         }
-        #expect(gaps.min() == pitch)
+        #expect(columnGaps.min() == pitch)
+
+        // 2. Rows are further apart than a plate is tall, so two characters on
+        //    different rows cannot share a horizontal strip at any x. The rows
+        //    are the seat row, the aisle, and one delivery row per ring.
+        var rows = [layout.baselineY, layout.aisleY]
+        rows += (1...layout.maximumRing).map { layout.deliveryRowY(ring: $0) }
+        let sorted = rows.sorted()
+        for (lower, upper) in zip(sorted, sorted.dropFirst()) {
+            #expect(upper - lower > tallest,
+                    "rows \(lower) and \(upper) put two plates in one strip")
+        }
+        #expect(Set(rows).count == rows.count, "two of the room's rows are the same line")
+
+        // 3. A delivery row carries one ring, and a ring is two seats — one each
+        //    side of the room. So the only way two characters share a row is one
+        //    per side, and the two sides never come within a plate width of each
+        //    other (checked in
+        //    `noReporterCrossesTheCentreLineToReachAParentOnTheFarSide`).
+        for seat in 0..<layout.seatCapacity {
+            for other in (seat + 1)..<layout.seatCapacity
+            where layout.deliveryRowY(forSeat: seat) == layout.deliveryRowY(forSeat: other) {
+                let sameSide = (layout.seatPosition(seat).x - layout.seatPosition(0).x)
+                    * (layout.seatPosition(other).x - layout.seatPosition(0).x)
+                #expect(sameSide <= 0,
+                        "seats \(seat) and \(other) share a delivery row on one side")
+            }
+        }
+
+        // 4. A reporter reaches its row down its **own** column, and that column
+        //    clears every *other* ring's corridor by at least a seat pitch. The
+        //    corridor of ring r stops at ring r's own station, which is at least
+        //    one pitch further in than any column that crosses its row.
+        let centre = layout.seatPosition(0).x
+        for crossing in 1..<layout.seatCapacity {
+            let column = layout.seatPosition(crossing).x
+            for reporter in 1..<layout.seatCapacity where reporter != crossing {
+                let row = layout.deliveryRowY(forSeat: reporter)
+                // Only rows the crossing character actually passes through on
+                // its way down to its own row.
+                guard row >= layout.deliveryRowY(forSeat: crossing) else { continue }
+                let far = layout.seatPosition(reporter).x
+                // The widest that ring's corridor can be: from its own station
+                // to the closest it may come to the centre.
+                let near = centre + (far >= centre ? 1 : -1) * layout.deliveryGap
+                let gap = min(abs(column - far), abs(column - near))
+                let inside = (column - near) * (column - far) <= 0
+                let why = "seat \(crossing)'s column crosses ring"
+                    + " \(layout.ring(ofSeat: reporter))'s corridor with \(gap) px to spare"
+                #expect(!inside && gap >= widest, Comment(rawValue: why))
+            }
+        }
     }
 
-    /// **A delivery station is spoken for on the way out and on the way home.**
+    /// **Two same-side reporters at once, which is what the slots were for.**
     ///
-    /// The slots exist because two subagents can stop within a second of each
-    /// other. A report used to be one-way, so a station was vacated by a
-    /// character walking off the edge of the room; a round trip walks back
-    /// through the row, and a station released at the hand-over would be handed
-    /// to the next reporter while the first is still standing on the way to it.
+    /// The old bookkeeping claimed a sideways slot lowest-free, which was not
+    /// seat-ordered: the *farther* of two same-side reporters could take the
+    /// nearer slot and then walk home **through** the nearer one's station. And
+    /// even claimed in the right order the two shared a line, so one's corridor
+    /// ran through the other's slot.
+    ///
+    /// Where a reporter stands is now a pure function of its own seat — its ring
+    /// picks its row — so the farther one is on a row of its own, a tile nearer
+    /// the camera, and neither the claim order nor the timing can put them in
+    /// each other's way. Nothing is claimed and nothing is released.
     @Test(.enabled(if: SceneArt.isAvailable))
-    func aDeliveryStationStaysClaimedUntilTheReporterIsHomeAgain() throws {
+    func twoSameSideReportersDeliverOnRowsOfTheirOwn() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
         scene.setViewport(CGSize(width: 960, height: 540))
         var director = SceneDirector(manifest: manifest)
         let cast = Self.cast(4)
-        // Seats 1 and 3 are both right of the anchor, so both reporters want the
-        // same row of slots. Seat 2 is only there to push seat 3 out.
+        // Seats 1 and 3 are both right of the anchor. Seat 2 is only there to
+        // push seat 3 out.
         scene.apply(director.apply(cast.enumerated().map { index, ref in
             .agentAppeared(
                 agent: ref, agentType: index == 0 ? nil : "general-purpose",
@@ -753,7 +852,7 @@ struct RoomSceneTests {
                 scene.advance(to: time)
                 for ref in [cast[1], cast[3]] {
                     if let character = scene.character(for: ref), character.state == .deliver {
-                        stations[ref] = Double(character.position.x)
+                        stations[ref] = Double(character.position.y)
                     }
                 }
                 let onScreen = scene.charactersOnScreen
@@ -767,19 +866,21 @@ struct RoomSceneTests {
         step(4)
         scene.apply(director.apply([.reportDelivered(agent: cast[1])]))
         // Long enough that the first reporter has delivered and is on its way
-        // home — the window in which the old bookkeeping would have handed its
-        // station away.
+        // home — the window the old bookkeeping got wrong.
         step(3)
         #expect(stations[cast[1]] != nil, "the first reporter never delivered")
         #expect(scene.character(for: cast[1])?.isScripted == true,
                 "the first reporter is already home; the overlap under test never happened")
         scene.apply(director.apply([.reportDelivered(agent: cast[3])]))
-        step(10)
+        step(12)
 
+        // Different rows, and further apart than a plate is tall — so the two
+        // could stand at the same x and still not touch.
         let first = try #require(stations[cast[1]])
         let second = try #require(stations[cast[3]])
-        #expect(abs(first - second) >= RoomLayout.deliverySlotPitch,
-                "two reporters delivered \(abs(first - second)) px apart")
+        #expect(abs(first - second) > Double(SceneBitmaps.maximumNameplateHeight),
+                "two reporters delivered \(abs(first - second)) px apart in depth")
+        #expect(second < first, "the farther reporter delivers nearer the camera")
         #expect(overlaps == 0, "\(overlaps) frames with intersecting nameplates")
         // Both are home and sitting again: a report takes nobody out of the room.
         #expect(scene.population == 4)
@@ -849,10 +950,21 @@ struct RoomSceneTests {
         // at the wide default, and a band derived from `MAIN` alone would have
         // cropped every subagent's type line.
         let plateHeight = Double(SceneBitmaps.maximumNameplateHeight)
-        // The lowest plate belongs to a character standing in the aisle.
-        #expect(layout.aisleY - 2 - plateHeight >= band.bottom)
-        #expect(band.top - band.bottom < layout.height,
-                "framing the nominal room box is what left the middle-third composition")
+        // The lowest plate belongs to a character on the outermost delivery
+        // row — the nearest the camera any character can stand.
+        #expect(layout.deliveryRowY(ring: layout.maximumRing) - 2 - plateHeight >= band.bottom)
+        // Every row the choreography can stand a character on is inside it.
+        for row in [layout.baselineY, layout.aisleY]
+            + (1...layout.maximumRing).map({ layout.deliveryRowY(ring: $0) }) {
+            #expect(row - 2 - plateHeight >= band.bottom, "a plate on row \(row) is cropped")
+        }
+        // The band is what the characters occupy and nothing else. It used to be
+        // asserted smaller than the room's nominal box, which was a proxy for
+        // "not a flat band of empty wall and floor"; the delivery rows made the
+        // occupied strip genuinely taller than the nominal box, so the proxy is
+        // replaced by the thing it stood for.
+        #expect(band.bottom == layout.deliveryRowY(ring: layout.maximumRing)
+                - Double(SceneBitmaps.maximumNameplateHeight + 2))
     }
 
     /// One agent gets the **wide** view, not a close-up of one desk.
@@ -925,24 +1037,35 @@ struct RoomSceneTests {
         #expect(nodes.allSatisfy { $0.size == canvas })
     }
 
-    /// Foreground decoration must sit entirely below the content band. Inside
-    /// it, it would be on screen at `3x` — the zoom where a character is
-    /// biggest and the frame is tightest — which is the one place I7 says a
-    /// background detail must not be.
+    /// **Nothing the room draws is nearer the camera than the characters.**
+    ///
+    /// M5 kept the foreground row honest geometrically: strictly below the
+    /// content band, so it fell out of frame at the tightest fitting scale and
+    /// only appeared as the camera pulled back. That was I7's "remove the detail
+    /// that competes with the characters" answered by geometry rather than by
+    /// taste — and the wide camera retired it, because `1x` became the only
+    /// scale a normal room uses and "out of frame at the tightest scale" stopped
+    /// meaning anything. The row was permanently on screen: seven identical
+    /// plants under every glance.
+    ///
+    /// The rule that replaced it is about depth rather than about zoom, so no
+    /// camera policy can retire it: **no prop is drawn in front of the seat
+    /// row.** Everything nearer the camera than the desks is choreography — the
+    /// aisle and the delivery rows — so the foreground is occupied by the thing
+    /// the user is supposed to be looking at, and there is nothing left to
+    /// compete with it.
     @Test(.enabled(if: SceneArt.isAvailable))
-    func foregroundDecorationIsEntirelyOutsideTheContentBand() throws {
+    func theRoomDrawsNoDecorationInFrontOfTheCharacters() throws {
         let manifest = try SceneFixtures.manifest()
-        let scene = RoomScene(manifest: manifest)
-        let band = scene.contentBand
-        let ahead = scene.propNodesForTesting.filter { $0.position.y < band.bottom }
-        #expect(!ahead.isEmpty, "no foreground decoration was placed")
-        for node in ahead {
-            // The node's top edge, from its own anchor.
-            let top = node.position.y + (1 - node.anchorPoint.y) * node.size.height
-            let box = try #require(manifest.room.prop("plant")).contentBox
-            let inkTop = node.position.y + Double(box.height)
-            #expect(inkTop < band.bottom, "foreground prop reaches into the frame at 3x")
-            #expect(top >= inkTop)
+        for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
+            let scene = RoomScene(manifest: manifest, themeID: theme)
+            let nodes = scene.propNodesForTesting
+            #expect(!nodes.isEmpty, "\(theme ?? "room") drew no furniture at all")
+            for node in nodes {
+                let why = "\(theme ?? "room") drew a prop at y=\(node.position.y),"
+                    + " in front of the seat row"
+                #expect(Double(node.position.y) >= scene.layout.baselineY, Comment(rawValue: why))
+            }
         }
     }
 
@@ -972,6 +1095,190 @@ struct RoomSceneTests {
             scene.apply(director.apply(batch))
             #expect([3, 2, 1].contains(scene.currentScale))
         }
+    }
+
+    /// **A departure fades as it walks upstage, and only a departure fades.**
+    ///
+    /// The exit used to end off the side of the frame, where the frame edge did
+    /// the hiding. There is no edge behind the desks — only a flat wall — so a
+    /// character walking away has nothing to disappear behind, and would either
+    /// slide up the wall in full view or blink out at an invisible line. It
+    /// fades over the last leg instead. Nothing else in the room ever changes a
+    /// character's opacity, which is what keeps "faded" readable as "gone".
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func onlyADepartureFadesAndItFadesAllTheWayOut() throws {
+        let store = try Self.store()
+        let layout = RoomLayout()
+        let character = Character(
+            variant: "09", nameplate: NameplateText(lead: "6E7", role: "Explore"), store: store)
+        character.advance(to: 0)
+        character.position = CGPoint(x: layout.seatPosition(1).x, y: layout.baselineY)
+
+        // The report round trip is not an exit and must not fade — the character
+        // comes home and sits down.
+        character.reportAndReturn(
+            out: layout.deliveryRoute(anchorSeat: 0, reporterSeat: 1), facing: .left,
+            home: layout.homeRoute(forSeat: 1), onFinished: {})
+        for step in 0...900 { character.advance(to: Double(step) / 60.0) }
+        #expect(character.alpha == 1, "a reporter faded on its way home")
+
+        var finished = false
+        character.departOffScreen(
+            via: layout.homeRoute(forSeat: 1, fromY: layout.baselineY),
+            to: layout.upstageExit(forSeat: 1)) { finished = true }
+        character.advance(to: 15.0)
+        #expect(character.alpha == 1, "the exit faded before it started walking")
+        var faded: [CGFloat] = []
+        for step in 0...240 {
+            character.advance(to: 15.0 + Double(step) / 60.0)
+            faded.append(character.alpha)
+        }
+        #expect(finished)
+        #expect(character.alpha == 0, "the leaver is still visible when it is retired")
+        #expect(faded.contains { $0 > 0.2 && $0 < 0.8 }, "it blinked out rather than fading")
+        #expect(zip(faded, faded.dropFirst()).allSatisfy { $0 >= $1 }, "the fade went backwards")
+        #expect(Double(character.position.y) == layout.wallBaseY)
+    }
+
+    // MARK: The synthetic worst case
+
+    /// One adversarial pairing: what happens to a full six-agent room, and what
+    /// happens `offset` seconds later.
+    struct AdversarialScript: Sendable {
+        var first: [WorldDelta]
+        var second: [WorldDelta]
+    }
+
+    /// **Every pairing of beats that can put two characters near each other.**
+    ///
+    /// The fixtures pass, and passing was partly luck: `three-subagents` cleared
+    /// by 20 px in x and got there by timing rather than by geometry. So the
+    /// pairings are enumerated instead of waited for. Six agents — S4's
+    /// population — and one beat fired against another at every tenth of a
+    /// second of relative offset, through the window where they overlap.
+    ///
+    /// The pairs that matter and why:
+    ///
+    /// - two same-side reports, which is what the delivery slots existed for and
+    ///   where lowest-free claiming put the farther reporter through the nearer
+    ///   one's station;
+    /// - a report against a departure, which is a leaver crossing the room
+    ///   against a reporter crossing it the other way — the case no seat pitch
+    ///   can fix, because two characters walking one line in opposite directions
+    ///   meet at zero separation whatever the pitch;
+    /// - a report against an arrival, which is the same thing with the arrival
+    ///   walking in along the aisle;
+    /// - the whole cast leaving at once, which is `SessionEnd`;
+    /// - a seat vacated and immediately refilled, which is the one case that
+    ///   puts an arrival's corridor across an occupied station.
+    static let adversarialScripts: [(String, AdversarialScript)] = {
+        let cast = RoomSceneTests.cast(6)
+        let newcomer = AgentRef(project: "/p", session: "s", agent: .subagent("aFEEDFACE00000001"))
+        func appear(_ ref: AgentRef) -> WorldDelta {
+            .agentAppeared(agent: ref, agentType: "general-purpose", lifecycle: .spawning)
+        }
+        return [
+            ("two same-side reports (near first)",
+             .init(first: [.reportDelivered(agent: cast[1])],
+                   second: [.reportDelivered(agent: cast[5])])),
+            ("two same-side reports (far first)",
+             .init(first: [.reportDelivered(agent: cast[5])],
+                   second: [.reportDelivered(agent: cast[1])])),
+            ("three same-side reports",
+             .init(first: [.reportDelivered(agent: cast[5]), .reportDelivered(agent: cast[3])],
+                   second: [.reportDelivered(agent: cast[1])])),
+            ("report against a departure the other way",
+             .init(first: [.reportDelivered(agent: cast[5])],
+                   second: [.agentDeparted(agent: cast[1])])),
+            ("departure against a report the other way",
+             .init(first: [.agentDeparted(agent: cast[1])],
+                   second: [.reportDelivered(agent: cast[5])])),
+            ("report against an arrival",
+             .init(first: [.reportDelivered(agent: cast[5])], second: [appear(newcomer)])),
+            ("the whole cast leaves at once",
+             .init(first: [.reportDelivered(agent: cast[3])],
+                   second: cast.map { .agentDeparted(agent: $0) })),
+            ("a seat vacated and refilled under an outer report",
+             .init(first: [.agentDeparted(agent: cast[1]), .reportDelivered(agent: cast[5])],
+                   second: [appear(newcomer)])),
+        ]
+    }()
+
+    /// Runs one pairing and returns the tightest the plates ever came, and when.
+    /// Negative means they intersected.
+    static func runAdversarial(
+        manifest: Manifest, script: AdversarialScript, offset: TimeInterval
+    ) -> (gap: Double, at: TimeInterval) {
+        let scene = RoomScene(manifest: manifest)
+        scene.setViewport(CGSize(width: 720, height: 400))
+        var director = SceneDirector(manifest: manifest)
+        scene.apply(director.apply(cast(6).enumerated().map { index, ref in
+            .agentAppeared(
+                agent: ref, agentType: index == 0 ? nil : "general-purpose",
+                lifecycle: index == 0 ? .active : .spawning)
+        }))
+
+        var time = 0.0
+        var worst = Double.greatestFiniteMagnitude
+        var worstAt = 0.0
+        func step(_ seconds: TimeInterval) {
+            let end = time + seconds
+            while time < end {
+                time += 1.0 / 60.0
+                scene.advance(to: time)
+                let onScreen = scene.charactersOnScreen
+                for (index, first) in onScreen.enumerated() {
+                    for second in onScreen[onScreen.index(after: index)...] {
+                        let a = first.nameplateRect, b = second.nameplateRect
+                        let gap = Double(max(max(b.minX - a.maxX, a.minX - b.maxX),
+                                             max(b.minY - a.maxY, a.minY - b.maxY)))
+                        if gap < worst { worst = gap; worstAt = time }
+                    }
+                }
+            }
+        }
+        // Everyone in and seated first, so the beats under test are the only
+        // thing moving. A walk-in is 128 px at 72 px/s, so three seconds is
+        // clear of it; the tail outlasts the longest route the room can produce,
+        // which is a report out and back followed by an exit.
+        step(3)
+        scene.apply(director.apply(script.first))
+        step(max(1.0 / 60.0, offset))
+        scene.apply(director.apply(script.second))
+        step(15)
+        return (worst, worstAt)
+    }
+
+    /// **The guarantee, exercised rather than argued.**
+    ///
+    /// `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` proves the
+    /// lattice from the numbers. This drives it: every adversarial pairing at
+    /// every offset, and no two plates may come closer than touching. The bound
+    /// asserted is a real gap rather than mere non-intersection, so a change
+    /// that leaves the rooms *just* clearing fails here instead of shipping.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func noAdversarialPairingOfBeatsEverTouchesTwoPlates() throws {
+        let manifest = try SceneFixtures.manifest()
+        var worst = Double.greatestFiniteMagnitude
+        var worstLabel = ""
+        for (label, script) in Self.adversarialScripts {
+            for offset in stride(from: 0.0, through: 6.0, by: 0.5) {
+                let result = Self.runAdversarial(
+                    manifest: manifest, script: script, offset: offset)
+                if result.gap < worst {
+                    worst = result.gap
+                    worstLabel = "\(label), fired \(String(format: "%.1f", offset))s apart,"
+                        + " at t=\(String(format: "%.2f", result.at))"
+                }
+            }
+        }
+        #expect(worst > 0, Comment(rawValue:
+            "plates came within \(worst) px — \(worstLabel)"))
+        // The lattice's own margin: rows are a tile apart and plates 26 px tall,
+        // so anything on two different rows clears by 6 px. Anything less means
+        // two characters found their way onto one row.
+        #expect(worst >= 6, Comment(rawValue:
+            "only \(worst) px of clearance — \(worstLabel)"))
     }
 }
 
