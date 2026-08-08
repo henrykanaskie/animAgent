@@ -733,12 +733,17 @@ Drawn so the implementers do not have to guess.
   for it.
 - **Keyword inference from the `cwd` string.** §3b.
 - **Theme, backdrop or foreground varying with tool activity.** §6 rule 1.
-- **Animated props.** `3_Animated_objects/` exists and stays out. In this product
-  **motion means an agent is working** — it is the one signal a glance actually
-  reads. Scenery that moves on its own competes with the only thing the room is
-  for. This is I7's "the room is the low-contrast layer" applied to the time axis,
-  and it is a firmer line than the saturation one. It matters more since
-  `004b587`, because the foreground row is now always on screen (§0).
+- **Animated props.** ~~`3_Animated_objects/` exists and stays out.~~
+  **Amended 2026-08-08 — see §14b.** The reasoning below stands and is the
+  reason the exception is one prop rather than a category; the flat prohibition
+  does not.
+
+  In this product **motion means an agent is working** — it is the one signal a
+  glance actually reads. Scenery that moves on its own competes with the only
+  thing the room is for. This is I7's "the room is the low-contrast layer"
+  applied to the time axis, and it is a firmer line than the saturation one. It
+  matters more since `004b587`, because the foreground row is now always on
+  screen (§0).
 - **Wall-mounted and desk-top props**, until the manifest carries a measured
   mount or surface datum. §7.
 - **New character poses beyond what the pack ships.** §5b.
@@ -956,6 +961,49 @@ hash. That is the difference between the user saying "make mine the jail" and
 the app deciding a project looks like one, and only the second is fiction. [I1]
 
 Neither change touches the mechanism in §3c or the spec in §8.
+
+---
+
+## 14b. Amendment, 2026-08-08 — one animated prop, and the rule that admits it
+
+§9 banned animated props outright. The maintainer asked for them, and the ban is
+replaced by a rule rather than lifted, because §9's reasoning was right about
+*why* motion is dangerous here and wrong only about whether it can ever be
+afforded.
+
+**The rule: a prop may idle on its own loop and may never take input from the
+delta stream.** A clock that swings is scenery. A clock that swings *faster when
+the agent is busy* is scenery asserting something, and that is the fiction §9
+exists to prevent [I1]. `loop` is always `true` and has no other value; nothing
+in the animation path reads a delta, and there is no code path by which it
+could.
+
+**One prop ships**, `pendulum_clock` in `library`: 4 frames at 5 fps, 64 moving
+pixels of 2096, and 192 of 288,000 on the panel between consecutive frames. The
+budget is deliberately that small, because §9's argument is correct that motion
+out-competes everything else a glance reads.
+
+Three candidates were refused on measurements, and the refusals are the useful
+part:
+
+- `control_room_screens` **fails the lint** — `mission_control` 0.427 → 0.363
+  against a 0.40 floor — and cannot be drawn regardless: its content box is
+  120 px wide while the scene places `board` at four points 96 px apart, so
+  copies clip each other at any canvas size. The canvas widening approved for it
+  is reverted.
+- `control_room_server` composes cleanly and would spend 0.019 of the 0.027
+  margin §14a's rework deliberately bought.
+- `old_tv` is a TV meant to stand *on* furniture; the back row is a floor line,
+  so it would hang at chest height over nothing. It moves 27.9%, not the 10.4%
+  first recorded — and it **would have passed the lint**, because the lint says
+  nothing about motion. That is a real gap in I7's mechanisation and it is
+  recorded here rather than papered over: nothing checks a moving-pixel budget.
+
+**The slot is `board`, and it is not free.** `plant` repeats three times in the
+back row and seven in the permanently-visible foreground; `desk` and `chair` sit
+under characters. So `board` is the only role that can carry motion — and it is
+also every theme's identity object and dark anchor. `library` gives up its
+chalkboard for this. That is the trade, made once, and it is one line to revert.
 
 ---
 
