@@ -289,18 +289,23 @@ public final class Character: SKNode {
         return max(0.2, distance / walkSpeed)
     }
 
-    /// Walk in from the room edge. `spawn` is the walk cycle by construction —
-    /// the pack ships no spawn animation and inventing one is not worth the
-    /// cost. [04-ART-DIRECTION]
-    /// Walks in along the aisle, then steps back to the desk. Two beats
-    /// because a character that walks along the desk row walks *through*
-    /// whoever is already sitting there.
-    public func enter(from edge: ScenePoint, approach: ScenePoint, seat: ScenePoint) {
-        position = CGPoint(x: edge.x, y: edge.y)
-        run(script: [
-            .walk(to: approach, state: .spawn),
-            .walk(to: seat, state: .spawn),
-        ])
+    /// Walk in. `spawn` is the walk cycle by construction — the pack ships no
+    /// spawn animation and inventing one is not worth the cost.
+    /// [04-ART-DIRECTION]
+    ///
+    /// **The route is a list of waypoints and its first element is where the
+    /// character starts**, for the same reason `reportAndReturn` takes one: the
+    /// *shape* of the walk is the guarantee, not the endpoints. This one runs
+    /// straight up the character's own column and never leaves it, so it cannot
+    /// cross another character's station whatever else the room is doing. A
+    /// caller that passed a start off to one side would put the plate back on
+    /// the aisle and the invariant would be gone with nothing failing, so the
+    /// route is built by `RoomLayout.entranceRoute(forSeat:)` and arrives here
+    /// already correct.
+    public func enter(along route: [ScenePoint]) {
+        guard let start = route.first else { return }
+        position = CGPoint(x: start.x, y: start.y)
+        run(script: route.dropFirst().map { .walk(to: $0, state: .spawn) })
     }
 
     /// The `SubagentStop` beat: step into the aisle, walk to the anchor, hand

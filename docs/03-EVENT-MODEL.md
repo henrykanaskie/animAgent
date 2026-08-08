@@ -568,15 +568,60 @@ Collapse aggressively; a user cannot distinguish twelve icons at `2x`.
 | Badge | Tools |
 |---|---|
 | document | `Edit`, `Write`, `NotebookEdit` |
-| magnifier | `Read`, `Glob`, `Grep` |
+| magnifier | `Read`, `Glob`, `Grep`, `ToolSearch` |
 | terminal | `Bash`, `BashOutput`, `KillShell` |
 | globe | `WebSearch`, `WebFetch` |
-| checklist | `TodoWrite`, `Agent` |
+| checklist | `TodoWrite`, `Agent`, `SendMessage` |
 | plug | `mcp__*` (any) |
-| question mark | anything unmapped |
+| question mark | anything unmapped — and `Monitor`, permanently, see below |
 
 Unmapped tools get the question mark and are logged. Never invent a badge for a
 tool you do not recognise — the question mark is honest, a guess is not. [I1]
+
+### The table is filled from the captures, not from imagination — M6d
+
+A live capture logged `unmapped tools: Monitor×1, SendMessage×2, ToolSearch×5`.
+Five uses of one tool in one session is an ordinary tool, not an exotic one, and
+a room that answers "?" for it is telling the user less than it could.
+
+So the table was reviewed against **every distinct `tool_name` in `fixtures/`**,
+walked rather than remembered. There are six: `Bash` (45 calls), `Read` (19),
+`Agent` (10), `ToolSearch` (6), `SendMessage` (2), `Monitor` (1).
+`everyToolInEveryFixtureIsEitherMappedOrDeliberatelyNot` now does that walk on
+every run and fails on a tool that is in neither the table nor the list of
+deliberate question marks, so a future capture cannot introduce one quietly.
+
+**There are seven badges and no more are coming** — four of them are authored and
+no further art packs will be bought [04-ART-DIRECTION, M5c]. So the only question
+a new tool can raise is *does it belong in a bucket that exists*, never *what
+glyph does it need*.
+
+- **`ToolSearch` → magnifier.** It queries the tool catalogue by name or keyword
+  and hands back schemas. It reads no file, but neither does `Glob`, which is in
+  that bucket for matching *names* while `Grep` is there for matching *contents*:
+  the bucket is retrieval, not the filesystem. Not `globe`, which is the network;
+  `ToolSearch` never leaves the process.
+- **`SendMessage` → checklist.** On the strength of the capture rather than a
+  reading of the name. This document already records that a `SendMessage`
+  `PreToolUse` is followed ~20 ms later by a `SubagentStart` — twice in
+  `fixtures/four-subagents.jsonl`, at 25 ms and 26 ms — which is the same event
+  `Agent` produces and the reason `SubagentStart` is not once per agent. The
+  model already treats `SendMessage` as dispatch, and any other badge would have
+  the glyph disagree with the character waking up beside it in the same batch.
+- **`Monitor` stays the question mark, and that is the answer rather than a
+  deferral.** It is the one tool in the capture with two disjoint substrates and
+  a name that does not say which: a `command`, which runs in the same shell
+  environment as `Bash`, or a `ws` WebSocket. Badges are keyed by name alone, so
+  `terminal` would claim a shell for a call that may be a socket and `globe` the
+  reverse. It is 1 of the 83 calls in `fixtures/`, so a bucket would be right
+  rarely and wrong rarely — and when those two are that close, the glyph that
+  asserts only "we do not recognise this" wins. [I1] If `Monitor` ever splits
+  into two tool names, each half has an honest home and this line goes.
+
+Two near misses left alone on purpose, in the same spirit as the hand mirror and
+the monitor in `04-ART-DIRECTION.md`: `ToolSearch` is not `globe` merely for
+having "search" in common with `WebSearch`, and `Monitor` is not `terminal`
+merely for usually carrying a shell command.
 
 **Multiple open calls:** display the badge for the *lowest-ordinal* tool in the
 table above, plus a small `×N`. Deterministic ordering means the badge is

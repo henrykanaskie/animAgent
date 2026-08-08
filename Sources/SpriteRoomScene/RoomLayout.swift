@@ -279,23 +279,56 @@ public struct RoomLayout: Sendable, Hashable {
         return route
     }
 
-    /// Where a character walks in from: one seat-pitch beyond its own seat, on
-    /// the outward side, in the aisle.
+    /// **The walk-in, as waypoints: straight up the character's own column,
+    /// from its own ring's delivery row into its chair.**
     ///
-    /// Not the room edge. The camera frames the occupied seats, so a character
-    /// starting at the far wall spends its entire walk-in off screen and the
-    /// room just sits there looking empty while it happens. One pitch out is
-    /// the edge of what the camera frames, so the walk is visible from its
-    /// first frame.
-    public func edgePosition(forSeat index: Int) -> ScenePoint {
-        let seat = seatPosition(index)
-        let outward = seat.x >= width / 2 ? 1.0 : -1.0
-        return ScenePoint(
-            x: seat.x + outward * Double(seatSpacingTiles * tile), y: aisleY)
+    /// It used to start one seat pitch *outward* in the aisle and walk sideways
+    /// to its own station, and that was the last beat in the room the lattice
+    /// did not close by construction. One pitch outward on the aisle is not a
+    /// clear patch of floor — it is **exactly the next ring's own aisle
+    /// station** — so an arrival's corridor ran from one occupied column to
+    /// another along the one row every character steps through. It needed a
+    /// seat vacated and refilled while the next seat out was mid-report, and
+    /// then the newcomer stood on the reporter as it passed: measured at
+    /// **−25.6 px**, a real overlap rather than a tight clearance.
+    ///
+    /// The repair is the rule the exits already follow, stated the other way up:
+    ///
+    /// > **Every vertical move in the room goes upstage.** Out of the aisle into
+    /// > a chair, home up a reporter's own column, out through the back wall —
+    /// > every one of them increases `y`.
+    ///
+    /// That is why the arrival comes up from the front rather than down from the
+    /// back, which is the other way to put a walk-in inside its own column. Two
+    /// characters in one column is not hypothetical — a seat is free the instant
+    /// its occupant starts walking out, so a refill can begin while the leaver
+    /// is still in the column — and a *downstage* arrival would meet that leaver
+    /// head-on at zero separation, which no spacing fixes. Arriving upstage makes
+    /// the pair a convoy instead: same direction, same speed, so a gap that
+    /// starts at a tile stays at a tile. It is the argument
+    /// `theWholeCastCanLeaveInOneFrame` already rests on.
+    ///
+    /// **Nothing new has to be proved about the rows it crosses.** The route is
+    /// a character ascending its own column from its own ring's delivery row,
+    /// which is the report walk's descent reversed — so block 4 of
+    /// `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` covers it
+    /// unchanged: a column clears every *other* ring's corridor by at least a
+    /// seat pitch, on exactly the rows at or behind that column's own row.
+    ///
+    /// **It is still visible from its first frame**, which is what the outward
+    /// aisle start was for. `contentBand` runs from the outermost delivery row's
+    /// plate to the tallest badge, so every ring's delivery row is inside the
+    /// frame by construction — the walk-in now begins on the same floor the
+    /// report beat plays out on rather than at the edge of what the camera
+    /// happens to be framing.
+    public func entranceRoute(forSeat index: Int) -> [ScenePoint] {
+        [deliveryLaneEntry(forSeat: index), seatApproach(index), seatPosition(index)]
     }
 
-    // `nearestEdge(toX:)` lived here and is gone with the sideways exit it
-    // served. Nothing walks off the side of the room any more.
+    // `edgePosition(forSeat:)` lived here and is gone with the lateral walk-in
+    // it served, as `nearestEdge(toX:)` went with the sideways exit. Nothing
+    // enters or leaves along the aisle any more; every arrival and every
+    // departure is one column, one direction.
 
     /// **Where a character goes when it leaves: straight back, up its own
     /// column, and out through the back of the room.**

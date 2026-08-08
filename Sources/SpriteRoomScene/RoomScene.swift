@@ -307,10 +307,16 @@ public final class RoomScene: SKScene {
             characters[agent] = character
             animated.append(character)
             seatOf[agent] = seat
-            character.enter(
-                from: layout.edgePosition(forSeat: seat),
-                approach: layout.seatApproach(seat),
-                seat: layout.seatPosition(seat))
+            // **Straight up its own column, from its own ring's delivery row.**
+            // See `RoomLayout.entranceRoute(forSeat:)`: the walk-in used to run
+            // one seat pitch sideways along the aisle, which is the one row
+            // every character steps through, and it started on the *next ring's
+            // own station*. A seat vacated and refilled while that neighbour was
+            // mid-report put the newcomer on top of it — measured at −25.6 px,
+            // an overlap and not a near miss. Entering up the column is the exit
+            // reversed, so it is closed by the same construction and needs no
+            // argument of its own.
+            character.enter(along: layout.entranceRoute(forSeat: seat))
 
         case let .setBody(agent, state, facing):
             characters[agent]?.setResting(state, facing: facing)

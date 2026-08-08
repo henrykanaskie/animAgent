@@ -144,26 +144,58 @@ struct RoomSceneTests {
     // MARK: Choreography
 
     @Test(.enabled(if: SceneArt.isAvailable))
-    func aSpawningCharacterWalksInFromTheEdgeAndSettles() throws {
+    func aSpawningCharacterWalksUpItsOwnColumnAndSettles() throws {
         let store = try Self.store()
+        let layout = RoomLayout()
         let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         character.advance(to: 0)
         character.setResting(.idle, facing: .right)
-        character.enter(
-            from: ScenePoint(x: -32, y: 32),
-            approach: ScenePoint(x: 400, y: 32),
-            seat: ScenePoint(x: 400, y: 64))
+        let route = layout.entranceRoute(forSeat: 3)
+        character.enter(along: route)
         character.advance(to: 0)
         #expect(character.state == .spawn)
-        #expect(character.position.x == -32)
+        #expect(character.position == CGPoint(x: route[0].x, y: route[0].y))
+        #expect(Double(character.position.y) == layout.deliveryRowY(forSeat: 3),
+                "the walk-in does not start on its own ring's delivery row")
 
-        character.advance(to: 2)
-        #expect(character.position.x > -32 && character.position.x < 400)
-
-        character.advance(to: 10)
-        #expect(character.position.x == 400)
-        #expect(character.position.y == 64, "the walk-in ends at the desk, not the aisle")
+        // Every frame of it is inside seat 3's column and every step of it is
+        // upstage — the two properties the lattice rests on, checked over the
+        // walk rather than at its ends.
+        var previous = Double(character.position.y)
+        var strayed = 0
+        for step in 1...600 {
+            character.advance(to: Double(step) / 60.0)
+            if abs(Double(character.position.x) - layout.seatPosition(3).x) > 1e-6 { strayed += 1 }
+            #expect(Double(character.position.y) >= previous, "the walk-in moved downstage")
+            previous = Double(character.position.y)
+        }
+        #expect(strayed == 0, "the walk-in left its own column")
+        #expect(character.position == CGPoint(
+            x: layout.seatPosition(3).x, y: layout.seatPosition(3).y),
+            "the walk-in ends at the desk, not the aisle")
         #expect(character.state == .idle, "the walk-in must hand back to the data's state")
+    }
+
+    /// **The walk-in is visible from its first frame**, which is what the old
+    /// outward-aisle start bought and what moving it had to keep. Every ring's
+    /// delivery row is inside the band the camera frames, by construction rather
+    /// than by measurement of one case: the band's bottom *is* the outermost
+    /// delivery row's plate.
+    @Test func everySeatWalksInFromInsideTheFrame() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        let band = scene.contentBand
+        let layout = scene.layout
+        let plateDrop = Double(SceneBitmaps.maximumNameplateHeight + 2)
+        for seat in 0..<layout.seatCapacity {
+            let start = layout.entranceRoute(forSeat: seat)[0]
+            #expect(start.y - plateDrop >= band.bottom, Comment(rawValue:
+                "seat \(seat) starts its walk-in"
+                + " \(band.bottom - (start.y - plateDrop)) px below the frame"))
+            #expect(start.y <= band.top, "seat \(seat) starts its walk-in above the frame")
+            #expect(start.x == layout.seatPosition(seat).x,
+                    "seat \(seat) starts its walk-in outside its own column")
+        }
     }
 
     /// The one dramatisation the event model licenses: walk, deliver, **walk
@@ -266,10 +298,7 @@ struct RoomSceneTests {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         character.advance(to: 0)
-        character.enter(
-            from: ScenePoint(x: -32, y: 32),
-            approach: ScenePoint(x: 200, y: 32),
-            seat: ScenePoint(x: 200, y: 64))
+        character.enter(along: RoomLayout().entranceRoute(forSeat: 2))
         character.advance(to: 0.5)
         character.setResting(.working, facing: .right)
         #expect(character.state == .spawn, "the walk still owns the body")
@@ -1171,6 +1200,18 @@ struct RoomSceneTests {
     /// - the whole cast leaving at once, which is `SessionEnd`;
     /// - a seat vacated and immediately refilled, which is the one case that
     ///   puts an arrival's corridor across an occupied station.
+    ///
+    /// **The refill pairing was here and was aimed at the wrong seat, and that
+    /// is worth recording rather than quietly fixing.** It vacated seat 1 and
+    /// reported from seat 5 — two rings apart, so the arrival's corridor and the
+    /// reporter's station were never the same place, and the sweep cleared at
+    /// the lattice's own 6 px margin while an overlap of **−25.6 px** sat one
+    /// ring away. The corridor of an arrival at seat *n* ended on seat *n+2*'s
+    /// station — the next ring out on the same side — and nothing here fired
+    /// those two against each other. The three pairings below are that case, at
+    /// every same-side adjacent-ring pair the room has, plus the handover that
+    /// puts two characters in one column at once. A sweep that enumerates
+    /// pairings is only as good as the pairings it enumerates.
     static let adversarialScripts: [(String, AdversarialScript)] = {
         let cast = RoomSceneTests.cast(6)
         let newcomer = AgentRef(project: "/p", session: "s", agent: .subagent("aFEEDFACE00000001"))
@@ -1201,6 +1242,27 @@ struct RoomSceneTests {
             ("a seat vacated and refilled under an outer report",
              .init(first: [.agentDeparted(agent: cast[1]), .reportDelivered(agent: cast[5])],
                    second: [appear(newcomer)])),
+            // The three same-side adjacent-ring refills. Seats 1/3/5 sit at one,
+            // two and three pitches right of centre and 2/4 at one and two left,
+            // so these are every pair whose columns are one pitch apart on one
+            // side — which is exactly the reach the old aisle walk-in had.
+            ("a seat vacated and refilled under the next ring out reporting (1 under 3)",
+             .init(first: [.agentDeparted(agent: cast[1]), .reportDelivered(agent: cast[3])],
+                   second: [appear(newcomer)])),
+            ("a seat vacated and refilled under the next ring out reporting (3 under 5)",
+             .init(first: [.agentDeparted(agent: cast[3]), .reportDelivered(agent: cast[5])],
+                   second: [appear(newcomer)])),
+            ("a seat vacated and refilled under the next ring out reporting (2 under 4)",
+             .init(first: [.agentDeparted(agent: cast[2]), .reportDelivered(agent: cast[4])],
+                   second: [appear(newcomer)])),
+            // A seat is free the instant its occupant starts walking out, so the
+            // newcomer and the leaver are in one column together. Nothing else
+            // in the room can put two characters on one column, and it is the
+            // case that decides which *way* a walk-in runs: both move upstage,
+            // so they are a convoy and the gap they start with is the gap they
+            // keep.
+            ("a seat refilled while its leaver is still in the column",
+             .init(first: [.agentDeparted(agent: cast[1])], second: [appear(newcomer)])),
         ]
     }()
 

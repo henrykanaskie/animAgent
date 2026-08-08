@@ -44,12 +44,26 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
     ///
     /// Anything unrecognised is the question mark, never a guess. A new tool
     /// name appearing tomorrow must not need new art. [I1]
+    ///
+    /// **There are seven badges and no more are coming** — four are authored and
+    /// no further art packs will be bought [04-ART-DIRECTION, M5c]. So the only
+    /// question a new tool can raise is "does it belong in a bucket that
+    /// exists", never "what glyph does it need". Where the answer is no, the
+    /// answer is the question mark and it is permanent; `Monitor` below is one,
+    /// and its reason is recorded rather than left as a shrug.
     public static func badge(forTool toolName: String) -> ToolBadge {
         if toolName.hasPrefix("mcp__") { return .plug }
         switch toolName {
         case "Edit", "Write", "NotebookEdit":
             return .document
-        case "Read", "Glob", "Grep":
+        // `ToolSearch` queries the tool catalogue by name or keyword and hands
+        // back schemas. It reads no file, but neither does `Glob`, which is in
+        // this bucket for matching *names* while `Grep` is here for matching
+        // *contents* — the bucket is retrieval, not the filesystem. `ToolSearch`
+        // is the same act against a different index: a query in, matches out,
+        // nothing mutated and nothing off-machine. Not `globe`, which is the
+        // network, and `ToolSearch` never leaves the process.
+        case "Read", "Glob", "Grep", "ToolSearch":
             return .magnifier
         case "Bash", "BashOutput", "KillShell":
             return .terminal
@@ -59,8 +73,26 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
         // model-facing name and never appears in a payload — it is accepted
         // here only because `docs/04-ART-DIRECTION.md` still lists it, and
         // accepting a name we will never see costs nothing.
-        case "TodoWrite", "Agent", "Task":
+        //
+        // **`SendMessage` is in this bucket on the strength of the capture, not
+        // on a reading of its name.** `docs/03-EVENT-MODEL.md` already records
+        // that a `SendMessage` `PreToolUse` is followed ~20 ms later by a
+        // `SubagentStart` — `fixtures/four-subagents.jsonl` has it twice, at
+        // 25 ms and 26 ms — which is the same event `Agent` produces and the
+        // reason `SubagentStart` is not once per agent. So the room's own model
+        // already treats `SendMessage` as dispatch, and badging it as anything
+        // else would have the glyph disagree with the character waking up beside
+        // it in the same batch.
+        case "TodoWrite", "Agent", "Task", "SendMessage":
             return .checklist
+        // **`Monitor` stays here on purpose.** It is the one tool in the capture
+        // with two disjoint substrates and a name that does not say which: a
+        // `command`, which "runs in the same shell environment as Bash", or a
+        // `ws` WebSocket. The badge is keyed by name alone, so `terminal` would
+        // be a claim about a shell for a call that may be a socket, and `globe`
+        // the reverse. The fixtures hold one `Monitor` call — 1 of the 83 in
+        // `fixtures/` — so the bucket would be right rarely and wrong rarely,
+        // and when the two are that close the honest glyph wins. [I1]
         default:
             return .questionMark
         }
