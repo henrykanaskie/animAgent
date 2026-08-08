@@ -437,12 +437,43 @@ def main(argv=None):
                     help="also draw the fallback character variants (not used by the manifest)")
     ap.add_argument("--scale", type=int, default=1, choices=(1, 2),
                     help="1 => the 32x set (default), 2 => the 48x/64px set")
+    ap.add_argument("--allow-fallback-bubble", action="store_true",
+                    help="draw the badges in a hand-drawn lookalike when the pack "
+                         "is absent; the result is not shippable art")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
+
+    # The pack's empty bubble is the whole premise of these four badges: they are
+    # "drawn in the pack's own bubble and colours", which is what
+    # `provenance: "authored"` claims and what M6 gated. Without it this script
+    # silently substitutes the hand-drawn fallback — heavier border, different
+    # weight — and exits 0, so a newcomer following the README order before
+    # unpacking gets four badges that do not match the two real ones and nothing
+    # says so. `assets/` is gitignored, so `git status` stays clean too.
+    #
+    # This is `build-manifest.py`'s lesson applied here: a script that writes
+    # into `assets/` must refuse rather than produce something plausible.
+    # `--allow-fallback-bubble` is the way to ask for it on purpose, which is
+    # what the fallback exists for — a checkout with no packs at all, where the
+    # point is to see *something* rather than to ship it.
+    if _pack_bubble() is None and not args.allow_fallback_bubble:
+        print("error: the pack's speech bubble is not on disk, so the four "
+              "authored badges cannot be drawn in it.", file=sys.stderr)
+        print("       Expected: %s" % os.path.relpath(BUBBLE, REPO),
+              file=sys.stderr)
+        print("       Run scripts/process-assets.py first — it writes that file "
+              "out of Modern Interiors.", file=sys.stderr)
+        print("       Pass --allow-fallback-bubble to draw them in a hand-drawn "
+              "lookalike instead; the result is NOT what provenance 'authored' "
+              "claims and must not be shipped.", file=sys.stderr)
+        return 2
 
     os.makedirs(AUTHORED, exist_ok=True)
     if not args.quiet:
         print("authored art -> %s" % os.path.relpath(AUTHORED, REPO))
+        if args.allow_fallback_bubble and _pack_bubble() is None:
+            print("  WARNING: hand-drawn fallback bubble; these badges do not "
+                  "match the pack's and must not be shipped")
     make_badges(args.scale, args.quiet)
     if args.characters:
         os.makedirs(PLACEHOLDER, exist_ok=True)

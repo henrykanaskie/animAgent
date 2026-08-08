@@ -487,25 +487,34 @@ distinguishing part of a nameplate first and doubled its size, built six themed
 rooms and the Room ▸ picker behind them (ADR-002), stopped a subagent departing
 on a turn boundary, and turned the report walk into a round trip.
 
-This section describes the state at `eedd89c`. Work is in flight on several of
-the items below, so check the git log before treating any of them as untouched.
+Measured at `c0bbffd`. This list said `eedd89c` and was not re-checked while
+work landed; four items below were closed and still listed as open, one of them
+describing code that had been deleted. That is the third time this file has
+drifted, and it is the front door — treat a mismatch here as "re-measure", and
+re-measure when you close something.
 
 What is honestly still open:
 
-- **The camera is 1x only, and the foreground row is therefore always on
-  screen.** `comfortablePopulation` is empty by default, so population no longer
-  pulls the camera in — which is the wide room the maintainer asked for, and
-  which retired M5's geometric protection for the foreground row. That row had
-  been placed strictly below the content band so it fell out of frame at the
-  tightest zoom; with 1x the only scale, it never does. Filed rather than fixed,
-  and a maintainer decision either way.
-- **Seat pitch is 96 px against a 65 px nameplate.** That leaves 48 px of
-  half-pitch, so a character in transit is always within a plate width of some
-  station. Real captures pass by 20–31 px and a synthetic worst case does not.
-  Closing it structurally needs a 5-tile pitch — 4 tiles misses by one pixel —
-  and 5 tiles stops five agents fitting the panel at 1x. A trade, not a bug.
-- **Delivery slots are claimed lowest-free, not seat-ordered**, so two reporters
-  arriving on the same side can cross rather than queue in seat order.
+- **The camera is `1x` only, and two of three rungs are now unreachable.**
+  `comfortablePopulation` is empty by default, so population never pulls the
+  camera in — the wide room, decided and kept. The lattice then grew the content
+  band from 145 to 241 px, which puts `2x` at 482 px against a 400 px panel;
+  `3x` was already dead before that. The ladder is untouched and integer and
+  `aCameraCanStillPreferACloserScaleIfItIsToldTo` proves the mechanism survives.
+  Recorded as a spend, not a defect.
+
+  *The foreground row is no longer open.* It was removed, and the rule that
+  replaced it is stronger than the one the wide camera retired: **nothing
+  decorative is drawn nearer the camera than the seat row.** M5's rule was about
+  zoom; this one is about depth, so no camera policy can retire it.
+
+  *Seat pitch and delivery slots are no longer open either.* The room is a
+  lattice — every character is confined to its own seat's column or its own
+  ring's delivery row — so the worst synthetic overlap went from −26 px to
+  +6 px, and delivery position is a pure function of the reporter's seat, so
+  there are no slots left to claim out of order. `claimStation`,
+  `releaseStation` and `reportingSlots` no longer exist; this file described them
+  for a day after they were deleted.
 - **`mission_control` has the thinnest palette margin in the set.** It was the
   weakest theme at M6 and was rebuilt at M6b: it draws its props on a value band
   floored at 0.46, which took wall-minus-darkest-prop from 0.169 to 0.302 — the
@@ -522,23 +531,30 @@ What is honestly still open:
   satisfied while the complaint it answers stayed true, and an absent table is at
   least visibly absent. No other row in the sheet is seated, so nothing else can
   fill it.
-- **The `sleep` badge is art, not something the room draws.**
-  `badges.states.sleep` is in the manifest with a file on disk, and
-  `SpriteRoomCore` carries the `dormant` lifecycle that would drive it, but
-  `SpriteRoomScene` does not reference it — `badges.states` reaches the scene
-  only through `attentionKey`. A dormant subagent currently draws the same as an
-  idle one. What would settle it: the scene reading a second `badges.states`
-  entry, plus a test that a dormant character wears it and an idle one does not.
-- **Animated props were cut to disk at M6b and were not in the manifest at
-  `eedd89c`**, because `props.roles.<role>` held one `file` and an animated prop
-  needs a frame list and a rate. The additive `animation` key is proposed in
-  `docs/04-ART-DIRECTION.md`, and **it is being landed as this is written** —
-  check the git log rather than this bullet.
-- **`preview-theme.py`'s geometry is still unchecked.** A placement bug in it put
-  every prop up to ~80 px out at 1x, which means every theme accepted at M6 was
-  accepted against a wrong picture. The bug is fixed; nothing verifies the
-  transcription, and closing that needs a pixel comparison against a scene that
-  needs a window server.
+- *The `sleep` badge is no longer open.* The scene draws it: a dormant subagent
+  wears a blue `Z` bubble in the badge anchor, ordinary `idle` body, its own
+  seat. Precedence is **attention > sleep > tool**. Wiring it needed a
+  `WorldDelta` case that had been refused when dormancy shipped, on the grounds
+  that nothing we own could honestly draw the difference — the `Z` is real pack
+  art saying exactly the true thing, so the refusal was reversed with its reason
+  recorded rather than overwritten.
+- *Animated props are no longer open.* One ships — `library`'s pendulum clock,
+  4 frames at 5 fps, 192 changed pixels of 288,000 between frames. Three were
+  refused on measurements. `I7` now has a **motion budget** whose ceiling is the
+  quietest looping character animation any variant plays, so scenery is measured
+  against the cast on the time axis the same way it already was on colour.
+- **`preview-theme.py`'s geometry is still unchecked, and it has now been wrong
+  twice.** First a placement bug put every prop up to ~80 px out at `1x`, so
+  every theme accepted at M6 was accepted against a wrong picture. Then its
+  placement census kept counting a foreground row of seven plants for two commits
+  after the scene stopped drawing them — which made the new motion budget 3.3×
+  too strict on that role, turned one of its watched-failing injections into a
+  false red, and put seven imaginary plants in every theme preview since.
+
+  Both times the script was cross-checked **against itself**: a census compared
+  to a `render()` that transcribed the same layout. A transcription checked
+  against a transcription is not a check. Closing this needs a pixel comparison
+  against the real scene, which needs a window server.
 - **The first-run consent dialog has never been clicked** by a human. All five
   decision branches are unit-tested and were driven end to end via `--consent`,
   but synthesising a click needs Accessibility permission the build environment
