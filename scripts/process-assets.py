@@ -388,11 +388,17 @@ ANIMATED = {
     # room. It is a TV meant to stand ON furniture — there is nothing under it
     # in the art — and the back row is a floor line, so four of them hang at
     # chest height over nothing. And it moves far more than M6b recorded: 364 px
-    # of 1304 (27.9%), not 160 of 1544 (10.4%). At 27.9% of its own area,
-    # flickering at 10 fps, it is the strongest attractor in any room here, and
-    # I7 says the eye belongs on the characters. (It would pass the lint —
-    # `broadcast` 0.470 -> 0.462 — which is the point: the lint is a value check
-    # and has nothing to say about motion or about a prop floating.)
+    # of 1156 (31.5%), not 160 of 1544 (10.4%) and not the 364 of 1304 (27.9%)
+    # M6c corrected it to — the numerator was right the second time and the
+    # denominator was still typed. Flickering at 10 fps it is the strongest
+    # attractor in any room here, and I7 says the eye belongs on the characters.
+    #
+    # **It is now refused by a check rather than by an eye.** M6c recorded that
+    # it would pass the lint (`broadcast` 0.470 -> 0.462) because the lint was a
+    # value check with nothing to say about motion. The motion budget added at
+    # M6d says something: four copies of this change 13867 px of the panel per
+    # second against a ceiling of 1461, which is 9.49x. Adopting it is now a red
+    # build, and that is what was verified — see docs/04-ART-DIRECTION.md.
     "old_tv": {
         "sheet": "animated_old_tv_32x32.png",
         "frame": (64, 64),

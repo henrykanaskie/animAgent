@@ -127,6 +127,43 @@ def seat_x(index):
     return seat_column(index) * TILE + TILE // 2
 
 
+def role_placements():
+    """How many times the room draws each prop role on one panel. One panel, not
+    one theme: this is a fact about the *layout*, and it is the same for every
+    theme because every theme fills the same four slots.
+
+    It exists because `scripts/lint-palette.py`'s motion budget is a budget on
+    what reaches the screen, and a prop placed four times costs four times as
+    much as one placed once — a quantity the manifest cannot see, because the
+    manifest describes art and this is geometry. Rather than transcribe the seat
+    arithmetic a third time (RoomLayout.swift, `render()` below, and then the
+    lint), the lint imports this, and `render()` counts what it actually drew and
+    fails if the two disagree. Two copies of a number that can drift apart is how
+    the 10.4%-vs-27.9% error happened; this is the same number computed once.
+
+    The counts on the shipped 25-column layout are `board` 4, `plant` 10,
+    `chair` 7, `desk` 7 — and that asymmetry is exactly the reason ADR-002 §14b
+    says an animated prop may only occupy `board`. `plant` would cost two and a
+    half times as much and seven of its ten copies sit in the permanently-visible
+    foreground row.
+    """
+    counts = {"board": 0, "plant": 0, "chair": 0, "desk": 0}
+    for seat in range(SEAT_CAPACITY):
+        x = seat_column(seat) * TILE + TILE // 2 + TILE * 1.5
+        if x >= WIDTH:
+            continue
+        counts["board" if seat % 2 == 0 else "plant"] += 1
+    for seat in range(SEAT_CAPACITY):
+        x = seat_x(seat) + TILE * 1.5
+        if x >= WIDTH:
+            continue
+        counts["plant"] += 1
+    for _seat in range(SEAT_CAPACITY):
+        counts["chair"] += 1
+        counts["desk"] += 1
+    return counts
+
+
 def pick_tiles(theme):
     """(floor, wall) paths for a theme.
 
@@ -293,6 +330,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
               % (name, board["content_box"]["w"], BACK_ROW_PITCH), file=sys.stderr)
 
     drawn = []   # (depth, kind, payload) — painter's order, matching zPosition
+    census = {}  # role -> how many copies this render actually placed
 
     def add_prop(role_name, x, y, bias=0.0):
         role = roles.get(role_name)
@@ -300,6 +338,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
             return
         frames = role_frames(role)
         left, top = prop_origin(role, canvas, x, y)
+        census[role_name] = census.get(role_name, 0) + 1
         drawn.append((y + bias, "prop", (frames[frame % len(frames)], left, top)))
 
     # Back row: board and plant alternating, one tile behind the seat line.
@@ -329,6 +368,20 @@ def render(theme, name, population, out_path, characters, seed_variants,
         drawn.append((BASELINE_Y, "char", (characters[variant], seat_x(seat))))
     for seat in range(SEAT_CAPACITY):
         add_prop("desk", seat_x(seat) + TILE * 0.875, BASELINE_Y, bias=0.5)
+
+    # What was placed must match what `role_placements()` says is placed, because
+    # the lint's motion budget multiplies a prop's own motion by that count and
+    # never renders anything. A silent disagreement here would make the budget
+    # wrong by a factor, which is the exact class of defect the budget exists to
+    # catch. Only roles this theme actually declares are compared — a theme
+    # missing a role draws none of it, which is not a drift.
+    expected = role_placements()
+    for role_name, n in sorted(census.items()):
+        if expected.get(role_name) != n:
+            raise SystemExit(
+                "internal: %s drew %d copies of `%s` but role_placements() says %s. "
+                "These are the same arithmetic and scripts/lint-palette.py trusts "
+                "the second one." % (name, n, role_name, expected.get(role_name)))
 
     # Higher y is further away, so it paints first.
     for _depth, kind, payload in sorted(drawn, key=lambda d: -d[0]):

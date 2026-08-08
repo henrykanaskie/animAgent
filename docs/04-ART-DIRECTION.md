@@ -441,7 +441,11 @@ So the rule becomes a **preprocessing pass**, not an authoring instruction:
    something above 55%, at least 40% value contrast between a character's
    darkest pixel and the mean room value. **Added at M5, not a relaxation:** the
    assigned accents must each clear 45% saturation and value 0.60, and no pair
-   may be within 40° of hue.
+   may be within 40° of hue. **Added at M6d, also not a relaxation:** a motion
+   budget — everything a theme animates, counted once per copy the room draws,
+   must change fewer pixels per second than the quietest looping animation in
+   the cast. See "The motion budget" below. All the colour numbers are
+   bit-identical across that change.
 
 Measured at M0, after the pass: room max saturation **0.183** against the 0.25
 ceiling, room mean value **0.785**, room darkest value **0.659**, weakest
@@ -975,7 +979,10 @@ bottom-aligned in their own canvases either. Selection mechanism is
 `scripts/lint-palette.py` now measures **every theme separately**, on the same
 thresholds, and re-checks character value contrast against each theme's own mean
 — pooling them would let a quiet theme carry a loud one, and only one theme is on
-screen at a time. Thresholds are unchanged and were not touched.
+screen at a time. Thresholds are unchanged and were not touched. **The motion
+budget added at M6d is scoped per theme for exactly the same reason**; its
+numbers are in "The motion budget" below, and the colour table here is
+bit-identical before and after it.
 
 | Theme | mean value | max saturation (ceiling 0.25) | darkest | min character contrast (floor 0.40) |
 |---|---:|---:|---:|---:|
@@ -1204,10 +1211,23 @@ what to spend it on. Reported rather than spent, which is what was asked.
 **`old_tv` — floats, and moves three times as much as anyone thought.** It is a
 television meant to stand *on* furniture: there is nothing under it in the art,
 and the back row is a floor line, so four of them hang at chest height over
-nothing. And it is **364 px of 1304 (27.9%) moving, not 160 of 1544 (10.4%)** —
+nothing. And it is **364 px of 1156 (31.5%) moving, not 160 of 1544 (10.4%)** —
 the M6b figure was transcribed and wrong by a factor of three. It would pass the
 lint (`broadcast` 0.470 → 0.462), and that is the point: the lint is a value
 check and has nothing to say about motion or about a prop hanging in the air.
+
+> **The denominator in that sentence was wrong too, and it was wrong here until
+> M6d.** It read "364 of 1304 (27.9%)". The visible-pixel count is 1156 under
+> every definition anyone might mean — union over the loop, per frame, alpha
+> over 127 or over 0 — so the true fraction is 31.5%. The numerator was right the
+> second time and the denominator was still typed. `control_room_server` has the
+> same defect below: 80 of **2176** (3.7%), not 2240 (3.6%). Three passes at one
+> figure, three transcriptions, two of them wrong. That is the whole argument for
+> the motion budget measuring the pixels itself rather than reading a number
+> somebody wrote down, and it is why the check below cross-checks the manifest
+> instead of trusting it. **ADR-002 §14b repeats the 27.9% and is not corrected
+> here** — that document is not this one's to edit, and the correction is flagged
+> so it is not lost.
 
 ### The rule that decided all four
 
@@ -1264,7 +1284,8 @@ cannot describe a loop that holds its frames for different times.
       "fps_source": "…",
       "moving_px": 64,
       "visible_px": 2096,
-      "measured_on": "the shipped frames, by scripts/build-manifest.py"
+      "transition_px": [48, 40, 48, 32],
+      "measured_on": "the shipped frames, by scripts/build-manifest.py …"
     },
     "source_set": "Modern Interiors 3_Animated_objects",
     "source_sheet": "animated_pendulum_clock_32x32.png",
@@ -1279,7 +1300,7 @@ Exactly as approved: **one additive object beside `file`, and `file` is first an
 is frame 0**, so a reader that knows nothing about animation draws it and is
 correct. The scene does not read `animation` yet and nothing about that is a bug.
 
-Four notes on the fields, because three of them are not in the proposal:
+Five notes on the fields, because four of them are not in the proposal:
 
 - **`content_box` is the union over every frame**, not frame 0's. The scene
   anchors a prop by its box and draws every frame on one canvas at one position,
@@ -1290,6 +1311,13 @@ Four notes on the fields, because three of them are not in the proposal:
 - **`moving_px`/`visible_px` are generated, not written down.** They are I7's
   number for a moving prop, and M6b transcribed them wrong twice. Generated
   figures cannot drift from the art.
+- **`transition_px` was added at M6d**, and it is a different quantity from
+  `moving_px`, not a restatement of it: the pixels that change on each *step* of
+  the loop, wrapping, as integers. `moving_px` is the union over the whole loop
+  against frame 0, which grows with loop length and carries no rate at all. The
+  motion budget is `mean(transition_px) × fps`, times how many copies the room
+  draws, and none of that is recoverable from `moving_px`. See "The motion
+  budget" below.
 - **`loop` is always `true` and there is no other value.** ADR-002 §6/§9: a prop
   idles on its own loop and never animates in reaction to an event. Nothing here
   takes input from the delta stream, so a prop blinks the same way whether six
@@ -1329,6 +1357,208 @@ and `scripts/build-manifest.py` refuses to make a role of frames that are not th
 declared canvas. Both replace a claim in a comment — "every prop selected was
 measured first and fits" — with a check.
 
+## The motion budget — M6d
+
+I7 is mechanised on colour and was not mechanised on time. ADR-002 §14b recorded
+the gap in as many words while refusing `old_tv`:
+
+> It moves 27.9%, not the 10.4% first recorded — and it **would have passed the
+> lint**, because the lint says nothing about motion. That is a real gap in I7's
+> mechanisation and it is recorded here rather than papered over: nothing checks
+> a moving-pixel budget.
+
+It is checked now. `scripts/lint-palette.py` carries a fourth threshold beside
+the three colour ones, on the same terms: measured, mechanical, non-zero exit
+naming the offending file and value.
+
+**Why this belongs in I7 at all.** In this product motion *means an agent is
+working*. It is the one signal a glance actually reads — CLAUDE.md's
+one-sentence product is "you glance at the notch and know what your agents are
+doing", and what a glance resolves before anything else is which characters are
+moving. So a prop that out-moves the characters is the time-axis equivalent of a
+room element owning the darkest pixel on screen. Same invariant, second axis.
+
+### What is measured, and what is not
+
+Three quantities were candidates. **The one that governs is pixels changed per
+second, on the panel, summed over every animated prop in a theme and multiplied
+by the number of copies the room draws.** The other two are measured and printed
+and neither is a gate.
+
+**Not the prop's own moving fraction** — `moving_px / visible_px`, the figure
+§14b quotes. It says what proportion of an object is restless, which is a
+description of the object's character rather than of what the screen does. It is
+not comparable between props: an object ten times larger with the same 364
+moving pixels scores 3.1% instead of 31.5% and costs the panel exactly the same.
+Gating on it would refuse a small busy prop and admit a large one that changes
+the identical number of pixels.
+
+**Not per-loop moving pixels either**, placed or unplaced. That figure grows with
+loop length and carries no rate at all, so it prices `control_room_server` —
+three frames at 2 fps — at 0.62 of the ceiling when per second it is 0.30, and it
+cannot tell a 4-frame swing at 5 fps from an 11-frame flicker at 10.
+
+**Pixels per second is what an eye competes with**, and the two corrections it
+applies are both real: `old_tv` runs at 10 fps against the clock's 5, and a
+6-frame loop is not twice as loud as a 3-frame one. It is computed from
+`mean(transition_px) × fps`, where `transition_px` is what changes on each step
+of the loop, wrapping — which is a new generated manifest field, see below.
+
+**The placement multiplier is not a model of the room, it is arithmetic the
+renderer agrees with.** `scripts/preview-theme.py` writing all four frames of
+`library` at the real 720×400 panel differs between consecutive frames by
+exactly four times the prop's own figure, and `broadcast` with `old_tv` stood in
+the same slot likewise — no occlusion, no clipping, exact. So the lint multiplies
+rather than renders, and the multiplication was checked in pixels.
+
+The census itself — `board` ×4, `plant` ×10, `chair` ×7, `desk` ×7 on the shipped
+25-column layout — lives in `role_placements()` in `preview-theme.py`, which is
+where RoomLayout.swift is already transcribed, and the lint imports it. It is not
+copied into the lint. `render()` counts what it actually placed and hard-fails if
+the two disagree, so the number that a picture is drawn with is the number the
+budget is computed with. **Two sources that can disagree is how 10.4% became
+27.9% became 31.5%.**
+
+That census is also, on its own, the arithmetic behind §14b's rule that an
+animated prop may only occupy `board`: `plant` costs two and a half times as
+much and seven of its ten copies sit in the permanently-visible foreground row.
+The lint does not enforce the rule by name — it prices it. Moving the *identical*
+shipped clock from `board` to `plant` takes it from 0.57 of the ceiling to 2.01
+and turns the build red.
+
+### The number, and where it comes from
+
+**The cast sets it.** I7's other thresholds are relative — the room must be
+*under* the characters — so this one is too. A fixed pixel count picked from the
+two animated props this project happens to own would be taste with a decimal
+point on it. The ceiling is measured at lint time as the **quietest looping
+animation any shipped variant plays**, in the same units, and the room's total
+must come in under it. Recast the six and the ceiling moves with them.
+
+Measured over the six shipped variants, every looping state, every direction:
+
+| loop | frames | fps | quietest | loudest |
+|---|---:|---:|---:|---:|
+| `idle` | 6 | 8 | **1461 px/s** (10, up) | 2603 px/s (07, down) |
+| `working` (sit) | 3 | 8 | 2837 px/s (10, right) | 4523 px/s (07, left) |
+| `walk` / `spawn` / `depart` | 6 | 8 | 4661 px/s (06, up) | 6672 px/s (07, down) |
+
+`deliver` is excluded because it does not loop; wrapping its last frame back to
+its first would measure a cut that never plays.
+
+**The ceiling is 1461 px/s**, and it is the minimum over the whole table rather
+than over the poses a side-view room actually draws. `idle` up is a back view and
+this room may never show it. Taking it anyway makes the ceiling stricter, and a
+stricter number produced by a mechanical rule is worth more than a looser one
+produced by a judgement about which frames get drawn. `idle` is also the right
+family to take it from on the merits: I2 says a character idles unless it holds
+an open tool call, so an idling character is the quietest thing the cast can
+legitimately be while still on screen, and the room has to be under *that*.
+
+**The share is 1.0** — the room, in total, must move less than one character
+does. That is the literal time-axis reading of I7 and it is the maintainer's own
+sentence. The comparison is against *one* character rather than the population
+because the room's motion does not scale with the population and character motion
+does, so a single agent is the binding case; it is also the most common case and
+the only one that reaches `3x`.
+
+| candidate | frames | fps | own | on panel (×4) | share of ceiling | moves |
+|---|---:|---:|---:|---:|---:|---:|
+| `control_room_server` | 3 | 2 | 109 px/s | 437 px/s | **0.30** | 80 of 2176 (3.7%) |
+| `pendulum_clock` — ships | 4 | 5 | 210 px/s | 840 px/s | **0.57** | 64 of 2096 (3.1%) |
+| `control_room_screens` | 11 | 10 | 1171 px/s | 4684 px/s | **3.21** | 332 of 6796 (4.9%) |
+| `old_tv` | 6 | 10 | 3467 px/s | 13867 px/s | **9.49** | 364 of 1156 (31.5%) |
+
+Read the last two columns together, because between them they close the question
+of which quantity to gate. **No threshold on the moving fraction reproduces this
+ordering.** Any line that admits `pendulum_clock` at 3.1% and refuses `old_tv` at
+31.5% sits somewhere in between; put it above 4.9% and it *admits*
+`control_room_screens`, which is 3.21× over the panel budget, and put it below
+4.9% and it refuses `control_room_server` at 3.7%, which is the quietest object
+in the folder on the panel at 0.30. The fraction cannot separate these four in
+the order the screen does, at any value, because it does not carry size and it
+does not carry rate. That is not a preference between two reasonable measures; it
+is one of them being unable to express the thing.
+
+**REVISIT WITH DATA**, in the sense this document uses for `G` and the palette
+thresholds. What is verified is that 1.0 separates every object anyone has
+looked at — one adoption at 0.57 from three refusals at 3.21 and up, with
+`control_room_server` passing on motion at 0.30 and refused on contrast instead,
+which is the check discriminating rather than blocking. What is **not** verified
+is where inside the 0.57–3.21 gap the line truly belongs, because nothing has
+ever landed there. This data cannot distinguish a share of 0.6 from a share of
+1.0, and picking the smaller one would assert a precision the measurements do not
+support. The first prop that scores between 0.6 and 1.0 and looks wrong at `1x`
+is the evidence that tightens it; the first that scores there and looks fine is
+the evidence that it is right. Until then, do not nudge it.
+
+### The lint recomputes and cross-checks. It does not read.
+
+`scripts/build-manifest.py` generates `moving_px` and `visible_px` into every
+animated role, and now `transition_px` beside them — the per-step pixel counts,
+integers, so the manifest stays byte-deterministic and a reviewer sees the shape
+of the loop rather than a mean somebody took.
+
+The lint measures all three off the same PNGs and then **asserts the manifest
+agrees**, failing loudly with both figures if it does not. Reading the declared
+values instead would make the gate a tautology: the same code that wrote the
+figure would be the only thing vouching for it, and a generator with a bug would
+grade its own homework. Nothing else in this lint reads a number out of the
+manifest either — the room's saturation is measured off the pixels, not looked
+up. Recomputing also means the check works on a prop the manifest has *not*
+adopted, which is the case every one of §14b's refusals was about.
+
+### Lint numbers, room and all six themes
+
+Colour, before and after this change — **identical, to three decimals, in every
+row. No existing threshold was touched.**
+
+| scope | mean value | max saturation (≤0.25) | darkest | min character contrast (≥0.40) |
+|---|---:|---:|---:|---:|
+| `room` | 0.785 | 0.183 | 0.659 | 0.472 |
+| `briefing` | 0.817 | 0.182 | 0.667 | 0.503 |
+| `broadcast` | 0.784 | 0.114 | 0.667 | 0.470 |
+| `library` | 0.766 | 0.183 | 0.667 | 0.452 |
+| `mission_control` | 0.741 | 0.182 | 0.604 | 0.427 |
+| `office` | 0.793 | 0.183 | 0.659 | 0.480 |
+| `stage` | 0.786 | 0.183 | 0.667 | 0.472 |
+
+Motion, which did not exist before. Ceiling 1461 px/s:
+
+| scope | animated props | px/s | share of ceiling |
+|---|---:|---:|---:|
+| `room` | 0 | 0 | 0.00 |
+| `briefing` | 0 | 0 | 0.00 |
+| `broadcast` | 0 | 0 | 0.00 |
+| `library` | 1 | 840 | **0.57** |
+| `mission_control` | 0 | 0 | 0.00 |
+| `office` | 0 | 0 | 0.00 |
+| `stage` | 0 | 0 | 0.00 |
+
+The zero rows are printed rather than skipped. A motion budget that says nothing
+about a still room is a motion budget nobody has watched run.
+
+### It was watched failing
+
+A threshold nobody has seen fail is not a threshold. Seven violations were
+injected and every one exits non-zero naming the file and the value. The first is
+the real thing, end to end — `old_tv` added to `ANIMATED_ADOPTED`, re-imported,
+re-manifested — not a synthetic:
+
+| injected | result |
+|---|---|
+| `old_tv` adopted into `broadcast` | **FAIL** — 13867 px/s against 1461, **9.49×**, naming `board`, `old_tv`, 4 copies × 3467 px/s. Its colour numbers in the same run are `broadcast` 0.470 → 0.462, i.e. it still passes every colour check, exactly as §14b said |
+| the shipped clock moved from `board` to `plant` | **FAIL** — same art, 2940 px/s, 2.01×. Ten copies instead of four |
+| `transition_px` altered by one pixel | **FAIL** — cross-check names declared and measured |
+| `moving_px` altered | **FAIL** — cross-check |
+| `loop: false` | **FAIL** — the budget measures the wrap and refuses to describe anything else |
+| an animated role the layout does not place | **FAIL** — on-panel cost unknown, refuses to guess it |
+| `role_placements()` made to disagree with what `render()` drew | **FAIL** in the preview tool, naming both counts — the tie between the picture and the budget |
+
+And the negative control: `control_room_server` adopted into `mission_control`
+**passes** at 0.30 of the ceiling. The budget is not a blanket refusal of motion;
+that object's refusal was and remains a contrast one.
+
 ## Scripts
 
 | Script | Does |
@@ -1337,9 +1567,9 @@ measured first and fits" — with a check.
 | `scripts/process-assets.py` | the import pass — room recolour, shadow strip, character slicing, badge cutting and badge compositing. Idempotent; verified byte-identical across a forced rerun. It also writes `assets/processed/badges/32x32/sources.json`, which records the sheet, cell and bounding box behind every badge, and the search result behind every badge that has none, and `_bubble_frame.png`, the pack's empty bubble on the badge canvas. |
 | `scripts/generate-art.py` | **renamed from `generate-placeholders.py` at M5c.** Authors the four glyphs no pack draws — on the pack's 2× design grid, in the pack's four-colour palette — and composites them into `_bubble_frame.png`, so an authored badge is the same construction as a pack one. Also draws `document`/`checklist` as the fallback behind pack art, and the fallback cast under `--characters`. Falls back to a hand-drawn bubble only when there is no pack on disk at all. |
 | `scripts/build-manifest.py` | generates `assets/manifest.json` from disk, re-stating every path. |
-| `scripts/lint-palette.py` | the I7 gate, over `room` **and every theme**, on the same thresholds. Non-zero exit names the file and the value. |
+| `scripts/lint-palette.py` | the I7 gate, over `room` **and every theme**, on the same thresholds. Three colour checks and, since M6d, a **motion budget** — everything a theme animates, counted once per copy the room draws, must change fewer pixels per second than the quietest looping animation in the cast. It measures the frames itself and cross-checks the manifest's generated figures rather than reading them. Non-zero exit names the file and the value. |
 | `scripts/contact-sheet.py` | renders index-named singles onto labelled contact sheets, because the packs ship no names. `--set`/`--office` for singles, `--sheet` to label a Room Builder grid by row-col, `--pick` to confirm specific candidates at 4×. A review tool: it writes to a scratch directory and never touches `assets/`. |
-| `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. `--state` seats the cast in any body state, `--badge` puts a `badges.states` entry over every occupied seat, `--frames` writes one PNG per frame of whatever animated prop the theme carries, and `--animated <id>` is the review path for a candidate the manifest has **not** adopted. Warns when a `board` is wider than the back-row pitch, which is a defect only four copies on screen can show. A prop placement bug was fixed here at M6b — see above. |
+| `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. `--state` seats the cast in any body state, `--badge` puts a `badges.states` entry over every occupied seat, `--frames` writes one PNG per frame of whatever animated prop the theme carries, and `--animated <id>` is the review path for a candidate the manifest has **not** adopted. Warns when a `board` is wider than the back-row pitch, which is a defect only four copies on screen can show. A prop placement bug was fixed here at M6b — see above. It also owns `role_placements()`, the count of how many copies of each role the room draws, which the motion budget imports rather than transcribing; `render()` fails if what it drew disagrees with it. |
 
 Order: process → generate-art → manifest → lint.
 

@@ -347,11 +347,18 @@ def animated_role(name, spec, canvas):
     box, as it does for everything adopted so far, the two readings agree and
     `file`-only readers lose nothing.
 
-    **`moving_px` / `visible_px`** are the I7 number for a moving prop. Motion
-    draws the eye and the eye belongs on the characters, so how much of the
-    object moves is the thing to look at before adopting one. It is generated
-    here so it cannot drift from the art the way a transcribed figure did at
-    M6b.
+    **`moving_px` / `visible_px` / `transition_px`** are the I7 numbers for a
+    moving prop. Motion draws the eye and the eye belongs on the characters, so
+    how much of the object moves is the thing to look at before adopting one.
+    They are generated here so they cannot drift from the art the way a
+    transcribed figure did at M6b.
+
+    The three are different quantities and the distinction is load-bearing.
+    `moving_px` is the union over the loop against frame 0 — a per-loop total
+    that grows with the number of frames and carries no rate. `transition_px` is
+    what changes on each step, so `mean(transition_px) * fps` is pixels changed
+    per second, which is comparable between a 3-frame loop at 2 fps and an
+    11-frame loop at 10 fps. `scripts/lint-palette.py` budgets the second one.
 
     **`fps` was verified against the pack's own GIF at import**, which is the
     only place in these packs that states how fast anything moves.
@@ -402,6 +409,21 @@ def animated_role(name, spec, canvas):
             visible += 1
         if any(f[2][i * 4:i * 4 + 4] != base[i * 4:i * 4 + 4] for f in frames[1:]):
             moving += 1
+
+    # Per *step* of the loop, wrapping past the last frame back to the first,
+    # because `loop` is always true. `moving_px` above is the union over the
+    # whole loop against frame 0, which grows with loop length and says nothing
+    # about rate — a 20-frame loop that drifts one pixel at a time accumulates a
+    # large union while changing almost nothing per second. This list is the raw
+    # measurement the motion budget is computed from; integers, so the manifest
+    # stays byte-deterministic and a reviewer can see the shape of the loop
+    # rather than a mean somebody took.
+    transitions = []
+    for a, b in zip(frames, frames[1:] + frames[:1]):
+        transitions.append(sum(
+            1 for i in range(w * h)
+            if a[2][i * 4:i * 4 + 4] != b[2][i * 4:i * 4 + 4]))
+
     return {
         "file": rel(paths[0]),
         "content_box": box,
@@ -415,7 +437,17 @@ def animated_role(name, spec, canvas):
                           % round(100.0 / spec["fps"]),
             "moving_px": moving,
             "visible_px": visible,
-            "measured_on": "the shipped frames, by scripts/build-manifest.py",
+            "transition_px": transitions,
+            "measured_on": "the shipped frames, by scripts/build-manifest.py. "
+                           "`moving_px` is the union over the loop against frame "
+                           "0 and `visible_px` the union of visible pixels; "
+                           "`transition_px` is the pixels that change on each "
+                           "step of the loop, wrapping, and is what "
+                           "scripts/lint-palette.py's motion budget is computed "
+                           "from — mean(transition_px) * fps * how many times "
+                           "the room draws this role. The lint recomputes all "
+                           "three off the same PNGs and fails if they disagree "
+                           "with these.",
         },
     }
 
@@ -592,8 +624,13 @@ def build_themes():
                                   "correct. `animation.fps` comes from the pack's own "
                                   "GIF of the object, `loop` is always true, and the "
                                   "prop never reacts to an event — ADR-002 §6 rule 1 "
-                                  "and §9. `moving_px`/`visible_px` are I7's number for "
-                                  "a moving prop and are measured on these frames.",
+                                  "and §9. `moving_px`/`visible_px`/`transition_px` are "
+                                  "I7's numbers for a moving prop and are measured on "
+                                  "these frames; the motion budget in "
+                                  "scripts/lint-palette.py is a budget on "
+                                  "mean(transition_px) * fps, summed over every copy the "
+                                  "room draws, against the quietest looping animation in "
+                                  "the cast.",
                 "roles": roles,
             },
         }

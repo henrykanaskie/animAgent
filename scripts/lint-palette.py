@@ -6,12 +6,26 @@ saturation and the darkest values. At small sizes silhouette and value contrast
 are what read — not detail. Enforced by lint over the asset manifest, not by
 good intentions."
 
-Three checks, exactly the thresholds in docs/04-ART-DIRECTION.md:
+Three checks on colour, exactly the thresholds in docs/04-ART-DIRECTION.md:
 
   1. Every room pixel is under 25% saturation.
   2. Every character carries at least one colour above 55% saturation.
   3. At least 40% value contrast between a character's darkest pixel and the
      mean room value.
+
+And, added after ADR-002 §14b admitted animated props, one check on motion:
+
+  4. Everything the room animates, added together and counted once per copy the
+     room draws, must change fewer pixels per second than the quietest looping
+     animation in the cast.
+
+Why a fourth check exists at all: in this product **motion means an agent is
+working**. It is the one signal a glance actually reads. So a prop that
+out-moves the characters is the time-axis equivalent of a room element owning
+the darkest pixel on screen — the thing checks 1-3 exist to forbid — and until
+§14b it was unguarded. §14b recorded the gap in as many words: `old_tv` "would
+have passed the lint, because the lint says nothing about motion". It does now,
+and `old_tv` is what it was tested against.
 
 Exits non-zero on any violation, naming the file and the measured value. It runs
 over the manifest rather than over a directory so that it checks what the scene
@@ -56,12 +70,88 @@ MIN_ACCENT_HUE_SEPARATION = 40.0   # degrees, minimum over every pair
 MIN_ACCENT_SAT = 0.45
 MIN_ACCENT_VALUE = 0.60
 
+# ---------------------------------------------------------------------------
+# The motion budget. ADR-002 §14b, docs/04-ART-DIRECTION.md "The motion budget".
+# ---------------------------------------------------------------------------
+#
+# **The quantity.** Pixels changed per second, on the panel, summed over every
+# animated prop in a room and multiplied by the number of times the room draws
+# that prop's role.
+#
+# Three quantities were candidates and this is the one that governs, for
+# reasons that are measurements rather than preferences:
+#
+#   - `moving_px / visible_px` — a prop's own moving fraction, the figure §14b
+#     quotes (pendulum_clock 3.1%, old_tv 27.9%) — is **not** governed. It says
+#     what proportion of an object is restless, not how much of the view
+#     changes, and it is not comparable between props: a prop ten times larger
+#     with the same 364 moving pixels scores 3.1% instead of 31.5% and costs the
+#     panel exactly the same. It is measured and printed, because it is a real
+#     description of a prop's character, and it is cross-checked against the
+#     manifest. It is not a gate.
+#   - Per-loop moving pixels, placed, is closer but still wrong: it grows with
+#     loop length and ignores rate. It prices `control_room_server` (3 frames at
+#     2 fps) at 0.62 of the ceiling; per second it is 0.30.
+#   - Pixels changed per second, placed, is what an eye competes with. It is
+#     rate-normalised and length-normalised, and it was checked against the
+#     renderer rather than assumed: `preview-theme.py` writing all four frames
+#     of `library` at 720x400 differs between consecutive frames by exactly
+#     4x the prop's own figure, and `broadcast` with `old_tv` stood in the same
+#     slot likewise. The placement multiplier is arithmetic the renderer agrees
+#     with, not a model of the room.
+#
+# **The number is the cast's, not a prop's.** I7's other thresholds are
+# relative — the room must be *under* the characters — so this one is too, and
+# for the same reason: a fixed pixel count picked from the two props we happen
+# to own would be taste with a decimal point on it. The ceiling is measured at
+# lint time as the **quietest looping animation any shipped variant plays**, in
+# the same units, and the room's total must come in under it. Recast the six and
+# the ceiling moves with them.
+#
+# The minimum is taken over every variant, every looping state and every
+# direction, including directions a side-view room may never draw. That makes
+# the ceiling stricter than a hand-picked "sit facing right" would, and a
+# stricter number from a mechanical rule beats a looser one from a judgement
+# call.
+#
+# **The share is 1.0, and that is the honest placement.** "Scenery must move
+# less than a working character does" is the literal time-axis reading of I7,
+# and any factor below 1.0 is a safety margin chosen by feel. The four objects
+# in the pack's animated folder land at 0.15, 0.57, 3.21 and 9.49 of the
+# ceiling — nothing between 0.57 and 3.21 — so **this data cannot distinguish a
+# share of 0.6 from a share of 1.0**, and picking the smaller one would be
+# asserting a precision the measurements do not support.
+#
+# REVISIT WITH DATA, in the sense docs/04-ART-DIRECTION.md uses for `G` and the
+# palette thresholds: what is verified is that 1.0 separates every object we
+# have looked at, one adoption from three refusals. Where inside the 0.57-3.21
+# gap the line truly belongs is not verified, because nothing has ever landed
+# there. The first prop that scores between 0.6 and 1.0 and looks wrong at 1x is
+# the evidence that tightens this, and the first that scores there and looks
+# fine is the evidence that it is right. Until then, do not nudge it.
+MAX_ROOM_MOTION_SHARE = 1.0
+
 # Pixels below this alpha are ignored. A near-transparent pixel is composited
 # most of the way back to whatever is behind it, so judging the palette on it
 # would fail files over colour the viewer never sees.
 ALPHA_FLOOR = 128
 
 _hsv_cache = {}
+_png_cache = {}
+
+
+def load_png(path):
+    """`pnglite.load`, memoised. Behaviour-neutral.
+
+    The colour pass and the motion pass read the same character frames, and
+    decoding roughly 1500 PNGs twice is the only cost the motion check would
+    otherwise add. Keyed on the absolute path, so the two passes cannot disagree
+    about what a file contains either.
+    """
+    v = _png_cache.get(path)
+    if v is None:
+        v = _png_cache[path] = pnglite.load(path)
+    return v
 
 
 def hsv(r, g, b):
@@ -87,7 +177,7 @@ def parse_hex(s):
 
 def scan(path):
     """Return (max_sat, min_val, sum_val, n) over the visible pixels of one PNG."""
-    w, h, px = pnglite.load(path)
+    w, h, px = load_png(path)
     max_s, min_v, tot_v, n = -1.0, 1.0, 0.0, 0
     worst = None
     for i in range(0, len(px), 4):
@@ -101,6 +191,122 @@ def scan(path):
         tot_v += v
         n += 1
     return max(max_s, 0.0), min_v, tot_v, n, worst
+
+
+def measure_loop(paths):
+    """Motion figures for one looping animation, recomputed from its PNGs.
+
+    Returns `(moving_px, visible_px, transition_px)`:
+
+      `moving_px`     pixels that differ from frame 0 anywhere in the loop
+      `visible_px`    pixels visible in any frame
+      `transition_px` pixels that change on each step, wrapping past the last
+                      frame back to the first
+
+    The first two are exactly `scripts/build-manifest.py`'s definitions, so they
+    can be compared against what the manifest declares. `sum/len` of the third,
+    times `fps`, is pixels changed per second, which is the budgeted quantity.
+
+    Raises ValueError on a frame that is not the same size as the rest, because
+    the alternative is a difference count computed against the wrong pixels.
+    """
+    frames = [load_png(p) for p in paths]
+    w, h, _ = frames[0]
+    for p, (fw, fh, _px) in zip(paths, frames):
+        if (fw, fh) != (w, h):
+            raise ValueError("%s is %dx%d, the rest are %dx%d" % (p, fw, fh, w, h))
+    base = frames[0][2]
+    n = w * h
+    visible = moving = 0
+    for i in range(n):
+        j = i * 4
+        if any(f[2][j + 3] > 127 for f in frames):
+            visible += 1
+        if any(f[2][j:j + 4] != base[j:j + 4] for f in frames[1:]):
+            moving += 1
+    transitions = []
+    for a, b in zip(frames, frames[1:] + frames[:1]):
+        transitions.append(sum(
+            1 for i in range(n) if a[2][i * 4:i * 4 + 4] != b[2][i * 4:i * 4 + 4]))
+    return moving, visible, transitions
+
+
+def motion_rate(transitions, fps):
+    """Pixels changed per second: the mean step of the loop, times its rate.
+
+    The mean rather than the peak, because this is a rate and a peak is not one.
+    A loop that holds still for three frames and jumps on the fourth changes as
+    much per second as its mean says, and that is what the eye integrates.
+    """
+    if not transitions or not fps:
+        return 0.0
+    return (float(sum(transitions)) / len(transitions)) * float(fps)
+
+
+def role_placements():
+    """How many times the room draws each prop role on one panel.
+
+    **Imported from `scripts/preview-theme.py` rather than transcribed**, because
+    a prop placed four times costs four times as much and that count is the one
+    number in this check the manifest cannot supply — it is scene geometry, not
+    art. `preview-theme.py` owns the transcription of RoomLayout.swift, renders
+    the real 720x400 panel with it, and asserts its own census against the same
+    function this returns. So there is one copy of the number and something
+    draws a picture with it.
+
+    Returns `{}` if the preview tool is unreadable, and the caller fails rather
+    than guessing — an assumed placement count is a budget wrong by a factor.
+    """
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "preview-theme.py")
+    if not os.path.exists(path):
+        return {}
+    spec = importlib.util.spec_from_file_location("_preview_theme", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    fn = getattr(mod, "role_placements", None)
+    return dict(fn()) if fn else {}
+
+
+def character_motion_floor(variants):
+    """The quietest looping character animation in the cast, in px/s.
+
+    Returns `(rate, "variant/state/direction", frame_count, fps)` or None.
+
+    This is the whole of the motion threshold's derivation. I7's other numbers
+    are relative — the room must be under the characters — and this one is the
+    same sentence on the time axis, so the ceiling is not a constant in this file
+    but a measurement of the cast that is actually shipping.
+    """
+    best = None
+    for name in sorted(variants):
+        for state in sorted(variants[name].get("states", {})):
+            entry = variants[name]["states"][state]
+            if not entry.get("loop"):
+                continue
+            fps = entry.get("fps") or 0
+            for direction in sorted(entry.get("frames", {})):
+                paths = entry["frames"][direction]
+                if len(paths) < 2:
+                    continue
+                _mv, _vis, trans = measure_loop(
+                    [os.path.join(REPO, p) for p in paths])
+                rate = motion_rate(trans, fps)
+                label = "%s/%s/%s" % (name, state, direction)
+                if best is None or rate < best[0]:
+                    best = (rate, label, len(paths), fps)
+    return best
+
+
+def animated_roles(node):
+    """`(role_name, role_dict)` for every role in a room subtree that animates."""
+    out = []
+    roles = node.get("props", {}).get("roles", {})
+    for role_name in sorted(roles):
+        role = roles[role_name]
+        if isinstance(role, dict) and isinstance(role.get("animation"), dict):
+            out.append((role_name, role))
+    return out
 
 
 def _candidates(node, out):
@@ -327,6 +533,132 @@ def main(argv=None):
                     "apart in hue, under the %.0f degree floor — they do not separate"
                     % (a, accents[a][0], b, accents[b][0], d, MIN_ACCENT_HUE_SEPARATION))
 
+    # --- motion budget ----------------------------------------------------
+    #
+    # I7 on the time axis. See MAX_ROOM_MOTION_SHARE above for why this is the
+    # quantity and why the number comes from the cast.
+    #
+    # **Recomputed here, and cross-checked against the manifest — not read.**
+    # That is a deliberate choice between the two the maintainer offered. Reading
+    # the declared `moving_px`/`visible_px` would make the gate a tautology: the
+    # same code that wrote the figure would be the only thing vouching for it,
+    # and a generator with a bug would grade its own homework. Nothing else in
+    # this lint reads a number out of the manifest either — the room's saturation
+    # is measured off the PNGs, not looked up. It also means the check works on a
+    # prop the manifest has *not* adopted, which is the case §14b's refusals were
+    # all about. So: measure the pixels, then assert the manifest agrees, and
+    # fail loudly if it does not. Two sources that can disagree is how 10.4%
+    # became 27.9%; two sources that are *compared* is how that gets caught.
+    placements = role_placements()
+    if not placements:
+        failures.append(
+            "motion budget: scripts/preview-theme.py did not supply a role "
+            "placement census, so the on-panel cost of an animated prop cannot "
+            "be computed. Refusing to guess it.")
+
+    motion_floor = character_motion_floor(variants)
+    motion_ceiling = None
+    if motion_floor is None:
+        failures.append(
+            "motion budget: no looping character animation could be measured, so "
+            "there is nothing to set the ceiling from. The threshold is the "
+            "cast's, not a constant.")
+    elif motion_floor[0] <= 0:
+        # Every looping character frame is identical to its neighbours. That is
+        # not a zero-budget room, it is a broken cast, and a ceiling of zero
+        # would refuse every prop for the wrong reason.
+        failures.append(
+            "motion budget: the quietest looping cast animation (%s) changes no "
+            "pixels at all, so the ceiling would be zero. Check the character "
+            "frames before believing this." % motion_floor[1])
+    else:
+        motion_ceiling = motion_floor[0] * MAX_ROOM_MOTION_SHARE
+
+    motion_scopes = []   # (scope, total px/s, [(role, id, own px/s, placed px/s, own frac)])
+    scopes = [("room", m.get("room", {}))] + [(t, themes[t]) for t in sorted(themes)]
+    for sname, node in scopes:
+        total, contributors = 0.0, []
+        for role_name, role in animated_roles(node):
+            anim = role["animation"]
+            frames = anim.get("frames") or []
+            fps = anim.get("fps") or 0
+            where = role.get("file") or (frames[0] if frames else "?")
+            if len(frames) < 2 or not fps:
+                failures.append(
+                    "motion: %s role %s declares an `animation` with %d frame(s) at "
+                    "%s fps — not a loop, and not measurable (%s)"
+                    % (sname, role_name, len(frames), fps, where))
+                continue
+            if anim.get("loop") is not True:
+                # The measurement wraps the last frame back to the first because
+                # ADR-002 §14b says `loop` is always true and has no other value.
+                # A non-looping prop would be measured against a step that never
+                # plays, so it is refused rather than mismeasured.
+                failures.append(
+                    "motion: %s role %s declares `loop: %r`. ADR-002 §14b says a prop "
+                    "loop is always true; the budget measures the wrap and cannot "
+                    "describe anything else (%s)"
+                    % (sname, role_name, anim.get("loop"), where))
+                continue
+            missing = [p for p in frames if not os.path.exists(os.path.join(REPO, p))]
+            if missing:
+                failures.append("motion: %s role %s declares frames that are not on "
+                                "disk: %s" % (sname, role_name, ", ".join(sorted(missing))))
+                continue
+            try:
+                mv, vis, trans = measure_loop([os.path.join(REPO, p) for p in frames])
+            except ValueError as exc:
+                failures.append("motion: %s role %s — %s" % (sname, role_name, exc))
+                continue
+
+            # The cross-check. Each of these is the manifest disagreeing with the
+            # art it describes, which is a defect in the manifest whatever the
+            # budget says.
+            for key, measured in (("moving_px", mv), ("visible_px", vis),
+                                  ("transition_px", trans)):
+                declared = anim.get(key)
+                if declared is None:
+                    continue
+                if isinstance(measured, list):
+                    agrees = list(declared) == measured
+                else:
+                    agrees = declared == measured
+                if not agrees:
+                    failures.append(
+                        "motion cross-check: %s role %s declares %s = %r but the "
+                        "frames measure %r. Regenerate with scripts/build-manifest.py "
+                        "— a transcribed motion figure is how 10.4%% became 27.9%% "
+                        "(%s)" % (sname, role_name, key, declared, measured, where))
+
+            n = placements.get(role_name)
+            if n is None:
+                failures.append(
+                    "motion: %s animates role %s, and scripts/preview-theme.py does "
+                    "not say how many times the room draws that role. The on-panel "
+                    "cost is unknown, so it cannot be budgeted (%s)"
+                    % (sname, role_name, where))
+                continue
+            own = motion_rate(trans, fps)
+            placed = own * n
+            total += placed
+            contributors.append(
+                (role_name, os.path.basename(os.path.dirname(where)), own, placed,
+                 (float(mv) / vis) if vis else 0.0, n, where))
+        motion_scopes.append((sname, total, contributors))
+
+        if motion_ceiling and contributors and total >= motion_ceiling:
+            worst = max(contributors, key=lambda c: c[3])
+            failures.append(
+                "motion budget: %s changes %.0f px/s of the panel against a ceiling "
+                "of %.0f px/s — %.2fx. The ceiling is the quietest looping animation "
+                "in the cast (%s, %.0f px/s) and the room has to come in under it, "
+                "because in this product motion is what says an agent is working. "
+                "The largest contributor is role %s (%s, %d copies x %.0f px/s, %.1f%% "
+                "of its own visible pixels move): %s"
+                % (sname, total, motion_ceiling, total / motion_ceiling,
+                   motion_floor[1], motion_floor[0], worst[0], worst[1], worst[5],
+                   worst[2], worst[4] * 100, worst[6]))
+
     # Anything declared under assets/ that did not resolve is a missing asset,
     # not prose. Fail loudly rather than measuring a smaller set than declared.
     for s in sorted(prose):
@@ -375,13 +707,46 @@ def main(argv=None):
             print("            %-6s %-8s hue %5.1f  sat %.2f  val %.2f"
                   % (name, accents[name][0], h * 360, s, v))
 
+    # Motion. Printed for every scope including the ones that animate nothing,
+    # because "0 of 1461" is the statement that the check ran — a motion budget
+    # that silently skips every still room is a motion budget nobody has watched
+    # do anything.
+    if motion_floor is not None:
+        print("motion:     ceiling %.0f px/s = %.2f x the quietest looping cast "
+              "animation" % (motion_ceiling, MAX_ROOM_MOTION_SHARE))
+        print("            that animation is %s, %d frames at %g fps"
+              % (motion_floor[1], motion_floor[2], motion_floor[3]))
+    if placements:
+        print("            role copies per panel: %s"
+              % ", ".join("%s x%d" % (k, placements[k]) for k in sorted(placements)))
+    print("            %-16s %-11s %-9s %s"
+          % ("scope", "props", "px/s", "share of ceiling"))
+    for sname, total, contributors in motion_scopes:
+        share = (total / motion_ceiling) if motion_ceiling else 0.0
+        print("            %-16s %-11d %-9.0f %.2f %s"
+              % (sname, len(contributors), total, share,
+                 "FAIL" if (motion_ceiling and total >= motion_ceiling) else ""))
+        if args.verbose or (motion_ceiling and total >= motion_ceiling):
+            for role_name, ident, own, placed, frac, n, _where in contributors:
+                print("              %-14s %-12s %d x %.0f = %-8.0f "
+                      "(%.1f%% of its own visible px move)"
+                      % (role_name, ident, n, own, placed, frac * 100))
+
     if failures:
         print("\nI7 palette lint FAILED — %d violation(s):" % len(failures), file=sys.stderr)
         for f in failures:
             print("  - " + f, file=sys.stderr)
-        print("\nThe thresholds are not the bug. Fix the art: desaturate the room "
-              "further, or pick a character variant that carries a real accent.",
-              file=sys.stderr)
+        print("\nThe thresholds are not the bug.", file=sys.stderr)
+        if any(not f.startswith("motion") for f in failures):
+            print("Fix the art: desaturate the room further, or pick a character "
+                  "variant that carries a real accent.", file=sys.stderr)
+        if any(f.startswith("motion") for f in failures):
+            print("For a motion violation the fix is the prop, not the number: drop "
+                  "it, or take one that moves less, or put it in a slot the room "
+                  "draws fewer times. A theme may carry at most one animated prop and "
+                  "only in `board` (ADR-002 §14b), and the ceiling is the cast's own "
+                  "quietest loop — lowering it would be saying the room may out-move "
+                  "the characters, which is exactly what I7 forbids.", file=sys.stderr)
         return 1
 
     print("\nI7 palette lint passed.")

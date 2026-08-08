@@ -2284,3 +2284,228 @@ worktree at HEAD** — the main tree cannot build right now because another agen
 is mid-edit in `Sources/SpriteRoomScene/` and `RoomSceneTests.swift` references a
 `RoomLayout.deliverySlotPitch` that does not exist yet. That is their in-flight
 work, not this change: this diff touches no Swift at all.
+
+---
+
+## 2026-08-08 — M6d: the motion budget, which is I7 on the time axis
+
+I wrote the gap down myself in ADR-002 §14b while refusing `old_tv`, and then
+left it as a sentence:
+
+> It moves 27.9%, not the 10.4% first recorded — and it **would have passed the
+> lint**, because the lint says nothing about motion. That is a real gap in I7's
+> mechanisation and it is recorded here rather than papered over: nothing checks
+> a moving-pixel budget.
+
+`old_tv` was caught by my eye and by a number I did by hand. The next one would
+not have been. `scripts/lint-palette.py` now carries a fourth threshold beside
+the three colour ones.
+
+The framing that made it a *lint* question rather than a taste question: in this
+product **motion means an agent is working**. It is the one signal a glance
+resolves first. So a prop that out-moves the characters is the time-axis
+equivalent of a room element owning the darkest pixel on screen — the exact thing
+I7 forbids — and it was unguarded.
+
+### The quantity: pixels changed per second, on the panel, per copy drawn
+
+Three candidates. I gate one and print the other two.
+
+**Not `moving_px / visible_px`** — the prop's own moving fraction, which is the
+figure §14b quotes and the figure I computed by hand. It describes how restless
+an object is, not how much of the view changes, and it is not comparable between
+props: an object ten times larger with the same 364 moving pixels scores 3.1%
+instead of 31.5% and costs the panel identically. And it cannot express the thing:
+**no threshold on the moving fraction reproduces the panel's ordering, at any
+value.** A line that admits `pendulum_clock` (3.1%) and refuses `old_tv` (31.5%)
+sits between them; above 4.9% it admits `control_room_screens`, which is 3.21x
+over the panel budget, and below 4.9% it refuses `control_room_server` (3.7%),
+which is the *quietest* object in the folder on the panel at 0.30. The fraction
+carries neither size nor rate, so it cannot.
+
+**Not per-loop moving pixels**, placed or not. It grows with loop length and
+carries no rate, so it prices `control_room_server` (3 frames at 2 fps) at 0.62
+of the ceiling when per second it is 0.30.
+
+**Pixels per second, placed**, is the one an eye competes with. It is
+rate-normalised — `old_tv` runs at 10 fps against the clock's 5, which the
+per-loop figure silently discards — and length-normalised.
+
+The maintainer asked whether the panel or the prop is the right frame. The panel,
+and both halves of that matter: the *rate* and the *placement count*. A prop
+placed four times costs four times as much, and the manifest cannot see that
+because it is geometry, not art.
+
+**The placement multiplier is not a model of the room.** I checked it against the
+renderer instead of assuming it: `preview-theme.py` writing all four frames of
+`library` at the real 720×400 panel differs between consecutive frames by exactly
+4× the prop's own figure, and `broadcast` with `old_tv` in the same slot
+likewise. Exact, both times — nothing occludes the back row. So the lint may
+multiply.
+
+The census lives in `role_placements()` in `preview-theme.py`, next to the
+RoomLayout transcription that already exists, and the lint imports it. `render()`
+counts what it actually placed and hard-fails if the two disagree. I did not want
+a second copy of that number anywhere: two sources that can drift is how 10.4%
+became 27.9% became 31.5%.
+
+It also prices §14b's `board`-only rule instead of restating it. Moving the
+*identical shipped clock* from `board` to `plant` takes it from 0.57 of the
+ceiling to 2.01 and reddens the build, because the room draws `plant` ten times
+and seven of those are in the permanently-visible foreground row.
+
+### The number is the cast's
+
+The maintainer's suggestion was right and it is a better number than anything I
+could have picked from two props. I7's other thresholds are relative; this one is
+too. The ceiling is measured at lint time as **the quietest looping animation any
+shipped variant plays**, in the same units.
+
+| loop | quietest | loudest |
+|---|---:|---:|
+| `idle` | **1461 px/s** (10, up) | 2603 px/s (07, down) |
+| `working` (sit) | 2837 px/s (10, right) | 4523 px/s (07, left) |
+| `walk`/`spawn`/`depart` | 4661 px/s (06, up) | 6672 px/s (07, down) |
+
+`deliver` is excluded: it does not loop, and wrapping its last frame to its first
+would measure a cut that never plays.
+
+**Ceiling 1461 px/s**, the minimum over the whole table rather than over the poses
+a side-view room actually draws. `idle` up is a back view we may never show;
+taking it anyway makes the ceiling stricter, and a stricter number from a
+mechanical rule beats a looser one from a judgement about which frames get drawn.
+It is also the right family on the merits — I2 says a character idles unless it
+holds an open call, so idling is the quietest a character can legitimately be
+while still on screen.
+
+**Share 1.0.** "Scenery must move less than a working character does" is the
+literal reading of I7 on this axis. One character rather than the population,
+because room motion does not scale with population and character motion does — so
+one agent is the binding case, and it is also the common case and the only one
+that reaches `3x`.
+
+| candidate | fps | own | ×4 on panel | share | own moving fraction |
+|---|---:|---:|---:|---:|---:|
+| `control_room_server` | 2 | 109 | 437 | **0.30** | 3.7% |
+| `pendulum_clock` — ships | 5 | 210 | 840 | **0.57** | 3.1% |
+| `control_room_screens` | 10 | 1171 | 4684 | **3.21** | 4.9% |
+| `old_tv` | 10 | 3467 | 13867 | **9.49** | 31.5% |
+
+**REVISIT WITH DATA, and I want to be precise about what is and is not verified.**
+Verified: 1.0 separates every object anyone has looked at — one adoption at 0.57
+from three refusals at 3.21 and up. Not verified: where in the 0.57–3.21 gap the
+line belongs, because nothing has ever landed there. **This data cannot
+distinguish a share of 0.6 from a share of 1.0**, so I did not pick 0.6; that
+would be asserting a precision I do not have, and 1.0 is at least the sentence
+I7 actually says. The first prop that scores between 0.6 and 1.0 and looks wrong
+at `1x` is the evidence that tightens it.
+
+### Recompute and cross-check, not read
+
+The maintainer asked me to pick one and say which. **Recompute, and assert the
+manifest agrees.**
+
+Reading the generated `moving_px`/`visible_px` would make the gate a tautology —
+the code that wrote the figure would be the only thing vouching for it, and a
+generator with a bug would grade its own homework. Nothing else in this lint
+reads a number out of the manifest; the room's saturation is measured off the
+pixels. Recomputing also makes the check usable on a prop the manifest has *not*
+adopted, which is the case all three of §14b's refusals were.
+
+`build-manifest.py` now also generates `transition_px` — the per-step pixel
+counts, as integers, so the manifest stays byte-deterministic and a reviewer sees
+the shape of the loop rather than a mean somebody took. The lint measures all
+three and fails naming both figures if any disagrees.
+
+### A third transcription of the same figure, and two of the three were wrong
+
+Recomputing immediately caught one. `old_tv` is **364 of 1156 (31.5%)**, not the
+"364 of 1304 (27.9%)" I wrote at M6c to correct M6b's "160 of 1544 (10.4%)". The
+visible count is 1156 under every definition anyone could mean — union over the
+loop, per frame, alpha over 127 or over 0. I fixed the numerator the second time
+and *retyped the denominator*. `control_room_server` has the same defect: 80 of
+**2176** (3.7%), not 2240.
+
+Three passes at one figure, three transcriptions, two wrong. That is not a
+careless-agent story, it is the argument for the check: the only figure in this
+project that has never been wrong is the one a script generates.
+
+Corrected in `docs/04-ART-DIRECTION.md` and in `process-assets.py`'s own comment.
+**`ADR-002` §14b repeats the 27.9% and I have not touched it** — not my document,
+and it is flagged here so it is not lost. §14b also now has a mechanism where it
+had a stated gap, which is a second reason it wants an editorial pass.
+
+### Watched failing
+
+Seven injections, every one exits non-zero naming the file and the value. The
+first is the real thing end to end — `old_tv` into `ANIMATED_ADOPTED`, re-imported,
+re-manifested — because I already cut and measured it and a synthetic would have
+proved less:
+
+| injected | result |
+|---|---|
+| `old_tv` adopted into `broadcast` | **FAIL** 9.49×, naming `board`/`old_tv`/4 copies × 3467 px/s. Its colour numbers in the same run: `broadcast` 0.470 → 0.462, i.e. still passing every colour check — §14b was right |
+| the shipped clock moved `board` → `plant` | **FAIL** 2.01×. Same art, ten copies |
+| `transition_px` off by one pixel | **FAIL**, cross-check names declared and measured |
+| `moving_px` altered | **FAIL**, cross-check |
+| `loop: false` | **FAIL** — the budget measures the wrap and will not describe anything else |
+| an animated role the layout never places | **FAIL** — cost unknown, refuses to guess |
+| `role_placements()` made to disagree with what `render()` drew | **FAIL** in the preview tool, naming both counts — the tie between the picture and the budget |
+
+Negative control: `control_room_server` adopted into `mission_control` **passes**
+at 0.30. The budget discriminates rather than blocking motion; that object's
+refusal was and remains a contrast one.
+
+### Gate
+
+No existing threshold touched, and I checked that rather than asserting it: all
+six themes plus `room` report **identical colour numbers to three decimals**
+before and after. Motion is new and additive.
+
+| scope | mean val | max sat | darkest | min contrast | motion px/s | share |
+|---|---:|---:|---:|---:|---:|---:|
+| `room` | 0.785 | 0.183 | 0.659 | 0.472 | 0 | 0.00 |
+| `briefing` | 0.817 | 0.182 | 0.667 | 0.503 | 0 | 0.00 |
+| `broadcast` | 0.784 | 0.114 | 0.667 | 0.470 | 0 | 0.00 |
+| `library` | 0.766 | 0.183 | 0.667 | 0.452 | 840 | **0.57** |
+| `mission_control` | 0.741 | 0.182 | 0.604 | 0.427 | 0 | 0.00 |
+| `office` | 0.793 | 0.183 | 0.659 | 0.480 | 0 | 0.00 |
+| `stage` | 0.786 | 0.183 | 0.667 | 0.472 | 0 | 0.00 |
+
+Manifest byte-identical across a rerun. The only manifest change is
+`transition_px` on the one animated role plus two generated note strings; no
+decoder or test reads either. The lint costs 0.5 s → 1.1 s, and a PNG load cache
+pays for most of the motion pass.
+
+Zero rows are printed rather than skipped, on the same principle as the art and
+window-server skip notices: a motion budget that says nothing about a still room
+is a motion budget nobody has watched run.
+
+Manifest byte-identical across a rerun, before and after the injections. The only
+manifest change is `transition_px` on the one animated role plus two generated
+note strings; nothing in `Sources/` or `Tests/` reads either, and
+`Manifest.propAnimation` decodes named keys and ignores the rest. Two degradation
+cases checked as well: a manifest with no `themes` at all still lints, and an
+animated role predating `transition_px` is still budgeted, because the lint
+measures rather than reads and the cross-check skips a key that is absent.
+
+The lint costs 0.5 s → 1.1 s, and a PNG load cache pays for most of the motion
+pass.
+
+Zero rows are printed rather than skipped, on the same principle as the art and
+window-server skip notices: a motion budget that says nothing about a still room
+is a motion budget nobody has watched run.
+
+**Swift gate, in a worktree at HEAD carrying this manifest**, for the same reason
+M6c needed one: three other agents are live in `Sources/` and `Tests/` right now,
+so the main tree's suite is not a statement about this change.
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean, and
+`SPRITE_ROOM_REQUIRE_ART=1 swift test` **424 tests in 33 suites, all passed** —
+the art really was checked, not skipped. This diff touches no Swift at all.
+
+**One coupling to watch.** `role_placements()` transcribes the back-row seat
+arithmetic from `RoomLayout.swift`, and another agent is mid-edit in that file. I
+read their diff: it reworks `entranceRoute`/`edgePosition`, not `seatCapacity`,
+`seatSpacingTiles` or the back row, so the census stands. If anyone changes how
+many seats there are or which of them take a `board`, the motion budget moves
+with it and `preview-theme.py`'s census check is what will say so.

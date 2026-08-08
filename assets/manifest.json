@@ -2269,7 +2269,7 @@
           },
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/briefing/32x32/singles/board.png",
@@ -2377,7 +2377,7 @@
           },
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/broadcast/32x32/singles/board.png",
@@ -2485,7 +2485,7 @@
           },
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
               "file": "assets/processed/animated/32x32/pendulum_clock/frame_00.png",
@@ -2507,7 +2507,13 @@
                 "fps_source": "the pack's own GIF of this object holds every frame for 20/100 s; scripts/process-assets.py reads it and refuses to cut a sheet whose GIF disagrees",
                 "moving_px": 64,
                 "visible_px": 2096,
-                "measured_on": "the shipped frames, by scripts/build-manifest.py"
+                "transition_px": [
+                  48,
+                  40,
+                  48,
+                  32
+                ],
+                "measured_on": "the shipped frames, by scripts/build-manifest.py. `moving_px` is the union over the loop against frame 0 and `visible_px` the union of visible pixels; `transition_px` is the pixels that change on each step of the loop, wrapping, and is what scripts/lint-palette.py's motion budget is computed from \u2014 mean(transition_px) * fps * how many times the room draws this role. The lint recomputes all three off the same PNGs and fails if they disagree with these."
               },
               "source_set": "Modern Interiors 3_Animated_objects",
               "source_sheet": "animated_pendulum_clock_32x32.png",
@@ -2608,7 +2614,7 @@
           },
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/mission_control/32x32/singles/board.png",
@@ -2849,7 +2855,7 @@
           },
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/office/32x32/singles/board.png",
@@ -2957,7 +2963,7 @@
           },
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px` are I7's number for a moving prop and are measured on these frames.",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
               "file": "assets/processed/themes/stage/32x32/singles/board.png",
