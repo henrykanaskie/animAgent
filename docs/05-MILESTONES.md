@@ -166,36 +166,48 @@ Do not close one of these by editing the criterion.
   `oneIsTheFloorAndTheRoomNeverGoesBelowIt`,
   `everyPopulationMapsToAnIntegerOnTheLadder`.
 
-  **Open — the foreground row is permanently on screen.** M5 placed it strictly
-  below the content band so it fell out of frame at the tightest zoom; with `1x`
-  the only scale in play, it never does. `foregroundDecorationIsEntirelyOutsideTheContentBand`
-  still passes because it checks the band, not the viewport, so **nothing
-  currently catches this** and no verifier can gate it. What would settle it: a
-  decision from the maintainer on whether the wide default keeps the row, and
-  then either art that earns its place in the foreground or a camera that crops
-  it. Do not close this criterion by editing the test that does not test it.
-- **A nameplate leads with the part that distinguishes it.** Two rows: a solid
-  accent band carrying the discriminator at double size, type small beneath.
-  Measured on rendered pixels rather than asserted — two same-typed plates differ
-  in **at least four times** the separation the single-line plate gave (61.5% of
-  pixels against 21.7%), cap height 14 px from 7, stroke 2 px from 1. No plate
-  exceeds the seat pitch, no two plates ever intersect, and a truncated type still
-  says it was truncated — the ellipsis is lossy but *visibly* lossy, and no
-  abbreviation scheme degrades honestly over arbitrary text.
-  `sameTypedSubagentPlatesDifferByFourTimesTheOldSeparation`,
-  `theDiscriminatorIsTheTailOfTheAgentIDAndSurvivesOddIDs`, `noPlateExceedsTheSeatPitch`,
-  `noTwoNameplatesEverIntersectAcrossResumedSubagents`,
-  `aTruncatedTypeStillSaysItWasTruncated`. This carries M2's criterion forward:
+  **Closed at M6d.** The row is removed, and the rule that replaced it is
+  stronger than the one it lost: **nothing decorative is drawn nearer the camera
+  than the seat row** (`theRoomDrawsNoDecorationInFrontOfTheCharacters`, over
+  `room` and all six themes). M5's rule was about *zoom*, so the wide camera
+  retired it; this one is about *depth*, so no camera policy can. The foreground
+  is the walkway now.
+
+  **Decided by the maintainer, 2026-08-08: `1x` at every population stays.** The
+  lattice grew the content band from 145 to 241 px, which puts `2x` at 482 px
+  against a 400 px panel — so two of three rungs are now geometrically
+  unreachable, `3x` having already been dead before the change. The ladder is
+  untouched and integer, nothing prefers a closer rung, and
+  `aCameraCanStillPreferACloserScaleIfItIsToldTo` proves the mechanism survives.
+  Recorded as a spend, not a defect.
+`aTruncatedTypeStillSaysItWasTruncated`. This carries M2's criterion forward:
   M0 found the cast is not separable by silhouette, so the plate is a primary
   identity channel and not decoration.
 
-  **Open — clearance in transit.** 96 px of seat pitch against a 65 px plate
-  leaves 48 px of half-pitch, so a character walking the aisle is always within a
-  plate width of some station. Real captures pass by 20–31 px; a synthetic worst
-  case does not. Closing it structurally needs a 5-tile pitch — 4 tiles misses by
-  one pixel — and 5 tiles stops five agents fitting the panel at `1x`. This is a
-  trade for the maintainer, not a defect, and it is recorded so it is not
-  rediscovered.
+  **Closed at M6d, and both proposed fixes were refuted first.** Widening the
+  pitch does not work: the failure is two characters walking one line in
+  opposite directions, and they cross at **zero** separation at any pitch.
+  Staggering the plate vertically needs `s <= 6` or `s >= 58` by arithmetic, and
+  the 6 px of headroom available is in the branch that buys nothing. The room is
+  a **lattice**: every character is confined to its own seat's column or its own
+  ring's delivery row, so two plates can meet only if they share a horizontal
+  strip *and* come within a plate width in x, which the geometry forbids.
+  Worst synthetic case went from **−26.0 px** to **+6.0 px**.
+
+  Arrivals were the last beat to close, and the number recorded here before was
+  wrong: it was not a 6 px clearance but **−25.60 px**, a real overlap, missed
+  because the sweep paired seats two rings apart instead of one. Fixed by
+  arrivals coming upstage from the character's own ring's delivery row — which
+  keeps M5's "visible from its first frame" rather than trading it.
+  `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`,
+  `noAdversarialPairingOfBeatsEverTouchesTwoPlates`,
+  `everySeatWalksInFromInsideTheFrame`.
+
+  **Decided by the maintainer, 2026-08-08: the fading departure stays.** There is
+  no frame edge behind the desks and a flat wall gives nothing to disappear
+  behind, so the fade is the honest end of an upstage exit. The alternatives were
+  a hard pop at the wall line and an occluder band that cut visibly across the
+  sprite.
 - **Six themes in the manifest**, each binding every prop role the scene draws,
   each resolving a floor and a wall at the declared tile size, each carrying
   `assignable`, and `themes.default` naming a theme that exists. No theme name and
@@ -275,10 +287,10 @@ Do not close one of these by editing the criterion.
   `aLeaverCaughtInTheAisleGoesOutThroughItsOwnStation`,
   `aWalkTakesTimeInProportionToItsLengthAtEveryLength`.
 
-  **Open — delivery slots are claimed lowest-free, not seat-ordered**, so two
-  reporters arriving on the same side can cross rather than queue in seat order.
-  Not observed to look wrong in any capture; recorded because it is a known
-  difference between what the code does and what the room should mean.
+  **Closed at M6d, by construction rather than by ordering.** The delivery
+  position is now a pure function of the reporter's seat, so there are no shared
+  slots to claim and nothing can be claimed out of order. `DeliveryStation`,
+  `reportingSlots`, `claimStation` and `releaseStation` are deleted.
 - **Every badge in the tool→badge table has art on disk, and the four authored
   ones say they are authored and why.** `magnifier`, `terminal`, `globe` and
   `plug` exist in no pack we own; they are drawn in the pack's own bubble and
@@ -289,14 +301,15 @@ Do not close one of these by editing the criterion.
   never gated by a milestone of their own. They are gated here because this is the
   first milestone written after them — recorded rather than backdated.
 
-  **Open — the `sleep` badge is art and a manifest key, not something the room
-  draws.** `badges.states.sleep` is in the manifest at `eedd89c` with a file on
-  disk, and `SpriteRoomCore` carries the `dormant` lifecycle that would drive it.
-  `SpriteRoomScene` does not reference it: `Manifest` exposes `badges.states`
-  only through `attentionKey`, so a dormant character currently draws the same as
-  an idle one. What would settle it: the scene reading a second `badges.states`
-  entry, and a test asserting that a dormant character wears it and an idle one
-  does not.
+  **Closed at M6d.** The scene draws it. Wiring it required a `WorldDelta` case
+  that had been explicitly refused when dormancy shipped, on the grounds that
+  nothing we own could honestly draw the difference between *finished a turn* and
+  *waiting for work* — the `Z` bubble is real pack art saying exactly the true
+  thing, so the refusal is reversed with its reason recorded rather than
+  overwritten. Precedence is **attention > sleep > tool**, and the middle
+  comparison turned out reachable where it was expected not to be:
+  `PermissionRequest` arms a gate mark without going through `ensureAgent`, so it
+  does not revive a dormant agent.
 - **Open — `characters.poses.working` does not exist.** ADR-002 §7 specifies the
   table and §5 promised a second seated pose only *if* the inventory found one
   usable. It did not: the pack's second seated row is pixel-identical to the first
