@@ -293,6 +293,166 @@ def build_room():
     }
 
 
+def _theme_table():
+    """The THEMES table from scripts/process-assets.py, or {} if unreadable.
+
+    Imported rather than duplicated. The importer owns which single fills which
+    slot — that is the thing that was established by looking at the art — and a
+    second copy here would be a second source of truth that drifts. The
+    hyphenated filename is why this needs importlib rather than `import`.
+    """
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "process-assets.py")
+    if not os.path.exists(path):
+        return {}
+    spec = importlib.util.spec_from_file_location("_process_assets", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return getattr(mod, "THEMES", {})
+
+
+def build_themes():
+    """Every themed room, each shaped exactly like `room`.
+
+    Why a sibling of `room` rather than a replacement for it: `room` is the
+    contract the scene loads today, and a themed room has to be a manifest swap
+    with zero code change. So `room` stays byte-for-byte what it was — it is the
+    resolved default theme — and `themes.sets.<id>` carries the same shape for
+    every theme including that default. A scene that learns to select a theme
+    reads `themes.sets[id]` with the loader it already has for `room`; nothing
+    has to be reshaped and no existing reader breaks.
+
+    Each theme declares its own floor and wall explicitly. Today the scene
+    instead *searches* the builder tiles for the only two that are fully opaque
+    and a single colour and takes the darkest and lightest, which is why every
+    theme also ships a flat tile of its floor's and wall's own mean tone: under
+    the current heuristic a theme still renders, in its own tones, flat. The
+    declared `floor`/`wall` are what it should use once it is told to.
+    """
+    base = os.path.join(PROCESSED, "themes")
+    if not os.path.isdir(base):
+        return None
+    table = _theme_table()
+    sets = {}
+    for name in sorted(os.listdir(base)):
+        tdir = os.path.join(base, name, SIZE)
+        if not os.path.isdir(tdir):
+            continue
+        spec = table.get(name, {})
+        roles = {}
+        for role in sorted(spec.get("roles", {})):
+            path = os.path.join(tdir, "singles", "%s.png" % role)
+            if not os.path.exists(path):
+                continue
+            box = content_box(path)
+            if box is None:
+                continue
+            setno, index, what = spec["roles"][role]
+            roles[role] = {
+                "file": rel(path),
+                "source_set": "Modern Office singles" if setno == "office"
+                              else "Modern Interiors Theme Sorter set %s" % setno,
+                "single_index": index,
+                "provenance": "pack",
+                "identified_by": "rendered with scripts/contact-sheet.py and inspected "
+                                 "by eye, then confirmed at 4x with --pick; the packs "
+                                 "ship no names for their singles",
+                "what": what,
+                "content_box": box,
+            }
+
+        bdir = os.path.join(tdir, "builder")
+        tiles, declared = [], {}
+        if os.path.isdir(bdir):
+            tiles = [rel(os.path.join(bdir, n))
+                     for n in sorted(os.listdir(bdir)) if n.endswith(".png")]
+            # The floor is the cut tile: it tiles cleanly and its pattern is
+            # most of what makes one theme not another.
+            #
+            # The WALL IS THE FLAT, and that is a finding about the pack rather
+            # than a preference. Every wall tile in Room_Builder_Walls carries
+            # vertical trim — measured: the left and right edge columns differ
+            # on 28-32 of 32 rows for every tile picked — because the sheet is
+            # drawn for wall *segments* with corners, not for a wall repeated
+            # across a 25-tile room. Tiled horizontally they show a hard seam
+            # every 32 px. The Office room never hit this because its builder
+            # sheet yields a flat wall, which is what ships today.
+            #
+            # It is also the better answer under I7 even if the seams were not
+            # there: the wall is the largest continuous area on screen and it
+            # sits directly behind every character, so it is exactly where a
+            # busy pattern would compete at the size characters are hardest to
+            # read. The cut tile is still written out and still listed in
+            # `tiles`, so the tone is traceable to a real tile in the download.
+            floor_cut = os.path.join(bdir, "floor.png")
+            wall_flat = os.path.join(bdir, "flat_wall.png")
+            if os.path.exists(floor_cut):
+                declared["floor"] = rel(floor_cut)
+            if os.path.exists(wall_flat):
+                declared["wall"] = rel(wall_flat)
+            for extra, path in (("floor_flat", os.path.join(bdir, "flat_floor.png")),
+                                ("wall_pattern_source", os.path.join(bdir, "wall.png"))):
+                if os.path.exists(path):
+                    declared[extra] = rel(path)
+        else:
+            # The default theme reuses the Office room's own builder tiles
+            # rather than shipping a second copy of them.
+            room = build_room()
+            tiles = room["builder"]["tiles"] if room else []
+
+        if not roles:
+            continue
+        sets[name] = {
+            "title": spec.get("title", name),
+            "what": spec.get("what", ""),
+            "tile": {"w": 32, "h": 32},
+            "anchor": {"px": [0, 0], "normalized": [0.0, 0.0],
+                       "note": "bottom-left of the tile"},
+            "provenance": "pack",
+            "processed_by": "scripts/process-assets.py",
+            "builder": dict(
+                {"tiles": tiles,
+                 "source": "Modern Interiors / Room_Bulder_subfiles_%s" % SIZE
+                           if os.path.isdir(bdir)
+                           else "Modern Office / Room_Builder_Office_%s.png" % SIZE,
+                 "note": "`floor` and `wall` are the two tiles this theme draws. "
+                         "`floor` is cut from the pack. `wall` is provenance "
+                         "'authored' — a flat field of the mean tone of the pack tile "
+                         "recorded in `wall_pattern_source`, because every wall tile "
+                         "in that sheet carries vertical trim and seams every 32px "
+                         "when repeated across a 25-tile room. `floor_flat` is the "
+                         "same treatment of the floor, and is what the scene's current "
+                         "single-colour-tile heuristic will pick until it is told to "
+                         "read `floor` and `wall`.",
+                 "authored_tiles": ["wall", "floor_flat"],
+                 "authored_because": "the pack's wall tiles do not tile seamlessly; "
+                                     "measured in scripts/build-manifest.py"},
+                **declared),
+            "props": {
+                "canvas": {"w": 64, "h": 96},
+                "identified": True,
+                "note": "Every prop is padded bottom-centred into one 64x96 canvas at "
+                        "import so that a single `canvas` covers them all, exactly as "
+                        "the Office room's do. The theme sorter singles arrive on tight "
+                        "per-sprite canvases and are NOT bottom-aligned in them, so a "
+                        "prop is placed by putting its measured content_box "
+                        "bottom-centre on a named point.",
+                "roles": roles,
+            },
+        }
+    if not sets:
+        return None
+    return {
+        "default": "office" if "office" in sets else sorted(sets)[0],
+        "note": "Each entry has the same shape as `room`, which is the resolved "
+                "default. The four role names are placement slots, not object nouns: "
+                "`plant` is the repeated back-wall and walkway accent, and a theme "
+                "fills it with whatever plays that part — a console terminal, a "
+                "bookcase, a stage curtain. Selection mechanism is docs/ADR-002.",
+        "sets": sets,
+    }
+
+
 def build_badges():
     real = os.path.join(PROCESSED, "badges", SIZE)
     drawn = os.path.join(AUTHORED, "badges", SIZE)
@@ -427,7 +587,7 @@ def main():
         },
     }
     for key, fn in (("characters", build_characters), ("room", build_room),
-                    ("badges", build_badges)):
+                    ("badges", build_badges), ("themes", build_themes)):
         section = fn()
         if section is not None:
             manifest[key] = section

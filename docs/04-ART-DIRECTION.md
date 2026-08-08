@@ -701,6 +701,170 @@ properly or say plainly that it is scaffolding for good.** Which of those a
 thing is belongs in the manifest, where a reviewer and a test can both read it,
 not in how ugly it looks.
 
+## Themed rooms — added after M5c
+
+The maintainer asked for "a cooler environment than a classroom", suggesting
+**engineering, rocket ship, classroom**. Two of those are buildable. One is not,
+and it is worth saying flatly before anything else:
+
+> **There is no rocket ship, spacecraft, launch pad, capsule, airlock, console
+> bank or star field in any pack we own.** All 24 Theme Sorter sets, both Room
+> Builder sheets, the 8 Home Designs and the animated-objects set were listed and
+> the 24 sets were rendered and looked at. The nearest thing to a spacecraft
+> interior in 5330 themed sprites is a shooting-range target on a mast. No
+> further packs will be bought, so this is not a scheduling problem — it is the
+> shape of what we have. What *is* buildable is a control room, and `mission_control`
+> below is that room, assembled out of a basement and a shooting range.
+
+### The inventory, and why it had to be rendered
+
+The Theme Sorter sets are named by index only, exactly like the Office singles:
+the `.ase` files hold unnamed frames with no slices and no tags. So there is
+nothing to look up and no auto-slicer, and the only way to find out what single
+164 of set 14 is, is to render it and look. `scripts/contact-sheet.py` does that
+and is committed so the work is not repeated from zero.
+
+| # | Set | Files | What is actually in it |
+|---|---|---:|---|
+| 2 | Living Room | 122 | sofas, wardrobes, side tables, **good large plants (13–18)**, floor lamps (79–88) |
+| 3 | Bathroom | 158 | not surveyed |
+| 4 | Bedroom | 555 | not surveyed |
+| 5 | Classroom & Library | 75 | school desks/chairs (1–30), **chalkboards (27–30, 36, 39)**, globes (34–35), world map (31), **tall bookcases (55–75)**. Note 50–51 have a character baked in — unusable [I1] |
+| 6 | Music & Sport | 249 | upright pianos (1–24), grand pianos (28–33), **drum kits (37–42)**, amp cabinets (43–44), guitars (45–59), harps, **mic stands (61–65)**, balls |
+| 7 | Art | 46 | paint pots (1–20), bonsai (21), paint-strewn benches (22–29), **easels (34–40)**, framed pictures (41–46) |
+| 8 | Gym | 209 | not surveyed |
+| 9 | Fishing | 77 | not surveyed |
+| 10 | Birthday Party | 29 | not surveyed |
+| 11 | Halloween | 240 | not surveyed |
+| 12 | Kitchen | 408 | not surveyed |
+| 13 | Conference Hall | 68 | **stage curtains (1–24)**, lecterns with screens (29–32), **flip charts (50–52)**, status kiosk (41), fire extinguisher, framed banners, light pools (66–68) |
+| 14 | Basement | 240 | mattresses (4–60), crates (64–66), **pool tables (76–81)**, workbenches (85–101), stools (103–156), **flat-screen monitors (163–166)**, tool trays, cables, consoles (167–182), doors |
+| 15 | Christmas | 123 | not surveyed |
+| 16 | Grocery Store | 483 | not surveyed |
+| 18 | Jail | 344 | not surveyed |
+| 19 | Hospital | 532 | not surveyed |
+| 20 | Japanese Interiors | 131 | not surveyed |
+| 21 | Clothing Store | 494 | not surveyed |
+| 22 | Museum | 451 | ticket booths, turnstiles, stanchions, **display plinths with vases**, floor spotlights, **framed paintings** |
+| 23 | TV & Film Studio | 80 | **film cameras on tripods (1–7)**, **softbox lights on stands (8–11)**, green screens (12–27, unusable — see below), armchairs, ring lights, boom mics, wall monitors (41–47), **director's chairs (54–74)** |
+| 24 | Ice Cream Shop | 102 | not surveyed |
+| 25 | Shooting Range | 28 | booth counters (1–8), **console terminals (11–14)**, target masts (15–18), rails, **rack units with LED strips (23–28)** |
+| 26 | Condominium | 86 | not surveyed |
+
+There is no set 17 in the download. Ten sets were surveyed in full and the rest
+listed by count; the ten cover every theme below with room to spare, and
+rendering the other 3300 sprites would have bought nothing this task needed.
+
+**Green screens cannot ship.** Set 23's singles 12–27 are the most saturated art
+in any pack we own. They pass the lint only because the import transform clamps
+saturation, which turns them into flat pale-green rectangles — a green screen
+that is not green is a rectangle. They are excluded by omission, not by a filter.
+
+### The five themes, and the default
+
+Each theme fills the same four placement slots. **The slot names are not object
+nouns.** The scene places a work surface at each seat, a seat, a standing object
+on the back wall, and a repeated accent along the back wall and the foreground
+walkway, and it looks them up as `desk`, `chair`, `board` and `plant`. Those are
+the Office room's words and they are now the interface; a theme filling `plant`
+with a stage curtain is the slot doing its job. Renaming them to
+`surface`/`seat`/`backdrop`/`accent` would say what they mean and is the right
+change the next time the scene is opened — it is a scene change, so it is not in
+this one.
+
+| Theme | `desk` | `board` | `plant` | Floor | Reads as |
+|---|---|---|---|---|---|
+| `office` (default) | Office 34 | Office 171 chart board | Office 99 potted plant | Office builder | the room as it shipped |
+| `mission_control` | Basement 97 steel workbench | Basement 164 flat-screen monitor | Shooting Range 11 console terminal | fine grey grid | a wall of screens over a console row |
+| `broadcast` | Office 34 | TV Studio 8 softbox on a tripod | TV Studio 1 film camera on a tripod | pale diagonal | tripods, and nothing else has tripods |
+| `library` | Classroom 26 desk with an open book | Classroom 39 green chalkboard | Classroom 57 tall bookcase | wood plank | the classroom that was asked for |
+| `stage` | Office 34 | Music 37 drum kit | Music 62 mic stand | herringbone | the only theme whose back wall is not a rectangle |
+| `briefing` | Office 34 | Conference 50 flip chart | Conference 1 hanging curtain | large block tile | a hall rather than a workspace |
+
+`chair` is Office single 104 in **every** theme, and that is a finding rather
+than laziness: the pack's seated pose faces right and only right, so the chair
+must be a side view with its backrest on the left. Office 104 is the only chair
+verified to be one. Every themed chair located — the director's chairs in set
+23, the school chairs in set 5 — is a front or back view and would seat a
+character facing into its own backrest. [I1]
+
+**Recommendation: ship `mission_control`, `broadcast`, `library` and `stage`
+alongside `office`.** They separate cleanly at `1x`: a wall of screens, a forest
+of tripods, floor-to-ceiling bookcases, a row of drum kits. **`briefing` is the
+marginal one** — it is buildable, it passes, and it is distinguishable by its
+pink block floor and white slabs, but its identity is the weakest of the six and
+it is the one to cut if the selector wants a shorter list.
+
+Two picks were made and then reversed by looking at them at `1x`, which is the
+only test that counts. Conference Hall 29, the lectern with a lit screen, lost
+its body against a pale wall and left a card floating at chest height. Shooting
+Range 15, the target mast — the single most "mission control" object either pack
+owns — became a smudge behind the desk row. Both are recorded in
+`scripts/process-assets.py` next to what replaced them.
+
+### Two facts about the room that this work uncovered
+
+**Of the Office room's 141 builder tiles, the scene can draw exactly 2.**
+`TextureStore.roomTileChoice()` accepts a tile only if it is fully opaque *and a
+single colour*, then takes the darkest as the floor and the lightest as the
+wall. Two tiles pass. So today's room is two flat colour fields and the other
+139 tiles are dead weight in the manifest — which is most of why a room drawn
+wide reads as empty floor. Every theme therefore declares `builder.floor` and
+`builder.wall` explicitly, *and* ships an authored flat of each tone so the
+current heuristic still finds something and a theme still renders in its own
+tones today. **Reading the declaration instead of searching for it is a small
+scene change and it is the one that makes floors themeable.** It is additive:
+`room` is untouched and the heuristic remains the fallback.
+
+**The pack's wall tiles do not tile.** Every tile in `Room_Builder_Walls` carries
+vertical trim — measured, the left and right edge columns differ on 28–32 of 32
+rows for every tile picked — because the sheet draws wall *segments* with
+corners, not a wall repeated across a 25-tile room. Tiled horizontally they show
+a hard seam every 32 px. So a theme's `wall` is `provenance: "authored"`: a flat
+field of the mean tone of a real pack tile, which is recorded beside it in
+`wall_pattern_source`. That is also the better answer under I7 regardless — the
+wall is the largest continuous area on screen and sits directly behind every
+character, which is precisely where a busy pattern competes at the size
+characters are hardest to read. The floors *do* tile cleanly and keep their
+pattern; the floor is what carries a theme's surface identity.
+
+### Manifest schema
+
+`themes.sets.<id>` has **the same shape as `room`**, and `room` is unchanged —
+byte-for-byte the resolved default theme. A scene that learns to select a theme
+reads `themes.sets[id]` with the loader it already has; no existing reader
+breaks, and `swift test` passes untouched. Every prop is padded bottom-centred
+into one 64×96 canvas at import, which is why a single `props.canvas` still
+covers them all even though the Theme Sorter singles arrive on tight per-sprite
+canvases from 16×96 to 64×96. The per-role `content_box` discipline is
+unchanged and is doing more work than before: these singles are not
+bottom-aligned in their own canvases either. Selection mechanism is
+`docs/ADR-002-themed-rooms.md`, which is not this document's decision.
+
+### Lint
+
+`scripts/lint-palette.py` now measures **every theme separately**, on the same
+thresholds, and re-checks character value contrast against each theme's own mean
+— pooling them would let a quiet theme carry a loud one, and only one theme is on
+screen at a time. Thresholds are unchanged and were not touched.
+
+| Theme | mean value | max saturation (ceiling 0.25) | darkest | min character contrast (floor 0.40) |
+|---|---:|---:|---:|---:|
+| `briefing` | 0.817 | 0.182 | 0.667 | 0.503 |
+| `broadcast` | 0.784 | 0.114 | 0.667 | 0.470 |
+| `library` | 0.770 | 0.183 | 0.667 | 0.456 |
+| `mission_control` | 0.753 | 0.181 | 0.667 | 0.439 |
+| `office` | 0.793 | 0.183 | 0.659 | 0.480 |
+| `stage` | 0.786 | 0.183 | 0.667 | 0.472 |
+
+All six pass. The saturation column passes **by construction** rather than by
+luck — the import transform clamps every room pixel to 0.18 — so the honest
+reading of that column is that it proves the transform ran, not that the source
+art was tame. The contrast column is the one that could have failed: it is
+`theme mean − character's darkest pixel`, so a theme that darkened the room
+enough to swallow the cast would fail here. `mission_control` is the darkest
+theme and has the least margin, at 0.439 against a floor of 0.40.
+
 ## Scripts
 
 | Script | Does |
@@ -709,6 +873,8 @@ not in how ugly it looks.
 | `scripts/process-assets.py` | the import pass — room recolour, shadow strip, character slicing, badge cutting and badge compositing. Idempotent; verified byte-identical across a forced rerun. It also writes `assets/processed/badges/32x32/sources.json`, which records the sheet, cell and bounding box behind every badge, and the search result behind every badge that has none, and `_bubble_frame.png`, the pack's empty bubble on the badge canvas. |
 | `scripts/generate-art.py` | **renamed from `generate-placeholders.py` at M5c.** Authors the four glyphs no pack draws — on the pack's 2× design grid, in the pack's four-colour palette — and composites them into `_bubble_frame.png`, so an authored badge is the same construction as a pack one. Also draws `document`/`checklist` as the fallback behind pack art, and the fallback cast under `--characters`. Falls back to a hand-drawn bubble only when there is no pack on disk at all. |
 | `scripts/build-manifest.py` | generates `assets/manifest.json` from disk, re-stating every path. |
-| `scripts/lint-palette.py` | the I7 gate. Non-zero exit names the file and the value. |
+| `scripts/lint-palette.py` | the I7 gate, over `room` **and every theme**, on the same thresholds. Non-zero exit names the file and the value. |
+| `scripts/contact-sheet.py` | renders index-named singles onto labelled contact sheets, because the packs ship no names. `--set`/`--office` for singles, `--sheet` to label a Room Builder grid by row-col, `--pick` to confirm specific candidates at 4×. A review tool: it writes to a scratch directory and never touches `assets/`. |
+| `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. |
 
 Order: process → generate-art → manifest → lint.

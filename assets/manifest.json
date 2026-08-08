@@ -2212,5 +2212,780 @@
         "note": "for Notification. Badge only \u2014 docs/04-ART-DIRECTION.md rules out a body animation here [I1]."
       }
     }
+  },
+  "themes": {
+    "default": "office",
+    "note": "Each entry has the same shape as `room`, which is the resolved default. The four role names are placement slots, not object nouns: `plant` is the repeated back-wall and walkway accent, and a theme fills it with whatever plays that part \u2014 a console terminal, a bookcase, a stage curtain. Selection mechanism is docs/ADR-002.",
+    "sets": {
+      "briefing": {
+        "title": "Briefing Room",
+        "what": "a lectern facing a wall of hanging curtain \u2014 reads as a hall rather than a workspace",
+        "tile": {
+          "w": 32,
+          "h": 32
+        },
+        "anchor": {
+          "px": [
+            0,
+            0
+          ],
+          "normalized": [
+            0.0,
+            0.0
+          ],
+          "note": "bottom-left of the tile"
+        },
+        "provenance": "pack",
+        "processed_by": "scripts/process-assets.py",
+        "builder": {
+          "tiles": [
+            "assets/processed/themes/briefing/32x32/builder/flat_floor.png",
+            "assets/processed/themes/briefing/32x32/builder/flat_wall.png",
+            "assets/processed/themes/briefing/32x32/builder/floor.png",
+            "assets/processed/themes/briefing/32x32/builder/wall.png"
+          ],
+          "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "authored_tiles": [
+            "wall",
+            "floor_flat"
+          ],
+          "authored_because": "the pack's wall tiles do not tile seamlessly; measured in scripts/build-manifest.py",
+          "floor": "assets/processed/themes/briefing/32x32/builder/floor.png",
+          "wall": "assets/processed/themes/briefing/32x32/builder/flat_wall.png",
+          "floor_flat": "assets/processed/themes/briefing/32x32/builder/flat_floor.png",
+          "wall_pattern_source": "assets/processed/themes/briefing/32x32/builder/wall.png"
+        },
+        "props": {
+          "canvas": {
+            "w": 64,
+            "h": 96
+          },
+          "identified": true,
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "roles": {
+            "board": {
+              "file": "assets/processed/themes/briefing/32x32/singles/board.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 50,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "flip chart \u2014 a white pad on a tripod easel",
+              "content_box": {
+                "x": 18,
+                "y": 20,
+                "w": 30,
+                "h": 54
+              }
+            },
+            "chair": {
+              "file": "assets/processed/themes/briefing/32x32/singles/chair.png",
+              "source_set": "Modern Office singles",
+              "single_index": 104,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, side view, backrest to the left",
+              "content_box": {
+                "x": 4,
+                "y": 42,
+                "w": 24,
+                "h": 46
+              }
+            },
+            "desk": {
+              "file": "assets/processed/themes/briefing/32x32/singles/desk.png",
+              "source_set": "Modern Office singles",
+              "single_index": 34,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "plain office desk, side view",
+              "content_box": {
+                "x": 0,
+                "y": 64,
+                "w": 32,
+                "h": 24
+              }
+            },
+            "plant": {
+              "file": "assets/processed/themes/briefing/32x32/singles/plant.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 1,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "full-height hanging curtain panel",
+              "content_box": {
+                "x": 14,
+                "y": 22,
+                "w": 42,
+                "h": 66
+              }
+            }
+          }
+        }
+      },
+      "broadcast": {
+        "title": "Broadcast Studio",
+        "what": "tripods everywhere \u2014 film cameras and softbox lights, a silhouette no other theme has",
+        "tile": {
+          "w": 32,
+          "h": 32
+        },
+        "anchor": {
+          "px": [
+            0,
+            0
+          ],
+          "normalized": [
+            0.0,
+            0.0
+          ],
+          "note": "bottom-left of the tile"
+        },
+        "provenance": "pack",
+        "processed_by": "scripts/process-assets.py",
+        "builder": {
+          "tiles": [
+            "assets/processed/themes/broadcast/32x32/builder/flat_floor.png",
+            "assets/processed/themes/broadcast/32x32/builder/flat_wall.png",
+            "assets/processed/themes/broadcast/32x32/builder/floor.png",
+            "assets/processed/themes/broadcast/32x32/builder/wall.png"
+          ],
+          "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "authored_tiles": [
+            "wall",
+            "floor_flat"
+          ],
+          "authored_because": "the pack's wall tiles do not tile seamlessly; measured in scripts/build-manifest.py",
+          "floor": "assets/processed/themes/broadcast/32x32/builder/floor.png",
+          "wall": "assets/processed/themes/broadcast/32x32/builder/flat_wall.png",
+          "floor_flat": "assets/processed/themes/broadcast/32x32/builder/flat_floor.png",
+          "wall_pattern_source": "assets/processed/themes/broadcast/32x32/builder/wall.png"
+        },
+        "props": {
+          "canvas": {
+            "w": 64,
+            "h": 96
+          },
+          "identified": true,
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "roles": {
+            "board": {
+              "file": "assets/processed/themes/broadcast/32x32/singles/board.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 8,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "studio softbox light on a tripod, tall",
+              "content_box": {
+                "x": 18,
+                "y": 0,
+                "w": 38,
+                "h": 80
+              }
+            },
+            "chair": {
+              "file": "assets/processed/themes/broadcast/32x32/singles/chair.png",
+              "source_set": "Modern Office singles",
+              "single_index": 104,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, side view, backrest to the left",
+              "content_box": {
+                "x": 4,
+                "y": 42,
+                "w": 24,
+                "h": 46
+              }
+            },
+            "desk": {
+              "file": "assets/processed/themes/broadcast/32x32/singles/desk.png",
+              "source_set": "Modern Office singles",
+              "single_index": 34,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "plain office desk, side view",
+              "content_box": {
+                "x": 0,
+                "y": 64,
+                "w": 32,
+                "h": 24
+              }
+            },
+            "plant": {
+              "file": "assets/processed/themes/broadcast/32x32/singles/plant.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 1,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "film camera on a tripod",
+              "content_box": {
+                "x": 20,
+                "y": 46,
+                "w": 34,
+                "h": 48
+              }
+            }
+          }
+        }
+      },
+      "library": {
+        "title": "Reading Room",
+        "what": "floor-to-ceiling bookcases and a chalkboard \u2014 the maintainer's 'classroom', built from the Classroom and Library set",
+        "tile": {
+          "w": 32,
+          "h": 32
+        },
+        "anchor": {
+          "px": [
+            0,
+            0
+          ],
+          "normalized": [
+            0.0,
+            0.0
+          ],
+          "note": "bottom-left of the tile"
+        },
+        "provenance": "pack",
+        "processed_by": "scripts/process-assets.py",
+        "builder": {
+          "tiles": [
+            "assets/processed/themes/library/32x32/builder/flat_floor.png",
+            "assets/processed/themes/library/32x32/builder/flat_wall.png",
+            "assets/processed/themes/library/32x32/builder/floor.png",
+            "assets/processed/themes/library/32x32/builder/wall.png"
+          ],
+          "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "authored_tiles": [
+            "wall",
+            "floor_flat"
+          ],
+          "authored_because": "the pack's wall tiles do not tile seamlessly; measured in scripts/build-manifest.py",
+          "floor": "assets/processed/themes/library/32x32/builder/floor.png",
+          "wall": "assets/processed/themes/library/32x32/builder/flat_wall.png",
+          "floor_flat": "assets/processed/themes/library/32x32/builder/flat_floor.png",
+          "wall_pattern_source": "assets/processed/themes/library/32x32/builder/wall.png"
+        },
+        "props": {
+          "canvas": {
+            "w": 64,
+            "h": 96
+          },
+          "identified": true,
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "roles": {
+            "board": {
+              "file": "assets/processed/themes/library/32x32/singles/board.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 39,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "green chalkboard on splayed legs",
+              "content_box": {
+                "x": 0,
+                "y": 32,
+                "w": 64,
+                "h": 48
+              }
+            },
+            "chair": {
+              "file": "assets/processed/themes/library/32x32/singles/chair.png",
+              "source_set": "Modern Office singles",
+              "single_index": 104,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, side view, backrest to the left",
+              "content_box": {
+                "x": 4,
+                "y": 42,
+                "w": 24,
+                "h": 46
+              }
+            },
+            "desk": {
+              "file": "assets/processed/themes/library/32x32/singles/desk.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 26,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "wooden desk with an open book and an inkwell on top",
+              "content_box": {
+                "x": 4,
+                "y": 24,
+                "w": 56,
+                "h": 70
+              }
+            },
+            "plant": {
+              "file": "assets/processed/themes/library/32x32/singles/plant.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 57,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "tall bookcase, full height, packed spines",
+              "content_box": {
+                "x": 8,
+                "y": 4,
+                "w": 50,
+                "h": 78
+              }
+            }
+          }
+        }
+      },
+      "mission_control": {
+        "title": "Mission Control",
+        "what": "banks of consoles under a dish mast \u2014 the closest thing to a launch control room that the packs we own can actually build",
+        "tile": {
+          "w": 32,
+          "h": 32
+        },
+        "anchor": {
+          "px": [
+            0,
+            0
+          ],
+          "normalized": [
+            0.0,
+            0.0
+          ],
+          "note": "bottom-left of the tile"
+        },
+        "provenance": "pack",
+        "processed_by": "scripts/process-assets.py",
+        "builder": {
+          "tiles": [
+            "assets/processed/themes/mission_control/32x32/builder/flat_floor.png",
+            "assets/processed/themes/mission_control/32x32/builder/flat_wall.png",
+            "assets/processed/themes/mission_control/32x32/builder/floor.png",
+            "assets/processed/themes/mission_control/32x32/builder/wall.png"
+          ],
+          "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "authored_tiles": [
+            "wall",
+            "floor_flat"
+          ],
+          "authored_because": "the pack's wall tiles do not tile seamlessly; measured in scripts/build-manifest.py",
+          "floor": "assets/processed/themes/mission_control/32x32/builder/floor.png",
+          "wall": "assets/processed/themes/mission_control/32x32/builder/flat_wall.png",
+          "floor_flat": "assets/processed/themes/mission_control/32x32/builder/flat_floor.png",
+          "wall_pattern_source": "assets/processed/themes/mission_control/32x32/builder/wall.png"
+        },
+        "props": {
+          "canvas": {
+            "w": 64,
+            "h": 96
+          },
+          "identified": true,
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "roles": {
+            "board": {
+              "file": "assets/processed/themes/mission_control/32x32/singles/board.png",
+              "source_set": "Modern Interiors Theme Sorter set 14",
+              "single_index": 164,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "wide flat-screen monitor on a low stand; a row of them along the back wall reads as a bank of displays",
+              "content_box": {
+                "x": 4,
+                "y": 48,
+                "w": 58,
+                "h": 38
+              }
+            },
+            "chair": {
+              "file": "assets/processed/themes/mission_control/32x32/singles/chair.png",
+              "source_set": "Modern Office singles",
+              "single_index": 104,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, side view, backrest to the left",
+              "content_box": {
+                "x": 4,
+                "y": 42,
+                "w": 24,
+                "h": 46
+              }
+            },
+            "desk": {
+              "file": "assets/processed/themes/mission_control/32x32/singles/desk.png",
+              "source_set": "Modern Interiors Theme Sorter set 14",
+              "single_index": 97,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "steel workbench with a pale top, reads as a console desk",
+              "content_box": {
+                "x": 16,
+                "y": 26,
+                "w": 40,
+                "h": 48
+              }
+            },
+            "plant": {
+              "file": "assets/processed/themes/mission_control/32x32/singles/plant.png",
+              "source_set": "Modern Interiors Theme Sorter set 25",
+              "single_index": 11,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "small monitor on a stand with a cable coil, reads as a console terminal",
+              "content_box": {
+                "x": 18,
+                "y": 48,
+                "w": 30,
+                "h": 44
+              }
+            }
+          }
+        }
+      },
+      "office": {
+        "title": "Open Plan Office",
+        "what": "the room as it shipped through M5 \u2014 the Modern Office pack",
+        "tile": {
+          "w": 32,
+          "h": 32
+        },
+        "anchor": {
+          "px": [
+            0,
+            0
+          ],
+          "normalized": [
+            0.0,
+            0.0
+          ],
+          "note": "bottom-left of the tile"
+        },
+        "provenance": "pack",
+        "processed_by": "scripts/process-assets.py",
+        "builder": {
+          "tiles": [
+            "assets/processed/room/32x32/builder/tile_r00_c08.png",
+            "assets/processed/room/32x32/builder/tile_r00_c10.png",
+            "assets/processed/room/32x32/builder/tile_r00_c11.png",
+            "assets/processed/room/32x32/builder/tile_r00_c12.png",
+            "assets/processed/room/32x32/builder/tile_r01_c05.png",
+            "assets/processed/room/32x32/builder/tile_r01_c06.png",
+            "assets/processed/room/32x32/builder/tile_r01_c11.png",
+            "assets/processed/room/32x32/builder/tile_r01_c12.png",
+            "assets/processed/room/32x32/builder/tile_r01_c13.png",
+            "assets/processed/room/32x32/builder/tile_r02_c01.png",
+            "assets/processed/room/32x32/builder/tile_r02_c02.png",
+            "assets/processed/room/32x32/builder/tile_r02_c03.png",
+            "assets/processed/room/32x32/builder/tile_r02_c04.png",
+            "assets/processed/room/32x32/builder/tile_r02_c05.png",
+            "assets/processed/room/32x32/builder/tile_r02_c10.png",
+            "assets/processed/room/32x32/builder/tile_r02_c11.png",
+            "assets/processed/room/32x32/builder/tile_r02_c12.png",
+            "assets/processed/room/32x32/builder/tile_r02_c14.png",
+            "assets/processed/room/32x32/builder/tile_r03_c01.png",
+            "assets/processed/room/32x32/builder/tile_r03_c02.png",
+            "assets/processed/room/32x32/builder/tile_r03_c03.png",
+            "assets/processed/room/32x32/builder/tile_r03_c04.png",
+            "assets/processed/room/32x32/builder/tile_r03_c10.png",
+            "assets/processed/room/32x32/builder/tile_r03_c11.png",
+            "assets/processed/room/32x32/builder/tile_r03_c12.png",
+            "assets/processed/room/32x32/builder/tile_r05_c00.png",
+            "assets/processed/room/32x32/builder/tile_r05_c01.png",
+            "assets/processed/room/32x32/builder/tile_r05_c02.png",
+            "assets/processed/room/32x32/builder/tile_r05_c03.png",
+            "assets/processed/room/32x32/builder/tile_r05_c04.png",
+            "assets/processed/room/32x32/builder/tile_r05_c05.png",
+            "assets/processed/room/32x32/builder/tile_r05_c06.png",
+            "assets/processed/room/32x32/builder/tile_r05_c07.png",
+            "assets/processed/room/32x32/builder/tile_r05_c08.png",
+            "assets/processed/room/32x32/builder/tile_r05_c09.png",
+            "assets/processed/room/32x32/builder/tile_r05_c10.png",
+            "assets/processed/room/32x32/builder/tile_r05_c11.png",
+            "assets/processed/room/32x32/builder/tile_r05_c12.png",
+            "assets/processed/room/32x32/builder/tile_r05_c13.png",
+            "assets/processed/room/32x32/builder/tile_r05_c14.png",
+            "assets/processed/room/32x32/builder/tile_r05_c15.png",
+            "assets/processed/room/32x32/builder/tile_r06_c00.png",
+            "assets/processed/room/32x32/builder/tile_r06_c01.png",
+            "assets/processed/room/32x32/builder/tile_r06_c02.png",
+            "assets/processed/room/32x32/builder/tile_r06_c03.png",
+            "assets/processed/room/32x32/builder/tile_r06_c07.png",
+            "assets/processed/room/32x32/builder/tile_r06_c08.png",
+            "assets/processed/room/32x32/builder/tile_r06_c09.png",
+            "assets/processed/room/32x32/builder/tile_r06_c10.png",
+            "assets/processed/room/32x32/builder/tile_r06_c11.png",
+            "assets/processed/room/32x32/builder/tile_r06_c12.png",
+            "assets/processed/room/32x32/builder/tile_r06_c13.png",
+            "assets/processed/room/32x32/builder/tile_r06_c14.png",
+            "assets/processed/room/32x32/builder/tile_r06_c15.png",
+            "assets/processed/room/32x32/builder/tile_r07_c00.png",
+            "assets/processed/room/32x32/builder/tile_r07_c01.png",
+            "assets/processed/room/32x32/builder/tile_r07_c02.png",
+            "assets/processed/room/32x32/builder/tile_r07_c03.png",
+            "assets/processed/room/32x32/builder/tile_r07_c04.png",
+            "assets/processed/room/32x32/builder/tile_r07_c05.png",
+            "assets/processed/room/32x32/builder/tile_r07_c06.png",
+            "assets/processed/room/32x32/builder/tile_r07_c07.png",
+            "assets/processed/room/32x32/builder/tile_r07_c08.png",
+            "assets/processed/room/32x32/builder/tile_r07_c09.png",
+            "assets/processed/room/32x32/builder/tile_r07_c10.png",
+            "assets/processed/room/32x32/builder/tile_r07_c11.png",
+            "assets/processed/room/32x32/builder/tile_r07_c12.png",
+            "assets/processed/room/32x32/builder/tile_r07_c13.png",
+            "assets/processed/room/32x32/builder/tile_r07_c14.png",
+            "assets/processed/room/32x32/builder/tile_r07_c15.png",
+            "assets/processed/room/32x32/builder/tile_r08_c00.png",
+            "assets/processed/room/32x32/builder/tile_r08_c01.png",
+            "assets/processed/room/32x32/builder/tile_r08_c02.png",
+            "assets/processed/room/32x32/builder/tile_r08_c03.png",
+            "assets/processed/room/32x32/builder/tile_r08_c07.png",
+            "assets/processed/room/32x32/builder/tile_r08_c08.png",
+            "assets/processed/room/32x32/builder/tile_r08_c09.png",
+            "assets/processed/room/32x32/builder/tile_r08_c10.png",
+            "assets/processed/room/32x32/builder/tile_r08_c11.png",
+            "assets/processed/room/32x32/builder/tile_r08_c12.png",
+            "assets/processed/room/32x32/builder/tile_r08_c13.png",
+            "assets/processed/room/32x32/builder/tile_r08_c14.png",
+            "assets/processed/room/32x32/builder/tile_r08_c15.png",
+            "assets/processed/room/32x32/builder/tile_r09_c00.png",
+            "assets/processed/room/32x32/builder/tile_r09_c01.png",
+            "assets/processed/room/32x32/builder/tile_r09_c02.png",
+            "assets/processed/room/32x32/builder/tile_r09_c03.png",
+            "assets/processed/room/32x32/builder/tile_r09_c04.png",
+            "assets/processed/room/32x32/builder/tile_r09_c05.png",
+            "assets/processed/room/32x32/builder/tile_r09_c06.png",
+            "assets/processed/room/32x32/builder/tile_r09_c07.png",
+            "assets/processed/room/32x32/builder/tile_r09_c08.png",
+            "assets/processed/room/32x32/builder/tile_r09_c09.png",
+            "assets/processed/room/32x32/builder/tile_r09_c10.png",
+            "assets/processed/room/32x32/builder/tile_r09_c11.png",
+            "assets/processed/room/32x32/builder/tile_r09_c12.png",
+            "assets/processed/room/32x32/builder/tile_r09_c13.png",
+            "assets/processed/room/32x32/builder/tile_r09_c14.png",
+            "assets/processed/room/32x32/builder/tile_r09_c15.png",
+            "assets/processed/room/32x32/builder/tile_r10_c00.png",
+            "assets/processed/room/32x32/builder/tile_r10_c01.png",
+            "assets/processed/room/32x32/builder/tile_r10_c02.png",
+            "assets/processed/room/32x32/builder/tile_r10_c03.png",
+            "assets/processed/room/32x32/builder/tile_r10_c07.png",
+            "assets/processed/room/32x32/builder/tile_r10_c08.png",
+            "assets/processed/room/32x32/builder/tile_r10_c09.png",
+            "assets/processed/room/32x32/builder/tile_r10_c10.png",
+            "assets/processed/room/32x32/builder/tile_r10_c11.png",
+            "assets/processed/room/32x32/builder/tile_r10_c12.png",
+            "assets/processed/room/32x32/builder/tile_r10_c13.png",
+            "assets/processed/room/32x32/builder/tile_r10_c14.png",
+            "assets/processed/room/32x32/builder/tile_r10_c15.png",
+            "assets/processed/room/32x32/builder/tile_r11_c00.png",
+            "assets/processed/room/32x32/builder/tile_r11_c01.png",
+            "assets/processed/room/32x32/builder/tile_r11_c02.png",
+            "assets/processed/room/32x32/builder/tile_r11_c03.png",
+            "assets/processed/room/32x32/builder/tile_r11_c04.png",
+            "assets/processed/room/32x32/builder/tile_r11_c05.png",
+            "assets/processed/room/32x32/builder/tile_r11_c06.png",
+            "assets/processed/room/32x32/builder/tile_r11_c07.png",
+            "assets/processed/room/32x32/builder/tile_r11_c08.png",
+            "assets/processed/room/32x32/builder/tile_r11_c09.png",
+            "assets/processed/room/32x32/builder/tile_r11_c10.png",
+            "assets/processed/room/32x32/builder/tile_r11_c11.png",
+            "assets/processed/room/32x32/builder/tile_r11_c12.png",
+            "assets/processed/room/32x32/builder/tile_r11_c13.png",
+            "assets/processed/room/32x32/builder/tile_r11_c14.png",
+            "assets/processed/room/32x32/builder/tile_r11_c15.png",
+            "assets/processed/room/32x32/builder/tile_r12_c00.png",
+            "assets/processed/room/32x32/builder/tile_r12_c01.png",
+            "assets/processed/room/32x32/builder/tile_r12_c02.png",
+            "assets/processed/room/32x32/builder/tile_r12_c03.png",
+            "assets/processed/room/32x32/builder/tile_r12_c07.png",
+            "assets/processed/room/32x32/builder/tile_r12_c08.png",
+            "assets/processed/room/32x32/builder/tile_r12_c09.png",
+            "assets/processed/room/32x32/builder/tile_r12_c10.png",
+            "assets/processed/room/32x32/builder/tile_r12_c11.png",
+            "assets/processed/room/32x32/builder/tile_r12_c12.png",
+            "assets/processed/room/32x32/builder/tile_r12_c13.png",
+            "assets/processed/room/32x32/builder/tile_r12_c14.png",
+            "assets/processed/room/32x32/builder/tile_r12_c15.png"
+          ],
+          "source": "Modern Office / Room_Builder_Office_32x32.png",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "authored_tiles": [
+            "wall",
+            "floor_flat"
+          ],
+          "authored_because": "the pack's wall tiles do not tile seamlessly; measured in scripts/build-manifest.py"
+        },
+        "props": {
+          "canvas": {
+            "w": 64,
+            "h": 96
+          },
+          "identified": true,
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "roles": {
+            "board": {
+              "file": "assets/processed/themes/office/32x32/singles/board.png",
+              "source_set": "Modern Office singles",
+              "single_index": 171,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "presentation board on a stand, chart on the face",
+              "content_box": {
+                "x": 2,
+                "y": 46,
+                "w": 60,
+                "h": 46
+              }
+            },
+            "chair": {
+              "file": "assets/processed/themes/office/32x32/singles/chair.png",
+              "source_set": "Modern Office singles",
+              "single_index": 104,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, side view, backrest to the left",
+              "content_box": {
+                "x": 4,
+                "y": 42,
+                "w": 24,
+                "h": 46
+              }
+            },
+            "desk": {
+              "file": "assets/processed/themes/office/32x32/singles/desk.png",
+              "source_set": "Modern Office singles",
+              "single_index": 34,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "plain office desk, side view, top slab plus two legs",
+              "content_box": {
+                "x": 0,
+                "y": 64,
+                "w": 32,
+                "h": 24
+              }
+            },
+            "plant": {
+              "file": "assets/processed/themes/office/32x32/singles/plant.png",
+              "source_set": "Modern Office singles",
+              "single_index": 99,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "small potted plant, floor standing",
+              "content_box": {
+                "x": 0,
+                "y": 40,
+                "w": 32,
+                "h": 36
+              }
+            }
+          }
+        }
+      },
+      "stage": {
+        "title": "Rehearsal Room",
+        "what": "a drum kit and a row of mic stands; the only theme whose back wall is not a rectangle",
+        "tile": {
+          "w": 32,
+          "h": 32
+        },
+        "anchor": {
+          "px": [
+            0,
+            0
+          ],
+          "normalized": [
+            0.0,
+            0.0
+          ],
+          "note": "bottom-left of the tile"
+        },
+        "provenance": "pack",
+        "processed_by": "scripts/process-assets.py",
+        "builder": {
+          "tiles": [
+            "assets/processed/themes/stage/32x32/builder/flat_floor.png",
+            "assets/processed/themes/stage/32x32/builder/flat_wall.png",
+            "assets/processed/themes/stage/32x32/builder/floor.png",
+            "assets/processed/themes/stage/32x32/builder/wall.png"
+          ],
+          "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "authored_tiles": [
+            "wall",
+            "floor_flat"
+          ],
+          "authored_because": "the pack's wall tiles do not tile seamlessly; measured in scripts/build-manifest.py",
+          "floor": "assets/processed/themes/stage/32x32/builder/floor.png",
+          "wall": "assets/processed/themes/stage/32x32/builder/flat_wall.png",
+          "floor_flat": "assets/processed/themes/stage/32x32/builder/flat_floor.png",
+          "wall_pattern_source": "assets/processed/themes/stage/32x32/builder/wall.png"
+        },
+        "props": {
+          "canvas": {
+            "w": 64,
+            "h": 96
+          },
+          "identified": true,
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all, exactly as the Office room's do. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point.",
+          "roles": {
+            "board": {
+              "file": "assets/processed/themes/stage/32x32/singles/board.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 37,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands",
+              "content_box": {
+                "x": 8,
+                "y": 34,
+                "w": 56,
+                "h": 62
+              }
+            },
+            "chair": {
+              "file": "assets/processed/themes/stage/32x32/singles/chair.png",
+              "source_set": "Modern Office singles",
+              "single_index": 104,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, side view, backrest to the left",
+              "content_box": {
+                "x": 4,
+                "y": 42,
+                "w": 24,
+                "h": 46
+              }
+            },
+            "desk": {
+              "file": "assets/processed/themes/stage/32x32/singles/desk.png",
+              "source_set": "Modern Office singles",
+              "single_index": 34,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "plain office desk, side view",
+              "content_box": {
+                "x": 0,
+                "y": 64,
+                "w": 32,
+                "h": 24
+              }
+            },
+            "plant": {
+              "file": "assets/processed/themes/stage/32x32/singles/plant.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 62,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "microphone on a round-base stand",
+              "content_box": {
+                "x": 20,
+                "y": 42,
+                "w": 26,
+                "h": 54
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }

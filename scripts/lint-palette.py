@@ -178,6 +178,47 @@ def main(argv=None):
                 "(ceiling is %.0f%%)" % (p, s * 100, worst, ROOM_MAX_SAT * 100))
     room_mean_val = room_sum / room_n
 
+    # --- themes -----------------------------------------------------------
+    #
+    # Every theme is measured on the SAME thresholds as `room`, separately.
+    # Measuring them pooled would let a quiet theme carry a loud one: I7 is a
+    # statement about what is on screen at one moment, and only one theme is on
+    # screen at a time. The mean value of the theme actually being drawn is also
+    # what the character contrast check has to run against, so each theme gets
+    # its own contrast pass below rather than borrowing `room`'s.
+    themes = m.get("themes", {}).get("sets", {})
+    theme_stats = {}
+    for tname in sorted(themes):
+        paths = set()
+        collect(themes[tname], paths, prose)
+        if not paths:
+            failures.append("theme %s: declares no art" % tname)
+            continue
+        tsum, tn = 0.0, 0
+        tmax = (0.0, None, None)
+        tmin = (1.0, None)
+        for p in sorted(paths):
+            s, mn, tot, n, worst = scan(os.path.join(REPO, p))
+            if n == 0:
+                continue
+            tsum += tot
+            tn += n
+            if s > tmax[0]:
+                tmax = (s, p, worst)
+            if mn < tmin[0]:
+                tmin = (mn, p)
+            if s >= ROOM_MAX_SAT:
+                failures.append(
+                    "theme %s saturation: %s reaches %.1f%% saturation at RGB%s "
+                    "(ceiling is %.0f%%)" % (tname, p, s * 100, worst, ROOM_MAX_SAT * 100))
+        if tn == 0:
+            failures.append("theme %s: no measurable pixels" % tname)
+            continue
+        theme_stats[tname] = {
+            "files": len(paths), "px": tn, "mean": tsum / tn,
+            "max_sat": tmax, "darkest": tmin,
+        }
+
     # --- characters -------------------------------------------------------
     variants = m.get("characters", {}).get("variants", {})
     if not variants:
@@ -222,6 +263,28 @@ def main(argv=None):
                 "room value of %.3f — %.1f%% contrast, needs %.0f%%; darkest is in %s"
                 % (name, vmin_v, room_mean_val, contrast * 100,
                    MIN_VALUE_CONTRAST * 100, dark_file))
+
+    # Value contrast, re-checked against every theme.
+    #
+    # Contrast is (theme mean value - character's darkest pixel), so the theme
+    # with the LOWEST mean is the binding one, and it is not necessarily `room`.
+    # A theme that darkens the room enough to swallow the characters fails here
+    # rather than shipping and being noticed at 1x.
+    for tname in sorted(theme_stats):
+        tmean = theme_stats[tname]["mean"]
+        worst = None
+        for name, _s, _sf, vmin_v, dark_file, _c in rows:
+            c = tmean - vmin_v
+            if worst is None or c < worst[1]:
+                worst = (name, c, dark_file)
+            if c < MIN_VALUE_CONTRAST:
+                failures.append(
+                    "theme %s value contrast: variant %s darkest pixel is value %.3f "
+                    "against a theme mean of %.3f — %.1f%% contrast, needs %.0f%%; "
+                    "darkest is in %s"
+                    % (tname, name, vmin_v, tmean, c * 100,
+                       MIN_VALUE_CONTRAST * 100, dark_file))
+        theme_stats[tname]["worst_contrast"] = worst
 
     # --- accents ----------------------------------------------------------
     accents = {}
@@ -276,6 +339,19 @@ def main(argv=None):
     print("            max saturation   %.3f  (ceiling %.2f)  %s"
           % (room_max_sat[0], ROOM_MAX_SAT, room_max_sat[1] or ""))
     print("            darkest value    %.3f  %s" % (room_min_val[0], room_min_val[1] or ""))
+    if theme_stats:
+        print("themes:     %d, each measured on the same thresholds" % len(theme_stats))
+        print("            %-16s %-7s %-9s %-9s %-9s %s"
+              % ("theme", "files", "mean val", "max sat", "darkest", "min contrast"))
+        for tname in sorted(theme_stats):
+            st = theme_stats[tname]
+            wc = st.get("worst_contrast")
+            bad = (st["max_sat"][0] >= ROOM_MAX_SAT
+                   or (wc is not None and wc[1] < MIN_VALUE_CONTRAST))
+            print("            %-16s %-7d %-9.3f %-9.3f %-9.3f %.3f (%s) %s"
+                  % (tname, st["files"], st["mean"], st["max_sat"][0],
+                     st["darkest"][0], wc[1] if wc else 0.0, wc[0] if wc else "-",
+                     "FAIL" if bad else ""))
     print("characters: %d variants" % len(rows))
     if args.verbose or failures:
         print("            %-6s %-10s %-10s %s" % ("var", "max sat", "darkest", "contrast"))

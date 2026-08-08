@@ -78,6 +78,150 @@ VALUE_FLOOR = 0.55
 VALUE_CEIL = 0.92
 
 # ---------------------------------------------------------------------------
+# Themed rooms
+# ---------------------------------------------------------------------------
+#
+# Modern Interiors ships 24 "Theme Sorter" single sets, 5330 sprites, named by
+# index only — same as the Office singles, and for the same reason: the .ase
+# holds unnamed frames with no slices and no tags. So every index below was
+# found by rendering the set with scripts/contact-sheet.py and looking at it,
+# then confirmed at 4x with `contact-sheet.py --pick` before being written here.
+# Nothing in this table entered it any other way.
+#
+# THE FOUR ROLE NAMES ARE PLACEMENT SLOTS, NOT OBJECT NOUNS. The scene places
+# exactly four things — a work surface at each seat, a seat, a standing object
+# on the back wall, and a repeated accent along the back wall and the foreground
+# walkway — and it looks them up under the names `desk`, `chair`, `board` and
+# `plant`. Those names are the Office room's vocabulary and they are now the
+# *interface*. A theme fills the `plant` slot with a console terminal or a stage
+# curtain; that is not a mislabelling, it is the slot doing its job. Renaming
+# them to `surface`/`seat`/`backdrop`/`accent` would say what they mean, but it
+# is a scene change and this table is deliberately not one. See
+# docs/04-ART-DIRECTION.md.
+#
+# `chair` is the Office chair in every theme, and that is a finding rather than
+# laziness: the seated pose in the character pack faces right and *only* right,
+# so the chair must be a side view with its backrest on the left. Office single
+# 104 is the only chair verified to be one. Every themed chair located — the
+# director's chairs in set 23, the school chairs in set 5 — is a front or back
+# view and would seat a character facing into its own backrest. [I1]
+#
+# Floor and wall are (row, col) addresses into the Modern Interiors Room Builder
+# subfiles, picked with `contact-sheet.py --sheet`. Each floor pattern occupies
+# a 2x3 block on that sheet; the address is the top-left cell of the block.
+THEME_FLOORS = os.path.join(
+    INTERIORS, "1_Interiors", "%s", "Room_Bulder_subfiles_32x32",
+    "Room_Builder_Floors_%s.png")
+THEME_WALLS = os.path.join(
+    INTERIORS, "1_Interiors", "%s", "Room_Bulder_subfiles_32x32",
+    "Room_Builder_Walls_%s.png")
+THEME_SINGLES = os.path.join(
+    INTERIORS, "1_Interiors", "%s", "Theme_Sorter_Shadowless_Singles_%s")
+
+# (set number, single index). Set "office" means the Modern Office singles,
+# which is where the desk and the only usable chair come from.
+THEMES = {
+    "office": {
+        "title": "Open Plan Office",
+        "what": "the room as it shipped through M5 — the Modern Office pack",
+        "floor": None,          # office keeps its own Room_Builder_Office tiles
+        "wall": None,
+        "roles": {
+            "desk":  ("office", 34, "plain office desk, side view, top slab plus two legs"),
+            "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "board": ("office", 171, "presentation board on a stand, chart on the face"),
+            "plant": ("office", 99, "small potted plant, floor standing"),
+        },
+    },
+    "mission_control": {
+        "title": "Mission Control",
+        "what": "banks of consoles under a dish mast — the closest thing to a "
+                "launch control room that the packs we own can actually build",
+        "floor": (14, 12),      # fine grey grid, transformed value 0.725
+        "wall": (4, 4),         # plain neutral, 0.835
+        "roles": {
+            "desk":  (14, 97, "steel workbench with a pale top, reads as a console desk"),
+            "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            # Set 25's concentric target on a mast (single 15) was here first and
+            # was cut after looking at it at 1x: a pale grey dish on a thin mast
+            # against a pale wall, half occluded by the desk row, reading as a
+            # smudge. It is the most "mission control" object either pack owns
+            # and it still failed the only test that matters. Design at 2x,
+            # accept at 1x.
+            "board": (14, 164, "wide flat-screen monitor on a low stand; a row of them "
+                               "along the back wall reads as a bank of displays"),
+            "plant": (25, 11, "small monitor on a stand with a cable coil, reads as a "
+                              "console terminal"),
+        },
+    },
+    "broadcast": {
+        "title": "Broadcast Studio",
+        "what": "tripods everywhere — film cameras and softbox lights, a silhouette "
+                "no other theme has",
+        "floor": (16, 8),       # pale diagonal, 0.788
+        "wall": (2, 5),         # near-white, 0.882 — a bright studio
+        "roles": {
+            "desk":  ("office", 34, "plain office desk, side view"),
+            "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "board": (23, 8, "studio softbox light on a tripod, tall"),
+            "plant": (23, 1, "film camera on a tripod"),
+        },
+    },
+    "library": {
+        "title": "Reading Room",
+        "what": "floor-to-ceiling bookcases and a chalkboard — the maintainer's "
+                "'classroom', built from the Classroom and Library set",
+        "floor": (16, 0),       # wood plank, 0.733
+        "wall": (6, 4),         # warm off-white, 0.878
+        "roles": {
+            "desk":  (5, 26, "wooden desk with an open book and an inkwell on top"),
+            "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "board": (5, 39, "green chalkboard on splayed legs"),
+            "plant": (5, 57, "tall bookcase, full height, packed spines"),
+        },
+    },
+    "stage": {
+        "title": "Rehearsal Room",
+        "what": "a drum kit and a row of mic stands; the only theme whose "
+                "back wall is not a rectangle",
+        "floor": (10, 8),       # herringbone, 0.765
+        "wall": (0, 4),         # plain light, 0.863
+        "roles": {
+            "desk":  ("office", 34, "plain office desk, side view"),
+            "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "board": (6, 37, "drum kit — kick, snare, toms, two cymbals on stands"),
+            "plant": (6, 62, "microphone on a round-base stand"),
+        },
+    },
+    "briefing": {
+        "title": "Briefing Room",
+        "what": "a lectern facing a wall of hanging curtain — reads as a hall "
+                "rather than a workspace",
+        "floor": (14, 8),       # large block tile, 0.769
+        "wall": (8, 26),        # blue, 0.859
+        "roles": {
+            "desk":  ("office", 34, "plain office desk, side view"),
+            "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            # Single 29, the lectern with a lit screen, was tried first: at 1x
+            # its body is pale on a pale wall and all that survives is the
+            # screen, which reads as a card floating at chest height. The flip
+            # chart keeps a hard-edged white face and a visible tripod.
+            "board": (13, 50, "flip chart — a white pad on a tripod easel"),
+            "plant": (13, 1, "full-height hanging curtain panel"),
+        },
+    },
+}
+
+# Every themed prop is padded into this canvas, bottom-centred, before it is
+# written. That is what keeps a themed room a manifest swap with no code change:
+# the scene reads ONE `room.props.canvas` for all props and anchors each prop by
+# its own measured content_box inside it. The theme sorter singles arrive on
+# tight per-sprite canvases — 32x32, 32x48, 16x96, 64x96 — so without this the
+# manifest would have to carry a canvas per role and the scene would have to
+# learn to read it. Every prop selected above was measured first and fits.
+PROP_CANVAS = (64, 96)
+
+# ---------------------------------------------------------------------------
 # Character sheet layout — MEASURED, see docs/FINDINGS-M0.md
 # ---------------------------------------------------------------------------
 
@@ -499,6 +643,131 @@ class Importer:
                     self._emit(dst, tile, tile, buf)
             self.log("  room/%s/builder: %d solid tiles" % (size, kept))
 
+    # -- themed rooms -------------------------------------------------------
+
+    def _theme_source(self, size, spec):
+        """Locate the actual PNG for a (set, index) pick. Returns a path or None.
+
+        Scans the directory rather than composing the filename, because the pack
+        is not consistent about it: directory `23_Television_and_Film_Studio_...`
+        holds files named `Television_and_FIlm_Studio_...` with a capital I. A
+        composed filename would miss it and the role would silently vanish.
+        """
+        setno, index = spec[0], spec[1]
+        if setno == "office":
+            root = os.path.join(OFFICE, "4_Modern_Office_singles", size)
+        else:
+            root = THEME_SINGLES % (size, size)
+            dirs = [d for d in os.listdir(root)
+                    if d.split("_")[0] == str(setno)
+                    and os.path.isdir(os.path.join(root, d))]
+            if not dirs:
+                return None
+            root = os.path.join(root, dirs[0])
+        if not os.path.isdir(root):
+            return None
+        suffix = "_%d.png" % index
+        hits = [n for n in os.listdir(root) if n.endswith(suffix)]
+        return os.path.join(root, hits[0]) if hits else None
+
+    def _pad(self, w, h, px, cw, ch):
+        """Composite a sprite bottom-centred into a cw x ch transparent canvas."""
+        buf = pnglite.new(cw, ch)
+        ox, oy = (cw - w) // 2, ch - h
+        for y in range(h):
+            for x in range(w):
+                si, di = (y * w + x) * 4, ((y + oy) * cw + x + ox) * 4
+                buf[di:di + 4] = px[si:si + 4]
+        return buf
+
+    def _mean_colour(self, tile, px):
+        """Mean RGB of the opaque pixels — the flat stand-in for a patterned tile."""
+        n, r, g, b = 0, 0, 0, 0
+        for i in range(0, len(px), 4):
+            if px[i + 3] == 0:
+                continue
+            n += 1
+            r, g, b = r + px[i], g + px[i + 1], b + px[i + 2]
+        if n == 0:
+            return None
+        return (r // n, g // n, b // n)
+
+    def themes(self, sizes):
+        """Import every themed room: four props, a floor, a wall, two flats.
+
+        The two flats are authored, not cut: a flat field of the tile's own mean
+        colour. They exist because the scene picks its floor and its wall by
+        scanning the builder tiles for one that is fully opaque and a SINGLE
+        colour, and taking the darkest and the lightest. Of the Office room's
+        141 builder tiles exactly 2 pass that test, which is why today's room is
+        two flat fields and why 139 patterned tiles in the manifest are never
+        drawn. Until the scene reads the floor and wall it is told to use — the
+        manifest now declares both — a theme that shipped only patterned tiles
+        would render with no floor at all. So each theme ships both: the pattern
+        it should use, and a flat of the right tone that the current heuristic
+        will pick. Neither is a guess about which one the scene wants; the
+        manifest names them.
+        """
+        for size in sizes:
+            tile = int(size.split("x")[0])
+            floors_p = THEME_FLOORS % (size, size)
+            walls_p = THEME_WALLS % (size, size)
+            have_builder = os.path.exists(floors_p) and os.path.exists(walls_p)
+            if not have_builder:
+                self.log("  themes %s: Room Builder subfiles absent" % size)
+
+            for name, theme in sorted(THEMES.items()):
+                base = os.path.join(OUT, "themes", name, size)
+                for role, spec in sorted(theme["roles"].items()):
+                    src = self._theme_source(size, spec)
+                    if src is None:
+                        self.log("  themes/%s: %s source missing (%s:%s)"
+                                 % (name, role, spec[0], spec[1]))
+                        continue
+                    dst = os.path.join(base, "singles", "%s.png" % role)
+                    key = "pad%dx%d:" % PROP_CANVAS + _digest(src)
+                    if self._fresh(dst, key):
+                        continue
+                    w, h, px = pnglite.load(src)
+                    self.shadow_px += strip_shadow(w, h, px)
+                    buf = self._pad(w, h, px, *PROP_CANVAS)
+                    recolour(buf, self.cache)
+                    self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
+
+                if not have_builder or theme["floor"] is None:
+                    continue
+                for kind, sheet, addr in (("floor", floors_p, theme["floor"]),
+                                          ("wall", walls_p, theme["wall"])):
+                    r, c = addr
+                    sw, sh, spx = pnglite.load(sheet)
+                    if (r + 1) * tile > sh or (c + 1) * tile > sw:
+                        self.log("  themes/%s: %s address %d,%d is off the sheet"
+                                 % (name, kind, r, c))
+                        continue
+                    buf = pnglite.new(tile, tile)
+                    for y in range(tile):
+                        sy = (r * tile + y) * sw
+                        for x in range(tile):
+                            si = (sy + c * tile + x) * 4
+                            buf[(y * tile + x) * 4:(y * tile + x) * 4 + 4] = spx[si:si + 4]
+                    recolour(buf, self.cache)
+                    key = "tile:%d,%d:" % (r, c) + _digest(sheet)
+                    dst = os.path.join(base, "builder", "%s.png" % kind)
+                    if not self._fresh(dst, key):
+                        self._emit(dst, tile, tile, buf)
+
+                    mean = self._mean_colour(tile, buf)
+                    if mean is None:
+                        continue
+                    flat = pnglite.new(tile, tile)
+                    for i in range(0, len(flat), 4):
+                        flat[i], flat[i + 1], flat[i + 2], flat[i + 3] = (
+                            mean[0], mean[1], mean[2], 255)
+                    fdst = os.path.join(base, "builder", "flat_%s.png" % kind)
+                    if not self._fresh(fdst, key + ":flat"):
+                        self._emit(fdst, tile, tile, flat)
+            self.log("  themes/%s: %d themes" % (size, len(THEMES)))
+
     # -- characters ---------------------------------------------------------
 
     def characters(self, sizes):
@@ -839,6 +1108,7 @@ def main(argv=None):
     imp.log("import -> %s" % os.path.relpath(OUT, REPO))
     imp.room_singles(args.sizes)
     imp.room_builder(args.sizes)
+    imp.themes(args.sizes)
     imp.characters(args.sizes)
     imp.badges(args.sizes)
     removed = imp.prune()

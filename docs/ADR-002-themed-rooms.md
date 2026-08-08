@@ -1,7 +1,9 @@
 # ADR-002 — Themed rooms, stations, and what the room may claim
 
-**Status: PROPOSED, 2026-08-08.** Nothing here is implemented. The maintainer
-accepts or rejects. An art-director agent is inventorying the theme sets in
+**Status: ACCEPTED, 2026-08-08**, by the maintainer, and being implemented.
+Nothing was implemented when this was written; §8 is the spec the
+implementation follows, and §15 lists the documents this makes wrong until they
+are edited. An art-director agent is inventorying the theme sets in
 parallel; this document is written so that **whatever set they confirm**, the
 mechanism is unchanged and the only thing their report decides is how many
 themes are in the pool.
