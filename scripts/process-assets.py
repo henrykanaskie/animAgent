@@ -77,6 +77,35 @@ SAT_SCALE = 0.35
 VALUE_FLOOR = 0.55
 VALUE_CEIL = 0.92
 
+# A theme may widen the band FOR ITS PROPS ONLY, by lowering the floor. Added at
+# M6b for `mission_control` and deliberately not offered to the wall or the
+# floor tile.
+#
+# What it is for. Every theme that reads at 1x has one dark shape — library's
+# chalkboard, stage's drum kit. Mission control's dark shape has to be a screen,
+# and the pack's darkest ink is value 0.314, which the standard band lifts to
+# 0.667 whatever the sprite. That is why every screen we tried came out the same
+# pale grey as the desk it stood on: the transform, not the choice of sprite,
+# was flattening them. Lowering the floor for the prop layer expands the range
+# the props are drawn on — the lights barely move, the darks drop — so a screen
+# face separates from its own bezel and from the wall behind it.
+#
+# Why props only. The wall is the largest continuous area on screen and sits
+# directly behind every character, so it stays on the standard band for the same
+# reason docs/04-ART-DIRECTION.md gives for it being flat. The floor is the
+# second largest and carries the theme's surface identity by *pattern*; a
+# darker floor would buy texture we can get from tile choice and would spend
+# contrast budget the props need more.
+#
+# What still binds. Nothing here touches a lint threshold. The room may still
+# not own the darkest pixel on screen: at a floor of 0.46 the darkest prop pixel
+# in the theme is 0.604 against the characters' darkest at 0.314. And I7's
+# contrast check is `theme mean - character darkest >= 0.40`, measured over the
+# theme's own art by scripts/lint-palette.py, which is what makes this a budget
+# rather than a free hand. Spending it is what the numbers in
+# docs/04-ART-DIRECTION.md record.
+PROP_VALUE_FLOOR_DEFAULT = VALUE_FLOOR
+
 # ---------------------------------------------------------------------------
 # Themed rooms
 # ---------------------------------------------------------------------------
@@ -133,14 +162,44 @@ THEMES = {
             "plant": ("office", 99, "small potted plant, floor standing"),
         },
     },
+    # REBUILT at M6b. The first version passed the lint and failed the eye: it
+    # read as grey monitors on a grey floor, and its own numbers agreed — the
+    # darkest theme at mean value 0.753 and the least contrast margin at 0.439.
+    # Three things were wrong and all three are fixed here rather than
+    # recoloured.
+    #
+    #   1. Two silhouettes, both a rectangle on legs. The old `board` was a
+    #      58x38 flat screen on a low stand and the old `desk` a 40x48 workbench
+    #      with a pale top; at 1x, one tile apart, they merged into a single
+    #      slab. `board` is now a 30x64 two-screen surveillance stack on a
+    #      pedestal — tall, narrow, and nothing else in the six themes has that
+    #      outline.
+    #   2. A floor that was not a floor. Address (14,12) measures 0.043 of value
+    #      range after the transform, which is a flat field with a rumour of a
+    #      pattern in it. (28,8) is a fine square grid that survives the
+    #      transform and tiles seamlessly in both axes — checked, not assumed.
+    #   3. No dark anchor, and the transform was the reason. See
+    #      PROP_VALUE_FLOOR_DEFAULT: props here are drawn on a band floored at
+    #      0.46 instead of 0.55.
     "mission_control": {
         "title": "Mission Control",
-        "what": "banks of consoles under a dish mast — the closest thing to a "
-                "launch control room that the packs we own can actually build",
-        "floor": (14, 12),      # fine grey grid, transformed value 0.725
-        "wall": (4, 4),         # plain neutral, 0.835
+        "what": "a two-tier screen wall over a console row — the closest thing "
+                "to a launch control room that the packs we own can build",
+        "floor": (28, 8),       # fine square grid, cool grey, transformed 0.722
+        "wall": (30, 27),       # pale cool grey-blue, 0.909 — the screens need
+                                # something bright behind them, and this is the
+                                # only theme whose wall is not warm
+        "prop_value_floor": 0.46,
         "roles": {
-            "desk":  (14, 97, "steel workbench with a pale top, reads as a console desk"),
+            # Basement 97, the steel workbench that held `desk` through M6, was
+            # cut on value rather than on shape: its top is a pale glass slab
+            # that came out of the transform at mean 0.779, the brightest thing
+            # in the theme, sitting at exactly the height a seated character's
+            # torso occupies. Seven of them made the desk row the loudest band
+            # on screen and the characters the quietest thing in it. This one is
+            # 0.745 with a mid-grey top, so the row recedes and the screens lead.
+            "desk":  (19, 127, "grey equipment table, side view, with a boxed unit and "
+                               "a pouch on the top"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
             # Set 25's concentric target on a mast (single 15) was here first and
             # was cut after looking at it at 1x: a pale grey dish on a thin mast
@@ -148,10 +207,17 @@ THEMES = {
             # smudge. It is the most "mission control" object either pack owns
             # and it still failed the only test that matters. Design at 2x,
             # accept at 1x.
-            "board": (14, 164, "wide flat-screen monitor on a low stand; a row of them "
-                               "along the back wall reads as a bank of displays"),
-            "plant": (25, 11, "small monitor on a stand with a cable coil, reads as a "
-                              "console terminal"),
+            #
+            # Basement 164, the wide flat screen that held `board` through M6,
+            # was cut for the reason above: it is the same rectangle as the desk
+            # in front of it.
+            "board": (18, 146, "two screens stacked on a pedestal — a surveillance "
+                               "monitor post; the only floor-standing vertical in "
+                               "any theme"),
+            "plant": (19, 315, "console bench with two wall screens on brackets above "
+                               "it; repeated along the back wall it is the screen "
+                               "wall, and along the foreground walkway it is the "
+                               "second console row"),
         },
     },
     "broadcast": {
@@ -212,6 +278,66 @@ THEMES = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# Animated objects — added at M6b
+# ---------------------------------------------------------------------------
+#
+# `3_Animated_objects/` is 310 spritesheets and, unlike every other folder in
+# these packs, **they are named**. There is nothing to render-and-guess here:
+# the file is called `animated_control_room_server_32x32.png`. That is why this
+# table is short and why it carries no "identified_by" apology — the sheet says
+# what it is and the frames were still rendered and looked at before anything
+# entered it.
+#
+# Frame width is NOT recoverable from the filename and every sheet is a single
+# row, so it is measured per sheet and written down. Getting it wrong produces a
+# sheet that still tiles into plausible-looking frames, which is the failure
+# mode that would survive review.
+#
+# THE SELECTION RULE, which is stricter than "it looks nice". ADR-002 §9 forbids
+# scenery that animates *in response to activity* — that is the room asserting
+# something the data did not say. Everything here idles on its own loop and
+# claims nothing: LEDs blink, a pendulum swings, a screen carries static. None
+# of them starts, stops, or changes with an event, so none of them is in any
+# volatility band at all. [I1]
+#
+# And I7 binds harder here than on a still prop, because motion draws the eye
+# and the eye belongs on the characters. The measured moving-pixel fraction is
+# recorded beside each one; the two that survived are 3.6% and 4.6% of their own
+# visible area, which is a prop that is alive rather than a prop that waves.
+#
+# **Nothing here is in the manifest.** An animated prop needs a frame list and a
+# frame rate, and `props.roles.<role>` carries one `file`. That key is the
+# scene's, so the shape is proposed in docs/04-ART-DIRECTION.md rather than
+# invented here. The art is cut anyway so the decision can be made by looking at
+# it — which is this project's rule about art, applied to a schema question.
+ANIMATED = {
+    "control_room_server": {
+        "sheet": "animated_control_room_server_32x32.png",
+        "frame": (32, 96),
+        "for": "mission_control",
+        "what": "server rack cabinet, three bays of blinking status LEDs",
+        "moving": "80 px of 2240 visible (3.6%)",
+    },
+    "pendulum_clock": {
+        "sheet": "animated_pendulum_clock_32x32.png",
+        "frame": (32, 96),
+        "for": "library",
+        "what": "longcase clock, swinging pendulum",
+        "moving": "104 px of 2272 visible (4.6%)",
+    },
+    "old_tv": {
+        "sheet": "animated_old_tv_32x32.png",
+        "frame": (64, 64),
+        "for": "broadcast",
+        "what": "CRT television on rabbit-ear aerials, screen static",
+        "moving": "160 px of 1544 visible (10.4%) — the loudest of the three, "
+                  "and the one to drop first if the room reads busy",
+    },
+}
+
+ANIMATED_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "spritesheets")
+
 # Every themed prop is padded into this canvas, bottom-centred, before it is
 # written. That is what keeps a themed room a manifest swap with no code change:
 # the scene reads ONE `room.props.canvas` for all props and anchors each prop by
@@ -271,6 +397,14 @@ CHAR_EXPORT = {
     # The desk pose. Side views only — the pack ships no front or back sitting
     # pose, which is why the room is laid out side-on. See docs/04.
     "sit": (4, 3, ("right", "left")),
+    # Row 5, the SECOND sit row, is deliberately NOT exported. M6b cut it,
+    # rendered it in all six rooms and measured it: it is sit-on-the-ground
+    # against sit-on-a-chair — the bare body sheet extends the legs forward in
+    # row 4 and folds them under in row 5 — and the two are pixel-identical
+    # above image row 39, which is everything the desk and chair do not hide.
+    # Four seated characters in a 720x400 room differ by **96 pixels of
+    # 288000**. A second seated pose that nothing can see is not a second pose.
+    # See docs/04-ART-DIRECTION.md.
     # SubagentStop's hand-over beat.
     "gift": (10, 10, ("right", "up", "left", "down")),
 }
@@ -296,6 +430,22 @@ BADGE_RECTS = {
     # name: (x, y, w, h) in UI_32x32.png
     "question_mark": (260, 16, 24, 34),  # blue "?" bubble
     "attention": (324, 22, 24, 28),      # red "!" bubble, for Notification
+    # Blue "Z" bubble, cut at M6b for the dormant subagent.
+    #
+    # This is here rather than in CHAR_EXPORT because the pack's `sleep` row
+    # cannot draw a dormant character and this can. Row 3 is labelled `sleep` in
+    # the pack's own animation guide and is **a head on a pillow, drawn from
+    # above**: six frames, no body, no direction blocks, and the guide's own
+    # frames 8-12 show it being composited onto a top-down bed sprite. Our room
+    # is side-on and has no bed, so the state resolves to a disembodied head
+    # hovering over an office chair. See docs/04-ART-DIRECTION.md.
+    #
+    # The Z bubble says the same thing in the layer that already carries
+    # non-tool state. `attention` is the precedent and this is the second
+    # member of that set: it is not keyed by a tool, it is 548 pixels in the
+    # pack's own bubble exactly like `attention`, and it claims only what the
+    # model already knows — this agent finished a turn and may come back.
+    "sleep": (356, 20, 24, 28),
 }
 
 # ---------------------------------------------------------------------------
@@ -478,30 +628,35 @@ def _bbox_in(w, h, px, x0, y0, rw, rh):
     return bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1
 
 
-def room_colour(r, g, b):
+def room_colour(r, g, b, floor=VALUE_FLOOR):
     """Desaturate and value-compress one colour. Pure; memoised by the caller."""
     hh, ss, vv = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
     ss = min(ss * SAT_SCALE, SAT_TARGET)
-    vv = VALUE_FLOOR + vv * (VALUE_CEIL - VALUE_FLOOR)
+    vv = floor + vv * (VALUE_CEIL - floor)
     nr, ng, nb = colorsys.hsv_to_rgb(hh, ss, vv)
     return (int(round(nr * 255)), int(round(ng * 255)), int(round(nb * 255)))
 
 
-def recolour(px, cache):
+def recolour(px, cache, floor=VALUE_FLOOR):
     """Apply the room palette transform in place.
 
-    Memoised on source RGB. Pixel art has a tiny palette — the whole Office pack
-    uses about 320 distinct colours — so this turns a per-pixel colorsys round
-    trip into a dict lookup, making a full reimport fast enough that nobody is
-    tempted to skip it.
+    Memoised on source RGB *and on the band floor*, because a theme may draw its
+    props on a wider band — see PROP_VALUE_FLOOR_DEFAULT. Keying on the floor
+    matters: without it the first band processed would poison every later one
+    and the bug would look like "some props are the wrong tone", which is
+    exactly the kind of thing nobody notices in a 720x400 panel.
+
+    Pixel art has a tiny palette — the whole Office pack uses about 320 distinct
+    colours — so this turns a per-pixel colorsys round trip into a dict lookup,
+    making a full reimport fast enough that nobody is tempted to skip it.
     """
     for i in range(0, len(px), 4):
         if px[i + 3] == 0:
             continue
-        key = (px[i], px[i + 1], px[i + 2])
+        key = (px[i], px[i + 1], px[i + 2], floor)
         out = cache.get(key)
         if out is None:
-            out = cache[key] = room_colour(*key)
+            out = cache[key] = room_colour(key[0], key[1], key[2], floor)
         px[i], px[i + 1], px[i + 2] = out
 
 
@@ -519,6 +674,9 @@ def _params_key():
         {
             "sat": [SAT_SCALE, SAT_TARGET],
             "val": [VALUE_FLOOR, VALUE_CEIL],
+            "theme_prop_val": {k: v.get("prop_value_floor",
+                                        PROP_VALUE_FLOOR_DEFAULT)
+                               for k, v in sorted(THEMES.items())},
             "shadow": SHADOW_RGB,
             "cast": CHAR_CAST,
             "export": {k: list(v) for k, v in CHAR_EXPORT.items()},
@@ -526,7 +684,9 @@ def _params_key():
             "canvas": BADGE_CANVAS,
             "badge_frame": [BADGE_FRAME_RECT, BADGE_FRAME_INTERIOR],
             "badge_icons": {k: list(v) for k, v in MUI_BADGE_ICONS.items()},
-            "rev": 4,
+            "animated": {k: [v["sheet"], list(v["frame"])]
+                         for k, v in sorted(ANIMATED.items())},
+            "rev": 5,
         },
         sort_keys=True,
     )
@@ -718,6 +878,8 @@ class Importer:
 
             for name, theme in sorted(THEMES.items()):
                 base = os.path.join(OUT, "themes", name, size)
+                prop_floor = theme.get("prop_value_floor",
+                                       PROP_VALUE_FLOOR_DEFAULT)
                 for role, spec in sorted(theme["roles"].items()):
                     src = self._theme_source(size, spec)
                     if src is None:
@@ -725,13 +887,14 @@ class Importer:
                                  % (name, role, spec[0], spec[1]))
                         continue
                     dst = os.path.join(base, "singles", "%s.png" % role)
-                    key = "pad%dx%d:" % PROP_CANVAS + _digest(src)
+                    key = ("pad%dx%d:band%.3f:" % (PROP_CANVAS + (prop_floor,))
+                           + _digest(src))
                     if self._fresh(dst, key):
                         continue
                     w, h, px = pnglite.load(src)
                     self.shadow_px += strip_shadow(w, h, px)
                     buf = self._pad(w, h, px, *PROP_CANVAS)
-                    recolour(buf, self.cache)
+                    recolour(buf, self.cache, prop_floor)
                     self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
                 if not have_builder or theme["floor"] is None:
@@ -767,6 +930,55 @@ class Importer:
                     if not self._fresh(fdst, key + ":flat"):
                         self._emit(fdst, tile, tile, flat)
             self.log("  themes/%s: %d themes" % (size, len(THEMES)))
+
+    # -- animated objects ---------------------------------------------------
+
+    def animated(self, sizes):
+        """Cut the named animated sheets into one PNG per frame.
+
+        Same treatment as any other room art: baked shadow stripped, room
+        transform applied. They are furniture that happens to move, not a layer
+        of their own, so I7 binds them exactly as it binds a desk.
+
+        Output lands under `assets/processed/animated/` and **is not referenced
+        by the manifest** — see the ANIMATED table for why. `prune()` keeps it
+        tidy, so removing a row here removes its frames on the next run.
+        """
+        for size in sizes:
+            root = ANIMATED_DIR % size
+            if not os.path.isdir(root):
+                self.log("  animated %s: absent" % size)
+                continue
+            n_frames = 0
+            for name, spec in sorted(ANIMATED.items()):
+                src = os.path.join(root, spec["sheet"])
+                if not os.path.exists(src):
+                    self.log("  animated/%s: %s absent" % (size, spec["sheet"]))
+                    continue
+                fw, fh = spec["frame"]
+                w, h, px = pnglite.load(src)
+                if h != fh or w % fw:
+                    self.log("  animated/%s: %s is %dx%d, not a whole number of "
+                             "%dx%d frames — skipped" % (size, name, w, h, fw, fh))
+                    continue
+                key = "anim%dx%d:" % (fw, fh) + _digest(src)
+                for i in range(w // fw):
+                    dst = os.path.join(OUT, "animated", size, name,
+                                       "frame_%02d.png" % i)
+                    n_frames += 1
+                    if self._fresh(dst, key):
+                        continue
+                    buf = pnglite.new(fw, fh)
+                    for y in range(fh):
+                        for x in range(fw):
+                            si = (y * w + i * fw + x) * 4
+                            di = (y * fw + x) * 4
+                            buf[di:di + 4] = px[si:si + 4]
+                    self.shadow_px += strip_shadow(fw, fh, buf)
+                    recolour(buf, self.cache)
+                    self._emit(dst, fw, fh, buf)
+            self.log("  animated/%s: %d frames across %d objects"
+                     % (size, n_frames, len(ANIMATED)))
 
     # -- characters ---------------------------------------------------------
 
@@ -1109,6 +1321,7 @@ def main(argv=None):
     imp.room_singles(args.sizes)
     imp.room_builder(args.sizes)
     imp.themes(args.sizes)
+    imp.animated(args.sizes)
     imp.characters(args.sizes)
     imp.badges(args.sizes)
     removed = imp.prune()

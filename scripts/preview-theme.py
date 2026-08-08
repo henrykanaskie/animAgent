@@ -29,6 +29,8 @@ Usage
     preview-theme.py --out DIR                 # every theme in the manifest
     preview-theme.py --out DIR --theme library
     preview-theme.py --out DIR --population 3
+    preview-theme.py --out DIR --state working --badge sleep
+    preview-theme.py --out DIR --animated control_room_server --frames
 
 Python 3 stdlib only.
 """
@@ -75,6 +77,7 @@ BACK_ROW_Y = BASELINE_Y + TILE                         # 96
 PLATE_DROP_BELOW_FEET = 20
 CONTENT_BAND_BOTTOM = AISLE_Y - PLATE_DROP_BELOW_FEET  # 12
 
+CHAR_H = 64
 VOID = (18, 18, 22, 255)
 
 
@@ -147,19 +150,56 @@ def pick_tiles(theme):
 
 
 def prop_origin(role, canvas, x, y):
-    """Top-left pixel for a prop whose content box's bottom-centre is (x, y).
+    """Scene-space top-left of a prop whose content box's bottom-centre is (x, y).
 
     The whole reason content_box is in the manifest: the singles are not
     bottom-aligned in their canvas, so the canvas cannot place them.
+
+    **Corrected at M6b — this was mirrored, and it silently misplaced every prop
+    in every theme.** The old expression was `y + (canvas.h - 1 - bottom_row)`,
+    which is the y-*up* offset from the canvas's bottom edge to the content
+    bottom — the right quantity for SpriteKit's anchorPoint, and it is what
+    Manifest.swift's `anchor(inCanvas:)` correctly computes. But this function
+    does not return an anchor: it returns the scene y of the image's TOP row,
+    which `to_screen` then converts and `blit` fills downwards from. Those two
+    offsets are measured from opposite ends of the canvas, so they agree only
+    for a prop whose content bottom sits exactly halfway down it (row 47.5 of
+    96) and disagree by twice the difference otherwise.
+
+    The error was up to ~80 px at 1x — the chairs and desks in every theme
+    preview were drawn most of a tile-and-a-half below the character sitting on
+    them, and the room read as furniture floating in the foreground. It was
+    invisible as a bug because every prop was wrong *in proportion to how low
+    its art sits in its own canvas*, so the picture stayed internally plausible.
+    The scene was never affected. Derivation, so the next person does not have
+    to redo it: image row `r` lands at panel row `(296 - top) + r`; we want row
+    `bottom_row` at panel row `296 - y`; therefore `top = y + bottom_row`.
     """
     box = role["content_box"]
     left = x - (box["x"] + box["w"] / 2.0)
     bottom_row = box["y"] + box["h"] - 1
-    top = y + (canvas["h"] - 1 - bottom_row)
+    top = y + bottom_row
     return left, top
 
 
-def render(theme, name, population, out_path, characters, seed_variants):
+# Animated objects live outside the manifest — see ANIMATED in
+# scripts/process-assets.py — so the one thing in this file that is not read out
+# of assets/manifest.json is where their frames sit on disk. It is a review
+# path for art that has not been adopted yet, and it goes away the moment the
+# manifest carries them.
+ANIMATED_ROOT = os.path.join(REPO, "assets", "processed", "animated", "32x32")
+
+
+def animated_frames(name):
+    d = os.path.join(ANIMATED_ROOT, name)
+    if not os.path.isdir(d):
+        return []
+    return [os.path.join("assets", "processed", "animated", "32x32", name, f)
+            for f in sorted(os.listdir(d)) if f.endswith(".png")]
+
+
+def render(theme, name, population, out_path, characters, seed_variants,
+           badge=None, animated=None, frame=0):
     floor_p, wall_p, how = pick_tiles(theme)
     _fw, _fh, floor_px = load(floor_p)
     _ww, _wh, wall_px = load(wall_p)
@@ -196,9 +236,20 @@ def render(theme, name, population, out_path, characters, seed_variants):
         drawn.append((y + bias, "prop", (role["file"], left, top)))
 
     # Back row: board and plant alternating, one tile behind the seat line.
+    #
+    # An `animated` object replaces the `board` half of that alternation, which
+    # is the slot it would take if it were adopted: it is the standing object
+    # against the back wall, and it is the only slot whose art does not also
+    # appear in the foreground row.
+    anim = animated_frames(animated) if animated else []
     for seat in range(SEAT_CAPACITY):
         x = seat_column(seat) * TILE + TILE // 2 + TILE * 1.5
         if x >= WIDTH:
+            continue
+        if anim and seat % 2 == 0:
+            w, h, _px = load(anim[frame % len(anim)])
+            drawn.append((BACK_ROW_Y, "prop",
+                          (anim[frame % len(anim)], x - w / 2.0, BACK_ROW_Y + h - 1)))
             continue
         add_prop("board" if seat % 2 == 0 else "plant", x, BACK_ROW_Y)
 
@@ -219,8 +270,7 @@ def render(theme, name, population, out_path, characters, seed_variants):
         add_prop("chair", seat_x(seat), BASELINE_Y, bias=-0.25)
     for seat in range(population):
         variant = seed_variants[seat % len(seed_variants)]
-        frame = characters[variant]
-        drawn.append((BASELINE_Y, "char", (frame, seat_x(seat))))
+        drawn.append((BASELINE_Y, "char", (characters[variant], seat_x(seat))))
     for seat in range(SEAT_CAPACITY):
         add_prop("desk", seat_x(seat) + TILE * 0.875, BASELINE_Y, bias=0.5)
 
@@ -237,6 +287,18 @@ def render(theme, name, population, out_path, characters, seed_variants):
             sx, sy = to_screen(x - w / 2.0, BASELINE_Y + h)
             blit(buf, PANEL_W, PANEL_H, px, w, h, sx, sy)
 
+    # Badges last, and above everything, which is where the scene puts them.
+    # This tool does not model the overlay band; it draws one badge over every
+    # occupied seat so a new badge can be looked at in the room it will appear
+    # in. The anchor is the manifest's own: bubble bottom-centre on the point
+    # `head_top_px` above the character's feet.
+    if badge is not None:
+        bw, bh, bpx = load(badge["file"])
+        for seat in range(population):
+            head_top = BASELINE_Y + CHAR_H - badge["head_top_px"]
+            sx, sy = to_screen(seat_x(seat) - bw / 2.0, head_top + bh)
+            blit(buf, PANEL_W, PANEL_H, bpx, bw, bh, sx, sy)
+
     pnglite.save(out_path, PANEL_W, PANEL_H, buf)
     return how
 
@@ -246,6 +308,14 @@ def main(argv=None):
     ap.add_argument("--out", required=True)
     ap.add_argument("--theme", action="append", help="repeatable; default is all")
     ap.add_argument("--population", type=int, default=4)
+    ap.add_argument("--state", default="working",
+                    help="body state to seat the cast in (default: working)")
+    ap.add_argument("--badge", help="draw this badges.states entry over every "
+                                    "occupied seat, e.g. sleep")
+    ap.add_argument("--animated", help="an assets/processed/animated/ object id "
+                                       "to stand in the back row")
+    ap.add_argument("--frames", action="store_true",
+                    help="with --animated, write one PNG per animation frame")
     ap.add_argument("--manifest", default=MANIFEST)
     args = ap.parse_args(argv)
 
@@ -261,8 +331,35 @@ def main(argv=None):
     variants = sorted(m["characters"]["variants"])
     seated = {}
     for v in variants:
-        frames = m["characters"]["variants"][v]["states"]["working"]["frames"]["right"]
+        states = m["characters"]["variants"][v]["states"]
+        if args.state not in states:
+            print("error: no state %r (have: %s)"
+                  % (args.state, ", ".join(sorted(states))), file=sys.stderr)
+            return 2
+        frames = states[args.state]["frames"]["right"]
         seated[v] = frames[0]
+
+    badge = None
+    if args.badge:
+        entry = m.get("badges", {}).get("states", {}).get(args.badge)
+        if entry is None:
+            print("error: no badges.states %r (have: %s)"
+                  % (args.badge,
+                     ", ".join(sorted(m.get("badges", {}).get("states", {})))),
+                  file=sys.stderr)
+            return 2
+        badge = {"file": entry["file"],
+                 "head_top_px": m["characters"]["variants"][variants[0]]["head_top_px"]}
+
+    n_frames = 1
+    if args.animated:
+        n_frames = len(animated_frames(args.animated))
+        if n_frames == 0:
+            print("error: no frames under assets/processed/animated/32x32/%s — "
+                  "run scripts/process-assets.py" % args.animated, file=sys.stderr)
+            return 2
+        if not args.frames:
+            n_frames = 1
 
     os.makedirs(args.out, exist_ok=True)
     names = args.theme or sorted(sets)
@@ -271,9 +368,12 @@ def main(argv=None):
             print("error: no theme %r (have: %s)" % (name, ", ".join(sorted(sets))),
                   file=sys.stderr)
             return 2
-        out = os.path.join(args.out, "%s.png" % name)
-        how = render(sets[name], name, args.population, out, seated, variants)
-        print("%-16s %-9s %s" % (name, how, os.path.relpath(out)))
+        for f in range(n_frames):
+            suffix = "_f%02d" % f if (args.animated and args.frames) else ""
+            out = os.path.join(args.out, "%s%s.png" % (name, suffix))
+            how = render(sets[name], name, args.population, out, seated, variants,
+                         badge=badge, animated=args.animated, frame=f)
+            print("%-16s %-9s %s" % (name, how, os.path.relpath(out)))
     return 0
 
 

@@ -554,12 +554,26 @@ def build_badges():
         },
         "map": out,
     }
+    states = {}
     if os.path.exists(extra):
-        result["states"] = {
-            "attention": {"file": rel(extra), "provenance": "pack",
-                          "note": "for Notification. Badge only — docs/04-ART-DIRECTION.md "
-                                  "rules out a body animation here [I1]."}
-        }
+        states["attention"] = {
+            "file": rel(extra), "provenance": "pack",
+            "note": "for Notification. Badge only — docs/04-ART-DIRECTION.md "
+                    "rules out a body animation here [I1]."}
+    dormant = os.path.join(real, "sleep.png")
+    if os.path.exists(dormant):
+        states["sleep"] = {
+            "file": rel(dormant), "provenance": "pack",
+            "note": "for a dormant subagent — one that stopped a turn, kept its "
+                    "seat, and may be revived by a later event. Badge only, and "
+                    "that is a finding rather than a shortcut: the pack's own "
+                    "`sleep` body row is a head on a pillow drawn from above, to "
+                    "be composited onto a top-down bed, so it cannot be worn by a "
+                    "character sitting side-on in an office chair. Measured at "
+                    "M6b — see docs/04-ART-DIRECTION.md. This says exactly what "
+                    "the model knows and nothing more. [I1]"}
+    if states:
+        result["states"] = states
     return result
 
 

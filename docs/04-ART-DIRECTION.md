@@ -714,7 +714,9 @@ and it is worth saying flatly before anything else:
 > interior in 5330 themed sprites is a shooting-range target on a mast. No
 > further packs will be bought, so this is not a scheduling problem — it is the
 > shape of what we have. What *is* buildable is a control room, and `mission_control`
-> below is that room, assembled out of a basement and a shooting range.
+> below is that room, assembled out of a hospital and a jail. (It was a
+> basement and a shooting range through M6; that version did not read, and
+> the M6b section says why.)
 
 ### The inventory, and why it had to be rendered
 
@@ -741,8 +743,8 @@ and is committed so the work is not repeated from zero.
 | 14 | Basement | 240 | mattresses (4–60), crates (64–66), **pool tables (76–81)**, workbenches (85–101), stools (103–156), **flat-screen monitors (163–166)**, tool trays, cables, consoles (167–182), doors |
 | 15 | Christmas | 123 | not surveyed |
 | 16 | Grocery Store | 483 | not surveyed |
-| 18 | Jail | 344 | not surveyed |
-| 19 | Hospital | 532 | not surveyed |
+| 18 | Jail | 344 | surveyed at M6b for tall dark equipment only: **two screens stacked on a pedestal (146)** — a surveillance monitor post, and the darkest-in-source prop found anywhere (median value 0.314, the pack's own ink). Cell doors, bunks, barred windows otherwise |
+| 19 | Hospital | 532 | surveyed at M6b: **console bench with two wall screens on brackets (315)**, **grey equipment tables (127, 130)**, machines on wheels with screens and button panels (332), supply racks (58, 62), IV stands, beds, lockers. The most control-room-shaped set in the download, and its name is why nobody looked |
 | 20 | Japanese Interiors | 131 | not surveyed |
 | 21 | Clothing Store | 494 | not surveyed |
 | 22 | Museum | 451 | ticket booths, turnstiles, stanchions, **display plinths with vases**, floor spotlights, **framed paintings** |
@@ -751,7 +753,8 @@ and is committed so the work is not repeated from zero.
 | 25 | Shooting Range | 28 | booth counters (1–8), **console terminals (11–14)**, target masts (15–18), rails, **rack units with LED strips (23–28)** |
 | 26 | Condominium | 86 | not surveyed |
 
-There is no set 17 in the download. Ten sets were surveyed in full and the rest
+There is no set 17 in the download. Ten sets were surveyed in full at M6, two
+more partially at M6b, and the rest
 listed by count; the ten cover every theme below with room to spare, and
 rendering the other 3300 sprites would have bought nothing this task needed.
 
@@ -775,7 +778,7 @@ this one.
 | Theme | `desk` | `board` | `plant` | Floor | Reads as |
 |---|---|---|---|---|---|
 | `office` (default) | Office 34 | Office 171 chart board | Office 99 potted plant | Office builder | the room as it shipped |
-| `mission_control` | Basement 97 steel workbench | Basement 164 flat-screen monitor | Shooting Range 11 console terminal | fine grey grid | a wall of screens over a console row |
+| `mission_control` | Hospital 127 equipment table | Jail 146 two-screen monitor post | Hospital 315 console bench under two wall screens | fine square grid, cool | a screen wall over a console row |
 | `broadcast` | Office 34 | TV Studio 8 softbox on a tripod | TV Studio 1 film camera on a tripod | pale diagonal | tripods, and nothing else has tripods |
 | `library` | Classroom 26 desk with an open book | Classroom 39 green chalkboard | Classroom 57 tall bookcase | wood plank | the classroom that was asked for |
 | `stage` | Office 34 | Music 37 drum kit | Music 62 mic stand | herringbone | the only theme whose back wall is not a rectangle |
@@ -789,11 +792,137 @@ verified to be one. Every themed chair located — the director's chairs in set
 character facing into its own backrest. [I1]
 
 **Recommendation: ship `mission_control`, `broadcast`, `library` and `stage`
-alongside `office`.** They separate cleanly at `1x`: a wall of screens, a forest
+alongside `office`.** They separate cleanly at `1x`: a screen wall, a forest
 of tripods, floor-to-ceiling bookcases, a row of drum kits. **`briefing` is the
 marginal one** — it is buildable, it passes, and it is distinguishable by its
 pink block floor and white slabs, but its identity is the weakest of the six and
 it is the one to cut if the selector wants a shorter list.
+
+### `mission_control` was rebuilt — M6b
+
+The version above shipped through M6 and **did not read**. It was grey monitors
+on a grey floor, and the recommendation that it "separates cleanly at 1x" was
+wrong about it. Its own lint numbers had said so — the darkest theme at mean
+0.753 and the least contrast margin at 0.439 — and this document recorded that
+without drawing the conclusion.
+
+Three separate faults, and it matters that they were separate, because the first
+two look like the same fault and only the third explains why every earlier fix
+failed.
+
+**1. Two silhouettes, and both were a rectangle on legs.** `board` was Basement
+164, a 58×38 flat screen on a low stand; `desk` was Basement 97, a 40×48
+workbench with a pale top. One tile apart on the same seat, at `1x`, they merged
+into a single horizontal slab, which is why the "bank of displays" never
+arrived. `board` is now **Jail 146**, a 30×64 pair of screens stacked on a
+pedestal. It is the only floor-standing vertical in any of the six themes, and
+it is the shape the theme was always asking for.
+
+**2. A floor that was not a floor.** Address (14,12) measures **0.043** of value
+range after the import transform. That is a flat field with a rumour of a
+pattern in it, and it is why the room read as the props floating on nothing.
+Every floor tile on the sheet was measured post-transform for value range,
+gridness (mean absolute neighbour difference, wrapped, so it also scores tiling
+continuity) and mean; **(28,8)** is a fine square grid at range **0.090**,
+seamless in both axes, and the only cool-toned one that survives the transform.
+That last part is doing more work than the pattern: the other five themes are
+all warm, so a cool floor is a whole channel of separation that nothing else was
+using.
+
+| Theme | floor value range |
+|---|---:|
+| `stage` | 0.157 |
+| `briefing` | 0.110 |
+| **`mission_control`** | **0.090** (was 0.043) |
+| `library` | 0.063 |
+| `broadcast` | 0.008 |
+
+**3. No dark anchor, and the palette transform was the reason — not the
+sprites.** Every theme that reads has one dark shape. Mission control's has to
+be a screen, and every screen in every pack came out of the import the same pale
+grey. That is not a property of the art: **the pack's darkest ink is value
+0.314**, and the standard band `[0.55, 0.92]` lifts it to 0.667 whatever the
+sprite is, so a screen face, a chalkboard and a desk top all land within a few
+hundredths of each other. Four different screens were tried and recoloured
+before this was measured rather than assumed.
+
+So `mission_control` draws **its props** on a band floored at **0.46** instead of
+0.55. The ceiling is unchanged, so this is a range expansion rather than a
+dimming — light pixels barely move, dark pixels drop, and a screen separates
+from its own bezel. The wall and the floor tile stay on the standard band: the
+wall because it is the largest area and sits directly behind every character,
+which is the same reason it is a flat, and the floor because it carries surface
+identity by pattern and we can get that from tile choice for free.
+
+`prop_value_floor` is a key in `THEMES` in `scripts/process-assets.py`. **It is
+not a manifest key and the scene never sees it** — it is a parameter of the
+import, like `SAT_TARGET`, and the manifest carries only the pixels it produced.
+
+What it costs, stated plainly, because it is a spend and not a free win:
+
+| | before | after |
+|---|---:|---:|
+| theme mean value | 0.753 | **0.741** |
+| min character contrast (floor 0.40) | 0.439 | **0.427** |
+| darkest room pixel in the theme | 0.667 | **0.604** |
+| `board` mean value | 0.717 | **0.642** |
+| wall mean − darkest prop pixel | 0.169 | **0.302** |
+
+`mission_control` is still the theme with the least contrast margin, now 0.027
+above the floor rather than 0.039. That is the trade and it was made
+deliberately: **the check I7 actually cares about is that nothing in the room
+out-shouts a character, and the darkest room pixel here is 0.604 against the
+characters' darkest at 0.314** — nearly twice the distance. The mean-contrast
+check is a proxy for that, it still passes, and it is what stops this being a
+free hand. If a future theme wants a lower floor than 0.46 it will fail this
+lint, and the lint will be right.
+
+The last column is the one that says whether the work succeeded. `mission_control`
+now has **the strongest anchor-to-wall separation of the six** — 0.302, against
+`broadcast` 0.216 and `library` 0.212 — where before it had the weakest.
+
+Two picks made and reversed at M6b, recorded so nobody finds them again:
+
+- **Hospital 221**, a reception counter with a monitor on it, is the most
+  workstation-shaped object in any pack. It is drawn **top-down**. Every desk in
+  this room is a side view because the seated pose is; a top-down counter in a
+  side-view room reads as a bathtub, which is what it looked like.
+- **Museum 270**, a solid dark counter, was the best dark shape available at
+  desk height and was cut for the opposite reason to everything else here: a
+  solid 62×42 block in front of a seated character leaves nothing of the
+  character but the top of its head. A desk that wins the value contest by
+  deleting the cast is not a fix.
+
+`desk` is now **Hospital 127**, a grey equipment table. It was picked on value,
+not shape: Basement 97's glass top came out at mean 0.779 — the brightest thing
+in the theme — sitting at exactly the height a seated torso occupies, so seven
+of them made the desk row the loudest band on screen and the characters the
+quietest thing in it.
+
+### A placement bug in `preview-theme.py`, found while doing this — M6b
+
+`prop_origin` was returning `y + (canvas.h - 1 - bottom_row)` for the scene y of
+a prop's top row. That expression is the y-*up* offset from the canvas's bottom
+edge to the content box's bottom — the correct quantity for SpriteKit's
+`anchorPoint`, and `Manifest.swift`'s `anchor(inCanvas:)` computes it correctly.
+But this function does not return an anchor. It returns the top row for a
+y-*down* blit, which is `y + bottom_row`. The two are measured from opposite ends
+of the canvas and agree only for a prop whose content bottom sits exactly halfway
+down it.
+
+The error was up to **~80 px at `1x`** — most of two tiles. Every chair and desk
+in every theme preview was drawn well below the character sitting on it, and the
+themed rooms read as furniture floating in the foreground. **It was invisible
+because it was consistent**: every prop was wrong in proportion to how low its
+art sits in its own canvas, so each picture stayed internally plausible and only
+the relative heights were wrong.
+
+**The scene was never affected** — this is the review tool only. But it is the
+tool this document tells you to accept a theme with, so every theme judgement
+made from an M6 preview was made against a wrong picture, and the `mission_control`
+rework was two iterations in before it was caught. The lesson is the one the
+tool's own docstring already carried and did not act on: it says "the geometry is
+a transcription, and transcriptions drift", and nothing checked it.
 
 Two picks were made and then reversed by looking at them at `1x`, which is the
 only test that counts. Conference Hall 29, the lectern with a lit screen, lost
@@ -853,7 +982,7 @@ screen at a time. Thresholds are unchanged and were not touched.
 | `briefing` | 0.817 | 0.182 | 0.667 | 0.503 |
 | `broadcast` | 0.784 | 0.114 | 0.667 | 0.470 |
 | `library` | 0.770 | 0.183 | 0.667 | 0.456 |
-| `mission_control` | 0.753 | 0.181 | 0.667 | 0.439 |
+| `mission_control` | 0.741 | 0.182 | 0.604 | 0.427 |
 | `office` | 0.793 | 0.183 | 0.659 | 0.480 |
 | `stage` | 0.786 | 0.183 | 0.667 | 0.472 |
 
@@ -863,7 +992,160 @@ reading of that column is that it proves the transform ran, not that the source
 art was tame. The contrast column is the one that could have failed: it is
 `theme mean − character's darkest pixel`, so a theme that darkened the room
 enough to swallow the cast would fail here. `mission_control` is the darkest
-theme and has the least margin, at 0.439 against a floor of 0.40.
+theme and has the least margin, at 0.427 against a floor of 0.40; it is the only
+theme that spends any of that margin on purpose, and the M6b section below says
+what it bought.
+
+Five of the six numbers in the `mission_control` row moved at M6b and none of
+the thresholds did. The five were 0.753 / 0.181 / 0.667 / 0.439 before.
+
+## More than sitting at a desk — M6b
+
+The maintainer asked "is there not props and animations?". There are. Three
+things were asked for. **One is buildable and is built, one cannot be built and
+the measurement says why, and one needs a manifest key that is not this
+document's to add.** All three were settled by cutting the art and looking at it
+rather than by reading the pack's filenames.
+
+### 1. Dormancy: the `sleep` body row cannot draw it — the `sleep` *badge* can
+
+A stopped subagent now goes dormant rather than departing, and the ask was to
+cut the pack's `sleep` row (row 3, 13 frames) for it.
+
+**Row 3 is not a person asleep at a desk. It is a head on a pillow, drawn from
+above.** Six frames, no body below the chin, no direction blocks — and the same
+row's frames 8–12 are the pack's own instruction diagram showing the head being
+composited onto a **top-down bed sprite**, which is why there is no body: the
+duvet is the bed's art, not the character's. `Spritesheet_animations_GUIDE.png`
+labels it `sleep` beside that diagram.
+
+Our room is side-on, every seat has an office chair, and no pack we own has a
+bed that belongs in it. Importing row 3 puts a disembodied head at chest height
+over a chair. It is exactly the failure the verify-before-you-write rule exists
+to catch, and it is worth recording that the *name* was right and the *art* was
+something else.
+
+**The honest answer was one layer up.** Modern Interiors' UI sheet carries a
+blue **`Z` speech bubble** at `UI_32x32.png` (356, 20, 24, 28) — 548 pixels, the
+pack's own bubble, the same connected-component construction as `attention` at
+(324, 22, 24, 28). It ships as `badges.states.sleep`.
+
+That is the right layer for three reasons, not one:
+
+- **`badges.states` already exists for exactly this.** It is the set of badge
+  states that answer to no tool; `attention` is its only other member and was
+  put there because no honest body animation existed for `Notification` either.
+  This is the same finding a second time.
+- **It claims only what the model knows.** "This agent finished a turn and may
+  come back" is the dormant flag, which is data. A body pose would additionally
+  claim a *posture*, which no event says. [I1]
+- **It needs no new key and no new `BodyState` case.** `BodyState` is a closed
+  enum in the scene; a seventh case is a Sources change. A badge state is not.
+
+Measured, so the badge exemption's own sentence stays true: `sleep` peaks at
+saturation **0.710** and bottoms at value **0.337** — pixel-identical numbers to
+`question_mark`, because it is the same bubble and the same blue ink. No badge
+owns the darkest pixel on screen and that still holds at eight badges.
+
+### 2. `characters.poses.working` stays empty, and now there is a number for it
+
+ADR-002 §7's pose table is implemented in the scene and absent from the
+manifest, so every working character sits identically. The obvious fill is the
+pack's second sit row.
+
+**Row 5 is not a second way of sitting at a desk. It is sitting on the ground.**
+On the bare `Bodies/` sheet, where no outfit hides the anatomy, row 4 extends the
+legs forward — a chair sit — and row 5 folds them under — a cross-legged floor
+sit. That much is a description. The number is what settles it:
+
+- Rows 4 and 5 are **pixel-identical for image rows 0–39** of the 64-row frame.
+  Every difference between them is in rows 40–63, which is the legs.
+- Every theme's desk and chair cover the legs. Cut it, export it, seat the cast
+  in it and render all six rooms at 720×400: **96 differing pixels out of
+  288 000**, about 24 per character, for a four-agent room. At `1x` it is not a
+  different pose; it is the same pose.
+
+So the table is not written. A pose table whose two entries render identically
+is a claim that the user cannot see, and shipping one would make §7 look
+satisfied while the maintainer's actual complaint — every character sits the
+same — remained true. The export was reverted; `CHAR_EXPORT` records why so the
+next person does not cut row 5 again.
+
+**What would fill it.** Nothing we own. The remaining rows are `phone_a/b`,
+`push_cart`, `pick_up`, `lift`, `throw`, and the seven violent ones. None is
+seated, so none can be a *seated* pose whatever it depicts. `phone` is also
+refused on meaning, not only on posture: a phone means a call and `WebFetch`
+means an HTTP request, and drawing one for the other is the badge-guessing
+mistake with a body instead of a glyph. [I1]
+
+### 3. Animated objects: cut, measured, and waiting on one manifest key
+
+`3_Animated_objects/` is 310 spritesheets and this project had never opened it.
+**Unlike every other folder in these packs, they are named** — there is no
+render-and-guess step, the file is called
+`animated_control_room_server_32x32.png`. Frame width is not in the filename and
+every sheet is a single row, so it is measured per sheet and written into
+`ANIMATED` in `scripts/process-assets.py`; a wrong frame width still slices into
+plausible frames, which is the error that would survive review.
+
+Three were adopted, on a rule stricter than "it looks nice":
+
+| id | for | frames | frame | what | moving px |
+|---|---|---:|---|---|---|
+| `control_room_server` | `mission_control` | 3 | 32×96 | server rack, three bays of blinking LEDs | 80 of 2240 (3.6%) |
+| `pendulum_clock` | `library` | 4 | 32×96 | longcase clock, swinging pendulum | 104 of 2272 (4.6%) |
+| `old_tv` | `broadcast` | 6 | 64×64 | CRT on rabbit ears, screen static | 160 of 1544 (10.4%) |
+
+**Every one idles on its own loop and none reacts to an event**, which is
+ADR-002 §9's line: scenery that animates in response to activity is the room
+asserting something the data did not say. A prop that blinks the same way whether
+six agents are working or none claims nothing at all, so it sits in no volatility
+band. [I1]
+
+The moving-pixel fraction is in the table because I7 binds harder on a moving
+prop than a still one — motion draws the eye and the eye belongs on the
+characters. `old_tv` is the loudest at 10.4% and is the one to drop first if a
+room reads busy. All three go through the same shadow strip and room transform as
+any other prop: max saturation 0.183, darkest value 0.667, both inside the
+existing ceilings. `old_tv` carries the Office pack's baked shadow at exactly
+`RGB(167,151,150)`, so the existing flood-fill strip handles it unchanged — worth
+knowing, because it means the animated folder is the same art pipeline and not a
+new one.
+
+All three fit the existing 64×96 prop canvas, which was a selection criterion
+and not luck: `control_room_screens` is a 3×3 wall of monitors at **128×96** and
+is the single best mission-control object in the download, and it is not on this
+list because adopting it would change `props.canvas` for every theme in every
+room. That is a scene-visible change and it is not mine.
+
+**Nothing above is in the manifest.** `props.roles.<role>` carries one `file`,
+and an animated prop needs a frame list and a rate. The art is cut to
+`assets/processed/animated/32x32/<id>/frame_NN.png` anyway, and
+`preview-theme.py --animated <id> --frames` stands it in the back row of its
+theme and writes one 720×400 PNG per frame — so the decision can be made by
+looking, which is this project's rule about art applied to a schema question.
+
+The shape that would be needed, proposed rather than added, so it is one key and
+additive and no existing reader breaks:
+
+```json
+"roles": {
+  "board": {
+    "file": "…/frame_00.png",
+    "content_box": { … },
+    "animation": {
+      "frames": ["…/frame_00.png", "…/frame_01.png", "…/frame_02.png"],
+      "fps": 4,
+      "loop": true
+    }
+  }
+}
+```
+
+`file` stays and stays first, so a reader that ignores `animation` draws frame 0
+and is correct — the same degradation `characters.poses` already has. `fps` is
+per prop rather than global because a pendulum and a rack of LEDs do not tick at
+the same rate, and 8 fps (the character rate) makes a 3-frame LED loop strobe.
 
 ## Scripts
 
@@ -875,6 +1157,11 @@ theme and has the least margin, at 0.439 against a floor of 0.40.
 | `scripts/build-manifest.py` | generates `assets/manifest.json` from disk, re-stating every path. |
 | `scripts/lint-palette.py` | the I7 gate, over `room` **and every theme**, on the same thresholds. Non-zero exit names the file and the value. |
 | `scripts/contact-sheet.py` | renders index-named singles onto labelled contact sheets, because the packs ship no names. `--set`/`--office` for singles, `--sheet` to label a Room Builder grid by row-col, `--pick` to confirm specific candidates at 4×. A review tool: it writes to a scratch directory and never touches `assets/`. |
-| `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. |
+| `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. `--state` seats the cast in any body state, `--badge` puts a `badges.states` entry over every occupied seat, and `--animated <id> --frames` stands an animated object in the back row and writes one PNG per frame. A prop placement bug was fixed here at M6b — see above. |
 
 Order: process → generate-art → manifest → lint.
+
+`process-assets.py` also cuts `assets/processed/animated/` — art that is
+deliberately outside the manifest, pending the `animation` key above. It is
+pruned like everything else, so deleting a row from `ANIMATED` deletes its
+frames on the next run.
