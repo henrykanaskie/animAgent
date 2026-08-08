@@ -79,6 +79,23 @@ enum SceneArt {
         declared.formUnion(manifest.room.builderTiles)
         declared.formUnion(manifest.room.propFiles)
         for (_, role) in manifest.room.propRoles { declared.insert(role.file) }
+        // Every theme's art too, since ADR-002 the scene draws it. A checkout
+        // holding the Office room and none of the theme sets is exactly the
+        // half-populated `assets/` this survey exists to report as one clear
+        // "the art is not here" rather than as a scattering of failures.
+        for id in manifest.themes.orderedIDs {
+            guard let theme = manifest.themes.theme(id) else { continue }
+            declared.formUnion(theme.room.builderTiles)
+            declared.formUnion(theme.room.propFiles)
+            for (_, role) in theme.room.propRoles { declared.insert(role.file) }
+            for path in [theme.room.declaredFloor, theme.room.declaredWall] {
+                if let path { declared.insert(path) }
+            }
+            for (_, station) in theme.room.stations {
+                declared.formUnion(
+                    [station.desk.file, station.chair.file, station.prop?.file].compactMap { $0 })
+            }
+        }
 
         survey.declaredPaths = declared.count
         survey.missingPaths = declared
@@ -132,7 +149,15 @@ enum SceneArt {
     /// leaver caught in the aisle, and the delivery station held across the
     /// return leg. Each of them reads `Character.state`, which is `nil` without
     /// frames on disk.
-    static let expectedGatedTestCount = 24
+    /// 31 with ADR-002's themed rooms: seven tests that need theme art. Three
+    /// check the theme contract — every theme binds every role the scene draws,
+    /// every theme resolves a floor and a wall of its own declared tile size,
+    /// and every named pose state exists with `right` and `left`. Four check
+    /// what reaches the screen — no prop node rebuilt across any fixture replay,
+    /// a theme change that redresses the room and moves no character, the
+    /// declared floor being the one drawn, and the measurement behind why the
+    /// declaration exists at all (the flat-tile search accepts 2 of 141).
+    static let expectedGatedTestCount = 31
 }
 
 /// Always runs, in both modes, and never fails for the absence of art.

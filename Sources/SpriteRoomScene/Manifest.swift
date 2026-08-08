@@ -74,8 +74,39 @@ public struct Manifest: Sendable, Hashable {
         /// when order matters — dictionary order is not stable.
         public let variants: [String: CharacterVariant]
         public let orderedVariantIDs: [String]
+        /// `characters.poses.working` — badge id → the name of a seated state,
+        /// plus a required `default`. [ADR-002 §7]
+        ///
+        /// **Empty is the shipped state and it is a legal one.** The pack ships
+        /// one usable seated pose, so every badge class maps to it, and §5b item
+        /// 2 says in as many words that this half is then inert *with no code
+        /// path to delete*. `workingPose(forBadgeKey:)` is total either way, so
+        /// the day a second sit row is imported the table appears in the
+        /// manifest and nothing here changes.
+        public let workingPoses: [String: String]
+
+        /// The key §7 requires every pose table to carry. It is what
+        /// `question_mark` resolves to, and therefore what every unmapped tool
+        /// gets — which is what makes a tool name nobody has heard of need no
+        /// new art. [§5a]
+        public static let defaultPoseKey = "default"
 
         public func variant(_ id: String) -> CharacterVariant? { variants[id] }
+
+        /// The seated state for a badge class. **Total by construction**, in
+        /// three steps, each of which is a real fallback rather than a guard:
+        /// the badge's own entry, then the table's required `default`, then
+        /// `working` itself for a manifest that declares no table at all.
+        ///
+        /// A name the table gives that is not one of the six body states
+        /// resolves to the same floor. `BodyState` is a closed enum, so a
+        /// seventh seated pose needs a case adding beside its manifest entry —
+        /// recorded as a gap in §8 item 7 rather than worked around with a
+        /// stringly-typed state that nothing could draw.
+        public func workingPose(forBadgeKey key: String?) -> BodyState {
+            let named = key.flatMap { workingPoses[$0] } ?? workingPoses[Self.defaultPoseKey]
+            return named.flatMap(BodyState.init(rawValue:)) ?? .working
+        }
     }
 
     public struct BadgeArt: Sendable, Hashable {
@@ -135,9 +166,52 @@ public struct Manifest: Sendable, Hashable {
         }
     }
 
+    /// A desk, a chair, and at most one adjacent floor-standing prop, at one
+    /// seat. [ADR-002 §7]
+    ///
+    /// `chair` must be **side view with the backrest on the left** so a person
+    /// on it faces right — the only direction the pack's sit rows were drawn
+    /// for. A theme whose chair does not satisfy that is not a theme; it is
+    /// asking for art that does not exist. [04-ART-DIRECTION]
+    ///
+    /// **Nothing in the shipped manifest declares one.** The decoding is here
+    /// because §8 items 4 and 6 are specified against it; the artifact that
+    /// shipped dresses a theme through `props.roles` instead. See the
+    /// implementation report.
+    public struct Station: Sendable, Hashable {
+        public let desk: PropRole
+        public let chair: PropRole
+        /// Optional floor-standing item adjacent to the seat.
+        public let prop: PropRole?
+    }
+
     public struct Room: Sendable, Hashable {
         public let tile: Size
         public let builderTiles: [String]
+        /// `builder.floor` — the tile the floor is drawn from, **declared**
+        /// rather than searched for.
+        ///
+        /// The search is `TextureStore.roomTileChoice()`'s heuristic, and the
+        /// art-director measured what it costs: of the Office room's 141 builder
+        /// tiles it accepts exactly 2, because it takes only tiles that are
+        /// fully opaque *and* a single flat colour. So a room drawn wide is two
+        /// flat colour fields and the other 139 tiles are dead weight — which is
+        /// most of why a wide room reads as empty floor. A floor that carries a
+        /// pattern cannot pass that filter by construction, so no amount of art
+        /// would have fixed it.
+        ///
+        /// `nil` for a manifest that predates the declaration, and the heuristic
+        /// is then still the answer. [04-ART-DIRECTION, "Two facts about the
+        /// room that this work uncovered"]
+        public let declaredFloor: String?
+        /// `builder.wall`. Deliberately an `authored` flat in every theme that
+        /// declares one: every tile in `Room_Builder_Walls` carries vertical
+        /// trim — measured, the left and right edge columns differ on 28–32 of
+        /// 32 rows — so tiling one across a 25-tile room seams every 32 px. It
+        /// is also the better answer under I7 regardless, since the wall is the
+        /// largest continuous area on screen and sits directly behind every
+        /// character.
+        public let declaredWall: String?
         public let propCanvas: Size
         public let propFiles: [String]
         /// `false` while nothing among the singles has been identified. Until
@@ -147,9 +221,96 @@ public struct Manifest: Sendable, Hashable {
         /// The singles that *have* been identified, keyed by role
         /// (`"desk"`, `"chair"`, …). Empty is a legal state and means the scene
         /// falls back to placeholders — the room still draws.
+        ///
+        /// **The role names are placement slots, not object nouns.** A theme
+        /// fills `plant` with whatever plays the part of the repeated back-wall
+        /// and walkway accent — a console terminal, a bookcase, a stage curtain.
+        /// [04-ART-DIRECTION, "The five themes"]
         public let propRoles: [String: PropRole]
+        /// §7's station bindings, keyed by station id (`"main"`, `"default"`,
+        /// `"0"`, `"1"`, …). Empty in every theme the manifest ships.
+        public let stations: [String: Station]
 
         public func prop(_ role: String) -> PropRole? { propRoles[role] }
+
+        public func station(_ id: String) -> Station? { stations[id] }
+
+        /// The rendezvous pool `ThemeSelector.station(agentID:agentType:in:)`
+        /// draws from: the stations whose ids are numbers. `main` and `default`
+        /// are reached by the identity rules, never by the hash, so they are not
+        /// in the pool. Sorted, because the pool must not depend on dictionary
+        /// order — the tie-break in `rendezvous` is only half of that guarantee.
+        public var numberedStationIDs: [String] {
+            stations.keys.filter { !$0.isEmpty && $0.allSatisfy(\.isNumber) }.sorted()
+        }
+    }
+
+    /// One named set of role bindings. [ADR-002 §7, §14a]
+    ///
+    /// **The same shape as `room`**, which is why this wraps one rather than
+    /// restating it: `room` is byte-for-byte the contract the scene already
+    /// loads and it *is* the resolved default theme, so a reader learns one
+    /// loader and not two. [§14a]
+    public struct Theme: Sendable, Hashable {
+        /// The manifest key. This, never the title, is what is stored and
+        /// compared — a title is prose and may be reworded.
+        public let id: String
+        /// What the user reads in the menu.
+        public let title: String
+        /// Whether the **derived default** may draw this theme. Every theme is
+        /// choosable; only some are assignable.
+        ///
+        /// A user who picks a jail has said something about their project; a
+        /// hash that picks one has said it *for* them, which is the fiction I1
+        /// exists to prevent. Defaults to `true` for a manifest that predates
+        /// the flag. [§3e, §14a]
+        public let isAssignable: Bool
+        public let room: Room
+
+        public var numberedStationIDs: [String] { room.numberedStationIDs }
+
+        public func station(_ id: String) -> Station? { room.station(id) }
+
+        /// A theme with nothing in it, for the `SceneDirector` initialiser that
+        /// takes variant ids and no manifest. Its station pool is empty, so
+        /// every typed subagent lands on `default` — which is what a director
+        /// that was never told about a room should say.
+        public static let unbound = Theme(
+            id: "", title: "", isAssignable: false,
+            room: Room(
+                tile: Size(width: 0, height: 0), builderTiles: [],
+                declaredFloor: nil, declaredWall: nil,
+                propCanvas: Size(width: 0, height: 0), propFiles: [],
+                propsIdentified: false, propRoles: [:], stations: [:]))
+    }
+
+    /// `themes.sets` and `themes.default`.
+    ///
+    /// **Top-level `themes`, not `room.themes`.** §7 specified the latter and
+    /// the manifest shipped the former; §14a resolves it in the shipped shape's
+    /// favour, because it leaves `room` untouched.
+    public struct Themes: Sendable, Hashable {
+        /// `themes.default`. `nil` when the manifest declares no themes at all,
+        /// which is not a corner case: it is a checkout that has not run the
+        /// import scripts.
+        public let defaultID: String?
+        public let sets: [String: Theme]
+        /// Sorted by id. Dictionary order is not stable and neither a menu nor a
+        /// hash pool may depend on it.
+        public let orderedIDs: [String]
+
+        public func theme(_ id: String) -> Theme? { sets[id] }
+
+        public func contains(_ id: String) -> Bool { sets[id] != nil }
+
+        public var isEmpty: Bool { sets.isEmpty }
+
+        /// The pool the derived default draws from. [§3e]
+        public var assignableIDs: [String] {
+            orderedIDs.filter { sets[$0]?.isAssignable == true }
+        }
+
+        public static let none = Themes(defaultID: nil, sets: [:], orderedIDs: [])
     }
 
     // MARK: Stored
@@ -161,12 +322,40 @@ public struct Manifest: Sendable, Hashable {
     public let characters: Characters
     public let badges: Badges
     public let room: Room
+    public let themes: Themes
     /// Directory that manifest-relative paths resolve against — the repository
     /// root, since paths are recorded as `assets/processed/...`.
     public let root: URL
 
     public func url(_ manifestPath: String) -> URL {
         root.appending(path: manifestPath)
+    }
+
+    /// The room bindings for a theme id.
+    ///
+    /// **`nil` means `room`, exactly.** Not "the default theme's set" — those
+    /// are the same pixels but not the same files, and `nil` is what every
+    /// caller that has not selected a theme passes. So a scene built without a
+    /// theme draws precisely what this app drew before themes existed, which is
+    /// a property worth having mechanically rather than by inspection.
+    ///
+    /// An id the manifest does not have falls back the same way. A theme that
+    /// was removed, or a manifest older than the stored choice, degrades to the
+    /// room rather than to nothing. [§3d]
+    public func room(theme id: String?) -> Room {
+        guard let id, let theme = themes.theme(id) else { return room }
+        return theme.room
+    }
+
+    /// The same resolution, as a `Theme` — what
+    /// `ThemeSelector.station(agentID:agentType:in:)` takes.
+    ///
+    /// An unknown or absent id synthesises one around `manifest.room`, so the
+    /// station rules are total for a scene that was never given a theme. It is
+    /// not put in `themes.sets`: it has no id the user could store or pick.
+    public func themeBindings(_ id: String?) -> Theme {
+        if let id, let declared = themes.theme(id) { return declared }
+        return Theme(id: "", title: "", isAssignable: false, room: room)
     }
 
     // MARK: Loading
@@ -278,12 +467,19 @@ public struct Manifest: Sendable, Hashable {
                 states: states)
         }
         guard !variants.isEmpty else { throw LoadError.malformed("characters.variants is empty") }
+        var workingPoses: [String: String] = [:]
+        for (badgeKey, raw) in
+            ((charactersObject["poses"] as? [String: Any])?["working"] as? [String: Any]) ?? [:] {
+            guard let stateName = raw as? String else { continue }
+            workingPoses[badgeKey] = stateName
+        }
         self.characters = Characters(
             canvas: charactersCanvas,
             anchor: charactersAnchor,
             frameRate: frameRate,
             variants: variants,
-            orderedVariantIDs: variants.keys.sorted())
+            orderedVariantIDs: variants.keys.sorted(),
+            workingPoses: workingPoses)
 
         // Badges
         let badgesObject = try Self.object(object, "badges")
@@ -314,36 +510,92 @@ public struct Manifest: Sendable, Hashable {
             states: badgeStates)
 
         // Room
-        let roomObject = try Self.object(object, "room")
+        self.room = try Self.roomBindings(try Self.object(object, "room"), context: "room")
+        guard !self.room.builderTiles.isEmpty else {
+            throw LoadError.malformed("room.builder.tiles is empty")
+        }
+
+        // Themes. `themes.sets.<id>` has the same shape as `room`, so it goes
+        // through the same loader — that is the whole reason §14a chose the
+        // shipped key path over §7's. [§14a]
+        let themesObject = (object["themes"] as? [String: Any]) ?? [:]
+        var sets: [String: Theme] = [:]
+        for (id, raw) in (themesObject["sets"] as? [String: Any]) ?? [:] {
+            guard let entry = raw as? [String: Any] else {
+                throw LoadError.malformed("themes.sets.\(id) is not an object")
+            }
+            let bindings = try Self.roomBindings(entry, context: "themes.sets.\(id)")
+            guard !bindings.builderTiles.isEmpty else {
+                throw LoadError.malformed("themes.sets.\(id).builder.tiles is empty")
+            }
+            sets[id] = Theme(
+                id: id,
+                // The id rather than a prettified one: a theme with no title is
+                // still listable, and inventing prose for it here would put a
+                // display string in `Sources/`.
+                title: (entry["title"] as? String) ?? id,
+                isAssignable: (entry["assignable"] as? Bool) ?? true,
+                room: bindings)
+        }
+        // A default naming a set that is not there is not a default. Falling to
+        // `nil` puts the room back to `manifest.room`, which is the same room.
+        let declaredDefault = themesObject["default"] as? String
+        self.themes = Themes(
+            defaultID: declaredDefault.flatMap { sets[$0] != nil ? $0 : nil },
+            sets: sets,
+            orderedIDs: sets.keys.sorted())
+    }
+
+    /// Decodes one `room`-shaped object: tile, builder, props, stations.
+    ///
+    /// One function for `room` and for every `themes.sets.<id>`, because they
+    /// are one shape. Two decoders over one shape drift.
+    private static func roomBindings(
+        _ roomObject: [String: Any], context: String
+    ) throws -> Room {
         let builder = try Self.object(roomObject, "builder")
         let props = (roomObject["props"] as? [String: Any]) ?? [:]
         let propCanvasObject = (props["canvas"] as? [String: Any]) ?? [:]
         var propRoles: [String: PropRole] = [:]
         for (role, raw) in (props["roles"] as? [String: Any]) ?? [:] {
-            guard let entry = raw as? [String: Any],
-                  let file = entry["file"] as? String,
-                  let box = entry["content_box"] as? [String: Any],
-                  let x = box["x"] as? Int, let y = box["y"] as? Int,
-                  let w = box["w"] as? Int, let h = box["h"] as? Int,
-                  w > 0, h > 0 else {
-                throw LoadError.malformed("room.props.roles.\(role)")
+            guard let box = Self.propRole(raw) else {
+                throw LoadError.malformed("\(context).props.roles.\(role)")
             }
-            propRoles[role] = PropRole(
-                file: file,
-                contentBox: PropRole.Box(x: x, y: y, width: w, height: h))
+            propRoles[role] = box
         }
-        self.room = Room(
-            tile: try Self.size(roomObject, "tile", in: "room"),
+        var stations: [String: Station] = [:]
+        for (id, raw) in (props["stations"] as? [String: Any]) ?? [:] {
+            guard let entry = raw as? [String: Any],
+                  let desk = Self.propRole(entry["desk"]),
+                  let chair = Self.propRole(entry["chair"]) else {
+                throw LoadError.malformed("\(context).props.stations.\(id)")
+            }
+            stations[id] = Station(desk: desk, chair: chair, prop: Self.propRole(entry["prop"]))
+        }
+        return Room(
+            tile: try Self.size(roomObject, "tile", in: context),
             builderTiles: (builder["tiles"] as? [String]) ?? [],
+            declaredFloor: builder["floor"] as? String,
+            declaredWall: builder["wall"] as? String,
             propCanvas: Size(
                 width: (propCanvasObject["w"] as? Int) ?? 64,
                 height: (propCanvasObject["h"] as? Int) ?? 96),
             propFiles: (props["files"] as? [String]) ?? [],
             propsIdentified: (props["identified"] as? Bool) ?? false,
-            propRoles: propRoles)
-        guard !self.room.builderTiles.isEmpty else {
-            throw LoadError.malformed("room.builder.tiles is empty")
-        }
+            propRoles: propRoles,
+            stations: stations)
+    }
+
+    /// A `{file, content_box}` entry. `nil` for anything that is not one —
+    /// including absence, which is how an optional station prop reads.
+    private static func propRole(_ raw: Any?) -> PropRole? {
+        guard let entry = raw as? [String: Any],
+              let file = entry["file"] as? String,
+              let box = entry["content_box"] as? [String: Any],
+              let x = box["x"] as? Int, let y = box["y"] as? Int,
+              let w = box["w"] as? Int, let h = box["h"] as? Int,
+              w > 0, h > 0 else { return nil }
+        return PropRole(file: file, contentBox: PropRole.Box(x: x, y: y, width: w, height: h))
     }
 
     private static func object(_ parent: [String: Any], _ key: String) throws -> [String: Any] {

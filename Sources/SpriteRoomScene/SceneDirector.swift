@@ -78,6 +78,23 @@ public struct SceneDirector: Sendable {
         var agentType: String?
         var variant: String
         var seat: Int
+        /// Which station this character works at, from
+        /// `ThemeSelector.station(agentID:agentType:in:)`.
+        ///
+        /// **`let`, and that is the enforcement of §6 rule 2**: the station is
+        /// decided at spawn and never rewritten. `agentAppeared` can arrive
+        /// again carrying an `agent_type` we did not have the first time, and it
+        /// updates `agentType` — the nameplate's business — without touching
+        /// this. Rewriting a character's furniture while it is on screen would
+        /// change its identity under the user's eye at exactly the moment the
+        /// room got busy and they are looking at it, which is M5's argument for
+        /// the always-on nameplate suffix applied verbatim.
+        ///
+        /// A theme change recomputes it from the same inputs by the same
+        /// function in a *new* director, so every agent lands on the
+        /// corresponding station of the new theme. That is §6 rule 4's rebuild,
+        /// not a rule 2 rewrite.
+        let station: String
         /// Keyed by `tool_use_id`, never a single current tool. [I3]
         var openCalls: [ToolUseID: String] = [:]
         /// Set by `reportDelivered` and **cleared at the end of the batch that
@@ -119,6 +136,13 @@ public struct SceneDirector: Sendable {
     public let camera: RoomCamera
     /// Variant ids in manifest order. The cast, chosen at M0 by measurement.
     public let variantIDs: [String]
+    /// The theme whose stations this director seats agents at. Bindings, not an
+    /// id: the director needs the numbered-station pool and nothing else.
+    public let theme: Manifest.Theme
+    /// `characters.poses.working`, badge key → seated state. Empty in the
+    /// shipped manifest, which makes the lookup below constant — §5b item 2's
+    /// "inert with no code path to delete".
+    let workingPoses: [String: String]
 
     private var presentations: [AgentRef: Presentation] = [:]
     /// Last intent actually emitted per agent — the suppression memory that
@@ -133,16 +157,25 @@ public struct SceneDirector: Sendable {
     public private(set) var unmappedTools: [String: Int] = [:]
 
     public init(layout: RoomLayout = RoomLayout(), camera: RoomCamera = .default,
-                variantIDs: [String]) {
+                variantIDs: [String],
+                theme: Manifest.Theme = .unbound,
+                workingPoses: [String: String] = [:]) {
         self.layout = layout
         self.camera = camera
         self.variantIDs = variantIDs.isEmpty ? ["00"] : variantIDs
+        self.theme = theme
+        self.workingPoses = workingPoses
     }
 
-    public init(manifest: Manifest, layout: RoomLayout = RoomLayout()) {
+    /// - Parameter themeID: the theme the room is dressed in, so that stations
+    ///   are drawn from *its* pool. `nil` is `manifest.room`, which §14a
+    ///   establishes is the resolved default theme.
+    public init(manifest: Manifest, themeID: String? = nil, layout: RoomLayout = RoomLayout()) {
         self.init(layout: layout,
                   camera: RoomCamera(manifest: manifest),
-                  variantIDs: manifest.characters.orderedVariantIDs)
+                  variantIDs: manifest.characters.orderedVariantIDs,
+                  theme: manifest.themeBindings(themeID),
+                  workingPoses: manifest.characters.workingPoses)
     }
 
     // MARK: Query
@@ -160,7 +193,36 @@ public struct SceneDirector: Sendable {
     }
 
     public func bodyState(_ agent: AgentRef) -> BodyState? {
-        presentations[agent]?.body
+        guard let presentation = presentations[agent] else { return nil }
+        return body(for: presentation, badge: presentation.badge)
+    }
+
+    /// Which station this character works at. Decided at spawn; this only
+    /// reads it. [§8 item 6]
+    public func station(_ agent: AgentRef) -> String? {
+        presentations[agent]?.station
+    }
+
+    /// The resting state to draw: `idle`, or the seated pose the badge class
+    /// selects.
+    ///
+    /// **Keyed on the badge class, not on `tool_name`.** That is the whole of
+    /// §5a: the badge mapping is already *total* — every unmapped tool is
+    /// `question_mark` — so a tool name nobody has heard of maps to a badge maps
+    /// to a pose, forever, with no new art. The extensibility property
+    /// `04-ART-DIRECTION.md` protects by saying "the body is always the sitting
+    /// pose" is preserved exactly, and it is preserved by the table being total
+    /// rather than by the answer being constant.
+    ///
+    /// The tool badge is read even while `attention` outranks it in the badge
+    /// slot, because the character is still holding those calls — the attention
+    /// glyph is about the *badge*, and the body is about the work.
+    func body(for presentation: Presentation, badge: BadgeSelection) -> BodyState {
+        let resting = presentation.body
+        guard resting == .working else { return resting }
+        let named = badge.badge.flatMap { workingPoses[$0.manifestKey] }
+            ?? workingPoses[Manifest.Characters.defaultPoseKey]
+        return named.flatMap(BodyState.init(rawValue:)) ?? resting
     }
 
     // MARK: Apply
@@ -179,7 +241,13 @@ public struct SceneDirector: Sendable {
                     let seat = claimSeat(for: agent)
                     let variant = claimVariant(for: agent)
                     presentations[agent] = Presentation(
-                        ref: agent, agentType: agentType, variant: variant, seat: seat)
+                        ref: agent, agentType: agentType, variant: variant, seat: seat,
+                        // Decided here and nowhere else. §6 rule 2, and the
+                        // `let` on the field is what keeps it true.
+                        station: ThemeSelector.station(
+                            agentID: agent.agent.subagentID,
+                            agentType: agentType,
+                            in: theme))
                     // A character that has just walked in wears no badge, so
                     // "set the badge to none" is an instruction to do nothing.
                     // Seeding the memory here is what keeps the badge-change
@@ -267,13 +335,20 @@ public struct SceneDirector: Sendable {
 
         for agent in touched {
             guard let presentation = presentations[agent] else { continue }
-            let body = presentation.body
+            // The badge class is computed here already, so the pose is looked up
+            // here already. **No new trigger, no new timer, no new state** —
+            // §8 item 7 — which is also what makes §6 rule 3 true for free: the
+            // pose changes exactly when the badge changes, because it is a pure
+            // function of the badge and is read at the same instant. A dwell
+            // timer would make the body assert a tool class the badge above it
+            // says has ended. [§6 rule 3]
+            let badge = presentation.badge
+            let body = body(for: presentation, badge: badge)
             if emittedBody[agent] != body {
                 emittedBody[agent] = body
                 intents.append(.setBody(
                     agent: agent, state: body, facing: layout.seatedFacing))
             }
-            let badge = presentation.badge
             if emittedBadge[agent] != badge {
                 emittedBadge[agent] = badge
                 intents.append(.setBadge(agent: agent, selection: badge))
@@ -447,5 +522,19 @@ public struct SceneDirector: Sendable {
 
     private func note(_ list: inout [AgentRef], _ agent: AgentRef) {
         if !list.contains(agent) { list.append(agent) }
+    }
+}
+
+extension AgentID {
+    /// The `agent_id` this identity carries, or `nil` for the main thread.
+    ///
+    /// **Absence is the main agent** — the identity rule, not a fallback — and
+    /// `AgentID` is where `SpriteRoomCore` already decided it. This is the
+    /// adapter onto `ThemeSelector.station(agentID:agentType:in:)`, whose
+    /// signature is a plain `String?` so that it can be tested without the
+    /// model. [CLAUDE.md, Identity model]
+    var subagentID: String? {
+        if case let .subagent(id) = self { return id }
+        return nil
     }
 }

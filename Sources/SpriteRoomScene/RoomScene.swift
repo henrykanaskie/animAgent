@@ -40,9 +40,21 @@ public final class RoomScene: SKScene {
     private var effectiveScale = 3
     private var viewport = CGSize(width: 960, height: 540)
 
-    public init(manifest: Manifest, layout: RoomLayout = RoomLayout()) {
+    /// - Parameter themeID: which `themes.sets.<id>` dresses the room. `nil`
+    ///   draws `manifest.room`, which is the room this app has always drawn and
+    ///   which §14a establishes *is* the resolved default theme.
+    ///
+    /// **No theme name and no filename appears in this file, or anywhere else
+    /// in `SpriteRoomScene`.** The id arrives from the app, having come from the
+    /// manifest or from the user's stored pick; the bindings behind it are read
+    /// through `TextureStore.room`. A test asserts the absence mechanically over
+    /// the source, because it is the kind of rule that decays quietly.
+    /// [ADR-002 §8 item 5]
+    public init(
+        manifest: Manifest, themeID: String? = nil, layout: RoomLayout = RoomLayout()
+    ) {
         self.layout = layout
-        self.store = TextureStore(manifest: manifest)
+        self.store = TextureStore(manifest: manifest, themeID: themeID)
         super.init(size: CGSize(width: 320, height: 180))
         scaleMode = .fill
         // Slightly darker than the room's value floor so the room never blends
@@ -77,7 +89,39 @@ public final class RoomScene: SKScene {
 
     // MARK: Room construction
 
+    /// The four placement slots a theme fills, and the keys they are looked up
+    /// by in `props.roles`.
+    ///
+    /// **These are slot names, not object nouns, and the distinction is the
+    /// whole theme mechanism.** The scene places a work surface at each seat, a
+    /// seat, a standing object on the back wall, and a repeated accent along the
+    /// back wall and the walkway. They are spelled `desk`, `chair`, `board` and
+    /// `plant` because those are the Office room's words and the Office room is
+    /// the manifest's default theme — so those words became the interface. A
+    /// theme filling `plant` with a stage curtain or a console terminal is the
+    /// slot doing its job, not a mislabelling.
+    ///
+    /// They are constants rather than literals at four call sites so that the
+    /// vocabulary is in one place when someone renames it — which
+    /// `04-ART-DIRECTION.md` says is the right change and is not this one.
+    /// A role name is not a filename and not a theme name: it is the key the
+    /// manifest and the scene agree on, exactly as `badges.map`'s keys are.
+    nonisolated static let surfaceRole = "desk"
+    nonisolated static let seatRole = "chair"
+    nonisolated static let backdropRole = "board"
+    nonisolated static let accentRole = "plant"
+
+    /// How many times the room has been built. **One, for the life of a scene.**
+    ///
+    /// §6 rule 1 is that the room does not change with activity, at all, and
+    /// this is that rule made mechanical rather than argued: a test replays
+    /// every fixture and asserts this never leaves 1, and that no prop node was
+    /// replaced by another with the same picture. A theme change is a new scene
+    /// — §6 rule 4 — so it does not increment this one, it starts another.
+    public private(set) var roomBuildCount = 0
+
     private func buildRoom() {
+        roomBuildCount += 1
         let tiles = store.roomTileChoice()
         let tile = layout.tile
         let floorTexture = store.texture(path: tiles.floor)
@@ -109,7 +153,7 @@ public final class RoomScene: SKScene {
         // the same desaturating import pass as the floor.
         let backRowY = layout.baselineY + Double(tile)
         for seat in 0..<layout.seatCapacity {
-            let role = seat.isMultiple(of: 2) ? "board" : "plant"
+            let role = seat.isMultiple(of: 2) ? Self.backdropRole : Self.accentRole
             let x = Double(layout.seatColumn(seat) * tile + tile / 2) + Double(tile) * 1.5
             guard x < layout.width else { continue }
             place(role: role, at: ScenePoint(x: x, y: backRowY))
@@ -125,7 +169,7 @@ public final class RoomScene: SKScene {
         // which is exactly what I7's "remove the background detail" warning is
         // about, and it fills the foreground at `1x`, where there is otherwise a
         // flat field of floor under everyone's nameplate.
-        if let plant = store.manifest.room.prop("plant") {
+        if let plant = store.room.prop(Self.accentRole) {
             let y = contentBand.bottom - Double(plant.contentBox.height) - 4
             for seat in 0..<layout.seatCapacity {
                 // Lined up under the back row, so the spacing reads as
@@ -142,7 +186,7 @@ public final class RoomScene: SKScene {
         // the pack drew no front- or back-facing sit. Drawn a hair behind the
         // body so the character is on the chair rather than in front of it.
         for seat in 0..<layout.seatCapacity {
-            place(role: "chair", at: layout.seatPosition(seat), depthBias: -0.25)
+            place(role: Self.seatRole, at: layout.seatPosition(seat), depthBias: -0.25)
         }
 
         // A desk at every seat, occupied or not — an office has empty desks,
@@ -164,7 +208,7 @@ public final class RoomScene: SKScene {
         // walkway exists.
         for seat in 0..<layout.seatCapacity {
             let position = layout.deskPosition(seat)
-            if place(role: "desk", at: position, depthBias: 0.5) { continue }
+            if place(role: Self.surfaceRole, at: position, depthBias: 0.5) { continue }
             // Nothing in the manifest is called a desk. Draw an obvious
             // placeholder rather than picking a single that looks desk-shaped.
             // [I1]
@@ -199,9 +243,9 @@ public final class RoomScene: SKScene {
     /// fixed offset would be right for one file and wrong for the next.
     @discardableResult
     private func place(role: String, at point: ScenePoint, depthBias: CGFloat = 0) -> Bool {
-        guard let prop = store.manifest.room.prop(role),
+        guard let prop = store.room.prop(role),
               let texture = store.texture(path: prop.file) else { return false }
-        let canvas = store.manifest.room.propCanvas
+        let canvas = store.room.propCanvas
         let anchor = prop.anchor(inCanvas: canvas)
         let node = SKSpriteNode(texture: texture)
         node.anchorPoint = CGPoint(x: anchor.x, y: anchor.y)

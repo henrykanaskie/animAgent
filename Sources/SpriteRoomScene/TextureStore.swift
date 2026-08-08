@@ -12,27 +12,55 @@ import SpriteKit
 public final class TextureStore {
 
     public let manifest: Manifest
+    /// Which theme's bindings this store resolves. `nil` is the room this app
+    /// has always drawn. [ADR-002 §8 item 5]
+    public let themeID: String?
+    /// The resolved bindings — `manifest.room` or `manifest.themes.sets[id]`.
+    /// Every room-facing lookup goes through here rather than through
+    /// `manifest.room`, which is what makes the theme a *selection* rather than
+    /// a branch at each call site.
+    public let room: Manifest.Room
     private var cache: [String: SKTexture] = [:]
     private var accents: [String: Bitmap.RGBA] = [:]
     private var roomTiles: RoomTiles?
 
-    /// Which builder tiles the room is built from, chosen by **measuring** the
-    /// tiles rather than by reading their filenames.
+    /// Which builder tiles the room is built from.
     ///
-    /// The manifest records the Room Builder sheet as a flat list of 141 sliced
-    /// tiles with no semantics — the pack does not say which is floor and which
-    /// is wall. Picking `tile_r00_c08` because it sounds like a floor would be
-    /// exactly the filename dependency the manifest exists to prevent. Instead:
-    /// among tiles that are fully opaque and a single flat colour, the darker
-    /// is the floor and the lighter is the wall. That is reproducible, and it
-    /// stays correct if the slicing changes.
+    /// **Declared, with measurement as the fallback.** The manifest records the
+    /// Room Builder sheet as a flat list of 141 sliced tiles with no semantics,
+    /// and the original answer was to measure rather than to read a filename:
+    /// among tiles that are fully opaque and a single flat colour, the darker is
+    /// the floor and the lighter is the wall. Picking `tile_r00_c08` because it
+    /// sounds like a floor would be exactly the filename dependency the manifest
+    /// exists to prevent, and that reasoning still stands.
+    ///
+    /// What did not stand is the *cost*: of those 141 tiles the filter accepts
+    /// exactly **2**, because a floor that carries a pattern is by construction
+    /// neither single-coloured nor a candidate. So the room was two flat colour
+    /// fields, and since `004b587` draws at `1x` at every population, those two
+    /// fields are most of the panel. A themeable floor cannot be found by
+    /// searching for the flattest thing in the set.
+    ///
+    /// So `builder.floor` and `builder.wall` are now read when the manifest
+    /// declares them — which is a *measurement recorded at import time* rather
+    /// than a filename written down in `Sources/`, so nothing about the rule
+    /// this heuristic protects has been given up. The heuristic remains, and is
+    /// still exercised: `room` itself declares neither, so the default room
+    /// resolves exactly as it always has.
+    /// [04-ART-DIRECTION, "Two facts about the room that this work uncovered"]
     public struct RoomTiles: Sendable {
         public let floor: String
         public let wall: String
+        /// `true` when both came from `builder.floor`/`builder.wall`. Diagnostic
+        /// only — a test asserts a theme is read rather than searched, and this
+        /// is how it can tell the two apart without reading pixels.
+        public let isDeclared: Bool
     }
 
-    public init(manifest: Manifest) {
+    public init(manifest: Manifest, themeID: String? = nil) {
         self.manifest = manifest
+        self.themeID = themeID
+        self.room = manifest.room(theme: themeID)
     }
 
     // MARK: Textures
@@ -105,12 +133,49 @@ public final class TextureStore {
 
     public func roomTileChoice() -> RoomTiles {
         if let roomTiles { return roomTiles }
+
+        // The declaration wins outright when it is there. Both keys, or
+        // neither: a half-declared builder is a manifest defect, and silently
+        // pairing a declared floor with a searched wall would hide it behind a
+        // room that looks nearly right.
+        if let floor = room.declaredFloor, let wall = room.declaredWall {
+            let choice = RoomTiles(floor: floor, wall: wall, isDeclared: true)
+            roomTiles = choice
+            return choice
+        }
+
+        let flat = flatBuilderTiles()
+        let choice = RoomTiles(
+            floor: flat.first?.path ?? room.builderTiles.first ?? "",
+            wall: flat.last?.path ?? flat.first?.path
+                ?? room.builderTiles.first ?? "",
+            isDeclared: false)
+        roomTiles = choice
+        return choice
+    }
+
+    /// One builder tile the heuristic accepts, and its mean value. Ascending, so
+    /// the first is the floor and the last is the wall.
+    struct FlatTile {
+        let path: String
+        let value: Double
+    }
+
+    /// The tiles that are fully opaque **and** a single flat colour, which is
+    /// the whole of the old selection rule.
+    ///
+    /// Exposed because the interesting fact about it is *how few there are* —
+    /// 2 of the Office room's 141 — and a number that explains a design decision
+    /// should be measurable rather than quoted. A patterned floor cannot pass
+    /// this filter by construction, which is why no amount of art would have
+    /// widened it and why `builder.floor` exists.
+    func flatBuilderTiles() -> [FlatTile] {
         struct Candidate {
             let path: String
             let value: Double
         }
         var flat: [Candidate] = []
-        for path in manifest.room.builderTiles {
+        for path in room.builderTiles {
             guard let bitmap = try? PixelImage.bitmap(contentsOf: manifest.url(path)) else {
                 continue
             }
@@ -131,13 +196,15 @@ public final class TextureStore {
             guard total > 0, opaque == total, colours.count == 1 else { continue }
             flat.append(Candidate(path: path, value: valueSum / Double(opaque)))
         }
-        let sorted = flat.sorted { $0.value < $1.value }
-        let choice = RoomTiles(
-            floor: sorted.first?.path ?? manifest.room.builderTiles.first ?? "",
-            wall: sorted.last?.path ?? sorted.first?.path
-                ?? manifest.room.builderTiles.first ?? "")
-        roomTiles = choice
-        return choice
+        return flat
+            .sorted { $0.value < $1.value }
+            .map { FlatTile(path: $0.path, value: $0.value) }
+    }
+
+    /// The seated pose for a badge class, from `characters.poses.working`.
+    /// Total; see `Manifest.Characters.workingPose(forBadgeKey:)`. [§8 item 7]
+    public func workingPose(forBadgeKey key: String?) -> BodyState {
+        manifest.characters.workingPose(forBadgeKey: key)
     }
 
     // MARK: Accent
