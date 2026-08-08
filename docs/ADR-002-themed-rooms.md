@@ -933,6 +933,32 @@ lies.
 
 ---
 
+## 14a. Amendment, 2026-08-08 — the manifest that shipped
+
+Two divergences between §7 as written and `assets/manifest.json` as built, found
+by the implementer of §8 items 8–9 rather than by review. Both resolved here so
+the ADR and the artifact agree; §7's prose above is superseded on these points.
+
+**Key path.** §7 specified `room.themes` and `room.defaultThemeId`. What shipped
+is top-level **`themes.sets.<id>`** with **`themes.default`**. The shipped shape
+wins, and it is the better one: `room` stays byte-for-byte the contract the
+scene already loads — it *is* the resolved default theme — and every theme,
+including that default, carries the same shape beside it. A reader learns one
+loader, not two. Nothing has to be reshaped and no existing reader breaks.
+
+**`assignable`.** §3e's split between what the hash may pick and what the user
+may choose had nothing to read: the flag was absent from every theme. It is now
+emitted per theme, defaulting to `true`, and all six current themes carry it as
+`true` because all six are neutral workplaces. The flag exists so the first
+theme that would read as a claim about the work — a jail, a hospital — can be
+offered to a user who wants it without ever being *assigned* to somebody by a
+hash. That is the difference between the user saying "make mine the jail" and
+the app deciding a project looks like one, and only the second is fiction. [I1]
+
+Neither change touches the mechanism in §3c or the spec in §8.
+
+---
+
 ## 15. If accepted, these documents are wrong until edited
 
 Out of this change's scope, listed so nothing rots:

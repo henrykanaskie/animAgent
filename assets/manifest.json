@@ -2220,6 +2220,7 @@
       "briefing": {
         "title": "Briefing Room",
         "what": "a lectern facing a wall of hanging curtain \u2014 reads as a hall rather than a workspace",
+        "assignable": true,
         "tile": {
           "w": 32,
           "h": 32
@@ -2326,6 +2327,7 @@
       "broadcast": {
         "title": "Broadcast Studio",
         "what": "tripods everywhere \u2014 film cameras and softbox lights, a silhouette no other theme has",
+        "assignable": true,
         "tile": {
           "w": 32,
           "h": 32
@@ -2432,6 +2434,7 @@
       "library": {
         "title": "Reading Room",
         "what": "floor-to-ceiling bookcases and a chalkboard \u2014 the maintainer's 'classroom', built from the Classroom and Library set",
+        "assignable": true,
         "tile": {
           "w": 32,
           "h": 32
@@ -2538,6 +2541,7 @@
       "mission_control": {
         "title": "Mission Control",
         "what": "banks of consoles under a dish mast \u2014 the closest thing to a launch control room that the packs we own can actually build",
+        "assignable": true,
         "tile": {
           "w": 32,
           "h": 32
@@ -2644,6 +2648,7 @@
       "office": {
         "title": "Open Plan Office",
         "what": "the room as it shipped through M5 \u2014 the Modern Office pack",
+        "assignable": true,
         "tile": {
           "w": 32,
           "h": 32
@@ -2883,6 +2888,7 @@
       "stage": {
         "title": "Rehearsal Room",
         "what": "a drum kit and a row of mic stands; the only theme whose back wall is not a rectangle",
+        "assignable": true,
         "tile": {
           "w": 32,
           "h": 32

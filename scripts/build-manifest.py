@@ -405,6 +405,17 @@ def build_themes():
         sets[name] = {
             "title": spec.get("title", name),
             "what": spec.get("what", ""),
+            # ADR-002 §3e. `assignable` is what the *hash* may pick; every theme
+            # is choosable by the user regardless. The split exists so a room
+            # that would read as a claim about the work can be offered without
+            # ever being assigned to someone by accident — the difference
+            # between a user saying "make mine the jail" and the app deciding a
+            # project looks like one. [I1]
+            #
+            # All six current themes are neutral workplaces, so all six are
+            # assignable. The flag is here so the first theme that is not can
+            # say so in the manifest rather than in a special case in Sources/.
+            "assignable": spec.get("assignable", True),
             "tile": {"w": 32, "h": 32},
             "anchor": {"px": [0, 0], "normalized": [0.0, 0.0],
                        "note": "bottom-left of the tile"},
