@@ -262,10 +262,12 @@ Other hosts and harnesses, all real flags on `spriteroom`:
 | `--panel` | the notch panel. This is the default, so the flag is only ever needed to override `SPRITEROOM_HOST=window` |
 | `--window` | M2's plain resizable window. A better place to develop the scene than a rectangle that vanishes when you move the mouse. `SPRITEROOM_HOST=window` is the same thing. |
 | `--render DIR --at 6,12,20` | offscreen PNGs at those fixture seconds; opens nothing |
+| `--theme ID` | which room `--render` and `--window` draw. `--theme list` names them. Without it, the theme the app itself derives from the fixture's `cwd` — not the manifest default |
 | `--size WxH` | viewport for `--render` (default 960x540) |
 | `--speed N` | replay pace, multiples of real time |
 | `--window-render DIR` | open the window, capture the live `SKView` at `--at`, quit |
-| `--panel-render DIR` | reveal the panel, capture its live `SKView` at `--at`, quit |
+| `--panel-render DIR` | reveal the **real** panel on your screen and capture its live `SKView` at `--at`, quit. Refuses without `--force-panel-render` |
+| `--force-panel-render` | mean it |
 | `--probe hover` | walk the real cursor through the notch and count reveal/retract transitions |
 | `--probe focus --cycles N --countdown S` | reveal and retract N times while watching where focus went |
 | `--probe fullscreen` | enter a full-screen space and check the panel is still over it |
@@ -275,10 +277,33 @@ Other hosts and harnesses, all real flags on `spriteroom`:
 | `--settings-path P` | operate on a copy instead of the real `~/.claude/settings.json` |
 | `--consent install\|decline` | answer the first-run question without a dialog |
 | `--no-hook-prompt` | live mode: never show the first-run dialog |
+| `--quit-answer remove\|keep` | answer the removal-on-quit question without a dialog |
+| `--no-quit-prompt` | live mode: never ask about removing the hooks on quit |
 
 `--render` exists because "the nameplate is legible at this zoom" is a claim
 about pixels, and pixels have to be looked at. `SPRITEROOM_DEBUG=1` traces every
 delta and intent.
+
+**Use `--render`, not `--panel-render`.** They answer the same question about
+pixels and only one of them touches your display. `--panel-render` reveals the
+actual panel — above the menu bar, on every space, click-through — over whatever
+you are doing, and a process that exits while that panel is ordered in can leave
+the surface drawn with nothing behind it. There is no way to click that ghost
+away: it ignores the mouse, nothing can be raised in front of it, and it follows
+you between desktops; it takes a space switch or Mission Control, and killing the
+process does not help because the process is already gone. The exit paths now
+order the panel out and wait for the window server before leaving, and the flag
+asks for `--force-panel-render` so the panel path is taken when the *panel* is
+the thing under test rather than by reflex.
+
+`--render` also draws the room the app would draw. It used to build the scene
+with no theme at all, so it always drew the plain office; the theme now comes
+from the same `ThemeSelector` the app uses, keyed on the fixture's `cwd`, and the
+theme id goes in the PNG filename so two `--theme` runs into one directory can be
+compared instead of overwriting each other. Stored picks from `themes.json` are
+deliberately *not* consulted: a render harness that produced different pixels on
+different machines would not be a harness. Name a room with `--theme` when you
+want a specific one.
 
 **No *event* is persisted.** No event log, no database — the world is live state
 and dies with the app, and the selected project resets on each launch. That much
@@ -362,6 +387,51 @@ HTTP hook schema, so the session *blocks* on our response. If Sprite Room is not
 running, each event costs at most 2 s. Measured added latency with the app
 running is under 10 ms at every quantile from p50 to p99, of which roughly 2.5 ms
 is ours. Anything added to the response path spends someone's tool call. [I5]
+
+### Installed hooks, and Sprite Room not running
+
+The timeout is the floor, but it is not the whole cost. User scope is what makes
+the hooks fire for every session on the machine, which is the design — and it
+means that while nothing is listening, **every tool call in every project reports
+a connection error**. Not a slow call: a visible `ECONNREFUSED` in your own
+session, on everything you do, in every window. A status viewer that degrades the
+thing it is watching has inverted its own purpose, and I5 — the app never
+surfaces an error into your session — is the same sentence one process boundary
+further out.
+
+So **quitting asks**:
+
+> **Remove Sprite Room's Claude Code hooks?** … They are registered at user
+> scope, so they fire for every Claude Code session on this machine. With nothing
+> listening on `http://127.0.0.1:8787/hook`, every tool call in every session will
+> spend up to 2 seconds failing to reach Sprite Room and report a connection
+> error. Removing them puts that file back exactly as it was.
+>
+> **Leave Them** · Remove Hooks
+
+**Leave Them** is the default button, because it is the answer that writes
+nothing. Removal goes through the same `--remove-hooks` path as everything else,
+so the backup restores your file byte for byte.
+
+It asks rather than removing silently, and that is deliberate: the install path
+asks, `~/.claude/settings.json` is your file, and quietly editing it on the way
+out would be worse than the error — it would also undo a considered choice every
+time you quit and relaunched. The menu bar's **Remove Claude Code Hooks** is the
+same operation on demand.
+
+**A crash is not covered, and cannot be.** A `kill -9`, a panic, a reboot or a
+power cut runs no code of ours, so there is no version of this that survives one;
+anything claiming otherwise would be a promise the app cannot keep. What exists
+instead is a recovery that needs nothing running:
+
+```sh
+swift run spriteroom --remove-hooks   # works with no window server and no app
+```
+
+A `^C` in the terminal is in the same category as a crash for this purpose: it
+does not reach the quit path. The only real fix for the crash case lives on the
+other side — a hook that could be marked fire-and-forget, or failures the session
+does not report — and neither exists on the hook schema today.
 
 ---
 

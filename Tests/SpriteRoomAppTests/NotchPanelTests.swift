@@ -114,4 +114,71 @@ struct NotchPanelTests {
         #expect(responders.isEmpty, "keyboard-capable views in the panel: \(responders)")
         controller.panel.orderOut(nil)
     }
+
+    // MARK: Getting off the screen
+
+    /// **The ghost panel.** `--panel-render` used to reveal the real panel and
+    /// hard-exit without ordering it out, and the window server can leave that
+    /// surface drawn with no process behind it. It is the one window a user
+    /// cannot clear by hand: `ignoresMouseEvents` so clicks pass through, a
+    /// level above the menu bar so nothing can be raised in front of it, and
+    /// `canJoinAllSpaces` so it follows every desktop. The maintainer hit it,
+    /// and killing the process did not help — the process was already gone.
+    ///
+    /// `hide()` is the teardown call every exit path now goes through. It has
+    /// to work from the revealed state, which is the only state that leaves a
+    /// ghost.
+    @Test(.enabled(if: NotchPanelTests.hasWindowServer))
+    func hidingTakesThePanelOffTheScreenFromTheRevealedState() {
+        _ = NSApplication.shared
+        let content = RoomView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+        let controller = NotchPanelController(contentView: content)
+
+        controller.forceReveal(at: 0)
+        #expect(controller.isRevealed)
+        controller.panel.orderFrontRegardless()
+        #expect(controller.panel.isVisible)
+
+        controller.hide(at: 1)
+
+        // Ordered out is what removes the surface from the window server.
+        // Nothing else in this type does that synchronously — `slide` only
+        // orders out in an animation completion handler, which is precisely
+        // the callback a process that is exiting never runs.
+        #expect(controller.panel.isVisible == false, "the panel is still on the screen")
+        // And the policy agrees, so a stray sample cannot bring it back.
+        #expect(controller.isRevealed == false)
+        #expect(controller.phase == .hidden)
+    }
+
+    /// Hiding twice, and hiding something already hidden, are both no-ops.
+    /// Teardown runs from `applicationWillTerminate` *and* from the `exit()`
+    /// paths, and on some routes from both.
+    @Test(.enabled(if: NotchPanelTests.hasWindowServer))
+    func hidingIsSafeToDoTwiceAndFromTheHiddenState() {
+        _ = NSApplication.shared
+        let content = RoomView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+        let controller = NotchPanelController(contentView: content)
+
+        controller.hide(at: 0)
+        #expect(controller.panel.isVisible == false)
+        controller.forceReveal(at: 1)
+        controller.panel.orderFrontRegardless()
+        controller.hide(at: 2)
+        controller.hide(at: 3)
+        #expect(controller.panel.isVisible == false)
+        #expect(controller.phase == .hidden)
+    }
+
+    /// The gate on the harness that caused the ghost. `--render` draws the same
+    /// scene offscreen and touches no display, so the panel path is only wanted
+    /// when the panel is the thing under test — and then it is asked for
+    /// explicitly.
+    @Test func panelRenderIsOptOutOfNothingAndOptInToSomething() {
+        #expect(parse(["--panel-render", "out"])?.forcePanelRender == false)
+        #expect(parse(["--panel-render", "out", "--force-panel-render"])?.forcePanelRender == true)
+        #expect(parse([])?.forcePanelRender == false)
+        let text = usage()
+        #expect(text.contains("--force-panel-render"))
+    }
 }

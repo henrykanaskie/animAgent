@@ -90,6 +90,30 @@ final class NotchPanelController {
         timer = nil
     }
 
+    /// Take the panel off the screen **now** — no animation, no timer — and
+    /// leave the policy agreeing that it is away.
+    ///
+    /// This is the teardown call, and it is the one thing that must happen
+    /// before the process goes away. Ordering out is what removes the surface
+    /// from the window server; a process that exits while this panel is ordered
+    /// in can leave the surface drawn with nothing behind it, and **that ghost
+    /// cannot be dismissed by hand**: `ignoresMouseEvents = true` means clicks
+    /// go through it, the level is above the menu bar so nothing can be brought
+    /// in front of it, and `canJoinAllSpaces` means it follows you to every
+    /// desktop. Clearing it takes a space switch or Mission Control, and
+    /// killing the process does not help — the process is already gone. So the
+    /// exit paths call this, and so does `applicationWillTerminate`.
+    ///
+    /// `stop()` first, so a sample cannot re-reveal the panel between the
+    /// order-out and the exit. Not an animation, because the caller is about to
+    /// stop existing and an animation needs frames it will not get.
+    func hide(at now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        stop()
+        _ = policy.forceRetract(at: now)
+        panel.setFrame(geometry.hiddenPanelFrame(size: size).cgRect, display: false)
+        panel.orderOut(nil)
+    }
+
     // MARK: Sampling
 
     /// One pointer sample. Split out from the timer so the verification harness

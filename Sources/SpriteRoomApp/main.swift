@@ -61,7 +61,19 @@ struct Options {
     /// Answer the first-run question without a dialog. For a harness that has
     /// nobody to click it — never a default, because silence is not consent.
     var consentAnswer: HookConsent?
+    /// Live mode: never show the removal-on-quit dialog.
+    var quitPrompt = true
+    /// Answer the removal-on-quit question without a dialog. Never a default,
+    /// for the same reason `consentAnswer` is not: a settings write with nobody
+    /// present is a settings write nobody agreed to.
+    var quitAnswer: HookQuit?
     var speed: Double = 1
+    /// Name the room `--render` (and `--window`) draws. `nil` means the theme
+    /// the app would derive for the fixture's `cwd`.
+    var themeID: String?
+    /// `--panel-render` reveals the real panel over whatever you are doing.
+    /// It refuses without this. [see `PanelDelegate.applicationWillTerminate`]
+    var forcePanelRender = false
     var renderDirectory: URL?
     var renderTimes: [Double] = []
     var width = 960
@@ -89,14 +101,20 @@ func usage() -> String {
       --yes              consent for --install-hooks (it refuses without this)
       --no-hook-prompt   live mode: never show the first-run consent dialog
       --consent A        answer the first-run question: 'install' or 'decline'
+      --no-quit-prompt   live mode: never ask about removing the hooks on quit
+      --quit-answer A    answer the removal-on-quit question: 'remove' or 'keep'
       --settings-path P  operate on P instead of the real ~/.claude/settings.json
       --window           M2's plain resizable window instead
       --speed N          replay pace, multiples of real time (default 1)
       --render DIR       render offscreen PNGs into DIR instead of opening anything
+      --theme ID         room to draw with --render/--window; 'list' names them.
+                         Default: the theme the app derives from the fixture's cwd
       --at T[,T...]      fixture seconds to render at (with --render)
       --size WxH         viewport size in pixels (default 960x540)
       --window-render DIR  open the window, capture the live SKView at --at, quit
-      --panel-render DIR   reveal the panel, capture its live SKView at --at, quit
+      --panel-render DIR   reveal the REAL panel over your screen and capture it;
+                           needs --force-panel-render. Prefer --render.
+      --force-panel-render  mean it
       --probe focus      reveal/retract N times and watch where focus is
       --probe hover      walk the real cursor through the notch and count transitions
       --probe fullscreen enter a full-screen space and check the panel is over it
@@ -153,6 +171,13 @@ func parse(_ arguments: [String]) -> Options? {
                 print("--consent needs 'install' or 'decline'"); return nil
             }
             options.consentAnswer = answer
+        case "--no-quit-prompt":
+            options.quitPrompt = false
+        case "--quit-answer":
+            guard let value = next(), let answer = HookQuit(rawValue: value) else {
+                print("--quit-answer needs 'remove' or 'keep'"); return nil
+            }
+            options.quitAnswer = answer
         case "--settings-path":
             guard let value = next() else { print("--settings-path needs a file"); return nil }
             options.settingsPath = URL(fileURLWithPath: value)
@@ -169,6 +194,11 @@ func parse(_ arguments: [String]) -> Options? {
             guard let value = next() else { print("--render needs a directory"); return nil }
             options.renderDirectory = URL(fileURLWithPath: value)
             options.host = .offscreen
+        case "--theme":
+            guard let value = next() else { print("--theme needs a theme id, or 'list'"); return nil }
+            options.themeID = value
+        case "--force-panel-render":
+            options.forcePanelRender = true
         case "--window-render":
             guard let value = next() else { print("--window-render needs a directory"); return nil }
             options.windowRenderDirectory = URL(fileURLWithPath: value)
@@ -297,12 +327,84 @@ func runHookAction(_ action: HookAction, options: Options) -> Int32 {
 
 // MARK: - Shared setup
 
-@MainActor
-func makeScene(root: URL, viewport: CGSize) throws -> RoomScene {
-    let manifest = try Manifest.load(root: root)
-    let scene = RoomScene(manifest: manifest)
-    scene.setViewport(viewport)
-    return scene
+/// Which room the offscreen renderer and the plain window dress themselves in.
+///
+/// **Why the harnesses need this at all.** `--render` is the safe way to look at
+/// what the app draws: it produces the scene offscreen and never touches the
+/// display, unlike `--panel-render`. It used to build a `RoomScene` with no
+/// theme, so it drew the plain office and nothing else — theme selection lived
+/// only in `RoomHost`, which only the `--live` path constructs. A renderer that
+/// cannot show what the app will actually draw is not a renderer of this app.
+///
+/// **Why the default is derived rather than the manifest default.** `--render`
+/// with no `--theme` now answers the question "what will this fixture's project
+/// look like", and the answer the app itself gives is
+/// `ThemeSelector.theme(for:stored:manifest:)` over the fixture's `cwd` — the
+/// same function, in the same module, guarded by the same pinned FNV-1a vector.
+/// Silently drawing the default room instead was the bug.
+///
+/// **`stored:` is deliberately empty.** The derived half is a pure function of
+/// `cwd` and the manifest, so the same fixture renders the same room on any
+/// machine and in any checkout. Reading the maintainer's `themes.json` would
+/// make a render harness produce different pixels for different people, which
+/// is the opposite of what a harness is for. `--theme` is how you ask for a
+/// specific room; the flag says it, so nothing is silent either way.
+enum ResolvedTheme {
+    /// The id to hand to *both* halves. `nil` means `manifest.room` — the room
+    /// this app drew before themes existed, and the honest answer for a
+    /// manifest that declares none.
+    case theme(String?)
+    /// `--theme list`.
+    case list([String])
+    /// `--theme` named something the manifest does not have.
+    case unknown(requested: String, declared: [String])
+}
+
+func resolveTheme(options: Options, manifest: Manifest, entries: [HookLogEntry]) -> ResolvedTheme {
+    let declared = manifest.themes.orderedIDs
+    if let requested = options.themeID {
+        if requested == "list" { return .list(declared) }
+        guard manifest.themes.contains(requested) else {
+            return .unknown(requested: requested, declared: declared)
+        }
+        return .theme(requested)
+    }
+    // No `--theme`: the theme the app would derive for this fixture's project.
+    guard let cwd = entries.compactMap({ $0.event?.cwd }).first else {
+        return .theme(manifest.themes.defaultID)
+    }
+    return .theme(ThemeSelector.theme(for: cwd, stored: [:], manifest: manifest))
+}
+
+/// Prints what went wrong and hands back an exit code, or the id to draw.
+enum ThemeToDraw {
+    case draw(String?)
+    case stop(Int32)
+}
+
+func themeToDraw(
+    options: Options, manifest: Manifest, entries: [HookLogEntry]
+) -> ThemeToDraw {
+    switch resolveTheme(options: options, manifest: manifest, entries: entries) {
+    case .theme(let id):
+        return .draw(id)
+    case .list(let declared):
+        if declared.isEmpty {
+            print("this manifest declares no themes; the room is the one it has always drawn")
+        } else {
+            for id in declared {
+                let mark = id == manifest.themes.defaultID ? " (default)" : ""
+                print("  \(id)\(mark)")
+            }
+        }
+        return .stop(0)
+    case .unknown(let requested, let declared):
+        print("no theme '\(requested)' in this manifest.")
+        print(declared.isEmpty
+            ? "  it declares none at all"
+            : "  declared: " + declared.joined(separator: ", "))
+        return .stop(2)
+    }
 }
 
 /// Feeds a fixture to a sink against wall time, batching deltas into frames.
@@ -351,8 +453,21 @@ func renderOffscreen(options: Options, root: URL, entries: [HookLogEntry]) async
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
     let viewport = CGSize(width: options.width, height: options.height)
-    let scene = try makeScene(root: root, viewport: viewport)
-    let binding = SceneBinding(scene: scene)
+    let manifest = try Manifest.load(root: root)
+    let themeID: String?
+    switch themeToDraw(options: options, manifest: manifest, entries: entries) {
+    case .draw(let id): themeID = id
+    case .stop(let code): return Int(code)
+    }
+    // **One construction, so both halves cannot disagree.** `SceneBinding`
+    // hands the same id to the scene (which draws the props) and to the
+    // `SceneDirector` (which resolves each agent's station). Building the scene
+    // separately and passing it in is what let the director default to `nil`
+    // while the scene was themed — a character seated at a station the room is
+    // not dressed for, silently, because both halves are individually valid.
+    // [ADR-002 §8 item 5]
+    let binding = SceneBinding(manifest: manifest, themeID: themeID, viewport: viewport)
+    let scene = binding.scene
     let driver = ReplayDriver()
     let renderer = try OffscreenRenderer(
         scene: scene, width: options.width, height: options.height)
@@ -372,8 +487,12 @@ func renderOffscreen(options: Options, root: URL, entries: [HookLogEntry]) async
     var markIndex = marks.startIndex
     var written: [String] = []
     var time = 0.0
+    // The theme goes in the filename. Two `--theme` runs into one directory is
+    // exactly how you check that a themed render differs from the default, and
+    // it cannot be if the second overwrites the first.
     let name = (options.fixture ?? defaultFixture(root: root))
         .deletingPathExtension().lastPathComponent
+        + (themeID.map { "-" + $0 } ?? "")
 
     // A fixed-step simulation. Fixture time and the renderer's clock are the
     // same clock, so a two-second walk takes two seconds of both.
@@ -416,6 +535,8 @@ func renderOffscreen(options: Options, root: URL, entries: [HookLogEntry]) async
 
     let unmapped = binding.unmappedTools.sorted { $0.key < $1.key }
         .map { "\($0.key)×\($0.value)" }.joined(separator: ", ")
+    let source = options.themeID == nil ? "derived from the fixture's cwd" : "--theme"
+    print("room: \(themeID ?? "manifest.room (this manifest declares no themes)") (\(source))")
     print("rendered \(written.count) frame(s) into \(directory.path)")
     for label in written { print("  \(label)") }
     print("unmapped tools: \(unmapped.isEmpty ? "none" : unmapped)")
@@ -453,12 +574,23 @@ final class WindowDelegate: NSObject, NSApplicationDelegate {
         window.center()
 
         do {
-            let scene = try makeScene(
-                root: root,
+            let manifest = try Manifest.load(root: root)
+            // Same construction as `--render`, for the same reason: one call
+            // hands one id to both the scene and the director. `--window` had
+            // the identical defect and would have grown it back the moment
+            // `--render` was fixed alone.
+            let themeID: String?
+            switch themeToDraw(options: options, manifest: manifest, entries: entries) {
+            case .draw(let id): themeID = id
+            case .stop(let code): exit(code)
+            }
+            let binding = SceneBinding(
+                manifest: manifest,
+                themeID: themeID,
                 viewport: CGSize(width: options.width, height: options.height))
+            let scene = binding.scene
             window.title = "Sprite Room — \(scene.store.manifest.credit.text)"
             view.presentScene(scene)
-            let binding = SceneBinding(scene: scene)
             self.binding = binding
             self.window = window
             self.view = view
@@ -527,6 +659,17 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
     var controller: NotchPanelController?
     var selector: ProjectSelector?
     var live: LiveDriver?
+    /// The installer this run took responsibility for.
+    ///
+    /// Set once live mode has bound a port, and `nil` everywhere else on
+    /// purpose: a replay or capture run never became the thing the hooks point
+    /// at, so it has no standing to ask about the user's settings file on the
+    /// way out. Quitting `spriteroom fixtures/x.jsonl` must not pop a dialog
+    /// about a configuration it never touched.
+    private var hookInstaller: HookInstaller?
+    /// `applicationShouldTerminate` can be called more than once. The user is
+    /// asked at most once.
+    private var answeredHookQuit = false
 
     init(options: Options, root: URL, entries: [HookLogEntry]) {
         self.options = options
@@ -626,6 +769,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                     if self.options.panelRenderDirectory != nil {
                         print("captured \(written.count) frame(s) from the live panel")
                         for name in written { print("  \(name)") }
+                        await self.tearDownPanel()
                         NSApp.terminate(nil)
                     }
                     print("replay finished — the panel stays up")
@@ -635,6 +779,37 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
             print("could not build the scene: \(error)")
             NSApp.terminate(nil)
         }
+    }
+
+    // MARK: Getting off the screen
+
+    /// Order the panel out and give AppKit a turn to actually do it.
+    ///
+    /// **The bug this exists for.** `--panel-render` revealed the real panel
+    /// over whatever the maintainer was doing and then hard-exited without
+    /// `orderOut`. The window server can leave that surface drawn with **no
+    /// process behind it**, and the panel is precisely the window you cannot
+    /// get rid of by hand: `ignoresMouseEvents = true` so it cannot be clicked,
+    /// a level above the menu bar so nothing can be raised in front of it, and
+    /// `canJoinAllSpaces` so it follows you. Killing the process does not help;
+    /// the process is already gone. It takes a space switch or Mission Control.
+    ///
+    /// Ordering out is the fix. The sleep is the other half: `orderOut` posts
+    /// to the window server and the process must still be alive when that is
+    /// serviced, so the exit waits one beat rather than racing it. 120 ms is
+    /// generous for a single window operation and invisible on a harness run.
+    ///
+    /// Nothing here touches focus. `orderOut` is the opposite of activation and
+    /// the panel could not have been key regardless. [I8]
+    private func tearDownPanel() async {
+        controller?.hide()
+        try? await Task.sleep(for: .milliseconds(120))
+    }
+
+    /// The path `NSApp.terminate` takes. `exit()` does **not** call this, which
+    /// is why the two `exit()` sites call `tearDownPanel()` themselves.
+    func applicationWillTerminate(_ notification: Notification) {
+        controller?.hide()
     }
 
     /// In-process capture of what the panel's `SKView` is drawing.
@@ -787,6 +962,10 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
     /// by a harness that has no one to click it.
     private func offerToInstallHooks(port: UInt16) {
         let installer = HookInstaller(settingsURL: options.settingsPath, port: port)
+        // From here on this run is the process the hooks point at, so it is
+        // also the run that has to offer to take them back out. [see
+        // `applicationShouldTerminate`]
+        hookInstaller = installer
 
         // The menu item the consent dialog promises. Wire it before asking, so
         // the promise is true whichever way the answer goes.
@@ -861,6 +1040,102 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
         return alert.runModal() == .alertFirstButtonReturn ? .install : .decline
     }
 
+    // MARK: Quitting
+
+    /// On the way out: our hooks are about to start posting to a port nothing
+    /// is listening on, so offer to take them out.
+    ///
+    /// **What goes wrong without this.** The hooks are registered at user
+    /// scope — one registration, routed by `cwd`, which is the design and not
+    /// an accident. So they fire for *every* Claude Code session on the
+    /// machine, in every project, whether or not SpriteRoom is running. The
+    /// moment this process is gone, every tool call in every session POSTs to a
+    /// dead port and Claude Code reports `ECONNREFUSED`. A status viewer that
+    /// puts an error in the session it is watching has inverted its own
+    /// purpose. I5 is the same sentence one process boundary in: the app never
+    /// surfaces an error into the user's session.
+    ///
+    /// **It asks. It does not remove silently.** `~/.claude/settings.json` is
+    /// the user's file; the install path asks and the removal path has to
+    /// match. Removing without asking would also quietly undo a deliberate
+    /// choice every time someone quit and relaunched. `HookInstaller.remove()`
+    /// does the writing, restoring the original bytes from the install-time
+    /// backup — no second write path exists and none is added here.
+    ///
+    /// **This covers a quit, and only a quit.** A crash, a `kill -9`, a reboot
+    /// or a power cut runs no code of ours, so nothing in this app can cover
+    /// them; see the note in `README.md`. The menu bar's **Remove Claude Code
+    /// Hooks** is the manual equivalent and predates this, and
+    /// `spriteroom --remove-hooks` works with no window server at all — which
+    /// is the recovery path after a crash, because there cannot be another one.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Before the dialog, not after: an alert with the room still hanging
+        // over it is a worse thing to look at, and the app is leaving anyway.
+        controller?.hide()
+        guard let installer = hookInstaller, !answeredHookQuit else { return .terminateNow }
+        answeredHookQuit = true
+
+        switch installer.atQuit(ask: { self.hookQuitAnswer(installer: installer) }) {
+        case .notInstalled:
+            break
+        case .kept:
+            print("hooks left in \(installer.settingsURL.path). While nothing is listening on "
+                + "\(installer.url) every Claude Code tool call will report a connection error; "
+                + "`spriteroom --remove-hooks` takes them out.")
+        case .removed:
+            print("hooks removed from \(installer.settingsURL.path)")
+        case .failed(let message):
+            print("could not check or write \(installer.settingsURL.path): \(message)")
+        }
+        return .terminateNow
+    }
+
+    /// `nil` means nobody could be asked, and nothing is written.
+    private func hookQuitAnswer(installer: HookInstaller) -> HookQuit? {
+        if let answer = options.quitAnswer { return answer }
+        guard options.quitPrompt else { return nil }
+        // A harness has no one to click a modal. `--panel-render` and the
+        // probes both exit on their own schedule and would hang forever on
+        // one, so neither is ever asked; `--quit-answer` is how those runs
+        // exercise this branch.
+        guard options.probe == nil, options.panelRenderDirectory == nil else { return nil }
+        return Self.askAboutRemoval(installer: installer)
+    }
+
+    /// The dialog. Like the consent dialog, this is the only part of the flow
+    /// that needs a screen and the only part that holds no logic.
+    ///
+    /// It is an `NSAlert` from the menu-bar app. Nothing about it touches the
+    /// panel, which takes no keyboard events and is not a responder. [I8]
+    ///
+    /// **"Leave Them" is the default button.** The destructive-looking answer
+    /// is not the one a stray Return picks, and leaving them is the answer that
+    /// writes nothing.
+    private static func askAboutRemoval(installer: HookInstaller) -> HookQuit {
+        let alert = NSAlert()
+        alert.messageText = "Remove Sprite Room's Claude Code hooks?"
+        alert.informativeText = """
+            Sprite Room is quitting, and its hooks are still registered in
+            \(installer.settingsURL.path)
+
+            They are registered at user scope, so they fire for every Claude \
+            Code session on this machine. With nothing listening on \
+            \(installer.url), every tool call in every session will spend up to \
+            \(HookInstaller.timeout) seconds failing to reach Sprite Room and \
+            report a connection error.
+
+            Removing them puts that file back exactly as it was. Register them \
+            again from the menu bar next time, or with \
+            `spriteroom --install-hooks --yes`.
+            """
+        alert.alertStyle = .warning
+        // First button is the default. Keeping them writes nothing, so that is
+        // the safe answer to land on.
+        alert.addButton(withTitle: "Leave Them")
+        alert.addButton(withTitle: "Remove Hooks")
+        return alert.runModal() == .alertFirstButtonReturn ? .keep : .remove
+    }
+
     /// Criterion 5, driven through the real menu items rather than around
     /// them: find each project's `NSMenuItem`, perform its action, and report
     /// what the room became.
@@ -921,6 +1196,9 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
             print("--probe selector needs --live: it drives the menu over real sessions")
             status = 2
         }
+        // `exit()` runs no `applicationWillTerminate`, and every probe leaves
+        // the real panel somewhere on the screen. Same ghost, same fix.
+        await tearDownPanel()
         exit(Int32(status))
     }
 
@@ -944,6 +1222,51 @@ if let action = options.hookAction {
 }
 
 let root = Manifest.developmentRoot()
+
+// `--panel-render` reveals the *real* panel over whatever you are doing, at a
+// level above the menu bar, on every space, ignoring the mouse. It is worth
+// having — the panel is sometimes the thing under test — but it is never worth
+// having by accident, and it is not the way to look at the scene: `--render`
+// draws the same room offscreen, takes `--theme`, and never touches the
+// display. So the panel path says what it costs and asks you to mean it.
+if options.panelRenderDirectory != nil, !options.forcePanelRender {
+    print("""
+        --panel-render reveals the real panel on your screen: above the menu bar, \
+        on every space, and click-through.
+
+        You almost certainly want --render, which draws the same scene offscreen \
+        and opens nothing:
+          spriteroom \(options.fixture?.path ?? "fixtures/three-subagents.jsonl") \
+        --render \(options.panelRenderDirectory!.path) --at \
+        \(options.renderTimes.isEmpty ? "6,12,20" : options.renderTimes.map { String($0) }.joined(separator: ","))
+
+        If the panel itself is what you are testing, add --force-panel-render.
+        """)
+    exit(2)
+}
+
+// `--theme` names the room for the two hosts that build one from a flag. The
+// panel derives a theme per project from its `cwd` and takes overrides from
+// Room ▸ — a flag there would be a fourth answer to a question §3c already
+// answers, so it is refused rather than ignored.
+if let requested = options.themeID, requested != "list", options.host == .panel {
+    print("--theme applies to --render and --window. The panel derives each "
+        + "project's room from its cwd; Room ▸ in the menu bar overrides it.")
+    exit(2)
+}
+if options.themeID == "list" {
+    do {
+        let manifest = try Manifest.load(root: root)
+        switch themeToDraw(options: options, manifest: manifest, entries: []) {
+        case .draw: exit(0)
+        case .stop(let code): exit(code)
+        }
+    } catch {
+        print("could not read the manifest: \(error)")
+        exit(1)
+    }
+}
+
 let fixtureURL = options.fixture ?? defaultFixture(root: root)
 var entries: [HookLogEntry] = []
 if options.probe == nil && !options.live {

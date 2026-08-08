@@ -335,6 +335,77 @@ extension HookInstaller {
     }
 }
 
+// MARK: - Quitting
+
+/// What the user said when asked whether to take the hooks back out on the way
+/// out of the app.
+///
+/// Split from the asking for the same reason `HookConsent` is: the branch that
+/// writes to the user's configuration has to be right, and it should not need a
+/// screen to prove.
+enum HookQuit: String, Sendable {
+    case remove
+    case keep
+}
+
+extension HookInstaller {
+
+    enum QuitOutcome: Equatable {
+        /// Nothing of ours is in the file. There is nothing to ask about.
+        case notInstalled
+        /// Asked, and the answer was to leave them — or nobody could be asked.
+        /// Either way **nothing was written.**
+        case kept
+        case removed
+        case failed(String)
+    }
+
+    /// The quit flow: our hooks are about to start pointing at a process that
+    /// no longer exists, so offer to take them out.
+    ///
+    /// **Why this exists.** The hooks are registered at *user* scope, which is
+    /// the whole design — one registration, routed by `cwd`. The cost of that
+    /// design is that they fire for every Claude Code session on the machine,
+    /// in every project, including while SpriteRoom is not listening. Claude
+    /// Code has no `async` field on the HTTP hook schema and no "ignore
+    /// failures" flag, so a POST to a dead port surfaces as `ECONNREFUSED` in
+    /// the user's session on **every tool call**. A status viewer that degrades
+    /// the thing it is watching has inverted its own purpose; I5 says the app
+    /// must never surface an error into the user's session, and this is the
+    /// same sentence one process boundary further out.
+    ///
+    /// **Why it asks rather than just doing it.** `~/.claude/settings.json` is
+    /// the user's file. The install path asks; removal without asking would be
+    /// the app editing that file behind the user's back, which is a worse
+    /// failure than the error it prevents — and it would silently undo a
+    /// deliberate choice for the user who quits and relaunches all day. The
+    /// symmetry is the point.
+    ///
+    /// `ask` returning `nil` means nobody could be asked — a harness, a
+    /// non-interactive run — and the answer to "may I write to your settings"
+    /// with nobody present is no.
+    ///
+    /// Any state that is not `.absent` is offered: entries pointing at some
+    /// other port are still ours, and still cost the user a failed POST per
+    /// tool call.
+    func atQuit(ask: () -> HookQuit?) -> QuitOutcome {
+        let current: State
+        do {
+            current = try state()
+        } catch {
+            return .failed("\(error)")
+        }
+        if case .absent = current { return .notInstalled }
+
+        guard ask() == .remove else { return .kept }
+        do {
+            return try remove() ? .removed : .kept
+        } catch {
+            return .failed("\(error)")
+        }
+    }
+}
+
 // MARK: - Locations
 
 extension HookInstaller {

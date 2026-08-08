@@ -143,11 +143,17 @@ enum PanelWindowServer {
     /// trait is reported rather than absorbed. Update deliberately, in the same
     /// change that moves a test across the line.
     ///
-    /// 26 as of the gate being made honest: 6 in `NotchPanelTests` (the three
-    /// I8 assertions, plus menu-bar constraint, controller phase, and the
-    /// keyboard-capable-view walk), 10 in `ProjectSelectorTests`, 10 in
-    /// `ThemeMenuTests`. All three build real AppKit objects.
-    static let expectedGatedTestCount = 26
+    /// 28 as of the ghost-panel fix: 8 in `NotchPanelTests` (the three I8
+    /// assertions, plus menu-bar constraint, controller phase, the
+    /// keyboard-capable-view walk, and the two `hide()` teardown tests), 10 in
+    /// `ProjectSelectorTests`, 10 in `ThemeMenuTests`. All three build real
+    /// AppKit objects.
+    ///
+    /// Was 26 before `hidingTakesThePanelOffTheScreenFromTheRevealedState` and
+    /// `hidingIsSafeToDoTwiceAndFromTheHiddenState` — the two that assert the
+    /// panel is actually off the screen after teardown, which needs a real
+    /// window to be off it.
+    static let expectedGatedTestCount = 28
 
     /// The notice, as a pure function of what was surveyed, so the branch this
     /// machine cannot reach can still be rendered and asserted on. Rendering it
