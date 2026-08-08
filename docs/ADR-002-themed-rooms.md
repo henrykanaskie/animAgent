@@ -994,10 +994,21 @@ part:
 - `control_room_server` composes cleanly and would spend 0.019 of the 0.027
   margin §14a's rework deliberately bought.
 - `old_tv` is a TV meant to stand *on* furniture; the back row is a floor line,
-  so it would hang at chest height over nothing. It moves 27.9%, not the 10.4%
-  first recorded — and it **would have passed the lint**, because the lint says
-  nothing about motion. That is a real gap in I7's mechanisation and it is
-  recorded here rather than papered over: nothing checks a moving-pixel budget.
+  so it would hang at chest height over nothing. It moves **31.5%** — and it
+  **would have passed the lint**, because the lint said nothing about motion.
+
+  Two corrections to that sentence, both worth keeping visible. The figure was
+  written here as 27.9%, and before that as 10.4%; the true number is 364 moving
+  pixels of 1156 visible. **Three passes at one measurement, two of them wrong**,
+  which is why the importer now generates it and the lint recomputes and
+  cross-checks rather than trusting either.
+
+  And the gap it named is **closed**. `scripts/lint-palette.py` has a fourth
+  threshold: pixels changed per second on the panel, summed over animated props
+  and multiplied by the copies the room draws, against a ceiling measured as the
+  quietest *looping* character animation any shipped variant plays. Characters
+  set the number, which is what I7 says everywhere else — the room is the quiet
+  layer, and now that holds on the time axis too. `old_tv` fails it at **9.49×**.
 
 **The slot is `board`, and it is not free.** `plant` repeats three times in the
 back row and seven in the permanently-visible foreground; `desk` and `chair` sit
