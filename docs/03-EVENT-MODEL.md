@@ -74,7 +74,7 @@ rule. It creates the session and its main agent and has no other effect.
 |---|---|
 | `SessionStart` | **Unreachable over HTTP — do not build on it.** The event is real and fires on every session (`source: startup` / `clear`, plus `model` on startup), but 2.1.224 never delivers it to a `type: "http"` hook, and this app registers nothing else. Keep the decode so the name is recognised rather than counted unhandled; the handler will not run. `session_title` does not exist in the payload — the field list here was wrong. |
 | `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is idle, because nothing has been called yet. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] |
-| `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. |
+| `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. **Not once per agent** — a background subagent resumed with `SendMessage` emits a second one ~20 ms after that call's `PreToolUse`. Creation stays idempotent for that reason. |
 | `PreToolUse` | Open a call keyed by `tool_use_id`. Character enters/keeps working. |
 | `PostToolUse` | Close that `tool_use_id`. |
 | `PostToolUseFailure` | Close that `tool_use_id`, flagged failed. Fires *instead of* `PostToolUse`, never alongside it; the message is in `error`, not `tool_response`. |
@@ -599,6 +599,31 @@ them were not visible in the M0 capture:
   the subagent's whole lifetime and closed after its `SubagentStop`. Both shapes
   occur. Nothing may assume either — which is exactly why a subagent's life is
   tracked by `agent_id` and never by its spawning call.
+
+### `SubagentStop` is a turn boundary, not a death
+
+M4 recorded that "a subagent can come back". `fixtures/four-subagents.jsonl`
+shows *how*, and how often. Four `general-purpose` subagents were dispatched
+with `run_in_background` into one session; two of them stopped, were resumed by
+the parent with `SendMessage`, and each resume emitted a **second
+`SubagentStart`**. So one `agent_id` produced two full spawn→stop cycles inside
+172 s.
+
+The consequence is a fact about the room, and it is worth stating plainly
+because it is what an unhappy user sees: **the number of subagent characters
+tracks who is mid-turn, not how many agents the user dispatched.** In that
+capture, between the fourth spawn and the last stop, all four are on screen for
+39.1 s of 69.5 s — 56% — and the room drops to two for 7.3 s and to **one for
+6.7 s**, while the parent still had four agents assigned the whole time.
+
+Nothing here is a defect in this layer. Every departure traces to a real
+`SubagentStop` and every return to a real event, which is I1 satisfied. But
+"four dispatched, one drawn" is a *correct* rendering of this data, so a report
+of that shape is not by itself evidence of a lost event, and diagnosing one
+starts by asking which agents were mid-turn rather than by hunting the
+transport. Whether a stopped-but-resumable background agent should keep a
+presence in the room is a product decision, not an ingest one; it is not taken
+here.
 
 ## Fixtures
 

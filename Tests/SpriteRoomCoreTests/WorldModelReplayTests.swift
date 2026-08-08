@@ -336,6 +336,128 @@ import Testing
         }
     }
 
+    // MARK: four-subagents — four of one type, and the resume cycle
+
+    /// **The regression for "only one subagent shows up though there are four".**
+    ///
+    /// `three-subagents` cannot catch an identity scheme that keys on
+    /// `agent_type`: two of its three are `Explore` and one is `general-purpose`,
+    /// so a model that merged by type would still draw two characters and look
+    /// nearly right. This fixture is four subagents **of one type**, so anything
+    /// keyed on the type — or on a truncated id, or on a display string derived
+    /// from one — collapses all four into a single character and fails here by
+    /// three.
+    @Test func fourSameTypedSubagentsAreFourCharacters() async throws {
+        let (_, deltas, _) = try await Fixtures.replay("four-subagents")
+
+        let appeared = deltas.compactMap { delta -> (AgentRef, String?)? in
+            if case let .agentAppeared(agent, agentType, _) = delta { return (agent, agentType) }
+            return nil
+        }
+        let subagents = appeared.filter { $0.0.agent != .mainThread }
+        // Every one of them is the same `agent_type`, which is the whole point:
+        // the type cannot be the key, so `agent_id` has to be. [03-EVENT-MODEL,
+        // "Identity resolution"]
+        #expect(Set(subagents.map(\.1)) == ["general-purpose"])
+        #expect(Set(subagents.map(\.0.agent)).count == 4)
+        // No two of them share a 3-character suffix either, so this fixture also
+        // exercises the case M5c's nameplate discriminator is derived for.
+        let suffixes = Set(subagents.map { String("\($0.0.agent)".suffix(3)) })
+        #expect(suffixes.count == 4)
+    }
+
+    /// All four are in the room **at the same time** — the claim a per-agent
+    /// count cannot make on its own, because agents that never overlapped would
+    /// satisfy it too.
+    @Test func allFourSubagentsAreInTheRoomTogether() async throws {
+        let (_, deltas, _) = try await Fixtures.replay("four-subagents")
+        var live: Set<AgentRef> = []
+        var peak = 0
+        for delta in deltas {
+            switch delta {
+            case let .agentAppeared(agent, _, _): live.insert(agent)
+            case let .agentDeparted(agent): live.remove(agent)
+            default: break
+            }
+            peak = max(peak, live.filter { $0.agent != .mainThread }.count)
+        }
+        #expect(peak == 4)
+        #expect(live.isEmpty)
+    }
+
+    /// **A subagent's character comes from its own `PreToolUse`, with no
+    /// `SubagentStart` anywhere.**
+    ///
+    /// Creation is lazy on the first *consumed* event, so nothing waits on a
+    /// lifecycle event it may never see — the app attaching mid-session misses
+    /// every `SubagentStart` that already fired, and `SessionStart` is
+    /// unreachable over HTTP for the same family of reasons. This drops the
+    /// `SubagentStart`s rather than rewriting them: what is left is the real
+    /// capture minus some lines, so no payload is invented.
+    @Test func aSubagentGetsItsCharacterFromPreToolUseAlone() async throws {
+        let entries = try Fixtures.entries("four-subagents")
+        let model = WorldModel()
+        // Which event kind was being ingested when each character was created.
+        // Recorded per ingest rather than read off the delta stream, because the
+        // stream cannot say what caused a delta.
+        var bornOn: [AgentRef: String] = [:]
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            if case .subagentStart = event.kind { continue }
+            for delta in await model.ingest(event, at: entry.receivedAt) {
+                guard case let .agentAppeared(agent, _, _) = delta,
+                      agent.agent != .mainThread, bornOn[agent] == nil else { continue }
+                bornOn[agent] = event.kind.name
+            }
+        }
+
+        #expect(bornOn.count == 4)
+        #expect(Set(bornOn.values) == ["PreToolUse"])
+    }
+
+    /// A background subagent is stopped and **restarted** by its parent: the
+    /// character departs on `SubagentStop` and comes back on the `SubagentStart`
+    /// that a `SendMessage` produces. "Departed" is not "finished".
+    ///
+    /// Two of the four do this here, so the fixture pins the round trip: four
+    /// distinct ids, six `SubagentStart`s and twelve `SubagentStop`s — the six
+    /// extra stops are the TUI suggestion helper's phantoms, which name agents
+    /// that never started and must stay no-ops.
+    @Test func aBackgroundSubagentDepartsAndComesBack() async throws {
+        let (_, deltas, entries) = try await Fixtures.replay("four-subagents")
+        let starts = entries.filter { $0.event?.kind.name == "SubagentStart" }
+        let stops = entries.filter { $0.event?.kind.name == "SubagentStop" }
+        #expect(starts.count == 6)
+        #expect(stops.count == 12)
+
+        var appearances: [AgentRef: Int] = [:]
+        var departures: [AgentRef: Int] = [:]
+        for delta in deltas {
+            switch delta {
+            case let .agentAppeared(agent, _, _) where agent.agent != .mainThread:
+                appearances[agent, default: 0] += 1
+            case let .agentDeparted(agent) where agent.agent != .mainThread:
+                departures[agent, default: 0] += 1
+            default: break
+            }
+        }
+        #expect(appearances.count == 4)
+        #expect(appearances.values.filter { $0 == 2 }.count == 2)
+        // Every departure belongs to an agent we had; the phantoms named ids we
+        // never saw and produced nothing at all. [I1]
+        #expect(Set(departures.keys) == Set(appearances.keys))
+        #expect(departures.values.reduce(0, +) == appearances.values.reduce(0, +))
+    }
+
+    /// Nothing in this capture needs the reaper: every call closes through the
+    /// event stream, and the four concurrent subagents leave no orphan.
+    @Test func fourSubagentsReplaysCleanWithoutTheReaper() async throws {
+        let (model, _, _) = try await Fixtures.replay("four-subagents")
+        #expect(await model.snapshot().agents.isEmpty)
+        #expect(await model.abandonedTotal == 0)
+        #expect(await model.unhandledTotal == 0)
+    }
+
     // MARK: tool-failure — the two non-PostToolUse close paths
 
     /// Must reach zero open calls *without* the reaper. If the sweep is needed,

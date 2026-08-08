@@ -532,3 +532,67 @@ so the second gate was never resolved and the session was killed at the timeout.
 That is why there is no `SessionEnd` and why `toolu_01Evfo4Ytq2AzNpsm1NCftzf` is
 open at end of file. Left as captured: it is a real shape (a user who walks away
 from a dialog), and tidying it would mean editing a payload.
+
+---
+
+## `four-subagents.jsonl` — 115 events
+
+**Four subagents of one `agent_type` (`general-purpose`), dispatched together
+into one interactive session, running concurrently for 70 s.** Captured
+2026-08-08 under a pty against Claude Code 2.1.224, project-scoped hooks in a
+throwaway sandbox; one `session_id`, one `cwd`, 172.40 s end to end.
+
+It exists because `three-subagents` cannot catch the failure it is named for.
+That capture is two `Explore` and one `general-purpose`, so a model that keyed
+identity on `agent_type` would still draw two characters and look nearly right.
+Here all four share the type, so anything keyed on the type — or on a truncated
+id, or on a nameplate string derived from one — collapses four characters into
+one and is off by three. The four ids are
+`ab69ae01f1e4353c6`, `aae859812d39a1892`, `ab7894b769ddc7a5e`,
+`afec77672e42e6ab7`; no two share even their last three characters, so it
+exercises M5c's plate discriminator as well as the model's key.
+
+Two further shapes it is the only capture of:
+
+**`SubagentStart` is not once per agent.** These were dispatched with
+`run_in_background`, and the parent later resumed two of them with
+`SendMessage`. Each resume emits a **second `SubagentStart`** ~20 ms after the
+`SendMessage` `PreToolUse` — 6 starts across 4 agents. M4 recorded that "a
+subagent can come back"; what it could not show is that the return arrives as a
+lifecycle event rather than only as the child's next tool call.
+
+**A background subagent spends much of its life departed.** `SubagentStop`
+departs the character, so the room's subagent count tracks who is mid-turn, not
+how many the user dispatched:
+
+```
+ 7.398  4 subagents   ← all four spawned
+31.850  3             ← ab69… stops
+33.913  2             ← aae8… stops
+41.165  3             ← SendMessage resumes ab69…
+42.109  4             ← SendMessage resumes aae8…
+56.720  3
+63.055  2
+70.181  1             ← one subagent on screen, four still assigned
+76.880  0
+```
+
+Between the fourth spawn and the last stop the room holds all four for **39.1 s
+of 69.5 s (56%)**, drops to two for 7.3 s and to **one for 6.7 s** — while the
+parent had four agents assigned throughout. That is truthful under the current
+reading of `SubagentStop`, and it is also exactly what "only one subagent has
+been registered even though there should be 4" looks like from the outside.
+
+It carries **six phantom `SubagentStop`s** (12 stops, 6 real) from the TUI's
+suggestion helper, each with `agent_type: ""` and an `agent_id` that never
+started — the shape `interactive-session` first showed, here six times in one
+session, which is the volume a model that spawns a character to walk it off
+would have to survive.
+
+Replays clean: zero abandoned, zero open at end of stream, zero unhandled. Not
+one of the required eight; it is a regression fixture for identity, and adding
+to that list is a maintainer decision.
+
+Produced under `tools/pty-capture/ptydrive.py` from a prompt demanding four
+`Agent` calls in one message, all `subagent_type: general-purpose`, all
+`run_in_background: true`.
