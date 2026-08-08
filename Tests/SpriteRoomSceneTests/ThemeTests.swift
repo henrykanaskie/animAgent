@@ -422,28 +422,86 @@ struct ThemeContractTests {
     /// doc comment — which mentions the Modern Office pack by name in several
     /// places, correctly — is not what is being policed. What is policed is
     /// anything the compiler could compare against.
-    @Test func noThemeNameAndNoFilenameIsWrittenDownInTheSceneSources() throws {
+    ///
+    /// **It used to scan `Sources/SpriteRoomScene` only, and non-recursively**,
+    /// while this comment and §8 item 5 both said `Sources/`. The gap was not
+    /// theoretical: `Sources/SpriteRoomApp/ThemeCatalog.swift` carries the
+    /// comment "No theme name appears in this file, and none may" and was
+    /// covered by nothing at all — the app is where a theme id is *stored*, so
+    /// it is the likelier place for one to be hardcoded, not the less likely.
+    /// The property held; the test did not enforce it.
+    ///
+    /// **Two scopes, and the split is a real distinction rather than an
+    /// exemption list.**
+    ///
+    /// - **A theme id is forbidden everywhere in `Sources/`.** There is no
+    ///   module that has any business spelling one: the scene is handed an id,
+    ///   the app reads ids out of the manifest and the preference file, and the
+    ///   core does not know themes exist.
+    /// - **An *art filename* is forbidden in `SpriteRoomScene`**, which is the
+    ///   only module that loads a texture, and is where "final art must drop in
+    ///   as a manifest swap with zero code change" is the rule. It is not
+    ///   checked across the whole tree because `SpriteRoomApp/main.swift`
+    ///   legitimately holds `.png` names — `"panel-%.0fx%.0f-t%06.2f.png"` and
+    ///   friends, the render harness's *output* filenames. Those are not art
+    ///   and never reach a texture. Widening the suffix rule over them would
+    ///   need an exemption list, and an exemption list is how a mechanical rule
+    ///   turns back into a convention.
+    /// - **An art *path* is forbidden everywhere**, which catches the thing the
+    ///   suffix rule was really for without catching output names: nothing
+    ///   outside the manifest may name a location inside the processed art
+    ///   tree. `assets/manifest.json` itself is not that — it is the contract,
+    ///   `Manifest.developmentRoot` legitimately spells it, and a rule that
+    ///   forbade it would forbid loading the file the rest of this depends on.
+    @Test func noThemeNameAndNoArtFilenameIsWrittenDownInSources() throws {
         let manifest = try SceneFixtures.manifest()
-        let sources = SceneFixtures.repositoryRoot
-            .appending(path: "Sources").appending(path: "SpriteRoomScene")
-        let names = try FileManager.default.contentsOfDirectory(atPath: sources.path)
+        let root = SceneFixtures.repositoryRoot.appending(path: "Sources")
         let themeIDs = Set(manifest.themes.orderedIDs)
+        let sceneModule = root.appending(path: "SpriteRoomScene").path
         var scanned = 0
+        var scannedInScene = 0
+        var modules: Set<String> = []
 
-        for name in names where name.hasSuffix(".swift") {
-            let text = try String(contentsOf: sources.appending(path: name), encoding: .utf8)
+        for url in try Self.swiftSources(under: root) {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            let name = url.lastPathComponent
+            let drawsArt = url.path.hasPrefix(sceneModule)
             scanned += 1
+            if drawsArt { scannedInScene += 1 }
+            modules.insert(
+                url.pathComponents.drop(while: { $0 != "Sources" }).dropFirst().first ?? "?")
+
             for literal in SourceLiterals.strings(in: text) {
                 #expect(!themeIDs.contains(literal),
                         "\(name) names the theme \"\(literal)\"")
-                #expect(!literal.hasSuffix(".png"),
-                        "\(name) writes down the art file \"\(literal)\"")
                 #expect(!literal.contains("assets/processed"),
                         "\(name) writes down the art path \"\(literal)\"")
+                if drawsArt {
+                    #expect(!literal.hasSuffix(".png"),
+                            "\(name) writes down the art file \"\(literal)\"")
+                }
             }
         }
-        #expect(scanned > 5, "the source scan found almost nothing — it is not reading the files")
+
+        #expect(scanned > 30,
+                "the source scan found almost nothing — it is not reading the files")
+        #expect(scannedInScene > 5, "the scene module was not reached")
+        // All three modules, or the recursion is not doing what it says. The
+        // core's sources live in `Ingest/` and `Model/` subdirectories, which is
+        // the other half of what the flat `contentsOfDirectory` walk missed.
+        #expect(
+            modules == ["SpriteRoomApp", "SpriteRoomCore", "SpriteRoomReplay", "SpriteRoomScene"],
+            "the walk covered \(modules.sorted())")
         #expect(!themeIDs.isEmpty, "the manifest declares no themes, so this checked nothing")
+    }
+
+    /// Every `.swift` file under a directory, recursively.
+    static func swiftSources(under root: URL) throws -> [URL] {
+        guard let walk = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: nil) else { return [] }
+        return walk.compactMap { $0 as? URL }
+            .filter { $0.pathExtension == "swift" }
+            .sorted { $0.path < $1.path }
     }
 }
 
@@ -459,7 +517,7 @@ enum ThemeFixtures {
     /// go untested until the art catches up.
     static func stationed(count: Int) -> Manifest.Theme {
         let box = Manifest.PropRole.Box(x: 0, y: 0, width: 8, height: 8)
-        let role = Manifest.PropRole(file: "x", contentBox: box)
+        let role = Manifest.PropRole(file: "x", contentBox: box, animation: nil)
         let station = Manifest.Station(desk: role, chair: role, prop: nil)
         var stations: [String: Manifest.Station] = [
             ThemeSelector.mainStationID: station,
@@ -486,6 +544,53 @@ enum ThemeFixtures {
 /// appears, this under-reports rather than over-reports, and the test above says
 /// how many files it scanned so a silent zero is visible.
 enum SourceLiterals {
+
+    /// The same source with `//` and `/* */` comments removed — everything the
+    /// compiler actually sees.
+    ///
+    /// Needed by any rule of the form "this file may not name that type",
+    /// because the *reason* a file may not name a type is usually written in a
+    /// doc comment that names it. `PropAnimation`'s doc comment says in as many
+    /// words that `WorldDelta` and `AgentRef` are not in scope there, and a scan
+    /// over the raw text would read that as the violation it exists to prevent.
+    static func code(in source: String) -> String {
+        var code = ""
+        let characters = Array(source)
+        var index = 0
+        var inString = false
+        var inLineComment = false
+        var inBlockComment = false
+
+        while index < characters.count {
+            let character = characters[index]
+            let next = index + 1 < characters.count ? characters[index + 1] : nil
+
+            if inLineComment {
+                if character == "\n" { inLineComment = false; code.append(character) }
+                index += 1
+                continue
+            }
+            if inBlockComment {
+                if character == "*", next == "/" { inBlockComment = false; index += 2; continue }
+                if character == "\n" { code.append(character) }
+                index += 1
+                continue
+            }
+            if !inString, character == "/", next == "/" { inLineComment = true; index += 2; continue }
+            if !inString, character == "/", next == "*" { inBlockComment = true; index += 2; continue }
+            if character == "\\", inString, next != nil {
+                code.append(character)
+                code.append(characters[index + 1])
+                index += 2
+                continue
+            }
+            if character == "\"" { inString.toggle() }
+            if character == "\n" { inString = false }
+            code.append(character)
+            index += 1
+        }
+        return code
+    }
 
     static func strings(in source: String) -> [String] {
         var literals: [String] = []

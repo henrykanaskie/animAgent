@@ -129,6 +129,15 @@ public final class TextureStore {
         return texture(path: art.file)
     }
 
+    /// The dormant badge, from `badges.states.sleep`. One glyph, and it says the
+    /// one thing the lifecycle knows: this character finished a turn and is
+    /// still assigned. There is no body state to go with it and there must not
+    /// be one — see `Manifest.Badges.sleepKey`. [I1]
+    public func sleepTexture() -> SKTexture? {
+        guard let art = manifest.badges.sleep else { return nil }
+        return texture(path: art.file)
+    }
+
     // MARK: Room
 
     public func roomTileChoice() -> RoomTiles {

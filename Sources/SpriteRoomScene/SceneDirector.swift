@@ -118,15 +118,25 @@ public struct SceneDirector: Sendable {
         /// be holding calls *and* be blocked at a permission gate, which is
         /// exactly what a `Bash` sitting at the dialog looks like.
         var attention: AttentionKind?
+        /// From `.dormancyChanged`. This subagent finished a turn and is still
+        /// assigned. Orthogonal to `openCalls` in the type but not in the data —
+        /// `SubagentStop` abandons every open call in the same batch that sets
+        /// this, so a dormant character is an empty-handed one.
+        var isDormant = false
 
-        /// **The body does not change for attention.** The pack ships no
-        /// animation for "waiting on a human" and repurposing an unrelated one
-        /// would be fiction, so the badge is the whole representation. A
-        /// character blocked at a permission gate still has an open call and so
-        /// is still `working`, which is what the data says. [I1/I2]
+        /// **The body does not change for attention, and it does not change for
+        /// dormancy either.** The pack ships no animation for "waiting on a
+        /// human" and none for "finished a turn" — M6b cut the `sleep` row and
+        /// measured it as a head on a pillow drawn for a top-down bed — and
+        /// repurposing an unrelated one would be fiction. In both cases the
+        /// badge is the whole representation. A character blocked at a
+        /// permission gate still has an open call and so is still `working`; a
+        /// dormant one has none and so is `idle`. Both are what the data says.
+        /// [I1/I2]
         var body: BodyState { openCalls.isEmpty ? .idle : .working }
         var badge: BadgeSelection {
-            BadgeSelection.select(openToolNames: openCalls.values, attention: attention)
+            BadgeSelection.select(
+                openToolNames: openCalls.values, attention: attention, isDormant: isDormant)
         }
     }
 
@@ -288,6 +298,15 @@ public struct SceneDirector: Sendable {
                 // does the rest: `setBadge` is emitted only if this actually
                 // changed what is on the character's head.
                 presentations[agent]?.attention = attention
+                note(&touched, agent)
+
+            case let .dormancyChanged(agent, isDormant):
+                // Nothing but the badge, exactly like `attentionChanged`. The
+                // suppression memory below decides whether that is a visible
+                // change at all, so a wake that arrives in the same batch as
+                // the `callOpened` that caused it produces one `setBadge`
+                // carrying the tool glyph, not two.
+                presentations[agent]?.isDormant = isDormant
                 note(&touched, agent)
 
             case let .reportDelivered(agent):

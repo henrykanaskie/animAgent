@@ -178,6 +178,14 @@ struct ProjectRegistry: Sendable {
                 // waiting on a human while off screen must still be waiting
                 // when you switch to its room. Does not touch population.
                 states[project]?.agents[agent]?.attention = attention
+            case let .dormancyChanged(agent, isDormant):
+                // Live state, same as `attention` and for the same reason: a
+                // subagent that finished its turn while you were looking at
+                // another project must still be asleep when you come back. It
+                // is folded into the lifecycle the entry already carries rather
+                // than stored twice. Does not touch population — a dormant
+                // agent is still in the room, which is the whole point of it.
+                states[project]?.agents[agent]?.lifecycle = isDormant ? .dormant : .active
             case .reportDelivered, .populationChanged:
                 break
             }
@@ -276,6 +284,16 @@ struct ProjectRegistry: Sendable {
             if let attention = state.attention {
                 deltas.append(.attentionChanged(agent: ref, attention: attention))
             }
+            // A dormant character must still be dormant after a project switch.
+            // The scene is rebuilt from nothing and fed this list, and a fresh
+            // `SceneDirector` starts every presentation awake — so without this
+            // line switching away and back would silently wake a subagent that
+            // has not done anything since. The delta is a real one carrying a
+            // fact the registry really absorbed, so nothing invented reaches
+            // the scene. [I1]
+            if state.lifecycle == .dormant {
+                deltas.append(.dormancyChanged(agent: ref, isDormant: true))
+            }
         }
         for ref in roster.keys.sorted() {
             guard let state = roster[ref] else { continue }
@@ -333,6 +351,7 @@ extension WorldDelta {
         case let .callAbandoned(agent, _, _, _): return agent.project
         case let .reportDelivered(agent): return agent.project
         case let .attentionChanged(agent, _): return agent.project
+        case let .dormancyChanged(agent, _): return agent.project
         case let .populationChanged(project, _): return project
         }
     }

@@ -227,7 +227,31 @@ public final class RoomScene: SKScene {
     /// what was placed rather than trusting that something was.
     var propNodesForTesting: [SKSpriteNode] { propNodes }
 
+    /// The manifest path behind each of those nodes, in the same order.
+    ///
+    /// Node identity says a prop was *placed*; it says nothing about which
+    /// picture. Two themes place the same number of props at the same points —
+    /// that is the layout being theme-independent, which is a required property
+    /// — so a test that compares only positions and counts cannot tell a themed
+    /// room from a room that ignored the theme id. This is what it compares
+    /// instead, and it is the manifest's own string rather than a texture, so
+    /// two scenes with two `TextureStore`s can be compared at all.
+    var propArtForTesting: [String] { propPaths }
+
     private var propNodes: [SKSpriteNode] = []
+    private var propPaths: [String] = []
+
+    /// The props that idle on their own loop. [ADR-002 §14b]
+    ///
+    /// One per placed node, so four copies of an animated `board` swing
+    /// together — they are handed the same clock, so they are in phase by
+    /// construction rather than by a shared index anybody has to maintain.
+    ///
+    /// **Nothing outside `advance(to:)` may touch this.** See `PropAnimation`
+    /// for the whole of why, and for what enforces it.
+    private var propAnimations: [PropAnimation] = []
+
+    var propAnimationsForTesting: [PropAnimation] { propAnimations }
 
     /// Draws one identified prop with its **content box's** bottom-centre on
     /// `point`. Returns false, having drawn nothing, when the manifest has no
@@ -251,6 +275,19 @@ public final class RoomScene: SKScene {
         node.zPosition = Character.Layer.rowDepth(point.y) + depthBias
         world.addChild(node)
         propNodes.append(node)
+        propPaths.append(prop.file)
+
+        // A prop that idles. `prop.file` is frame 0 and is already on the node,
+        // so a manifest without this key — or with art that will not load —
+        // draws exactly the still prop it always did.
+        if let animation = prop.animation, animation.isPlayable {
+            let textures = animation.frames.compactMap { store.texture(path: $0) }
+            if textures.count == animation.frames.count,
+               let player = PropAnimation(
+                node: node, frames: textures, fps: animation.fps, loops: animation.loops) {
+                propAnimations.append(player)
+            }
+        }
         return true
     }
 
@@ -389,6 +426,12 @@ public final class RoomScene: SKScene {
 
     public func advance(to time: TimeInterval) {
         for character in animated { character.advance(to: time) }
+        // **The only place a prop's picture is ever changed after the room is
+        // built, and it is handed the clock and nothing else.** [ADR-002 §14b]
+        // `apply(_:)` is where every consequence of a delta reaches this scene,
+        // and it does not appear in this loop's call graph — a prop cannot learn
+        // that an agent is busy, because there is no path by which it could.
+        for prop in propAnimations { prop.advance(to: time) }
     }
 
     // MARK: Camera [I6]

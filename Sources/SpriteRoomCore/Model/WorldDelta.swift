@@ -53,8 +53,17 @@ public enum AgentLifecycle: String, Sendable, Hashable {
     /// where the parent had four assigned. A dormant character is the honest
     /// rendering of the fact we actually hold. [I1]
     ///
-    /// It is **not** visually distinct from an idle-but-live agent, and that is
-    /// deliberate: see `WorldModel.goDormant(ref:into:)`.
+    /// **It is visually distinct from an idle-but-live agent now**, and
+    /// the change of mind is recorded rather than overwritten. The old reasoning
+    /// was that nothing we own can honestly draw the difference between
+    /// finished-and-might-return and waiting-for-work, so both rendered `idle`
+    /// and no delta carried the lifecycle at all. That was right about the body
+    /// — the pack's `sleep` row is a head on a pillow drawn from above, for
+    /// compositing onto a top-down bed, and it cannot be worn by a character
+    /// sitting side-on — and wrong about the badge, which is one layer up.
+    /// `badges.states.sleep` is real pack art, the same construction as
+    /// `attention`, and a `Z` says exactly the fact this case holds and nothing
+    /// more. So `dormancyChanged` exists and the scene draws it. [I1]
     ///
     /// Reapable like everything else [I4]: dormancy lives inside `AgentState`,
     /// so `SessionEnd` and the 30-minute idle sweep both take it with the
@@ -163,6 +172,31 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     ///
     /// A *change*, never a repeat: two identical notifications are one fact.
     case attentionChanged(agent: AgentRef, attention: AttentionKind?)
+    /// This character has, or no longer has, **finished a turn while still
+    /// assigned**. `SubagentStop` sets it; any later consumed event for the
+    /// same agent clears it, because that event is the agent working again.
+    ///
+    /// **The narrowest delta that carries the fact, deliberately.** It is a
+    /// `Bool` and not an `AgentLifecycle` because the other four cases are
+    /// either already carried (`spawning` and `active`, on `agentAppeared`),
+    /// never rested in (`reporting` — the model holds no clock and cannot know
+    /// when the walk ends), or already have a delta of their own (`departed` is
+    /// `agentDeparted`). A `lifecycleChanged` carrying the whole enum could
+    /// therefore express three transitions the model never makes, and a delta
+    /// that can say something untrue is a delta something downstream will
+    /// eventually draw. [I1]
+    ///
+    /// **A *change*, never a repeat**, exactly as `attentionChanged` is: a
+    /// second `SubagentStop` for an already-dormant agent is the same fact, and
+    /// `revive` emits nothing for an agent that was not dormant.
+    ///
+    /// It rides *beside* `reportDelivered` on the same event and does not
+    /// replace it: the report beat is a dramatisation of the hand-over and this
+    /// is the state the character is left in afterwards. The scene therefore
+    /// raises the badge and plays the walk in the same batch, which is right —
+    /// the turn is over from the instant `SubagentStop` arrives, and the walk is
+    /// the room saying so.
+    case dormancyChanged(agent: AgentRef, isDormant: Bool)
     case populationChanged(project: String, count: Int)
 
     public var description: String {
@@ -183,6 +217,8 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
             return "reportDelivered  \(agent)"
         case let .attentionChanged(agent, attention):
             return "attentionChanged \(agent) \(attention.map(String.init(describing:)) ?? "cleared")"
+        case let .dormancyChanged(agent, isDormant):
+            return "dormancyChanged  \(agent) \(isDormant ? "dormant" : "awake")"
         case let .populationChanged(project, count):
             let leaf = project.split(separator: "/").last.map(String.init) ?? project
             return "populationChanged \(leaf)=\(count)"
@@ -198,8 +234,9 @@ public struct AgentSnapshot: Sendable, Hashable {
     public let ref: AgentRef
     public let agentType: String?
     /// Where this character is in its life. `dormant` means it finished a turn
-    /// and is still assigned — it draws exactly like an idle live agent, and
-    /// this field is the only place the difference is held. No delta carries it.
+    /// and is still assigned; the scene draws it as the `sleep` badge over an
+    /// otherwise idle character. The transition is carried by
+    /// `WorldDelta.dormancyChanged`; this field is the standing value.
     public let lifecycle: AgentLifecycle
     /// Who this agent reports to, when the `Agent` call that launched it told
     /// us. `nil` means unlinked — anchor to the main agent. [I1]

@@ -42,8 +42,18 @@ enum SceneArt {
 
     /// What a walk of every path the manifest declares found.
     struct Survey: Sendable {
+        /// Every distinct manifest-relative path declared.
+        ///
+        /// The set rather than just its size, so a test can ask *which* paths
+        /// the walk found. The count alone cannot distinguish a walk that
+        /// covers the manifest from one that covers most of it — which is
+        /// exactly what happened to the animation frames: `role.file` is frame
+        /// 0 and is always present, so a survey that collected only `file`
+        /// declared a plausible number and left frames 1..N out of the set. Art
+        /// could then be missing with `SPRITE_ROOM_REQUIRE_ART=1` green.
+        var paths: Set<String> = []
         /// Distinct manifest-relative paths declared.
-        var declaredPaths: Int = 0
+        var declaredPaths: Int { paths.count }
         /// Those that are not on disk, sorted.
         var missingPaths: [String] = []
         /// Set when the manifest itself could not be loaded, which is a
@@ -78,7 +88,7 @@ enum SceneArt {
         for (_, art) in manifest.badges.states { declared.insert(art.file) }
         declared.formUnion(manifest.room.builderTiles)
         declared.formUnion(manifest.room.propFiles)
-        for (_, role) in manifest.room.propRoles { declared.insert(role.file) }
+        for (_, role) in manifest.room.propRoles { declared.formUnion(role.declaredPaths) }
         // Every theme's art too, since ADR-002 the scene draws it. A checkout
         // holding the Office room and none of the theme sets is exactly the
         // half-populated `assets/` this survey exists to report as one clear
@@ -87,17 +97,17 @@ enum SceneArt {
             guard let theme = manifest.themes.theme(id) else { continue }
             declared.formUnion(theme.room.builderTiles)
             declared.formUnion(theme.room.propFiles)
-            for (_, role) in theme.room.propRoles { declared.insert(role.file) }
+            for (_, role) in theme.room.propRoles { declared.formUnion(role.declaredPaths) }
             for path in [theme.room.declaredFloor, theme.room.declaredWall] {
                 if let path { declared.insert(path) }
             }
             for (_, station) in theme.room.stations {
-                declared.formUnion(
-                    [station.desk.file, station.chair.file, station.prop?.file].compactMap { $0 })
+                for role in [station.desk, station.chair] { declared.formUnion(role.declaredPaths) }
+                if let prop = station.prop { declared.formUnion(prop.declaredPaths) }
             }
         }
 
-        survey.declaredPaths = declared.count
+        survey.paths = declared
         survey.missingPaths = declared
             .filter { !FileManager.default.fileExists(atPath: manifest.url($0).path) }
             .sorted()
@@ -157,7 +167,15 @@ enum SceneArt {
     /// a theme change that redresses the room and moves no character, the
     /// declared floor being the one drawn, and the measurement behind why the
     /// declaration exists at all (the flat-tile search accepts 2 of 141).
-    static let expectedGatedTestCount = 33
+    /// 35 with the `sleep` badge: two tests open the badge PNGs — that the
+    /// dormant glyph loads and is neither a tool badge nor `attention`, and that
+    /// a `Character` swaps to it and gives the slot up to `attention`.
+    /// 39 with the animated prop: four tests that need the frames on disk — the
+    /// room plays them while an unanimated theme stays still, the animated
+    /// prop's node is never rebuilt across a fixture replay, the animation is
+    /// identical with and without a delta stream, and no `SpriteIntent` can move
+    /// a prop texture.
+    static let expectedGatedTestCount = 39
 }
 
 /// Always runs, in both modes, and never fails for the absence of art.
@@ -214,6 +232,59 @@ struct ArtAvailabilityTests {
                 + " first \(survey.missingPaths.first ?? survey.manifestError ?? "unknown")"
             Issue.record(Comment(rawValue: why))
         }
+    }
+
+    /// **The gate must walk every path the manifest declares, not most of
+    /// them.** This is the assertion that was missing when `props.roles` grew an
+    /// `animation` object.
+    ///
+    /// `role.file` is always frame 0 and is always present, so a survey that
+    /// collected only `file` produced a plausible declared-path count, an
+    /// `isAvailable` that said yes, and a `SPRITE_ROOM_REQUIRE_ART=1` run that
+    /// passed — with frames 1..N of an animated prop free to be absent from
+    /// disk. The failure mode of a gate that under-counts is not a red test; it
+    /// is a green one, which is why the coverage has to be asserted rather than
+    /// inferred from the count.
+    ///
+    /// Runs on a fresh clone: the manifest is tracked, and this asks what the
+    /// survey *declared*, never what is on disk.
+    @Test func theArtGateWalksEveryAnimationFrameTheManifestDeclares() throws {
+        let manifest = try SceneFixtures.manifest()
+        let declared = SceneArt.survey.paths
+        var animatedRoles = 0
+        var frames = 0
+
+        var rooms = [manifest.room]
+        rooms += manifest.themes.orderedIDs.compactMap { manifest.themes.theme($0)?.room }
+
+        for room in rooms {
+            for (name, role) in room.propRoles {
+                // The membership is reduced to a `Bool` before it reaches
+                // `#expect`, for the reason this file already records about
+                // `survey.isAvailable`: passing the set renders all ~1500 of
+                // its elements into a single unreadable failure line.
+                var found = declared.contains(role.file)
+                #expect(found, Comment(rawValue: "the survey missed \(name)'s frame 0"))
+                guard let animation = role.animation else { continue }
+                animatedRoles += 1
+                frames += animation.frames.count
+                for path in animation.frames {
+                    found = declared.contains(path)
+                    #expect(found, Comment(rawValue:
+                        "the survey declared \(declared.count) paths and \(path) is not one of"
+                        + " them — an animated role's frames are art like any other"))
+                }
+                // `file` is frame 0 by construction, which is why an
+                // animation-blind reader draws something correct and why
+                // nothing noticed the gap.
+                #expect(animation.frames.first == role.file,
+                        "\(name).file is not frame 0, so a `file`-only reader draws a mid-swing")
+            }
+        }
+
+        #expect(animatedRoles > 0, Comment(rawValue:
+            "no role in any theme carries an `animation`, so this test checked nothing"))
+        #expect(frames > animatedRoles, "every animation is one frame long")
     }
 }
 

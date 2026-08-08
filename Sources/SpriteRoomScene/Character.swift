@@ -178,28 +178,35 @@ public final class Character: SKNode {
 
     // MARK: Badge
 
-    /// The badge layer. Attention wins the slot when it is set — see
-    /// `BadgeSelection.isAttention` for why, and why the `×N` goes with it.
+    /// The badge layer. **attention > sleep > tool** — see
+    /// `BadgeSelection.isAttention` and `.isSleeping` for why, and why the `×N`
+    /// goes with either of the first two.
     ///
-    /// If the attention art is missing from the manifest the tool badge is
-    /// drawn instead. That is a *rendering* fallback, not a policy one: the
-    /// selection above already decided attention outranks the tool, and losing
-    /// both to a missing file would hide information we have. A manifest test
-    /// asserts the key is declared, so this path only fires on a manifest
-    /// older than this change.
+    /// If a state glyph is missing from the manifest the next one down is drawn
+    /// instead. That is a *rendering* fallback, not a policy one: the selection
+    /// above already decided the order, and losing everything to one missing
+    /// file would hide information we have. A manifest test asserts both keys
+    /// are declared, so these paths only fire on a manifest older than the
+    /// change that added them.
     public func apply(badge selection: BadgeSelection) {
         guard selection != currentBadge else { return }
         currentBadge = selection
         let attentionTexture = selection.isAttention ? store.attentionTexture() : nil
+        let sleepTexture = selection.isSleeping ? store.sleepTexture() : nil
         let toolTexture = selection.badge.flatMap(store.badgeTexture)
-        guard let texture = attentionTexture ?? toolTexture else {
+        guard let texture = attentionTexture ?? sleepTexture ?? toolTexture else {
             badgeNode.isHidden = true
             badgeCountNode.isHidden = true
             return
         }
         badgeNode.texture = texture
         badgeNode.isHidden = false
-        if attentionTexture == nil, selection.count > 1 {
+        // The `×N` annotates a *tool* badge — "N calls, of which this is the
+        // lowest ordinal". Pinned to either state glyph it would read as N
+        // notifications or N naps, neither of which is a thing we count. A
+        // dormant character has no open calls anyway, so this arm of it is
+        // belt and braces rather than a case that fires.
+        if attentionTexture == nil, sleepTexture == nil, selection.count > 1 {
             let bitmap = SceneBitmaps.badgeCount(selection.count)
             if let countTexture = store.texture(bitmap: bitmap, key: "count:\(selection.count)") {
                 badgeCountNode.texture = countTexture

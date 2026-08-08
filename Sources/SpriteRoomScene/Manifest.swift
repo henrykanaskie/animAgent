@@ -120,19 +120,33 @@ public struct Manifest: Sendable, Hashable {
         public let canvas: Size
         public let anchor: Anchor
         public let map: [ToolBadge: BadgeArt]
-        /// Non-tool badge states. `attention` is the only one. [I1]
+        /// Non-tool badge states: `attention` and `sleep`. [I1]
         ///
         /// Deliberately separate from `map`: `map` is keyed by `ToolBadge` and
         /// every one of its keys must exist or the manifest is malformed, while
-        /// `attention` answers to no tool at all. M0b sourced it from the pack —
-        /// it and `question_mark` are the only two real badges we have.
+        /// these answer to no tool at all. Both are pack art — `attention` from
+        /// M0b, `sleep` from M6b — and both are components of the same UI sheet,
+        /// which is why adding the second one needed no new key and no new
+        /// anchor.
         public let states: [String: BadgeArt]
 
         /// The `badges.states` key for the `Notification` badge. Written once,
         /// here, so no other file in the scene spells it.
         public static let attentionKey = "attention"
 
+        /// The `badges.states` key for the dormant badge — a subagent that
+        /// finished a turn, kept its seat, and may be revived by a later event.
+        ///
+        /// Beside `attention` rather than in `map` for the identical reason: it
+        /// answers to no tool. It is the *badge* half of dormancy and there is
+        /// no body half — the pack's `sleep` body row is a head on a pillow
+        /// drawn for a top-down bed and cannot be worn by a character sitting
+        /// side-on. [I1]
+        public static let sleepKey = "sleep"
+
         public var attention: BadgeArt? { states[Self.attentionKey] }
+
+        public var sleep: BadgeArt? { states[Self.sleepKey] }
 
         public func art(_ badge: ToolBadge) -> BadgeArt? { map[badge] }
     }
@@ -148,11 +162,57 @@ public struct Manifest: Sendable, Hashable {
     /// that happened to work for one file.
     public struct PropRole: Sendable, Hashable {
         public let file: String
-        /// Opaque bounding box inside the canvas, y **down** (image space).
+        /// Opaque bounding box inside the canvas, y **down** (image space). For
+        /// an animated role it is the **union over all frames**, so the scene's
+        /// clearance arithmetic covers the whole swing rather than frame 0's.
         public let contentBox: Box
+        /// `props.roles.<role>.animation`, when the role carries one.
+        ///
+        /// **Additive beside `file`, and `file` is always frame 0.** A reader
+        /// that knows nothing about this key draws a still prop and is correct
+        /// — which is exactly why nothing broke when the key landed, and also
+        /// why nothing noticed that the art survey was not counting the other
+        /// frames. [ADR-002 §14b]
+        public let animation: Animation?
 
         public struct Box: Sendable, Hashable {
             public let x: Int, y: Int, width: Int, height: Int
+        }
+
+        /// A prop that idles on its own loop.
+        ///
+        /// **It takes no input but time.** [ADR-002 §14b] A clock that swings is
+        /// scenery; a clock that swings faster when an agent is busy is scenery
+        /// asserting something, and that is the fiction the animated-prop ban
+        /// existed to prevent. There is no field here for anything a delta could
+        /// supply, and there must not be one.
+        public struct Animation: Sendable, Hashable {
+            /// Every frame, in order. `frames[0]` is `PropRole.file`.
+            public let frames: [String]
+            public let fps: Double
+            /// Always `true` — §14b says so in as many words, and the manifest
+            /// has never carried another value. Decoded rather than assumed
+            /// because `PropAnimation` is total over both and a decoded `false`
+            /// that was silently looped would be the manifest and the screen
+            /// disagreeing.
+            public let loops: Bool
+
+            /// Whether there is anything to play. One frame is a still prop and
+            /// takes the ordinary path.
+            public var isPlayable: Bool { frames.count > 1 && fps > 0 }
+        }
+
+        /// **Every path this role needs on disk**, `file` first.
+        ///
+        /// One place, because there are two of them now and `file` is a subset
+        /// of the frames rather than a separate asset. Anything that walks the
+        /// manifest asking "what art does this need" has to ask this rather
+        /// than read `file` — the art survey read `file` and was silently
+        /// blind to frames 1..N, which would have let
+        /// `SPRITE_ROOM_REQUIRE_ART=1` pass with an animation half on disk.
+        public var declaredPaths: [String] {
+            guard let animation, !animation.frames.isEmpty else { return [file] }
+            return animation.frames.contains(file) ? animation.frames : [file] + animation.frames
         }
 
         /// SpriteKit anchor (y-up, fractions of the canvas) that puts the
@@ -595,7 +655,28 @@ public struct Manifest: Sendable, Hashable {
               let x = box["x"] as? Int, let y = box["y"] as? Int,
               let w = box["w"] as? Int, let h = box["h"] as? Int,
               w > 0, h > 0 else { return nil }
-        return PropRole(file: file, contentBox: PropRole.Box(x: x, y: y, width: w, height: h))
+        return PropRole(
+            file: file,
+            contentBox: PropRole.Box(x: x, y: y, width: w, height: h),
+            animation: propAnimation(entry["animation"]))
+    }
+
+    /// A `{frames, fps, loop}` entry. `nil` for anything that is not one,
+    /// including absence — a role with no `animation` key is a still prop, which
+    /// is every role but one.
+    ///
+    /// A malformed `animation` degrades to `nil` rather than throwing: `file` is
+    /// frame 0 and is decoded independently, so the prop still draws. Losing the
+    /// swing is a smaller failure than losing the clock.
+    private static func propAnimation(_ raw: Any?) -> PropRole.Animation? {
+        guard let entry = raw as? [String: Any],
+              let frames = entry["frames"] as? [String], !frames.isEmpty else { return nil }
+        let fps: Double
+        if let value = entry["fps"] as? Double { fps = value }
+        else if let value = entry["fps"] as? Int { fps = Double(value) }
+        else { return nil }
+        return PropRole.Animation(
+            frames: frames, fps: fps, loops: (entry["loop"] as? Bool) ?? true)
     }
 
     private static func object(_ parent: [String: Any], _ key: String) throws -> [String: Any] {

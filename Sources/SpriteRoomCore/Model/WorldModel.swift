@@ -558,7 +558,7 @@ public actor WorldModel {
             if let agentType {
                 projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.agentType = agentType
             }
-            revive(ref)
+            revive(ref, into: &deltas)
             return
         }
         let pending = projects[ref.project]!.sessions[ref.session]!
@@ -730,19 +730,37 @@ public actor WorldModel {
     /// changed is only where the character ends up afterwards: its own seat,
     /// idle, instead of off screen.
     ///
-    /// **Not visually distinct from an idle-but-live agent**, and that is a
-    /// decision rather than an omission. "Finished and might come back" and
-    /// "between tool calls" *are* different facts and the room would be better
-    /// for separating them — but the vocabulary we own cannot. There are six
-    /// body states and none of them means dormant; the badge anchor is single
-    /// and holds one glyph, `attention`, which asserts "the room needs you" and
-    /// would be a lie here. Inventing a pose is exactly the thing [I1] forbids,
-    /// so the two render identically and the room says the true, weaker thing:
-    /// this character is present and is not doing anything we can see. That is
-    /// equally true of both. The lifecycle is held here and exposed on
-    /// `AgentSnapshot`, so a scene that later earns an honest treatment for it
-    /// has the fact available — but no delta carries it today, because nothing
-    /// downstream could draw it.
+    /// **Visually distinct from an idle-but-live agent.** This
+    /// paragraph used to say the opposite, and the reversal is worth stating in
+    /// full because the old argument was half right.
+    ///
+    /// The old argument: "finished and might come back" and "between tool calls"
+    /// are different facts and the room would be better for separating them, but
+    /// nothing we own can draw the difference — there are six body states and
+    /// none means dormant, and the single badge anchor held one non-tool glyph,
+    /// `attention`, which asserts "the room needs you" and would be a lie here.
+    /// Inventing a pose is what [I1] forbids, so both rendered `idle` and no
+    /// delta carried the lifecycle.
+    ///
+    /// The half that survives is the **body**: M6b cut the pack's `sleep` row
+    /// and measured it — six frames of a head on a pillow, drawn from above,
+    /// with no body, to be composited onto a top-down bed. On a character
+    /// sitting side-on in an office chair it is a floating head. There is still
+    /// no dormant body state and there must not be one.
+    ///
+    /// The half that does not is the **badge**, because the premise "the single
+    /// badge anchor holds one non-tool glyph" stopped being true. Modern
+    /// Interiors' UI sheet carries a blue `Z` bubble — the same component, in
+    /// the same frame, as `attention` — and `badges.states` exists precisely for
+    /// badge states that answer to no tool. It ships as `badges.states.sleep`,
+    /// it needs no new manifest key and no new `BodyState`, and it asserts
+    /// exactly what this flag knows: *this character finished a turn and is
+    /// still here*. That is not a pose invented to fill a gap; it is real art
+    /// saying a true thing. [I1]
+    ///
+    /// So `dormancyChanged` is emitted here and cleared in `revive`, and the
+    /// seam the old paragraph named — "if a scene ever earns an honest treatment
+    /// for dormancy, that delta is the seam" — is the delta that now exists.
     ///
     /// **Reapable, with no deadline of its own.** [I4] Dormancy lives inside
     /// `AgentState`, so the two paths that genuinely mean *gone* — `SessionEnd`
@@ -763,8 +781,14 @@ public actor WorldModel {
         // gate into dormancy forever and be badged by a later `permission_prompt`
         // it has nothing to do with. [I1/I4]
         disarmPermissionGate(ref: ref)
+        let wasDormant =
+            projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.lifecycle == .dormant
         setLifecycle(.dormant, ref: ref)
         deltas.append(.reportDelivered(agent: ref))
+        // A *change*, never a repeat. A second `SubagentStop` for an agent that
+        // is already dormant is the same fact, and a delta stream that restates
+        // it would make the scene re-set a badge it already has.
+        if !wasDormant { deltas.append(.dormancyChanged(agent: ref, isDormant: true)) }
     }
 
     /// **A second `SubagentStart` for a known `agent_id` revives that character
@@ -782,14 +806,25 @@ public actor WorldModel {
     /// asks for `.spawning`, and `.spawning` means "walk in from the room edge".
     /// A revived agent never left it.
     ///
-    /// Emits nothing. The character is already on screen in its own seat, and
-    /// dormant and idle draw identically — see `goDormant(ref:into:)`. Its next
-    /// `PreToolUse` produces the `callOpened` that puts it back to work, which
-    /// is the only visible change there is.
-    private func revive(_ ref: AgentRef) {
+    /// **Emits `dormancyChanged(isDormant: false)` and nothing else.** The
+    /// character is already on screen in its own seat, in the right variant,
+    /// under the right plate; the one thing that changes is that the `sleep`
+    /// badge comes down, because the agent is answering to events again. It used
+    /// to emit nothing at all, which was correct while dormant and idle drew
+    /// identically and is not any more.
+    ///
+    /// The guard is what keeps it a change rather than a repeat: an agent that
+    /// was not dormant produces no delta, so the ordinary case — every consumed
+    /// event of a live agent passing through `ensureAgent` — is still silent.
+    ///
+    /// It fires *before* the event's own effect, so an event that both revives
+    /// and opens a call emits the wake first and the `callOpened` behind it,
+    /// which is the order the facts happened in.
+    private func revive(_ ref: AgentRef, into deltas: inout [WorldDelta]) {
         guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.lifecycle == .dormant
         else { return }
         setLifecycle(.active, ref: ref)
+        deltas.append(.dormancyChanged(agent: ref, isDormant: false))
     }
 
     private func open(

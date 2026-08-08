@@ -74,12 +74,12 @@ rule. It creates the session and its main agent and has no other effect.
 |---|---|
 | `SessionStart` | **Unreachable over HTTP — do not build on it.** The event is real and fires on every session (`source: startup` / `clear`, plus `model` on startup), but 2.1.224 never delivers it to a `type: "http"` hook, and this app registers nothing else. Keep the decode so the name is recognised rather than counted unhandled; the handler will not run. `session_title` does not exist in the payload — the field list here was wrong. |
 | `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is idle, because nothing has been called yet. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] |
-| `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. **Not once per agent** — a background subagent resumed with `SendMessage` emits a second one ~20 ms after that call's `PreToolUse`. Creation stays idempotent for that reason, and for a **known** `agent_id` this event is the *revival* path: it returns a dormant character to `active` **in place**, emitting nothing. No second character, no second seat, no re-spawn walk. |
+| `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. **Not once per agent** — a background subagent resumed with `SendMessage` emits a second one ~20 ms after that call's `PreToolUse`. Creation stays idempotent for that reason, and for a **known** `agent_id` this event is the *revival* path: it returns a dormant character to `active` **in place**, emitting `dormancyChanged(isDormant: false)` and nothing else. No second character, no second seat, no re-spawn walk — the one visible change is the `sleep` badge coming down. |
 | `PreToolUse` | Open a call keyed by `tool_use_id`. Character enters/keeps working. |
 | `PostToolUse` | Close that `tool_use_id`. |
 | `PostToolUseFailure` | Close that `tool_use_id`, flagged failed. Fires *instead of* `PostToolUse`, never alongside it; the message is in `error`, not `tool_response`. |
 | `PostToolBatch` | Close every `tool_use_id` in `tool_calls[]`. A primary close path, not a sweep — see below. |
-| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → **returns to its seat and goes `dormant`.** It does **not** depart: this is a turn boundary, not a death, and the agent can be resumed. Its open calls are abandoned (`.agentStopped`) and its permission-gate mark is disarmed — the turn completed, so nothing is pending. See "`SubagentStop` is a turn boundary, not a death" below. |
+| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → **returns to its seat and goes `dormant`**, wearing the `sleep` badge. Emits `reportDelivered` and then `dormancyChanged(isDormant: true)`. It does **not** depart: this is a turn boundary, not a death, and the agent can be resumed. Its open calls are abandoned (`.agentStopped`) and its permission-gate mark is disarmed — the turn completed, so nothing is pending. See "`SubagentStop` is a turn boundary, not a death" below. |
 | `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. **It needs no dormancy of its own** — checked, not assumed: `Stop` emits no delta and sets no lifecycle, and the main agent departs only on `SessionEnd` and the idle sweep, so it already stays in the room across a turn boundary, which is the whole of what dormancy buys a subagent. Marking it dormant would also be the weaker claim, since `Stop` fires once per assistant message stream and several times in one user turn. |
 | `PermissionRequest` | **An agent-level marker, and nothing else.** Records for that agent: a permission gate is open, plus the set of `tool_use_id`s it held open at that instant. No join by name, no join by recency, no `tool_use_id` read from the event — it carries none. Emits no delta and does not clear the attention badge. See "The interactively denied tool call" below. |
 | `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
@@ -251,7 +251,11 @@ exactly as long as nobody has come back to it.
   is a decision that wants somebody watching the room rather than a constant
   picked in the dark.
 
-### Precedence against the tool badge
+### Precedence in the badge slot
+
+There is **one** badge anchor and there are three things that can want it. The
+order is **attention > sleep > tool**, and the two comparisons are argued
+separately because they are different kinds of question.
 
 A character can hold open calls *and* have a notification outstanding — that is
 what every permission prompt looks like, since `PermissionRequest` lands ~16 ms
@@ -280,6 +284,33 @@ Determinism is unaffected. Attention is a single flag, so the badge stays a pure
 function of the character's state and still changes at most once per change of
 that state; the lowest-ordinal rule below is untouched and resumes the moment
 the badge clears. [I3]
+
+**Attention also outranks the `sleep` badge, and this one is not a truth
+question.** Both facts are true at once: the agent finished a turn *and*
+something is waiting on the human. It is decided on which of two true things is
+worth the one anchor, and the same reason 1 settles it — `sleep` is a status and
+attention is a request, and a status hiding a request inverts a surface whose
+one sentence is "you glance at the notch and know what your agents are doing".
+"Waiting on you, now" has a deadline the user owns; "finished a turn, might come
+back" does not. Nothing is lost by the loss, because dormancy is a standing
+state rather than an event: the `Z` comes back by itself the moment the
+attention clears, and the agent's next consumed event does both — it clears the
+attention *and* revives the agent, one delta each, in the same batch.
+
+The combination is narrow but genuinely reachable, so it is decided rather than
+assumed away: `PermissionRequest` arms an agent's gate mark **without** going
+through the creation path, so it does not revive a dormant agent, and a later
+`permission_prompt` badges every marked agent. It also arrives on the
+project-switch reconstruction path, which replays both facts at once.
+
+**`sleep` outranks the tool badge, and that combination is unreachable.** A
+dormant agent has no open calls: `SubagentStop` abandons every one of them in
+the same batch that sets dormancy, and the only event that opens a call —
+`PreToolUse` — revives the agent before the call opens. The order is written
+down anyway, because "unreachable" is a property of today's model and the badge
+selection is a value type anything may construct. If the two ever do co-occur,
+`sleep` is right for the same reason attention beats a gated `Bash`: the calls
+would be stale and the turn boundary would not be.
 
 Everything else decodes to `.unhandled` and is counted, not dropped silently.
 A rising `.unhandled` count is how we notice the hook surface has grown.
@@ -551,10 +582,19 @@ tool you do not recognise — the question mark is honest, a guess is not. [I1]
 table above, plus a small `×N`. Deterministic ordering means the badge is
 stable while calls interleave; most-recent-wins would flicker. [I3]
 
-**The attention badge is not in this table and outranks all of it.** It is not
-a tool, it lives under `badges.states` rather than `badges.map`, and while it is
-up it replaces the tool badge and suppresses the `×N` — see "The attention
-badge" above for the three reasons.
+**Two badges are not in this table and both outrank all of it.** Neither is a
+tool; both live under `badges.states` rather than `badges.map`; and while either
+is up it replaces the tool badge and suppresses the `×N`.
+
+| Badge | Raised by | Cleared by |
+|---|---|---|
+| attention | `Notification` | the badged agent's next consumed event |
+| sleep | `SubagentStop` (`dormancyChanged`) | the same agent's next consumed event, which revives it |
+
+They are cleared by the same rule because they are the same kind of fact: a
+statement about an agent that stopped, which that agent's next event refutes.
+The order between them, and against the tool badge, is under "Precedence in the
+badge slot" above.
 
 **Body state while working** is the sitting pose, regardless of tool. The tool
 identity lives entirely in the badge. This is what lets a new tool name appear
@@ -651,9 +691,11 @@ then returns to its seat, `dormant`, and stays there.
 
 - The `.reporting` beat is untouched: `reportDelivered` fires on the same event,
   in the same place, and licenses the same walk-to-anchor-and-deliver. Only the
-  destination changed.
+  destination changed. `dormancyChanged(isDormant: true)` rides behind it on the
+  same event — two facts, in the order they happened.
 - **A second `SubagentStart` for a known `agent_id` revives it in place** —
-  `dormant` → `active`, no delta, no second character, no second seat, no
+  `dormant` → `active`, one `dormancyChanged(isDormant: false)` and nothing
+  else, no second character, no second seat, no
   re-spawn walk. Reached through the same idempotent creation path every event
   goes through, so a resumed agent whose `SubagentStart` we missed is revived by
   its own next `PreToolUse` instead.
@@ -666,19 +708,49 @@ then returns to its seat, `dormant`, and stays there.
 - The mark is disarmed on the way in, which is ADR-001 (d) rule 2 read for a
   subagent — see "Reaping" below.
 
-**A dormant character is not visually distinct from an idle-but-live one, and
-that is a decision rather than an omission.** "Finished and might come back" and
-"between tool calls" are different facts and the room would be better for
-separating them. Nothing we own can draw the difference: there are six body
-states and none of them means dormant, and the single badge anchor holds one
-non-tool glyph, `attention`, which asserts "the room needs you" and would be a
-lie here. Inventing a pose is the thing [I1] forbids. So both render as `idle`
-and the room says the true, weaker thing — *this character is present and is not
-doing anything we can see* — which is equally true of both. The lifecycle is held
-in the model and exposed on `AgentSnapshot`; **no `WorldDelta` carries it**,
-because nothing downstream could draw it if it did. If a scene ever earns an
-honest treatment for dormancy, that delta is the seam, and adding it is a
-signature change.
+**A dormant character wears the `sleep` badge: a blue `Z` over an otherwise
+ordinary idle character, in its own seat, under its own plate.** Nothing else
+about it moves.
+
+This paragraph used to say the opposite, and the reversal is recorded rather
+than overwritten because the old argument was half right. It ran: "finished and
+might come back" and "between tool calls" are different facts and the room would
+be better for separating them, but nothing we own can draw the difference —
+there are six body states and none means dormant, and the single badge anchor
+holds one non-tool glyph, `attention`, which asserts "the room needs you" and
+would be a lie here. Inventing a pose is what [I1] forbids. So both rendered
+`idle`, no `WorldDelta` carried the lifecycle, and the seam was named for
+whenever a scene earned an honest treatment.
+
+**The body half of that survives and is now measured.** M6b cut the pack's
+`sleep` row: six frames of a head lying on a pillow, drawn from above, with no
+body, and the pack's own diagram shows it composited onto a top-down bed. On a
+character sitting side-on in an office chair it is a floating head at chest
+height. There is no dormant body state and there must not be one.
+
+**The badge half does not survive, because its premise stopped being true.**
+Modern Interiors' UI sheet carries a blue `Z` speech bubble — the same 548-pixel
+component, in the same frame, as `attention` — and `badges.states` exists
+precisely for badge states that answer to no tool. It ships as
+`badges.states.sleep`, it needs no new manifest key and no new body state, and
+it measures identically to `question_mark` (saturation 0.710, darkest value
+0.337), so the badge exemption's own sentence still holds at eight badges. It
+asserts exactly what the flag knows and nothing more, which is the whole test.
+[I1]
+
+So the seam the old paragraph named is the delta that now exists:
+**`dormancyChanged(agent:isDormant:)`**, emitted by `SubagentStop` beside
+`reportDelivered` and cleared by the revival every consumed event performs. It
+is a `Bool` rather than an `AgentLifecycle` on purpose — the other four cases
+are either already carried on `agentAppeared`, never rested in (`reporting`
+holds no clock), or already have a delta (`departed` is `agentDeparted`), so a
+delta carrying the whole enum could express three transitions the model never
+makes.
+
+The badge goes up on the same event that starts the report walk, so a reporting
+character carries the `Z` through the beat. That is correct rather than
+tolerated: the turn is over from the instant `SubagentStop` arrives, and the
+walk is the room saying so.
 
 What survives from the old paragraph: a report of "four dispatched, one drawn" is
 still not by itself evidence of a lost event, and diagnosing one still starts by

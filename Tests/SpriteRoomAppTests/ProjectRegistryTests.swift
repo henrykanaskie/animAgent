@@ -59,6 +59,8 @@ struct ProjectRegistryTests {
             return .reportDelivered(agent: moved(agent))
         case let .attentionChanged(agent, attention):
             return .attentionChanged(agent: moved(agent), attention: attention)
+        case let .dormancyChanged(agent, isDormant):
+            return .dormancyChanged(agent: moved(agent), isDormant: isDormant)
         case .populationChanged:
             return .populationChanged(project: project, count: 0)
         }
@@ -91,6 +93,8 @@ struct ProjectRegistryTests {
             return .reportDelivered(agent: moved(agent))
         case let .attentionChanged(agent, attention):
             return .attentionChanged(agent: moved(agent), attention: attention)
+        case let .dormancyChanged(agent, isDormant):
+            return .dormancyChanged(agent: moved(agent), isDormant: isDormant)
         case .populationChanged:
             return delta
         }
@@ -325,11 +329,29 @@ struct ProjectRegistryTests {
         // else is invented. [I1]
         for delta in rebuilt {
             switch delta {
-            case .agentAppeared, .agentLinked, .attentionChanged, .callOpened, .populationChanged:
+            case .agentAppeared, .agentLinked, .attentionChanged, .dormancyChanged,
+                 .callOpened, .populationChanged:
                 continue
             default: Issue.record("reconstruction emitted \(delta)")
             }
         }
+
+        // **A dormant character is still dormant after a project switch.**
+        // Three of `three-subagents`' four agents stop before its `SessionEnd`,
+        // so the roster this reconstructs has three sleepers in it — and a
+        // fresh `SceneDirector` starts every presentation awake, so this delta
+        // is the only thing that stops switching away and back waking them.
+        let asleep = rebuilt.filter {
+            if case .dormancyChanged(_, true) = $0 { return true }
+            return false
+        }
+        #expect(asleep.count == 3,
+                "the reconstruction lost dormancy: \(asleep.count) sleepers of an expected 3")
+        // And it never says the opposite. Awake is the default a fresh
+        // director already holds; restating it would be a delta with no fact
+        // behind it.
+        #expect(!rebuilt.contains { if case .dormancyChanged(_, false) = $0 { return true }
+                                    return false })
     }
 
     @Test func reconstructionIsDeterministic() async throws {

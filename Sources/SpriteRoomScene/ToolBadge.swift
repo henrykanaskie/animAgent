@@ -86,13 +86,21 @@ public struct BadgeSelection: Sendable, Hashable {
     /// Set while a `Notification` is outstanding for this character. **It wins
     /// the badge slot** — see `isAttention`.
     public let attention: AttentionKind?
+    /// Set while this character has finished a turn and is still assigned —
+    /// `WorldDelta.dormancyChanged`. **It wins the slot against a tool badge and
+    /// loses it to attention** — see `isSleeping`.
+    public let isDormant: Bool
 
-    public static let none = BadgeSelection(badge: nil, count: 0, attention: nil)
+    public static let none = BadgeSelection(
+        badge: nil, count: 0, attention: nil, isDormant: false)
 
-    public init(badge: ToolBadge?, count: Int, attention: AttentionKind? = nil) {
+    public init(
+        badge: ToolBadge?, count: Int, attention: AttentionKind? = nil, isDormant: Bool = false
+    ) {
         self.badge = badge
         self.count = count
         self.attention = attention
+        self.isDormant = isDormant
     }
 
     /// **Attention outranks every tool badge, and it suppresses the `×N`.**
@@ -124,6 +132,51 @@ public struct BadgeSelection: Sendable, Hashable {
     /// most once per change of that state. [I3]
     public var isAttention: Bool { attention != nil }
 
+    /// **The `sleep` glyph is what the slot shows: dormant, and not also
+    /// waiting on a human.**
+    ///
+    /// The full order in this slot is **attention > sleep > tool**, and the two
+    /// comparisons have different characters, so they are argued separately.
+    ///
+    /// **sleep over tool is unreachable and is defined anyway.** A dormant agent
+    /// has no open calls: `SubagentStop` abandons every one of them in the same
+    /// batch that sets dormancy, and the only path that opens a call —
+    /// `PreToolUse` — goes through `WorldModel.ensureAgent`, which revives the
+    /// agent *before* the call opens. So the two are mutually exclusive in the
+    /// live stream. The order is still written down rather than left to whatever
+    /// the code happens to do, because "unreachable" is a property of today's
+    /// model and this is a value type that anything may construct. If they ever
+    /// do co-occur, sleep is the right answer for reason 2 below: the calls
+    /// would be stale and the turn boundary would not be.
+    ///
+    /// **attention over sleep is reachable, and attention wins.** The path is
+    /// narrow but real: `PermissionRequest` arms an agent's gate mark *without*
+    /// going through `ensureAgent`, so it does not revive, and a
+    /// `permission_prompt` `Notification` then badges every marked agent — a
+    /// dormant one included. It also arrives on the reconstruction path, where
+    /// `ProjectRegistry` replays both facts for a project the user switched
+    /// back to. Three reasons, and they are the same three that put attention
+    /// above every tool badge:
+    ///
+    /// 1. **It is the only badge a glance can act on.** `sleep` is a status;
+    ///    attention is a request. Letting a status hide a request inverts a
+    ///    product whose one sentence is "you glance at the notch and know what
+    ///    your agents are doing".
+    /// 2. **It is the more urgent of two true things.** Both are true at once
+    ///    here, so this is not a truth question the way attention-over-tool is —
+    ///    it is a question of which true thing is worth the one anchor. "Waiting
+    ///    on you, now" outranks "finished a turn, might come back", because only
+    ///    the first has a deadline the user owns.
+    /// 3. **The manifest carries exactly one badge anchor.** A second slot would
+    ///    be an eyeballed offset dressed as data, which is the reason M5 left
+    ///    the monitors unplaced and the reason attention suppresses the `×N`.
+    ///
+    /// Nothing is lost by the loss: dormancy is a standing state, not an event,
+    /// so the `Z` comes back by itself the moment the badge above it clears —
+    /// the agent's next consumed event clears the attention *and* revives it,
+    /// which is one delta each and both in the same batch.
+    public var isSleeping: Bool { isDormant && !isAttention }
+
     /// Lowest-ordinal badge across the open set, plus the total.
     ///
     /// Order of `toolNames` is irrelevant by construction — that is the whole
@@ -135,12 +188,15 @@ public struct BadgeSelection: Sendable, Hashable {
     /// to re-announce the calls.
     public static func select(
         openToolNames toolNames: some Collection<String>,
-        attention: AttentionKind? = nil
+        attention: AttentionKind? = nil,
+        isDormant: Bool = false
     ) -> BadgeSelection {
         guard !toolNames.isEmpty else {
-            return BadgeSelection(badge: nil, count: 0, attention: attention)
+            return BadgeSelection(
+                badge: nil, count: 0, attention: attention, isDormant: isDormant)
         }
         let badge = toolNames.map(ToolBadge.badge(forTool:)).min()
-        return BadgeSelection(badge: badge, count: toolNames.count, attention: attention)
+        return BadgeSelection(
+            badge: badge, count: toolNames.count, attention: attention, isDormant: isDormant)
     }
 }

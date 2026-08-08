@@ -520,7 +520,15 @@ import Testing
 
         let revival = entries[startIndex]
         let deltas = await model.ingest(try #require(revival.event), at: revival.receivedAt)
-        #expect(deltas.isEmpty, "reviving a character already on screen emitted \(deltas)")
+        // **Exactly one delta, and it is the badge coming down.** This used to
+        // assert `deltas.isEmpty`, on the grounds that dormant and idle drew
+        // identically so there was nothing to say. `badges.states.sleep` made
+        // that false: a revived character has to lose the `Z` it was wearing.
+        // Everything the old assertion was really guarding — no second
+        // character, no second seat, no re-spawn walk — is the three
+        // expectations below, and they are unchanged.
+        #expect(deltas == [.dormancyChanged(agent: ref, isDormant: false)],
+                "reviving a character already on screen emitted \(deltas)")
         #expect(await model.snapshot().agent(ref)?.lifecycle == .active)
         #expect(await model.snapshot().agents.count == populationBeforeRevival)
         // Not `.spawning`: that means "walk in from the room edge", and this
@@ -869,10 +877,15 @@ import Testing
             "callOpened", "callClosed", "callOpened", "callClosed",
             "callClosed", "callOpened", "callOpened", "callClosed",
             "callOpened", "callClosed", "callOpened",
-            "reportDelivered",                      // first subagent goes dormant
-            "callClosed", "reportDelivered",        // second
+            // `SubagentStop` is two facts, in the order they happened: the
+            // report went to the parent, and the agent is now finished-but-
+            // still-assigned. The first licenses the walk, the second raises
+            // the `sleep` badge. Nothing here reports without also going
+            // dormant, and nothing goes dormant without reporting.
+            "reportDelivered", "dormancyChanged",   // first subagent goes dormant
+            "callClosed", "reportDelivered", "dormancyChanged",  // second
             "callClosed", "callOpened", "callClosed",
-            "reportDelivered",                      // third
+            "reportDelivered", "dormancyChanged",   // third
             "agentDeparted", "agentDeparted", "agentDeparted", "agentDeparted",
             "populationChanged",                    // SessionEnd, all four at once
         ],

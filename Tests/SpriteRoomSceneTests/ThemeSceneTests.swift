@@ -269,6 +269,15 @@ struct ThemeSceneTests {
     /// transition — no cross-fade, no prop animating in, the room is simply the
     /// other room. What has to hold is that the same deltas put the same
     /// characters in the same places in both.
+    ///
+    /// **"Redresses" is asserted, not assumed.** This test used to check only
+    /// that the characters were identical and that the *count* of props matched
+    /// — which a `RoomScene` that ignored `themeID` altogether would pass, since
+    /// it would draw the same room every time. The count check is right and
+    /// stays: the layout is theme-independent, so the number and the positions
+    /// of props must match across themes. What was missing is the other half:
+    /// the props' *art* must differ, or the theme did nothing. Both halves are
+    /// needed, and neither implies the other.
     @Test(.enabled(if: SceneArt.isAvailable))
     func changingTheThemeRedressesTheRoomAndMovesNoCharacter() throws {
         let manifest = try SceneFixtures.manifest()
@@ -285,13 +294,14 @@ struct ThemeSceneTests {
                 deadline: Date().addingTimeInterval(60))),
         ]
 
-        func render(_ themeID: String) -> (props: [String], characters: [String]) {
+        func render(_ themeID: String) -> (props: [String], art: [String], characters: [String]) {
             let scene = RoomScene(manifest: manifest, themeID: themeID)
             scene.setViewport(CGSize(width: 720, height: 400))
             var director = SceneDirector(manifest: manifest, themeID: themeID)
             scene.apply(director.apply(deltas))
             let props = scene.propNodesForTesting
                 .map { "\(Int($0.position.x)),\(Int($0.position.y))" }
+            let art = scene.propArtForTesting
             let characters = Self.cast(3).compactMap { agent -> String? in
                 guard let character = scene.character(for: agent) else { return nil }
                 return [
@@ -302,16 +312,34 @@ struct ThemeSceneTests {
                     "\(director.seats[agent] ?? -1)",
                 ].joined(separator: "|")
             }
-            return (props, characters)
+            return (props, art, characters)
         }
 
         let first = render(ids[0])
+        #expect(!first.art.isEmpty,
+                "no theme drew a prop at all, so nothing here compares anything")
+        #expect(first.art.count == first.props.count)
+
         for id in ids.dropFirst() {
             let other = render(id)
             #expect(other.characters == first.characters,
                     "theme \(id) moved a character, its plate, its variant or its badge")
             #expect(other.props.count == first.props.count,
                     "theme \(id) placed a different number of props")
+            // Same geometry, different pictures. The positions are the layout,
+            // which is theme-independent by design; the paths are the theme.
+            #expect(other.props == first.props,
+                    "theme \(id) put a prop somewhere theme \(ids[0]) did not")
+            #expect(other.art != first.art, Comment(rawValue:
+                "theme \(id) drew exactly the art theme \(ids[0]) drew — the room was not"
+                + " redressed, so `themeID` reached nothing"))
+            // And every slot is redressed, not just one of them: two themes
+            // sharing a desk while differing in a board would satisfy the line
+            // above and still leave most of the room unthemed.
+            for (slot, (mine, theirs)) in zip(other.art, first.art).enumerated() {
+                #expect(mine != theirs, Comment(rawValue:
+                    "theme \(id) shares prop slot \(slot) with theme \(ids[0]): \(mine)"))
+            }
         }
     }
 
