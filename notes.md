@@ -2354,6 +2354,15 @@ It also prices §14b's `board`-only rule instead of restating it. Moving the
 ceiling to 2.01 and reddens the build, because the room draws `plant` ten times
 and seven of those are in the permanently-visible foreground row.
 
+**That paragraph is wrong, and it was wrong when written — see the M6e entry.**
+The foreground row had been removed from the scene two commits earlier. The room
+draws `plant` **three** times, so the injection above is a *false red*: 210 px/s
+× 3 = 630, which is 0.43 of the ceiling and passes. The 2.01 reconciles with
+neither the census it came from (10 copies → 1.44) nor the scene (3 → 0.43),
+which makes it a fourth value for a figure that already had three. Left standing
+with this correction beneath it rather than edited away, because the pattern —
+a number transcribed instead of derived — is the point of this entry.
+
 ### The number is the cast's
 
 The maintainer's suggestion was right and it is a better number than anything I
@@ -2445,7 +2454,7 @@ proved less:
 | injected | result |
 |---|---|
 | `old_tv` adopted into `broadcast` | **FAIL** 9.49×, naming `board`/`old_tv`/4 copies × 3467 px/s. Its colour numbers in the same run: `broadcast` 0.470 → 0.462, i.e. still passing every colour check — §14b was right |
-| the shipped clock moved `board` → `plant` | **FAIL** 2.01×. Same art, ten copies |
+| the shipped clock moved `board` → `plant` | **FAIL** 2.01×. Same art, ten copies — **false red, see M6e: the room draws three** |
 | `transition_px` off by one pixel | **FAIL**, cross-check names declared and measured |
 | `moving_px` altered | **FAIL**, cross-check |
 | `loop: false` | **FAIL** — the budget measures the wrap and will not describe anything else |
@@ -2509,3 +2518,61 @@ read their diff: it reworks `entranceRoute`/`edgePosition`, not `seatCapacity`,
 `seatSpacingTiles` or the back row, so the census stands. If anyone changes how
 many seats there are or which of them take a `board`, the motion budget moves
 with it and `preview-theme.py`'s census check is what will say so.
+
+---
+
+## 2026-08-08 — M6e: the verifier contradicted me twice, and both were mine
+
+Sixth independent audit. The code was sound again — 449 tests, clean build from
+empty, 17 fixtures, both gates honest with counts the auditor re-derived by
+hand, no third ungated gate, and **no fourth vacuous test** after looking hard at
+every likely candidate. Every defect was in an artefact no test touches. Sixth
+time.
+
+**I deleted an M6 exit criterion by accident.** The reconciliation that closed
+four items anchored a patch on a string that sat *inside* the nameplate
+criterion, so it removed the bullet and left its tail welded to the criterion
+above — a document beginning mid-sentence, five named tests orphaned, the
+measured evidence gone. The tests all still pass; the criterion they gate
+stopped existing. M6's own line is "do not close one of these by editing the
+criterion", and deleting one is worse. **Nothing in the repository catches an
+edit to this file**, which is why it took an audit.
+
+**The motion budget was priced on a room that had been demolished two commits
+earlier.** `role_placements()` counted a foreground row of seven plants that
+`4e7b43d` had removed. The room draws `plant` **three** times, not ten, so the
+budget was 3.3× too strict on that role — and its cross-check compared the
+census against `render()`, which transcribed the *same* dead layout. **The two
+agreed with each other and with nothing the scene does.** That is precisely the
+`prop_origin` lesson repeating *inside the fix for it*: a transcription checked
+against a transcription is not a check.
+
+Three things fell out of it, all corrected in place rather than quietly:
+
+- **Every theme preview rendered since `4e7b43d` shows seven plants that do not
+  exist.** Same shape as "every theme accepted at M6 was accepted against a
+  wrong picture", which was the bug this same script had last time.
+- **One of the seven watched-failing injections is a false red.** The clock
+  moved `board` → `plant` was recorded as failing at 2.01×; at three copies it
+  is 0.43 and passes. The 2.01 reconciles with neither the census (1.44) nor the
+  scene (0.43) — a *fourth* value for a figure that already had three wrong ones.
+- **ADR-002 §14b's argument for confining motion to `board` was arithmetic on
+  the demolished row.** `plant` is the cheaper slot. What survives is the budget
+  itself: any role may carry motion if it fits, and none may carry it because of
+  what it is.
+
+Also found and not yet fixed: `README.md` has drifted a third time and lists
+four closed items as open, including code (`claimStation`, `reportingSlots`)
+that no longer exists; three M6 criteria name test functions that were renamed
+or deleted; `03-EVENT-MODEL.md` still says the working body is the sitting pose
+regardless of tool, which is accidentally true only because the pose table is
+empty; the three-orphan rule is asserted nowhere, and two test names overclaim
+across 17 fixtures what they check across 8; `generate-art.py` has no guard and
+writes fallback art on a fresh clone with exit 0; and the art notice does not
+say "is SET" when the override is on, which its window-server twin does.
+
+The pattern is now unambiguous and worth stating as a rule rather than an
+observation: **on this project, a number that is transcribed is eventually
+wrong, and a document that nothing runs eventually lies.** The code has 449
+assertions guarding it and has survived six audits. Every defect found in all
+six has been in the things no assertion touches.
