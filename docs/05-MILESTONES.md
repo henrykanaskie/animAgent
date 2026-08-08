@@ -180,9 +180,27 @@ Do not close one of these by editing the criterion.
   untouched and integer, nothing prefers a closer rung, and
   `aCameraCanStillPreferACloserScaleIfItIsToldTo` proves the mechanism survives.
   Recorded as a spend, not a defect.
-`aTruncatedTypeStillSaysItWasTruncated`. This carries M2's criterion forward:
+- **A nameplate leads with the part that distinguishes it.** Two rows: a solid
+  accent band carrying the discriminator at double size, type small beneath.
+  Measured on rendered pixels rather than asserted — two same-typed plates differ
+  in **at least four times** the separation the single-line plate gave (61.5% of
+  pixels against 21.7%), cap height 14 px from 7, stroke 2 px from 1. No plate
+  exceeds the seat pitch, no two plates ever intersect, and a truncated type still
+  says it was truncated — the ellipsis is lossy but *visibly* lossy, and no
+  abbreviation scheme degrades honestly over arbitrary text.
+  `sameTypedSubagentPlatesDifferByFourTimesTheOldSeparation`,
+  `theDiscriminatorIsTheTailOfTheAgentIDAndSurvivesOddIDs`, `noPlateExceedsTheSeatPitch`,
+  `noTwoNameplatesEverIntersect`, `noTwoNameplatesEverIntersectAcrossResumedSubagents`,
+  `aTruncatedTypeStillSaysItWasTruncated`. This carries M2's criterion forward:
   M0 found the cast is not separable by silhouette, so the plate is a primary
   identity channel and not decoration.
+
+  **This criterion was deleted by accident at `70f5793` and restored here.** The
+  reconciliation that closed four items anchored a patch on a string that sat
+  *inside* this bullet, removing its text and leaving its tail welded to the
+  criterion above. M6's own instruction is "do not close one of these by editing
+  the criterion"; deleting one is worse, and it was found by an audit rather than
+  by anything in the repository. Nothing gates this file.
 
   **Closed at M6d, and both proposed fixes were refuted first.** Widening the
   pitch does not work: the failure is two characters walking one line in

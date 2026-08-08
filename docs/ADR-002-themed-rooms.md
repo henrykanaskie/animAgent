@@ -1010,11 +1010,27 @@ part:
   set the number, which is what I7 says everywhere else — the room is the quiet
   layer, and now that holds on the time axis too. `old_tv` fails it at **9.49×**.
 
-**The slot is `board`, and it is not free.** `plant` repeats three times in the
-back row and seven in the permanently-visible foreground; `desk` and `chair` sit
-under characters. So `board` is the only role that can carry motion — and it is
-also every theme's identity object and dark anchor. `library` gives up its
-chalkboard for this. That is the trade, made once, and it is one line to revert.
+**The slot is `board`, and the reason given here was wrong.** This said `plant`
+repeats three times in the back row *and seven in the permanently-visible
+foreground*, so `board` was the only role that could afford motion. The
+foreground row was removed at `4e7b43d`, two commits before the budget was
+written, and the budget's placement census had not noticed — it priced `plant`
+at ten copies when the room draws **three**. `plant` is the *cheaper* slot, not
+the dearer one. Corrected at M6e; see `scripts/preview-theme.py`.
+
+What survives is the budget itself, which is the rule: **any role may carry
+motion if it fits, and no role may carry motion because of what it is.** `board`
+carries the clock today because `library`'s board is the prop that reads as a
+clock, not because of a cost argument that turns out to have been arithmetic on
+a demolished row. `board` is still every theme's identity object and dark
+anchor, so `library` gives up its chalkboard for this — that trade is real and
+unchanged, and it is one line to revert.
+
+The lesson is the one the `prop_origin` bug already taught and this repeated
+inside the fix for it: the census was cross-checked against `render()`, which
+transcribed the *same* dead layout, so the two agreed with each other and with
+nothing the scene draws. A transcription checked against a transcription is not
+a check.
 
 ---
 

@@ -141,11 +141,24 @@ def role_placements():
     fails if the two disagree. Two copies of a number that can drift apart is how
     the 10.4%-vs-27.9% error happened; this is the same number computed once.
 
-    The counts on the shipped 25-column layout are `board` 4, `plant` 10,
-    `chair` 7, `desk` 7 — and that asymmetry is exactly the reason ADR-002 §14b
-    says an animated prop may only occupy `board`. `plant` would cost two and a
-    half times as much and seven of its ten copies sit in the permanently-visible
-    foreground row.
+    The counts on the shipped 25-column layout are `board` 4, `plant` 3,
+    `chair` 7, `desk` 7. `board` and `plant` alternate across the seven seats of
+    the back row, and nothing else is placed.
+
+    **This said `plant` 10 until M6e, and it was wrong the moment it was
+    written.** It counted a foreground row of seven that `4e7b43d` had already
+    removed from the scene two commits earlier — the room draws no decoration
+    nearer the camera than the seat row now. The cross-check below compared this
+    against `render()`, which transcribed the *same* dead layout, so the two
+    agreed with each other and with nothing the scene does. That is the failure
+    the `prop_origin` bug taught and it repeated inside the fix for it: a
+    transcription checked against a transcription.
+
+    Consequence, recorded rather than quietly corrected: the motion budget was
+    **3.3× too strict on `plant`**, and ADR-002 §14b's argument that `board` is
+    the only role that can carry motion was priced on the demolished row.
+    `plant` is in fact the *cheaper* slot. The budget is the rule; the role is
+    not.
     """
     counts = {"board": 0, "plant": 0, "chair": 0, "desk": 0}
     for seat in range(SEAT_CAPACITY):
@@ -153,11 +166,6 @@ def role_placements():
         if x >= WIDTH:
             continue
         counts["board" if seat % 2 == 0 else "plant"] += 1
-    for seat in range(SEAT_CAPACITY):
-        x = seat_x(seat) + TILE * 1.5
-        if x >= WIDTH:
-            continue
-        counts["plant"] += 1
     for _seat in range(SEAT_CAPACITY):
         counts["chair"] += 1
         counts["desk"] += 1
@@ -348,15 +356,11 @@ def render(theme, name, population, out_path, characters, seed_variants,
             continue
         add_prop("board" if seat % 2 == 0 else "plant", x, BACK_ROW_Y)
 
-    # Foreground row, strictly below the content band.
-    plant = roles.get("plant")
-    if plant is not None:
-        y = CONTENT_BAND_BOTTOM - plant["content_box"]["h"] - 4
-        for seat in range(SEAT_CAPACITY):
-            x = seat_x(seat) + TILE * 1.5
-            if x >= WIDTH:
-                continue
-            add_prop("plant", x, y)
+    # No foreground row. `4e7b43d` removed it from the scene and replaced it
+    # with a stronger rule than the one it lost: nothing decorative is drawn
+    # nearer the camera than the seat row. This preview drew seven plants that
+    # did not exist for two commits, which is why every theme picture between
+    # `4e7b43d` and M6e shows them.
 
     # Chair and desk at every seat; a body at the occupied ones. The desk takes
     # the row depth plus a half so it occludes the seated body — at 32 px that
