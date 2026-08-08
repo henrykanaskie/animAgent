@@ -136,6 +136,17 @@ A task is done when **all** of these hold. Agent opinion is not on this list.
    machine that is *supposed* to hold the art — a release build, a packaging
    step — run `SPRITE_ROOM_REQUIRE_ART=1 swift test`, which turns missing art
    from a skip into a failure.
+
+   The same arrangement covers the window server: an `NSPanel` cannot be built
+   without a GUI session, so the panel tests are gated on
+   `PanelWindowServer.isAvailable` (`Tests/SpriteRoomAppTests/PanelFixtures.swift`)
+   and skip on any headless runner. `PanelAvailabilityTests` always runs and
+   prints whether the panel was checked, **naming the three I8 assertions
+   individually when it was not** — because a green run that skipped them is a
+   run that verified nothing about the invariant this project most needs held,
+   and the one the maintainer had to check by hand. On a machine that is
+   supposed to have a window server, run
+   `SPRITE_ROOM_REQUIRE_WINDOW_SERVER=1 swift test`.
 3. The replay harness runs `fixtures/` end to end with no orphaned state at the
    end of the run.
 4. The diff touches only files in the task's declared scope.
@@ -144,6 +155,12 @@ A task is done when **all** of these hold. Agent opinion is not on this list.
 Gating a test on a precondition it cannot control — no window server, no art on
 disk — is not disabling it, **provided the skip is visible in the run's output**.
 Silencing an assertion is. That is the whole boundary.
+
+Both gates honour that sentence; a new gate that does not is not finished. The
+window-server gate spent its first weeks without a notice or a pinned count, so
+26 tests — every I8 assertion among them — could have skipped on a headless
+runner with the summary line reading exactly like a run that checked them. It
+was found by an audit, not by the suite, which is the argument for the notice.
 
 If you cannot satisfy 1–3, the task is not done and you say so plainly. Do not
 report partial work as complete. Do not disable a test to make it pass.
