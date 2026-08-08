@@ -17,16 +17,36 @@ struct RoomCameraTests {
         #expect(RoomCamera.default.scales == [3, 2, 1])
     }
 
-    @Test func smallRoomsGetTheCloseView() {
+    /// **The room is drawn wide whatever the population.** This replaced
+    /// `smallRoomsGetTheCloseView` and `mediumRoomsStepDownOnce`, which pinned
+    /// 3x up to two characters and 2x up to five.
+    ///
+    /// The maintainer looked at the shipped panel and asked for the room to be
+    /// bigger from the start — it "doesn't need to be so zoomed in", and the
+    /// zoomed-out view "looks fine with the size of the sprites". Population
+    /// pulling the camera in made a one-agent room a close-up of one desk
+    /// instead of a view of a place.
+    ///
+    /// The ladder is untouched and still integer [I6]; only the preference
+    /// changed. If a future policy wants a closer view again, this is the test
+    /// that has to change with it, and it should say why the way this one does.
+    @Test func theRoomIsDrawnWideAtEveryPopulation() {
         let camera = RoomCamera.default
-        #expect(camera.scale(forPopulation: 1) == 3)
-        #expect(camera.scale(forPopulation: 2) == 3)
+        for population in [0, 1, 2, 3, 5, 6, 40] {
+            #expect(camera.scale(forPopulation: population) == 1,
+                    "population \(population) should get the wide view")
+        }
     }
 
-    @Test func mediumRoomsStepDownOnce() {
-        let camera = RoomCamera.default
-        #expect(camera.scale(forPopulation: 3) == 2)
+    /// The mechanism is still there, and still works — it is the *default*
+    /// that changed, not the type. A camera told that 3x suits two characters
+    /// still says so, which is what keeps this a policy change rather than a
+    /// quiet deletion of the ladder's upper rungs.
+    @Test func aCameraCanStillPreferACloserScaleIfItIsToldTo() {
+        let camera = RoomCamera(comfortablePopulation: [3: 2, 2: 5])
+        #expect(camera.scale(forPopulation: 2) == 3)
         #expect(camera.scale(forPopulation: 5) == 2)
+        #expect(camera.scale(forPopulation: 6) == 1)
     }
 
     /// There is no level between 2 and 1, and 1 is the floor: below it the art
@@ -106,9 +126,18 @@ struct RoomCameraTests {
         }
     }
 
+    /// A zero-sized viewport cannot be fitted against, so the population scale
+    /// stands unmodified. Under the wide default that is the floor — the point
+    /// is that the degenerate path defers to the policy rather than inventing
+    /// a scale of its own, which is still what this proves.
     @Test func degenerateDimensionsFallBackToThePopulationScale() {
-        let camera = RoomCamera.default
-        #expect(camera.scale(
+        #expect(RoomCamera.default.scale(
+            forPopulation: 2,
+            viewportWidth: 0, viewportHeight: 0,
+            contentWidth: 0, contentHeight: 0) == 1)
+        // Same call, on a camera that does prefer a closer scale: the fallback
+        // follows the policy rather than the floor.
+        #expect(RoomCamera(comfortablePopulation: [3: 2]).scale(
             forPopulation: 2,
             viewportWidth: 0, viewportHeight: 0,
             contentWidth: 0, contentHeight: 0) == 3)

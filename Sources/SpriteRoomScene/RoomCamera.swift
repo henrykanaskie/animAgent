@@ -13,18 +13,39 @@ public struct RoomCamera: Sendable, Hashable {
     /// ladder lives in one place.
     public let scales: [Int]
 
-    /// Population at or below which each scale is preferred, longest first.
-    /// One or two characters get the close view; a crowd gets the wide one.
+    /// Population at or below which a scale closer than the floor is preferred.
+    ///
+    /// **Empty by default: the room is drawn wide, at `1x`, whatever the
+    /// population.** A scale absent from this table is never preferred on
+    /// population grounds — which is why the table is read as an allow-list
+    /// rather than "anything unlisted wins", the reading an earlier version
+    /// used.
     public let comfortablePopulation: [Int: Int]
 
     public static let `default` = RoomCamera()
 
-    public init(scales: [Int] = [3, 2, 1]) {
+    public init(scales: [Int] = [3, 2, 1], comfortablePopulation: [Int: Int]? = nil) {
         let sorted = scales.filter { $0 >= 1 }.sorted(by: >)
         self.scales = sorted.isEmpty ? [1] : sorted
-        // 3x up to two characters, 2x up to five, 1x beyond. The thresholds are
-        // a judgment call; the *integer-ness* is not.
-        self.comfortablePopulation = [3: 2, 2: 5]
+        // Was `[3: 2, 2: 5]` — 3x up to two characters, 2x up to five. The
+        // maintainer looked at the shipped panel and said the room should be
+        // bigger from the start, that it "doesn't need to be so zoomed in", and
+        // that the zoomed-out view "looks fine with the size of the sprites".
+        //
+        // So population no longer pulls the camera in. The room is a *place*
+        // first: you see the space and where people are in it, and the sprites
+        // are legible at `1x` because that is the size they were drawn for.
+        //
+        // Note this reverses part of M5's composition fix, which made one agent
+        // fill the panel at 3x. That fix was right about the bug it found — the
+        // camera framed a nominal box that made 3x unreachable at any
+        // population — and overshot on the remedy. The framing arithmetic it
+        // corrected stays; only the preference changes.
+        //
+        // The ladder is untouched and still integer [I6]. Closer scales remain
+        // on it and remain reachable through `largestFittingScale`; nothing
+        // here forbids a future policy from using them again.
+        self.comfortablePopulation = comfortablePopulation ?? [:]
     }
 
     public init(manifest: Manifest) {
@@ -37,11 +58,16 @@ public struct RoomCamera: Sendable, Hashable {
 
     /// Scale for a population, ignoring the viewport.
     ///
-    /// A negative or zero population is an empty room, which still has to draw
-    /// at *some* scale; it gets the closest one.
+    /// A scale is preferred only if `comfortablePopulation` names it *and* the
+    /// population is within its ceiling. Anything else falls to the floor, so
+    /// an empty table means the wide view always — which is the default.
+    ///
+    /// An empty or negative population is an empty room, which still has to
+    /// draw at *some* scale; it gets the same wide view as a busy one, so the
+    /// room does not lurch when the first character arrives.
     public func scale(forPopulation population: Int) -> Int {
         for scale in scales {
-            guard let ceiling = comfortablePopulation[scale] else { return scale }
+            guard let ceiling = comfortablePopulation[scale] else { continue }
             if population <= ceiling { return scale }
         }
         return minimumScale

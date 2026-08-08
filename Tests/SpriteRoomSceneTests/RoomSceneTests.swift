@@ -501,10 +501,22 @@ struct RoomSceneTests {
                 "framing the nominal room box is what left the middle-third composition")
     }
 
-    /// `3x` was unreachable in the product's own panel: the nominal room box is
-    /// 192 px and 192 × 3 does not fit in 400. Framing the content band makes
-    /// the top rung of the ladder something the user can actually see. [I6]
-    @Test func oneAgentReachesThreeXInsideThePanel() throws {
+    /// One agent gets the **wide** view, not a close-up of one desk.
+    ///
+    /// This test used to assert `3x`, from M5's finding that the top rung was
+    /// unreachable in the product's own panel — the nominal room box is 192 px
+    /// and 192 × 3 does not fit in 400. That finding was real and the framing
+    /// fix it produced stays: the scene frames the manifest-derived content
+    /// band, not the nominal box, which is what made the ladder reachable at
+    /// all.
+    ///
+    /// What changed is the preference on top of it. The maintainer looked at
+    /// the shipped panel and asked for the room to be bigger from the start.
+    /// So the camera no longer pulls in on a small population, and one agent is
+    /// drawn at the floor with the room around it. The ladder is untouched and
+    /// still integer [I6]; `RoomCameraTests` proves the closer rungs still work
+    /// when a camera is told to prefer them.
+    @Test func oneAgentIsDrawnWideInsideThePanel() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
         scene.setViewport(CGSize(width: 720, height: 400))
@@ -512,7 +524,7 @@ struct RoomSceneTests {
         let ref = AgentRef(project: "/p", session: "s", agent: .mainThread)
         scene.apply(director.apply([
             .agentAppeared(agent: ref, agentType: nil, lifecycle: .active)]))
-        #expect(scene.currentScale == 3)
+        #expect(scene.currentScale == 1)
     }
 
     /// Whatever the camera prefers, it may never crop an identity. The
