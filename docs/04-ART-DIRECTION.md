@@ -184,9 +184,20 @@ other, and of the remaining two, one shows no skin or eyes in the head band
 
 Composed, not sourced:
 
-- **`spawn`** — walk in from the room edge using `walk`. There is no spawn
-  animation and inventing one is not worth the cost.
-- **`depart`** — the same in reverse.
+- **`spawn`** — walk in using `walk`. There is no spawn animation and inventing
+  one is not worth the cost.
+
+  It said "from the room edge" until M6, and that was true of the aisle layout
+  it was written for. The room is a lattice now: **every vertical move goes
+  upstage**, so a character walks in down its own seat's column from its ring's
+  delivery row, and out the same way. The edge is not involved, and the start
+  point is inside the frame by construction — which is how M5's "the walk-in is
+  visible from its first frame" survived the change instead of being traded for
+  it.
+- **`depart`** — the same in reverse, fading over the last leg. There is no
+  frame edge behind the desks to leave by and a flat wall gives nothing to
+  disappear behind, so the fade is the honest end of an upstage exit rather
+  than a stylistic choice.
 
 Dropped:
 
@@ -242,12 +253,20 @@ Collapse aggressively. A user cannot distinguish twelve icons at `2x`.
 | Badge | Tools |
 |---|---|
 | document | `Edit`, `Write`, `NotebookEdit` |
-| magnifier | `Read`, `Glob`, `Grep` |
+| magnifier | `Read`, `Glob`, `Grep`, `ToolSearch` |
 | terminal | `Bash`, `BashOutput`, `KillShell` |
 | globe | `WebSearch`, `WebFetch` |
-| checklist | `TodoWrite`, `Task` |
+| checklist | `TodoWrite`, `Agent`, `SendMessage` |
 | plug | `mcp__*` (any) |
-| question mark | anything unmapped |
+| question mark | anything unmapped, and `Monitor` deliberately |
+
+**`docs/03-EVENT-MODEL.md` owns this table; this is a copy for the art.** It
+said `Task` until M6 — the hook payload has always carried `Agent`, and `Task`
+is the model-facing name that never appears in one. `ToolSearch` and
+`SendMessage` were mapped at M6 from a walk of every `tool_name` in `fixtures/`,
+and `Monitor` was left at the question mark on purpose: its schema takes either
+a shell command or a WebSocket, mutually exclusive, and a badge keys on the name
+alone, so `terminal` would claim a shell for what may be a socket. [I1]
 
 **All seven are final art. Three come from a pack and four were drawn here.**
 Corrected at M5b, which replaced the claim that six were blocked on buying
