@@ -117,11 +117,12 @@ struct SceneDirectorTests {
     }
 
     /// All six states have to be reachable from a real fixture: four from the
-    /// director's resting states and the choreography, two from the exits.
+    /// director's resting states and the choreography, two from the report beat.
     @Test func theSixStatesAreAllReachableFromTheFixture() async throws {
         var director = Self.director()
         var restingStates: Set<BodyState> = []
         var sawSpawn = false
+        var sawReport = false
         var exitStyles: Set<SpriteIntent.ExitStyle> = []
 
         for batch in try await SceneFixtures.batchedDeltas("three-subagents") {
@@ -129,17 +130,25 @@ struct SceneDirectorTests {
                 switch intent {
                 case .spawnCharacter: sawSpawn = true
                 case let .setBody(_, state, _): restingStates.insert(state)
+                case .deliverReport: sawReport = true
                 case let .exitCharacter(_, style): exitStyles.insert(style)
                 default: break
                 }
             }
         }
-        // `spawn` (walk in), `idle`, `working` from the roster;
-        // `walk` + `deliver` + `depart` from a `.report` exit.
+        // `spawn` (walk in), `idle`, `working` from the roster; `walk` +
+        // `deliver` from the report round trip; `depart` from the exits.
         #expect(sawSpawn)
         #expect(restingStates.contains(.idle))
         #expect(restingStates.contains(.working))
-        #expect(exitStyles.contains(.report(anchorSeat: 0)))
+        #expect(sawReport)
+        #expect(exitStyles.contains(.walkOff))
+        // And nothing exits by the report route, because nothing in this
+        // capture reports and departs in the same frame. `SubagentStop` no
+        // longer departs anyone — the three subagents report at 34.5 s, 37.4 s
+        // and 40.9 s and are still in their seats when `SessionEnd` clears the
+        // room at 42.7 s.
+        #expect(!exitStyles.contains { if case .report = $0 { return true } else { return false } })
     }
 
     /// A seated character can only face sideways. Asking for `working` facing
@@ -274,9 +283,86 @@ struct SceneDirectorTests {
         #expect(bodies == [.working])
     }
 
-    /// `SubagentStop` emits `reportDelivered` and `agentDeparted` in the same
-    /// batch. The character must leave by the report route, not be yanked off
-    /// screen.
+    // MARK: The report beat
+
+    /// **`reportDelivered` drives the beat now, and it is a round trip.**
+    ///
+    /// `SubagentStop` used to emit `reportDelivered` *and* `agentDeparted`, and
+    /// the walk was carried by the departure. A subagent that stops goes dormant
+    /// in its seat instead, so nothing follows the report — if this delta did
+    /// not produce the choreography, the one dramatisation the project allows
+    /// would silently vanish from the room.
+    @Test func aReportIsAWalkOnItsOwnAndTakesNobodyOutOfTheRoom() {
+        var director = Self.director()
+        let agent = Self.ref(.subagent("child"))
+        _ = director.apply([
+            .agentAppeared(agent: agent, agentType: nil, lifecycle: .active),
+            .agentAppeared(agent: Self.ref(.mainThread), agentType: nil, lifecycle: .active),
+        ])
+        let intents = director.apply([.reportDelivered(agent: agent)])
+        #expect(intents.contains(.deliverReport(agent: agent, anchorSeat: 0)))
+        #expect(!intents.contains { if case .exitCharacter = $0 { return true } else { return false } })
+        #expect(director.population == 2, "a report is a turn boundary, not a departure")
+        #expect(director.seats[agent] != nil, "the reporter kept its seat")
+    }
+
+    /// **The bug this change exists to close.** `reported` was set by
+    /// `reportDelivered` and cleared by nothing, because the departure that
+    /// consumed it always arrived in the same batch. Once `SubagentStop` stopped
+    /// departing anyone, a character that had reported at any point in the
+    /// session carried the flag to `SessionEnd` and exited by walking back to
+    /// the anchor to deliver a report that had happened minutes earlier. [I1]
+    @Test func aReportInAnEarlierFrameDoesNotReplayItselfAtDeparture() {
+        var director = Self.director()
+        let agent = Self.ref(.subagent("child"))
+        _ = director.apply([
+            .agentAppeared(agent: agent, agentType: "Explore", lifecycle: .spawning)])
+        _ = director.apply([.reportDelivered(agent: agent)])
+        // Anything at all in between; the flag must not survive its own batch.
+        _ = director.apply([.callOpened(agent: agent, call: Self.call("a", "Read"))])
+        let intents = director.apply([.agentDeparted(agent: agent)])
+        let exits = intents.compactMap { intent -> SpriteIntent.ExitStyle? in
+            if case let .exitCharacter(_, style) = intent { return style }
+            return nil
+        }
+        #expect(exits == [.walkOff])
+        #expect(!intents.contains { if case .deliverReport = $0 { return true } else { return false } })
+    }
+
+    /// One `agent_id` can produce several full turns: two of the four agents in
+    /// `fixtures/four-subagents.jsonl` stop, are resumed with `SendMessage`, and
+    /// stop again. Each stop is a real hand-over and gets its own beat.
+    @Test func aCharacterThatReportsTwiceGetsTheBeatTwice() {
+        var director = Self.director()
+        let agent = Self.ref(.subagent("child"))
+        _ = director.apply([
+            .agentAppeared(agent: agent, agentType: "Explore", lifecycle: .spawning)])
+        var beats = 0
+        for _ in 0..<2 {
+            for intent in director.apply([.reportDelivered(agent: agent)]) {
+                if case .deliverReport = intent { beats += 1 }
+            }
+            _ = director.apply([.callOpened(agent: agent, call: Self.call("a", "Read"))])
+            _ = director.apply([
+                .callClosed(agent: agent, toolUseID: "a", toolName: "Read", outcome: .succeeded)])
+        }
+        #expect(beats == 2)
+    }
+
+    /// A `reportDelivered` for a character the scene does not have is not a
+    /// reason to invent one. The model already refuses to spawn on an unknown
+    /// `SubagentStop` — the TUI's suggestion helper emits those on ordinary
+    /// turns — and this is the same refusal one layer down. [I1]
+    @Test func aReportForACharacterThatIsNotOnScreenDrawsNothing() {
+        var director = Self.director()
+        let intents = director.apply([.reportDelivered(agent: Self.ref(.subagent("ghost")))])
+        #expect(!intents.contains { if case .deliverReport = $0 { return true } else { return false } })
+    }
+
+    /// `reportDelivered` and `agentDeparted` in one batch is no longer what
+    /// `SubagentStop` produces, but `SessionEnd` can still land on top of a stop.
+    /// The character must leave by the report route, not be yanked off screen —
+    /// and must not *also* be sent on a round trip to a seat it no longer has.
     @Test func reportAndDepartureInOneFrameBecomeTheReportExit() {
         var director = Self.director()
         let agent = Self.ref(.subagent("child"))
@@ -291,6 +377,7 @@ struct SceneDirectorTests {
             return nil
         }
         #expect(exits == [.report(anchorSeat: 0)])
+        #expect(!intents.contains { if case .deliverReport = $0 { return true } else { return false } })
     }
 
     /// A linked child reports to *its parent's* seat, not to seat 0.
@@ -362,9 +449,7 @@ struct SceneDirectorTests {
         var anchors: [Int] = []
         for batch in try await SceneFixtures.batchedDeltas("three-subagents") {
             for intent in director.apply(batch) {
-                if case let .exitCharacter(_, .report(anchorSeat)) = intent {
-                    anchors.append(anchorSeat)
-                }
+                if case let .deliverReport(_, anchorSeat) = intent { anchors.append(anchorSeat) }
             }
         }
         #expect(anchors == [0, 0, 0])

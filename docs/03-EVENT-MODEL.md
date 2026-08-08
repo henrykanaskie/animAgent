@@ -74,13 +74,13 @@ rule. It creates the session and its main agent and has no other effect.
 |---|---|
 | `SessionStart` | **Unreachable over HTTP — do not build on it.** The event is real and fires on every session (`source: startup` / `clear`, plus `model` on startup), but 2.1.224 never delivers it to a `type: "http"` hook, and this app registers nothing else. Keep the decode so the name is recognised rather than counted unhandled; the handler will not run. `session_title` does not exist in the payload — the field list here was wrong. |
 | `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is idle, because nothing has been called yet. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] |
-| `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. **Not once per agent** — a background subagent resumed with `SendMessage` emits a second one ~20 ms after that call's `PreToolUse`. Creation stays idempotent for that reason. |
+| `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. **Not once per agent** — a background subagent resumed with `SendMessage` emits a second one ~20 ms after that call's `PreToolUse`. Creation stays idempotent for that reason, and for a **known** `agent_id` this event is the *revival* path: it returns a dormant character to `active` **in place**, emitting nothing. No second character, no second seat, no re-spawn walk. |
 | `PreToolUse` | Open a call keyed by `tool_use_id`. Character enters/keeps working. |
 | `PostToolUse` | Close that `tool_use_id`. |
 | `PostToolUseFailure` | Close that `tool_use_id`, flagged failed. Fires *instead of* `PostToolUse`, never alongside it; the message is in `error`, not `tool_response`. |
 | `PostToolBatch` | Close every `tool_use_id` in `tool_calls[]`. A primary close path, not a sweep — see below. |
-| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → departs. |
-| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. |
+| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → **returns to its seat and goes `dormant`.** It does **not** depart: this is a turn boundary, not a death, and the agent can be resumed. Its open calls are abandoned (`.agentStopped`) and its permission-gate mark is disarmed — the turn completed, so nothing is pending. See "`SubagentStop` is a turn boundary, not a death" below. |
+| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. **It needs no dormancy of its own** — checked, not assumed: `Stop` emits no delta and sets no lifecycle, and the main agent departs only on `SessionEnd` and the idle sweep, so it already stays in the room across a turn boundary, which is the whole of what dormancy buys a subagent. Marking it dormant would also be the weaker claim, since `Stop` fires once per assistant message stream and several times in one user turn. |
 | `PermissionRequest` | **An agent-level marker, and nothing else.** Records for that agent: a permission gate is open, plus the set of `tool_use_id`s it held open at that instant. No join by name, no join by recency, no `tool_use_id` read from the event — it carries none. Emits no delta and does not clear the attention badge. See "The interactively denied tool call" below. |
 | `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
 | `Notification` | Raises an attention badge; emits `attentionChanged`. Badge only — no body animation exists for this and repurposing one would be fiction. [I1] Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and **no `agent_id`, not even when the gate belongs to a subagent** — so it names no character, and which one it badges is decided by the rule under "Who the badge lands on" below. |
@@ -511,6 +511,21 @@ paths: `SessionEnd`, the agent's departure, and the idle sweep. It is held
 clear it by construction — a parallel store would be one more thing to remember
 to clear, which is one more thing to leak.
 
+**Dormancy added a fourth path, and it had to.** A subagent that stops now keeps
+its `AgentState` instead of having it deleted, so departure no longer clears the
+mark at that moment. `SubagentStop` therefore disarms it explicitly. The abandon
+of the agent's open calls covers the ordinary case already — abandoning a marked
+call disarms by rule 2 — but not the legal *empty* mark, which is a snapshot of an
+open-call set that happened to be empty; that would otherwise ride into dormancy
+and be badged by a later `permission_prompt` it has nothing to do with. [I1] The
+disarm is independently correct rather than merely convenient: it is rule 2 read
+for a subagent, since `Stop` disarms the main thread's mark because the turn
+completed and `SubagentStop` is that same fact.
+
+**Dormancy itself is reapable for the same structural reason**: it is a field of
+`AgentState`, so `SessionEnd` and the idle sweep take it with the character
+without anybody remembering to.
+
 ## Tool → badge mapping
 
 The body shows *that* work is happening; a badge above the head shows *which
@@ -556,7 +571,11 @@ is "this subagent finished and its result went to its parent." The walk is a
 - Showing agents talking to each other. There is no event for that. [I1]
 
 Because the main agent's anchor is always on screen, a report from an
-off-screen subagent is still visible: it walks in, delivers, leaves.
+off-screen subagent is still visible: it walks in, delivers, **and goes back to
+its seat.** The beat itself is unchanged — the walk and the hand-over are the one
+licensed dramatisation and they still fire on exactly this event. What changed is
+where the character ends up afterwards, and why: see "`SubagentStop` is a turn
+boundary, not a death" below.
 
 **`SubagentStop` arrives for agents that never started.** Interactive sessions
 run an internal helper that generates the TUI's follow-up suggestions, and it
@@ -609,21 +628,61 @@ the parent with `SendMessage`, and each resume emitted a **second
 `SubagentStart`**. So one `agent_id` produced two full spawn→stop cycles inside
 172 s.
 
-The consequence is a fact about the room, and it is worth stating plainly
-because it is what an unhappy user sees: **the number of subagent characters
-tracks who is mid-turn, not how many agents the user dispatched.** In that
-capture, between the fourth spawn and the last stop, all four are on screen for
-39.1 s of 69.5 s — 56% — and the room drops to two for 7.3 s and to **one for
+The consequence was a fact about the room, and it is worth stating plainly
+because it is what an unhappy user saw: **the number of subagent characters
+tracked who was mid-turn, not how many agents the user dispatched.** In that
+capture, between the fourth spawn and the last stop, all four were on screen for
+39.1 s of 69.5 s — 56% — and the room dropped to two for 7.3 s and to **one for
 6.7 s**, while the parent still had four agents assigned the whole time.
 
-Nothing here is a defect in this layer. Every departure traces to a real
-`SubagentStop` and every return to a real event, which is I1 satisfied. But
-"four dispatched, one drawn" is a *correct* rendering of this data, so a report
-of that shape is not by itself evidence of a lost event, and diagnosing one
-starts by asking which agents were mid-turn rather than by hunting the
-transport. Whether a stopped-but-resumable background agent should keep a
-presence in the room is a product decision, not an ingest one; it is not taken
-here.
+The paragraph that stood here said this was truthful, that "four dispatched, one
+drawn" was a *correct* rendering, and that whether such an agent should keep a
+presence in the room was a product decision not taken here. **The first two are
+wrong and the third is now taken.** Departing on `SubagentStop` makes the room
+assert *this agent is gone* when the data says only *this agent finished a turn*
+— and this capture is the proof it can come back. That is the [I1] violation, not
+the fix for one. The product's one sentence is "you glance at the notch and know
+what your agents are doing"; a room that cannot be counted does not deliver it.
+
+### The decision: a subagent that stops goes dormant
+
+**A subagent that stops does not leave the room.** It plays the report beat and
+then returns to its seat, `dormant`, and stays there.
+
+- The `.reporting` beat is untouched: `reportDelivered` fires on the same event,
+  in the same place, and licenses the same walk-to-anchor-and-deliver. Only the
+  destination changed.
+- **A second `SubagentStart` for a known `agent_id` revives it in place** —
+  `dormant` → `active`, no delta, no second character, no second seat, no
+  re-spawn walk. Reached through the same idempotent creation path every event
+  goes through, so a resumed agent whose `SubagentStart` we missed is revived by
+  its own next `PreToolUse` instead.
+- **A dormant agent still departs on the paths that genuinely mean gone**:
+  `SessionEnd` and the 30-minute session-idle sweep. [I4]
+- **Dormancy carries no deadline of its own, deliberately.** "Depart after N
+  minutes dormant" would be a number with nothing behind it, and it would
+  recreate this exact bug for any agent resumed later than N. An assignment is
+  live for as long as its session is, and the session is already bounded twice.
+- The mark is disarmed on the way in, which is ADR-001 (d) rule 2 read for a
+  subagent — see "Reaping" below.
+
+**A dormant character is not visually distinct from an idle-but-live one, and
+that is a decision rather than an omission.** "Finished and might come back" and
+"between tool calls" are different facts and the room would be better for
+separating them. Nothing we own can draw the difference: there are six body
+states and none of them means dormant, and the single badge anchor holds one
+non-tool glyph, `attention`, which asserts "the room needs you" and would be a
+lie here. Inventing a pose is the thing [I1] forbids. So both render as `idle`
+and the room says the true, weaker thing — *this character is present and is not
+doing anything we can see* — which is equally true of both. The lifecycle is held
+in the model and exposed on `AgentSnapshot`; **no `WorldDelta` carries it**,
+because nothing downstream could draw it if it did. If a scene ever earns an
+honest treatment for dormancy, that delta is the seam, and adding it is a
+signature change.
+
+What survives from the old paragraph: a report of "four dispatched, one drawn" is
+still not by itself evidence of a lost event, and diagnosing one still starts by
+asking which agents were mid-turn rather than by hunting the transport.
 
 ## Fixtures
 

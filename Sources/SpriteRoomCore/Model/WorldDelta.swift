@@ -28,10 +28,40 @@ public struct AgentRef: Hashable, Sendable, Comparable, CustomStringConvertible 
     }
 }
 
+/// Where a character is in its life. Interior to the model except on
+/// `agentAppeared`, which can only ever carry `spawning` or `active`.
 public enum AgentLifecycle: String, Sendable, Hashable {
+    /// Created by `SubagentStart`. Walks in from the room edge.
     case spawning
+    /// On screen and answering to events. Working or idle is *not* this — that
+    /// is decided by the open-call set alone, and by nothing here. [I2/I3]
     case active
+    /// The handing-over beat `reportDelivered` licenses: walk to the anchor,
+    /// deliver. Named here because it is a real state a character passes
+    /// through, but the **model never rests in it** — it holds no clock and so
+    /// has no way to know when the walk ends. `SubagentStop` sets `dormant`,
+    /// which is where the beat finishes.
     case reporting
+    /// **Finished a turn, still assigned, still in the room.**
+    ///
+    /// `SubagentStop` means "this subagent finished and its result went to its
+    /// parent". It does not mean the agent is gone: `fixtures/four-subagents.jsonl`
+    /// has two agents stopped and then resumed by the parent with
+    /// `SendMessage`, each resume emitting a second `SubagentStart`. Departing
+    /// on a turn boundary made the room assert *this agent is gone* out of data
+    /// that says only *this agent finished a turn* — the room drew one character
+    /// where the parent had four assigned. A dormant character is the honest
+    /// rendering of the fact we actually hold. [I1]
+    ///
+    /// It is **not** visually distinct from an idle-but-live agent, and that is
+    /// deliberate: see `WorldModel.goDormant(ref:into:)`.
+    ///
+    /// Reapable like everything else [I4]: dormancy lives inside `AgentState`,
+    /// so `SessionEnd` and the 30-minute idle sweep both take it with the
+    /// character. It carries no deadline of its own — see the same doc for why
+    /// inventing one would recreate the bug it fixes.
+    case dormant
+    /// Set on the way out, for the instant before the state is removed.
     case departed
 }
 
@@ -109,6 +139,16 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     case callOpened(agent: AgentRef, call: OpenCall)
     case callClosed(agent: AgentRef, toolUseID: ToolUseID, toolName: String, outcome: CallOutcome)
     case callAbandoned(agent: AgentRef, toolUseID: ToolUseID, toolName: String, reason: AbandonReason)
+    /// This subagent finished a turn and its result went to its parent.
+    /// `SubagentStop`, and nothing else, licenses the one dramatisation this
+    /// project allows: walk to the anchor, deliver.
+    ///
+    /// **It is no longer followed by an `agentDeparted`.** It used to be, on the
+    /// same event, and the walk-off was carried by that departure. The agent now
+    /// goes `dormant` and stays in its seat, so this delta is the *whole* signal
+    /// for the beat — a report is a round trip that ends where it started, not
+    /// an exit. It can fire several times for one character: two of the four
+    /// agents in `fixtures/four-subagents.jsonl` report twice.
     case reportDelivered(agent: AgentRef)
     /// This character is, or is no longer, waiting on a human. `nil` clears it.
     ///
@@ -157,6 +197,9 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
 public struct AgentSnapshot: Sendable, Hashable {
     public let ref: AgentRef
     public let agentType: String?
+    /// Where this character is in its life. `dormant` means it finished a turn
+    /// and is still assigned — it draws exactly like an idle live agent, and
+    /// this field is the only place the difference is held. No delta carries it.
     public let lifecycle: AgentLifecycle
     /// Who this agent reports to, when the `Agent` call that launched it told
     /// us. `nil` means unlinked — anchor to the main agent. [I1]

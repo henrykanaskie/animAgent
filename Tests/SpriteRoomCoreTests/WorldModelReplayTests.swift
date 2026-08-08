@@ -317,6 +317,16 @@ import Testing
 
     /// `Stop` fires four times in this one turn. It is not end-of-session and
     /// it emits nothing.
+    ///
+    /// **This is also the check that the main agent needs no dormancy of its
+    /// own.** `SubagentStop` had to stop departing its character; `Stop` never
+    /// departed one. It emits no delta and sets no lifecycle — asserted here as
+    /// an unchanged snapshot, which includes the lifecycle field — and the only
+    /// caller of `depart` is `endSession`, reached by `SessionEnd` and the idle
+    /// sweep. So the main character already stays in the room across a turn
+    /// boundary, which is the whole of what dormancy buys a subagent, and
+    /// marking it dormant would be the weaker claim besides: four `Stop`s here
+    /// are four assistant message streams inside one user turn, not four turns.
     @Test func stopFiresRepeatedlyAndChangesNothing() async throws {
         let entries = try Fixtures.entries("three-subagents")
         let stops = entries.filter { $0.event?.kind.name == "Stop" }
@@ -415,15 +425,25 @@ import Testing
         #expect(Set(bornOn.values) == ["PreToolUse"])
     }
 
-    /// A background subagent is stopped and **restarted** by its parent: the
-    /// character departs on `SubagentStop` and comes back on the `SubagentStart`
-    /// that a `SendMessage` produces. "Departed" is not "finished".
+    /// A background subagent is stopped and **resumed** by its parent. It goes
+    /// dormant on `SubagentStop` and is **revived in place** by the second
+    /// `SubagentStart` that a `SendMessage` produces — one character, not two.
     ///
-    /// Two of the four do this here, so the fixture pins the round trip: four
-    /// distinct ids, six `SubagentStart`s and twelve `SubagentStop`s — the six
-    /// extra stops are the TUI suggestion helper's phantoms, which name agents
-    /// that never started and must stay no-ops.
-    @Test func aBackgroundSubagentDepartsAndComesBack() async throws {
+    /// This test used to be `aBackgroundSubagentDepartsAndComesBack` and it used
+    /// to assert `appearances == 2` for the two resumed agents. That assertion
+    /// was a faithful description of behaviour that was wrong: a second
+    /// `agentAppeared` is a second character, a second seat and a second
+    /// spawn-walk for an agent that never left the room. It is not softened
+    /// here, it is inverted — **exactly once each, and four departures, all at
+    /// `SessionEnd`.**
+    ///
+    /// The capture's own numbers are unchanged and still pinned: four distinct
+    /// ids, six `SubagentStart`s and twelve `SubagentStop`s. The six extra stops
+    /// are the TUI suggestion helper's phantoms, which name agents that never
+    /// started and must stay no-ops — six of them here, which is the volume a
+    /// model that spawned a character in order to walk it off would have to
+    /// survive. [I1]
+    @Test func aBackgroundSubagentGoesDormantAndIsRevivedInPlace() async throws {
         let (_, deltas, entries) = try await Fixtures.replay("four-subagents")
         let starts = entries.filter { $0.event?.kind.name == "SubagentStart" }
         let stops = entries.filter { $0.event?.kind.name == "SubagentStop" }
@@ -432,21 +452,194 @@ import Testing
 
         var appearances: [AgentRef: Int] = [:]
         var departures: [AgentRef: Int] = [:]
+        var reports: [AgentRef: Int] = [:]
         for delta in deltas {
             switch delta {
             case let .agentAppeared(agent, _, _) where agent.agent != .mainThread:
                 appearances[agent, default: 0] += 1
             case let .agentDeparted(agent) where agent.agent != .mainThread:
                 departures[agent, default: 0] += 1
+            case let .reportDelivered(agent):
+                reports[agent, default: 0] += 1
             default: break
             }
         }
+        // Six starts, four characters. Two of them were revived, and revival
+        // emits nothing at all — the character is already in its seat.
         #expect(appearances.count == 4)
-        #expect(appearances.values.filter { $0 == 2 }.count == 2)
-        // Every departure belongs to an agent we had; the phantoms named ids we
-        // never saw and produced nothing at all. [I1]
+        #expect(Set(appearances.values) == [1])
+        // The report beat is untouched and still fires per turn, so the two
+        // agents that ran twice delivered twice: six reports for the six real
+        // stops, and none for the six phantoms.
+        #expect(reports.values.reduce(0, +) == 6)
+        #expect(reports.values.filter { $0 == 2 }.count == 2)
+        // Every departure belongs to an agent we had, and there is exactly one
+        // each — `SessionEnd`, the path that means gone. [I4]
         #expect(Set(departures.keys) == Set(appearances.keys))
-        #expect(departures.values.reduce(0, +) == appearances.values.reduce(0, +))
+        #expect(Set(departures.values) == [1])
+    }
+
+    /// The revival, event by event, because "one character not two" is the
+    /// claim and a count over the whole stream cannot say *where*.
+    ///
+    /// `ab69ae01f1e4353c6` stops at t=31.850 and is resumed at t=41.165. Across
+    /// that second `SubagentStart`: no delta at all, the same `AgentRef`, the
+    /// same population, and a lifecycle that goes `dormant` → `active`.
+    @Test func aSecondSubagentStartRevivesRatherThanDuplicating() async throws {
+        let entries = try Fixtures.entries("four-subagents")
+        let resumed = AgentID.subagent("ab69ae01f1e4353c6")
+        let model = WorldModel()
+
+        // Up to and including this agent's first `SubagentStop`.
+        let stopIndex = try #require(entries.firstIndex {
+            $0.event?.kind.name == "SubagentStop" && $0.event?.agentID == resumed
+        })
+        for entry in entries.prefix(through: stopIndex) {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+        }
+
+        let ref = try #require(await model.snapshot().agents.first { $0.ref.agent == resumed }).ref
+        #expect(await model.snapshot().agent(ref)?.lifecycle == .dormant)
+        // Dormant is not a hidden departure: it is still in the room, and it is
+        // idle, which is exactly what "finished a turn" looks like. [I2]
+        #expect(await model.snapshot().agent(ref)?.isWorking == false)
+        let populationBeforeRevival = await model.snapshot().agents.count
+
+        // Everything up to its second `SubagentStart`, then that event alone.
+        let startIndex = try #require(entries.indices.dropFirst(stopIndex + 1).first {
+            entries[$0].event?.kind.name == "SubagentStart"
+                && entries[$0].event?.agentID == resumed
+        })
+        for entry in entries[(stopIndex + 1)..<startIndex] {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+        }
+        #expect(await model.snapshot().agent(ref)?.lifecycle == .dormant,
+                "something before the resume already revived it")
+
+        let revival = entries[startIndex]
+        let deltas = await model.ingest(try #require(revival.event), at: revival.receivedAt)
+        #expect(deltas.isEmpty, "reviving a character already on screen emitted \(deltas)")
+        #expect(await model.snapshot().agent(ref)?.lifecycle == .active)
+        #expect(await model.snapshot().agents.count == populationBeforeRevival)
+        // Not `.spawning`: that means "walk in from the room edge", and this
+        // character never left it.
+        #expect(await model.snapshot().agent(ref)?.lifecycle != .spawning)
+    }
+
+    /// **[I4] — dormancy is reapable, path one: `SessionEnd`.**
+    ///
+    /// All four are dormant when the session ends at t=172.402, 85 s after the
+    /// last of them stopped. A dormant character that outlived its session would
+    /// be the same class of bug as a call that never closes.
+    @Test func sessionEndDepartsEveryDormantSubagent() async throws {
+        let entries = try Fixtures.entries("four-subagents")
+        let end = try #require(entries.last { $0.event?.kind.name == "SessionEnd" })
+        let model = WorldModel()
+        for entry in entries where entry.event?.kind.name != "SessionEnd" {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+        }
+
+        let before = await model.snapshot().agents
+        #expect(before.count == 5, "main plus four dormant subagents")
+        #expect(before.filter { $0.lifecycle == .dormant }.count == 4)
+
+        let deltas = await model.ingest(try #require(end.event), at: end.receivedAt)
+        #expect(deltas.map(\.tag) == [
+            "agentDeparted", "agentDeparted", "agentDeparted", "agentDeparted", "agentDeparted",
+            "populationChanged",
+        ])
+        #expect(await model.snapshot().agents.isEmpty)
+    }
+
+    /// **[I4] — dormancy is reapable, path two: the session-idle sweep.**
+    ///
+    /// Injected instant, never `sleep`. The stream is fed without its
+    /// `SessionEnd` — the shape of an app that was watching when the session
+    /// died — and the four dormant characters are gone at the timeout and not a
+    /// second before it.
+    @Test func theIdleSweepDepartsEveryDormantSubagent() async throws {
+        let entries = try Fixtures.entries("four-subagents")
+        let reaper = Reaper()
+        let model = WorldModel(reaper: reaper)
+        var last = try #require(entries.first?.receivedAt)
+        for entry in entries where entry.event?.kind.name != "SessionEnd" {
+            guard let event = entry.event else { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            last = entry.receivedAt
+        }
+        #expect(await model.snapshot().agents.filter { $0.lifecycle == .dormant }.count == 4)
+
+        // Just short of it, still there — and that is true, because dormancy
+        // carries no deadline of its own and nothing has happened.
+        #expect(await model.sweep(at: last.addingTimeInterval(reaper.sessionIdleTimeout - 1))
+            .isEmpty)
+        #expect(await model.snapshot().agents.count == 5)
+
+        let swept = await model.sweep(at: last.addingTimeInterval(reaper.sessionIdleTimeout))
+        #expect(swept.map(\.tag) == [
+            "agentDeparted", "agentDeparted", "agentDeparted", "agentDeparted", "agentDeparted",
+            "populationChanged",
+        ])
+        #expect(await model.snapshot().agents.isEmpty)
+    }
+
+    /// **The maintainer's bug, expressed as an assertion.**
+    ///
+    /// "Only one subagent registered even though there should be 4." Nothing was
+    /// lost — identity, seats, the queue and the transport were each refuted with
+    /// data at `a6b33ff` — and the room still showed one. The reason is the whole
+    /// of it: `SubagentStop` is a **turn boundary** for a background subagent,
+    /// not its death, and departing on it made the room assert *this agent is
+    /// gone* from data that only says *this agent finished a turn*. This capture
+    /// proves it can come back: two of the four are resumed with `SendMessage`,
+    /// each resume emitting a second `SubagentStart`.
+    ///
+    /// So the count is the assertion. From the instant the fourth subagent
+    /// exists — t=7.398 — to `SessionEnd` at t=172.402, the parent holds four
+    /// agents and the room must hold four characters. Under the departing
+    /// lifecycle this fails hard: the capture drops to two for 7.3 s and to one
+    /// for 6.7 s inside that window. [I1, and the product's one sentence]
+    @Test func thePopulationNeverFallsBelowFourOnceTheFourthSubagentExists() async throws {
+        let entries = try Fixtures.entries("four-subagents")
+        let origin = try #require(entries.first?.receivedAt)
+        let model = WorldModel()
+
+        var live: Set<AgentRef> = []
+        var reachedFour = false
+        var sawSessionEnd = false
+        // Every instant the room was short-handed while the parent was not,
+        // reported together: one line per dip is what makes a red run readable.
+        var dips: [String] = []
+
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            if case .sessionEnd = event.kind { sawSessionEnd = true; break }
+            for delta in await model.ingest(event, at: entry.receivedAt) {
+                switch delta {
+                case let .agentAppeared(agent, _, _) where agent.agent != .mainThread:
+                    live.insert(agent)
+                case let .agentDeparted(agent) where agent.agent != .mainThread:
+                    live.remove(agent)
+                default:
+                    break
+                }
+            }
+            if live.count == 4 { reachedFour = true }
+            if reachedFour, live.count < 4 {
+                let at = entry.receivedAt.timeIntervalSince(origin)
+                dips.append(String(format: "t=%.3f %@ → %d", at, event.kind.name, live.count))
+            }
+        }
+
+        #expect(reachedFour, "the fixture never put four subagents in the room at once")
+        #expect(sawSessionEnd, "the fixture no longer ends on a SessionEnd")
+        #expect(dips.isEmpty, """
+            the room lost a subagent the parent still had assigned:
+            \(dips.joined(separator: "\n"))
+            """)
     }
 
     /// Nothing in this capture needs the reaper: every call closes through the
@@ -642,6 +835,30 @@ import Testing
         // `Agent` call that carried it, and *after* the child's
         // `agentAppeared`. That order is the whole reason the link has to be
         // applied retroactively.
+        //
+        // **This sequence changed when `SubagentStop` stopped departing.** It is
+        // the only required fixture that contains a `SubagentStop` for an agent
+        // we actually have, so it is the only one that could move. Three things
+        // moved, and each is the change stated rather than absorbed:
+        //
+        // 1. The `agentDeparted`/`populationChanged` pair that used to follow
+        //    each of the three `reportDelivered`s is **gone**. The report beat
+        //    itself is untouched — three `reportDelivered`, on the same three
+        //    events, in the same three places. What is gone is the claim that
+        //    followed it, that the agent had left. It had not; it had finished a
+        //    turn. `four-subagents` is the capture that proves those are
+        //    different facts, and here the three subagents stay in their seats,
+        //    dormant, for the 12.7 s between the last stop and `SessionEnd`.
+        // 2. The four departures now land **together at `SessionEnd`**, in
+        //    `AgentRef` order — main thread first, then the three subagents.
+        //    That is `endSession` closing everything under the session, which is
+        //    the path that genuinely means gone. [I4]
+        // 3. There is **one** trailing `populationChanged`, not four. It is
+        //    emitted once per ingested event whose count moved, and one event —
+        //    the `SessionEnd` — now empties the room. The three stops no longer
+        //    move the population at all, which is the whole point: the parent
+        //    had three agents assigned across that window and the room now says
+        //    so.
         "three-subagents": [
             "agentAppeared", "populationChanged",
             "callOpened",
@@ -652,11 +869,12 @@ import Testing
             "callOpened", "callClosed", "callOpened", "callClosed",
             "callClosed", "callOpened", "callOpened", "callClosed",
             "callOpened", "callClosed", "callOpened",
-            "reportDelivered", "agentDeparted", "populationChanged",
-            "callClosed", "reportDelivered", "agentDeparted", "populationChanged",
+            "reportDelivered",                      // first subagent goes dormant
+            "callClosed", "reportDelivered",        // second
             "callClosed", "callOpened", "callClosed",
-            "reportDelivered", "agentDeparted", "populationChanged",
-            "agentDeparted", "populationChanged",
+            "reportDelivered",                      // third
+            "agentDeparted", "agentDeparted", "agentDeparted", "agentDeparted",
+            "populationChanged",                    // SessionEnd, all four at once
         ],
         // Ends on an open `Bash` the stream will never close. No SessionEnd.
         "killed-session": [

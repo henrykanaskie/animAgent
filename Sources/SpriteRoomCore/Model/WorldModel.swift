@@ -354,14 +354,14 @@ public actor WorldModel {
 
         case .subagentStop:
             // Only ever acts on a character we already have. Spawning one just
-            // to walk it off screen would be fiction. [I1]
+            // to walk it off screen would be fiction, and the TUI's suggestion
+            // helper emits six of these for agents that never started in this
+            // one capture. [I1]
             guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else {
                 break
             }
             abandonAll(ref: ref, reason: .agentStopped, into: &deltas)
-            setLifecycle(.reporting, ref: ref)
-            deltas.append(.reportDelivered(agent: ref))
-            depart(ref: ref, into: &deltas)
+            goDormant(ref: ref, into: &deltas)
 
         case .permissionRequest:
             // ADR-001 (d) rule 1. An agent-level marker and nothing else: it
@@ -543,6 +543,12 @@ public actor WorldModel {
     /// Creates an agent if we have not seen it. A subagent whose
     /// `SubagentStart` we missed — because the app attached mid-session —
     /// still gets a character on its first tool call.
+    ///
+    /// **Creation is idempotent, and for a known id it is also the revival
+    /// path.** A background subagent resumed with `SendMessage` emits a *second*
+    /// `SubagentStart` ~20 ms after that call's `PreToolUse` — six starts across
+    /// four agents in `fixtures/four-subagents.jsonl` — so "not once per agent"
+    /// is the observed shape and every path here funnels through `revive`.
     private func ensureAgent(
         _ ref: AgentRef, agentType: String?, lifecycle: AgentLifecycle,
         into deltas: inout [WorldDelta]
@@ -552,6 +558,7 @@ public actor WorldModel {
             if let agentType {
                 projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.agentType = agentType
             }
+            revive(ref)
             return
         }
         let pending = projects[ref.project]!.sessions[ref.session]!
@@ -697,6 +704,92 @@ public actor WorldModel {
 
     private func setLifecycle(_ lifecycle: AgentLifecycle, ref: AgentRef) {
         projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.lifecycle = lifecycle
+    }
+
+    // MARK: Dormancy — `SubagentStop` is a turn boundary, not a death
+
+    /// **A subagent that stops does not leave the room. It goes dormant and
+    /// stays on screen.**
+    ///
+    /// `SubagentStop` means "this subagent finished and its result went to its
+    /// parent". Departing on it made the room assert *this agent is gone* out of
+    /// data that says only *this agent finished a turn*, and
+    /// `fixtures/four-subagents.jsonl` is the captured proof that the two are
+    /// different claims: two of its four agents stop, are resumed by the parent
+    /// with `SendMessage`, and come back. Between the fourth spawn and the last
+    /// stop the departing lifecycle held all four for 56% of the elapsed time,
+    /// dropping to two for 7.3 s and to one for 6.7 s, while the parent had four
+    /// assigned throughout. For a surface whose one sentence is "you glance at
+    /// the notch and know what your agents are doing", that is the [I1]
+    /// violation — not the fix for one. A dormant character is the honest
+    /// rendering of a fact we actually hold.
+    ///
+    /// **The `.reporting` beat is untouched.** `reportDelivered` is still
+    /// emitted, still on the same event, and it still licenses the one
+    /// dramatisation this project allows — walk to the anchor, deliver. What
+    /// changed is only where the character ends up afterwards: its own seat,
+    /// idle, instead of off screen.
+    ///
+    /// **Not visually distinct from an idle-but-live agent**, and that is a
+    /// decision rather than an omission. "Finished and might come back" and
+    /// "between tool calls" *are* different facts and the room would be better
+    /// for separating them — but the vocabulary we own cannot. There are six
+    /// body states and none of them means dormant; the badge anchor is single
+    /// and holds one glyph, `attention`, which asserts "the room needs you" and
+    /// would be a lie here. Inventing a pose is exactly the thing [I1] forbids,
+    /// so the two render identically and the room says the true, weaker thing:
+    /// this character is present and is not doing anything we can see. That is
+    /// equally true of both. The lifecycle is held here and exposed on
+    /// `AgentSnapshot`, so a scene that later earns an honest treatment for it
+    /// has the fact available — but no delta carries it today, because nothing
+    /// downstream could draw it.
+    ///
+    /// **Reapable, with no deadline of its own.** [I4] Dormancy lives inside
+    /// `AgentState`, so the two paths that genuinely mean *gone* — `SessionEnd`
+    /// and the 30-minute session-idle sweep — remove it with the character, by
+    /// construction and not by remembering to. A third timer was considered and
+    /// rejected: "depart after N minutes dormant" would be a number with nothing
+    /// behind it, and it would reintroduce the bug for any agent resumed later
+    /// than N. The bound that exists is the right one — an assignment is live
+    /// for exactly as long as its session is.
+    private func goDormant(ref: AgentRef, into deltas: inout [WorldDelta]) {
+        guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else { return }
+        // ADR-001 (d) rule 2, read for a subagent. `Stop` disarms the main
+        // thread's mark because the turn completed; `SubagentStop` is that same
+        // fact for a subagent, so the mark cannot survive it. This is load-
+        // bearing now rather than incidental: departure used to clear the mark
+        // by deleting the whole `AgentState`, and an agent that stops holding an
+        // *empty* marked set — a legal snapshot — would otherwise carry an armed
+        // gate into dormancy forever and be badged by a later `permission_prompt`
+        // it has nothing to do with. [I1/I4]
+        disarmPermissionGate(ref: ref)
+        setLifecycle(.dormant, ref: ref)
+        deltas.append(.reportDelivered(agent: ref))
+    }
+
+    /// **A second `SubagentStart` for a known `agent_id` revives that character
+    /// in place.** No second character, no second seat, no re-spawn walk.
+    ///
+    /// Reached from `ensureAgent`, so *every* consumed event for a dormant agent
+    /// revives it, not only the lifecycle one. That is deliberate and it is the
+    /// stricter half: `SubagentStart` is not guaranteed — the app can attach
+    /// mid-session and a resumed agent's first evidence is then its own
+    /// `PreToolUse` — and an agent left dormant while it is demonstrably working
+    /// would be a second lie in the other direction.
+    ///
+    /// It restores `.active` and never the caller's requested lifecycle, which
+    /// is the whole difference between reviving and re-spawning: `SubagentStart`
+    /// asks for `.spawning`, and `.spawning` means "walk in from the room edge".
+    /// A revived agent never left it.
+    ///
+    /// Emits nothing. The character is already on screen in its own seat, and
+    /// dormant and idle draw identically — see `goDormant(ref:into:)`. Its next
+    /// `PreToolUse` produces the `callOpened` that puts it back to work, which
+    /// is the only visible change there is.
+    private func revive(_ ref: AgentRef) {
+        guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.lifecycle == .dormant
+        else { return }
+        setLifecycle(.active, ref: ref)
     }
 
     private func open(

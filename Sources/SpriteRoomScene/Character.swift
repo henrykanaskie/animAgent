@@ -49,11 +49,26 @@ public final class Character: SKNode {
     }
 
     public let agentVariant: String
-    /// Walk speed in unscaled scene pixels per second.
+    /// Walk speed in unscaled scene pixels per second. **The same for every
+    /// walk, at every distance.**
+    ///
+    /// There used to be a `maximumWalkDuration` of 4 s on top of it, so a walk
+    /// longer than 288 px was run faster to fit. That made speed a function of
+    /// distance, which nothing in the data says and which has a consequence:
+    /// two characters leaving in the same direction converge, because the one
+    /// with further to go is the one that has been sped up. `SessionEnd` departs
+    /// the whole cast in a single frame, so that is not a corner — it is what
+    /// the end of every session looks like.
+    ///
+    /// What the cap was guarding against — "a character that takes fifteen
+    /// seconds to cross the room reads as broken" — is bounded by the routes
+    /// that exist rather than by a clamp. The longest walk the layout can
+    /// produce is a departure from the centre seat to the far edge, 432 px, six
+    /// seconds; every other route is a seat pitch, a delivery, or an entrance,
+    /// and none of them reaches four. The cost of removing the cap is that a
+    /// leaver's node lives a second or two longer after it is out of frame,
+    /// which nobody can see.
     public static let walkSpeed: Double = 72
-    /// Longest a single walk may take, however far it is. A character that
-    /// takes fifteen seconds to cross the room reads as broken.
-    public static let maximumWalkDuration: TimeInterval = 4
 
     private let store: TextureStore
     private let body = SKSpriteNode()
@@ -253,7 +268,7 @@ public final class Character: SKNode {
     public static func duration(from: ScenePoint, to: ScenePoint) -> TimeInterval {
         let distance = ((to.x - from.x) * (to.x - from.x) + (to.y - from.y) * (to.y - from.y))
             .squareRoot()
-        return min(maximumWalkDuration, max(0.2, distance / walkSpeed))
+        return max(0.2, distance / walkSpeed)
     }
 
     /// Walk in from the room edge. `spawn` is the walk cycle by construction —
@@ -270,10 +285,46 @@ public final class Character: SKNode {
         ])
     }
 
-    /// The `SubagentStop` beat: walk to the anchor, hand the report over, then
-    /// leave. The one dramatisation the event model licenses — and it is
-    /// licensed because the underlying event genuinely happened. No dialogue,
-    /// no bubble with content, nothing about what was said. [I1]
+    /// The `SubagentStop` beat: step into the aisle, walk to the anchor, hand
+    /// the report over, walk back and sit down again.
+    ///
+    /// The one dramatisation the event model licenses — and it is licensed
+    /// because the underlying event genuinely happened. No dialogue, no bubble
+    /// with content, nothing about what was said. [I1]
+    ///
+    /// **A round trip, because a stop is a turn boundary and not a death.** This
+    /// used to be the front half of `reportAndDepart`: the walk-off was carried
+    /// by the `agentDeparted` that followed `reportDelivered` on the same event.
+    /// The agent now goes dormant in its own seat, so the walk has to bring it
+    /// home itself.
+    ///
+    /// **The badge is not touched here**, unlike the two exits. A character that
+    /// leaves takes its badge with it and nothing can be stale afterwards; a
+    /// character that comes back would be sitting under whatever this method
+    /// last forced, disagreeing with the director's suppression memory. The
+    /// director already emits the badge change in this same batch, off the
+    /// `callAbandoned` deltas `SubagentStop` produces. Animate state, not
+    /// events. [I2/I3]
+    public func reportAndReturn(
+        via approach: ScenePoint, to delivery: ScenePoint, facing deliveryFacing: Facing,
+        home homeApproach: ScenePoint, seat: ScenePoint, onFinished: @escaping () -> Void
+    ) {
+        run(script: [
+            .walk(to: approach, state: .walk),
+            .walk(to: delivery, state: .walk),
+            .play(.deliver, facing: deliveryFacing),
+            .walk(to: homeApproach, state: .walk),
+            .walk(to: seat, state: .walk),
+            .finish(onFinished),
+        ])
+    }
+
+    /// The report beat, truncated into an exit: walk to the anchor, hand the
+    /// report over, then leave instead of going home.
+    ///
+    /// Only for a character that reported **and** departed in the same frame —
+    /// a `SessionEnd` landing on top of a `SubagentStop`. Both facts are real,
+    /// so the character plays the beat it earned and then goes.
     public func reportAndDepart(
         via approach: ScenePoint, to delivery: ScenePoint, facing deliveryFacing: Facing,
         thenExitAt edge: ScenePoint, onFinished: @escaping () -> Void

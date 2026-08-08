@@ -561,9 +561,10 @@ Two further shapes it is the only capture of:
 subagent can come back"; what it could not show is that the return arrives as a
 lifecycle event rather than only as the child's next tool call.
 
-**A background subagent spends much of its life departed.** `SubagentStop`
-departs the character, so the room's subagent count tracks who is mid-turn, not
-how many the user dispatched:
+**A background subagent spends much of its life stopped — and this is the
+capture that changed what the room does about it.** `SubagentStop` *used to*
+depart the character, so the room's subagent count tracked who was mid-turn
+rather than how many the user had dispatched:
 
 ```
  7.398  4 subagents   ← all four spawned
@@ -577,11 +578,26 @@ how many the user dispatched:
 76.880  0
 ```
 
-Between the fourth spawn and the last stop the room holds all four for **39.1 s
-of 69.5 s (56%)**, drops to two for 7.3 s and to **one for 6.7 s** — while the
-parent had four agents assigned throughout. That is truthful under the current
-reading of `SubagentStop`, and it is also exactly what "only one subagent has
-been registered even though there should be 4" looks like from the outside.
+Between the fourth spawn and the last stop the room held all four for **39.1 s
+of 69.5 s (56%)**, dropped to two for 7.3 s and to **one for 6.7 s** — while the
+parent had four agents assigned throughout. That is exactly what "only one
+subagent has been registered even though there should be 4" looks like from the
+outside, and it is how the maintainer reported it.
+
+**That reading was retracted.** This file previously called the timeline above
+"truthful under the current reading of `SubagentStop`". It was not: each
+individual transition was faithful, but departing on a *turn boundary* made the
+room assert "this agent is gone" when the data said only "this agent finished a
+turn" — and the six starts above are captured proof it comes back. Departing was
+the fiction. [I1]
+
+A stopped subagent now goes **dormant**: it keeps its seat, is revived in place
+by any later event, and departs only on `SessionEnd` or the idle sweep. Replayed
+against the model today the population never falls below four between the fourth
+spawn and `SessionEnd`, which is
+`thePopulationNeverFallsBelowFourOnceTheFourthSubagentExists` — this fixture's
+reason for existing, and a test that was seen red against the old behaviour
+before the change was made.
 
 It carries **six phantom `SubagentStop`s** (12 stops, 6 real) from the TUI's
 suggestion helper, each with `agent_type: ""` and an `agent_id` that never

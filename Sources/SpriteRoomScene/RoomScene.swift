@@ -22,10 +22,17 @@ public final class RoomScene: SKScene {
     /// so the camera frames a character's seat from the moment it starts
     /// walking in rather than snapping open when it arrives.
     private var seatOf: [AgentRef: Int] = [:]
-    /// Delivery slots currently occupied by a report in flight. Claimed on the
-    /// way in, released when the reporter is retired.
-    private var reportingSlots: Set<Int> = []
-    private var slotOf: [ObjectIdentifier: Int] = [:]
+    /// One standing spot in the row of delivery slots beside an anchor. Two
+    /// rows, one per side, because a reporter approaches from its own side.
+    private struct DeliveryStation: Hashable {
+        var side: Facing
+        var index: Int
+    }
+
+    /// Delivery stations currently spoken for. Claimed when the beat starts,
+    /// released when the reporter is home again — or retired, if it left first.
+    private var reportingSlots: Set<DeliveryStation> = []
+    private var slotOf: [ObjectIdentifier: DeliveryStation] = [:]
 
     /// The scale the director asked for, from population. The viewport can
     /// only ever push this *down* the ladder, never up. [I6]
@@ -233,32 +240,72 @@ public final class RoomScene: SKScene {
         case let .setBadge(agent, selection):
             characters[agent]?.apply(badge: selection)
 
+        case let .deliverReport(agent, anchorSeat):
+            guard let character = characters[agent], let seat = seatOf[agent] else { break }
+            // Step into the aisle, walk to the anchor, hand over, walk back and
+            // sit down. The anchor is the parent's seat when
+            // `tool_response.agentId` linked them, and seat 0 — the main agent —
+            // when it did not. [I1]
+            //
+            // **The transit is the room's one unguarded window, and it is
+            // structural.** A reporter in the aisle passes every station between
+            // its desk and its anchor's, and a station is 96 px from the next
+            // while the widest plate is 65 — so a character crossing the aisle
+            // is within a plate width of *some* station for most of the walk. If
+            // whoever sits there steps into the aisle in that window — spawning,
+            // leaving, or reporting itself — the two plates touch. Delivering
+            // from the reporter's own side halves the exposure and removes the
+            // crossing of the anchor entirely; nothing in the layout can close
+            // the rest while a seat pitch is narrower than two nameplates.
+            // `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` holds
+            // those two numbers so a change to either surfaces as a failure.
+            let station = claimStation(
+                for: character, side: layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: seat))
+            character.reportAndReturn(
+                via: ScenePoint(x: Double(character.position.x), y: layout.aisleY),
+                to: layout.deliveryPosition(
+                    anchorSeat: anchorSeat, side: station.side, slot: station.index),
+                facing: layout.deliveryFacing(side: station.side),
+                home: layout.seatApproach(seat),
+                seat: layout.seatPosition(seat)
+            ) { [weak self, weak character] in self?.releaseStation(character) }
+
         case let .exitCharacter(agent, style):
             guard let character = characters.removeValue(forKey: agent) else { break }
-            seatOf.removeValue(forKey: agent)
-            let approach = ScenePoint(x: Double(character.position.x), y: layout.aisleY)
+            let seat = seatOf.removeValue(forKey: agent)
             switch style {
             case let .report(anchorSeat):
-                // Step into the aisle, walk to the anchor, hand over, then
-                // leave. The anchor is the parent's seat when
-                // `tool_response.agentId` linked them, and seat 0 — the main
-                // agent — when it did not. Slots stay globally unique so two
-                // reporters in flight never share a delivery spot. [I1]
-                var slot = 0
-                while reportingSlots.contains(slot) { slot += 1 }
-                reportingSlots.insert(slot)
-                slotOf[ObjectIdentifier(character)] = slot
-                let delivery = layout.deliveryPosition(anchorSeat: anchorSeat, slot: slot)
+                let station = claimStation(
+                    for: character,
+                    side: seat.map {
+                        layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: $0)
+                    } ?? .left)
+                let delivery = layout.deliveryPosition(
+                    anchorSeat: anchorSeat, side: station.side, slot: station.index)
                 character.reportAndDepart(
-                    via: approach,
+                    via: ScenePoint(x: Double(character.position.x), y: layout.aisleY),
                     to: delivery,
-                    facing: layout.deliveryFacing(anchorSeat: anchorSeat),
+                    facing: layout.deliveryFacing(side: station.side),
                     thenExitAt: layout.nearestEdge(toX: delivery.x)
                 ) { [weak self, weak character] in self?.retire(character) }
             case .walkOff:
+                // **Out through its own desk's station, not through whatever
+                // patch of aisle it happens to be standing on.** The exit is the
+                // inverse of the entrance — `enter` comes in along the aisle and
+                // steps *up* to the desk; `walkOff` steps down to the same spot
+                // and goes back out the way it came.
+                //
+                // The whole cast can now depart in one frame, `SessionEnd` does
+                // exactly that, and a character mid-report is somewhere in the
+                // aisle rather than at a desk when it happens. Routing every
+                // leaver through its own station is what keeps that convoy a
+                // seat pitch apart — which is wider than the widest nameplate —
+                // instead of letting one leaver set off from a spot 28 px behind
+                // another and walk the length of the room in its plate.
+                let station = seat.map(layout.seatApproach)
+                    ?? ScenePoint(x: Double(character.position.x), y: layout.aisleY)
                 character.departOffScreen(
-                    via: approach,
-                    to: layout.nearestEdge(toX: Double(character.position.x))
+                    via: station, to: layout.nearestEdge(toX: station.x)
                 ) { [weak self, weak character] in self?.retire(character) }
             }
 
@@ -267,11 +314,40 @@ public final class RoomScene: SKScene {
         }
     }
 
+    /// The lowest delivery slot nobody is standing in, reserved for this
+    /// character until it is released.
+    ///
+    /// **Occupancy spans the whole round trip, not just the walk out.** A
+    /// reporter holds its slot from the moment it leaves its desk until it is
+    /// back in it, so a second reporter that stops a second later can never be
+    /// sent to a spot the first is still walking home from. That is the case the
+    /// return leg introduced: before, a slot was vacated by a character
+    /// disappearing off the edge of the room, and there was no walk *back*
+    /// through the row of slots for anyone to be standing in.
+    ///
+    /// Re-entrant on purpose. Two of the four agents in
+    /// `fixtures/four-subagents.jsonl` report twice, and a second report that
+    /// lands while the first walk is still in flight restarts the beat — so the
+    /// old reservation is released rather than leaked.
+    private func claimStation(for character: Character, side: Facing) -> DeliveryStation {
+        releaseStation(character)
+        var station = DeliveryStation(side: side, index: 0)
+        while reportingSlots.contains(station) { station.index += 1 }
+        reportingSlots.insert(station)
+        slotOf[ObjectIdentifier(character)] = station
+        return station
+    }
+
+    private func releaseStation(_ character: Character?) {
+        guard let character else { return }
+        if let station = slotOf.removeValue(forKey: ObjectIdentifier(character)) {
+            reportingSlots.remove(station)
+        }
+    }
+
     private func retire(_ character: Character?) {
         guard let character else { return }
-        if let slot = slotOf.removeValue(forKey: ObjectIdentifier(character)) {
-            reportingSlots.remove(slot)
-        }
+        releaseStation(character)
         animated.removeAll { $0 === character }
         character.removeFromParent()
     }

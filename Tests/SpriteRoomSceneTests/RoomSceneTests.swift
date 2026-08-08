@@ -18,6 +18,16 @@ struct RoomSceneTests {
         TextureStore(manifest: try SceneFixtures.manifest())
     }
 
+    /// The main agent plus `count - 1` subagents, in seat order. Ids are
+    /// distinct so the plates are, which is what the geometry tests measure.
+    static func cast(_ count: Int) -> [AgentRef] {
+        (0..<count).map { index in
+            AgentRef(
+                project: "/p", session: "s",
+                agent: index == 0 ? .mainThread : .subagent(String(format: "a%016x", index)))
+        }
+    }
+
     // MARK: The standing rule
 
     /// **`.nearest` on every texture, no mipmaps.** A single texture created
@@ -156,8 +166,52 @@ struct RoomSceneTests {
         #expect(character.state == .idle, "the walk-in must hand back to the data's state")
     }
 
-    /// The one dramatisation the event model licenses: walk, deliver, depart.
-    /// All three states have to actually play, in that order.
+    /// The one dramatisation the event model licenses: walk, deliver, **walk
+    /// back**. All of it has to actually play, in that order, and it has to end
+    /// with the character in the chair it started in.
+    ///
+    /// This is the whole beat now. It used to be the front half of an exit — the
+    /// walk-off was carried by the `agentDeparted` that `SubagentStop` emitted
+    /// behind `reportDelivered`. A subagent that stops goes dormant in its seat,
+    /// so nothing follows the report and the round trip is the entire
+    /// choreography.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theReportWalkGoesToTheAnchorDeliversAndComesHome() throws {
+        let store = try Self.store()
+        let character = Character(
+            variant: "07", nameplate: NameplateText(lead: "6E7", role: "Explore"), store: store)
+        character.advance(to: 0)
+        character.setResting(.idle, facing: .right)
+        let seat = ScenePoint(x: 496, y: 64)
+        character.position = CGPoint(x: seat.x, y: seat.y)
+        var finished = false
+        character.reportAndReturn(
+            via: ScenePoint(x: 496, y: 32),
+            to: ScenePoint(x: 448, y: 32),
+            facing: .left,
+            home: ScenePoint(x: 496, y: 32),
+            seat: seat) { finished = true }
+
+        var states: [BodyState] = []
+        var deliveredAt: CGPoint?
+        var time = 0.0
+        while time < 20 {
+            character.advance(to: time)
+            if let state = character.state, states.last != state { states.append(state) }
+            if character.state == .deliver, deliveredAt == nil { deliveredAt = character.position }
+            time += 1.0 / 60.0
+        }
+        #expect(states == [.walk, .deliver, .walk, .idle])
+        #expect(deliveredAt == CGPoint(x: 448, y: 32), "the hand-over happens at the anchor")
+        #expect(finished)
+        #expect(character.position == CGPoint(x: seat.x, y: seat.y),
+                "the round trip has to end in the chair it started in")
+        #expect(!character.isScripted)
+        #expect(character.state == .idle, "the walk hands the body back to the data's state")
+    }
+
+    /// The truncated form: reported *and* departed in the same frame, which is
+    /// a `SessionEnd` landing on top of a `SubagentStop`. Walk, deliver, depart.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theReportWalkPlaysWalkThenDeliverThenDepart() throws {
         let store = try Self.store()
@@ -306,6 +360,71 @@ struct RoomSceneTests {
         }
     }
 
+    /// **A reporter delivers on its own side of the anchor**, so it never walks
+    /// past the character it is reporting to — twice, now that the beat is a
+    /// round trip. It also always faces the anchor: delivering with your back
+    /// turned would be a small lie about a real event. [I1]
+    @Test func aReporterApproachesItsAnchorFromItsOwnSideAndTurnsToFaceIt() {
+        let layout = RoomLayout()
+        for anchor in 0..<layout.seatCapacity {
+            let anchorX = layout.seatPosition(anchor).x
+            for reporter in 0..<layout.seatCapacity where reporter != anchor {
+                let side = layout.deliverySide(anchorSeat: anchor, reporterSeat: reporter)
+                let reporterX = layout.seatPosition(reporter).x
+                let delivery = layout.deliveryPosition(anchorSeat: anchor, side: side, slot: 0)
+                #expect(delivery.y == layout.aisleY)
+                // Between the two, or level with the reporter — never beyond it,
+                // which is what walking past the anchor would look like.
+                #expect(min(anchorX, reporterX) <= delivery.x)
+                #expect(delivery.x <= max(anchorX, reporterX))
+                #expect(layout.deliveryFacing(side: side)
+                        == (delivery.x < anchorX ? .right : .left))
+            }
+        }
+    }
+
+    /// The two rows of slots are one seat pitch apart at their nearest point, so
+    /// a reporter arriving from the left and one arriving from the right cannot
+    /// land their plates on each other — the same argument that sizes the pitch
+    /// *within* a row.
+    @Test func theTwoDeliveryRowsClearEachOtherAndThemselves() {
+        let layout = RoomLayout()
+        let widest = Double(SceneBitmaps.maximumNameplateWidth)
+        let left = layout.deliveryPosition(anchorSeat: 0, side: .left, slot: 0)
+        let right = layout.deliveryPosition(anchorSeat: 0, side: .right, slot: 0)
+        #expect(right.x - left.x >= widest)
+        #expect(RoomLayout.deliverySlotPitch >= widest)
+        // Slots step *outward* on each side rather than in a single direction,
+        // or one row would walk over the anchor to reach its second spot.
+        for side in [Facing.left, Facing.right] {
+            let near = layout.deliveryPosition(anchorSeat: 0, side: side, slot: 0)
+            let far = layout.deliveryPosition(anchorSeat: 0, side: side, slot: 1)
+            #expect(abs(far.x - layout.seatPosition(0).x) > abs(near.x - layout.seatPosition(0).x))
+        }
+    }
+
+    /// **Every walk runs at the same speed, however far it goes.**
+    ///
+    /// There used to be a four-second ceiling on a single walk, which meant a
+    /// longer walk ran faster. Two characters leaving in the same direction then
+    /// converge — the one with further to go is the one that was sped up — and
+    /// `SessionEnd` sends the whole cast out at once, so that is not a corner.
+    @Test func aWalkTakesTimeInProportionToItsLengthAtEveryLength() {
+        func seconds(_ distance: Double) -> TimeInterval {
+            Character.duration(
+                from: ScenePoint(x: 0, y: 0), to: ScenePoint(x: distance, y: 0))
+        }
+        // Well past the old ceiling: 4 s × 72 px/s was 288 px, and the room is
+        // wider than that.
+        for distance in [100.0, 288.0, 500.0, 900.0] {
+            #expect(abs(seconds(distance) - distance / Character.walkSpeed) < 1e-9,
+                    "\(distance) px did not run at the walk speed")
+        }
+        // A floor stays, so a zero-length step still takes a moment rather than
+        // teleporting.
+        #expect(seconds(0) > 0)
+    }
+
     @Test func everySeatedCharacterFacesADirectionThePackDrew() {
         let layout = RoomLayout()
         #expect(layout.seatedFacing.isSideView)
@@ -437,6 +556,237 @@ struct RoomSceneTests {
         #expect(frames > 2000, "the whole fixture was not stepped")
         #expect(peakOnScreen >= 4, "the crowded frames were never reached")
         #expect(checkedPairs > 0)
+    }
+
+    /// The same assertion over `four-subagents` — the capture the whole dormancy
+    /// change came from. Five characters, two agents that stop and are resumed
+    /// and stop again, and two reports in flight at once, which is what makes
+    /// the delivery rows earn their keep.
+    ///
+    /// Additive: `noTwoNameplatesEverIntersect` above is untouched and still
+    /// runs `three-subagents` at fixture pace.
+    @Test func noTwoNameplatesEverIntersectAcrossResumedSubagents() async throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        scene.setViewport(CGSize(width: 960, height: 540))
+
+        var frames = 0
+        var peakOnScreen = 0
+        var overlaps: [String] = []
+
+        _ = try await SceneFixtures.replayInFixtureTime(
+            "four-subagents", into: scene, director: SceneDirector(manifest: manifest)
+        ) { time in
+            frames += 1
+            let onScreen = scene.charactersOnScreen
+            peakOnScreen = max(peakOnScreen, onScreen.count)
+            for (index, first) in onScreen.enumerated() {
+                for second in onScreen[onScreen.index(after: index)...]
+                where first.nameplateRect.intersects(second.nameplateRect) {
+                    overlaps.append(
+                        "t=\(String(format: "%.3f", time)) "
+                        + "\(first.nameplateRect) vs \(second.nameplateRect)")
+                }
+            }
+        }
+
+        #expect(
+            overlaps.isEmpty,
+            "nameplates overlapped on \(overlaps.count) frame(s), first: \(overlaps.first ?? "")")
+        #expect(frames > 8000, "the whole fixture was not stepped")
+        #expect(peakOnScreen >= 5, "main plus four subagents were never all drawn")
+    }
+
+    /// **The whole cast leaving in one frame.** `SessionEnd` departs every agent
+    /// in the session together — four `agentDeparted` in one batch — and the
+    /// exit routing had only ever been exercised against staggered departures.
+    ///
+    /// Two rules hold it, and both are checked here rather than argued: every
+    /// leaver goes out through its own desk's aisle station, so the convoy sets
+    /// off spaced by the seat pitch; and every walk runs at the same speed, so a
+    /// convoy that starts spaced stays spaced. Widest plates throughout —
+    /// `general-purpose` is the type that draws the full 65 px.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theWholeCastCanLeaveInOneFrame() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        scene.setViewport(CGSize(width: 960, height: 540))
+        var director = SceneDirector(manifest: manifest)
+        let cast = Self.cast(5)
+
+        scene.apply(director.apply(cast.enumerated().map { index, ref in
+            .agentAppeared(
+                agent: ref, agentType: index == 0 ? nil : "general-purpose",
+                lifecycle: index == 0 ? .active : .spawning)
+        }))
+        var time = 0.0
+        var overlaps = 0
+        func step(_ seconds: TimeInterval) {
+            let end = time + seconds
+            while time < end {
+                time += 1.0 / 60.0
+                scene.advance(to: time)
+                let onScreen = scene.charactersOnScreen
+                for (index, first) in onScreen.enumerated() {
+                    for second in onScreen[onScreen.index(after: index)...]
+                    where first.nameplateRect.intersects(second.nameplateRect) { overlaps += 1 }
+                }
+            }
+        }
+
+        step(4)                                     // everyone walks in and sits
+        #expect(scene.charactersOnScreen.allSatisfy { !$0.isScripted }, "still walking in")
+        // One frame, five departures. Exactly what `SessionEnd` produces.
+        scene.apply(director.apply(cast.map { .agentDeparted(agent: $0) }))
+        #expect(scene.population == 0)
+        step(14)
+        #expect(overlaps == 0, "\(overlaps) frames with intersecting nameplates")
+        #expect(scene.charactersOnScreen.isEmpty, "someone never finished leaving")
+    }
+
+    /// A leaver goes out through **its own desk's station**, not through
+    /// whatever patch of aisle it happens to be standing on. That is what makes
+    /// the mass departure a convoy: the stations are a seat pitch apart, and a
+    /// character caught mid-report is somewhere between them.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aLeaverCaughtInTheAisleGoesOutThroughItsOwnStation() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        scene.setViewport(CGSize(width: 960, height: 540))
+        var director = SceneDirector(manifest: manifest)
+        let cast = Self.cast(4)
+        scene.apply(director.apply(cast.enumerated().map { index, ref in
+            .agentAppeared(
+                agent: ref, agentType: index == 0 ? nil : "Explore",
+                lifecycle: index == 0 ? .active : .spawning)
+        }))
+        var time = 0.0
+        func step(_ seconds: TimeInterval) {
+            let end = time + seconds
+            while time < end { time += 1.0 / 60.0; scene.advance(to: time) }
+        }
+        step(4)
+        scene.apply(director.apply([.reportDelivered(agent: cast[3])]))
+        step(3)
+        let reporter = try #require(scene.character(for: cast[3]))
+        let station = scene.layout.seatApproach(3)
+        #expect(Double(reporter.position.y) == scene.layout.aisleY)
+        #expect(Double(reporter.position.x) != station.x, "the reporter never left its own station")
+
+        scene.apply(director.apply([.agentDeparted(agent: cast[3])]))
+        // It walks back through its own station before it walks out, and it
+        // leaves on the side its station is on rather than the side it happened
+        // to be standing on.
+        var reachedStation = false
+        let end = time + 12
+        while time < end {
+            time += 1.0 / 60.0
+            scene.advance(to: time)
+            if abs(Double(reporter.position.x) - station.x) < 1e-6 { reachedStation = true }
+        }
+        #expect(reachedStation)
+        #expect(Double(reporter.position.x) == scene.layout.nearestEdge(toX: station.x).x)
+    }
+
+    /// **What the room actually guarantees about the aisle, as arithmetic.**
+    ///
+    /// Two plates clear each other when their characters are a seat pitch apart,
+    /// which is what keeps the whole cast's exit convoy legible. They do *not*
+    /// clear each other at half a pitch — and half a pitch is where a character
+    /// crossing the aisle spends most of its time. So the guarantee is "clear at
+    /// the stations", not "clear in the aisle", and every route in this file is
+    /// built to put characters at stations rather than between them.
+    ///
+    /// The seam this leaves is named in the report walk's own comment: a
+    /// reporter in transit passes within a plate width of every station between
+    /// its desk and its anchor's. Nothing in the layout can close that while a
+    /// pitch is narrower than two plates; the numbers are checked here so that
+    /// a change to either one surfaces as a failure rather than as a redrawn
+    /// room nobody measured.
+    @Test func theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem() {
+        let layout = RoomLayout()
+        let widest = Double(SceneBitmaps.maximumNameplateWidth)
+        let pitch = layout.seatPosition(1).x - layout.seatPosition(0).x
+        #expect(pitch >= widest, "two characters at neighbouring stations overlap")
+        #expect(pitch / 2 < widest, "the seam described above has closed; update this comment")
+        // Neighbouring stations are the closest two stations get, so the bound
+        // holds for every pair rather than for this one.
+        var gaps: [Double] = []
+        for seat in 0..<layout.seatCapacity {
+            for other in (seat + 1)..<layout.seatCapacity {
+                gaps.append(abs(layout.seatPosition(seat).x - layout.seatPosition(other).x))
+            }
+        }
+        #expect(gaps.min() == pitch)
+    }
+
+    /// **A delivery station is spoken for on the way out and on the way home.**
+    ///
+    /// The slots exist because two subagents can stop within a second of each
+    /// other. A report used to be one-way, so a station was vacated by a
+    /// character walking off the edge of the room; a round trip walks back
+    /// through the row, and a station released at the hand-over would be handed
+    /// to the next reporter while the first is still standing on the way to it.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aDeliveryStationStaysClaimedUntilTheReporterIsHomeAgain() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        scene.setViewport(CGSize(width: 960, height: 540))
+        var director = SceneDirector(manifest: manifest)
+        let cast = Self.cast(4)
+        // Seats 1 and 3 are both right of the anchor, so both reporters want the
+        // same row of slots. Seat 2 is only there to push seat 3 out.
+        scene.apply(director.apply(cast.enumerated().map { index, ref in
+            .agentAppeared(
+                agent: ref, agentType: index == 0 ? nil : "general-purpose",
+                lifecycle: index == 0 ? .active : .spawning)
+        }))
+        #expect(director.seats[cast[1]] == 1 && director.seats[cast[3]] == 3)
+
+        var time = 0.0
+        var overlaps = 0
+        var stations: [AgentRef: Double] = [:]
+        func step(_ seconds: TimeInterval) {
+            let end = time + seconds
+            while time < end {
+                time += 1.0 / 60.0
+                scene.advance(to: time)
+                for ref in [cast[1], cast[3]] {
+                    if let character = scene.character(for: ref), character.state == .deliver {
+                        stations[ref] = Double(character.position.x)
+                    }
+                }
+                let onScreen = scene.charactersOnScreen
+                for (index, first) in onScreen.enumerated() {
+                    for second in onScreen[onScreen.index(after: index)...]
+                    where first.nameplateRect.intersects(second.nameplateRect) { overlaps += 1 }
+                }
+            }
+        }
+
+        step(4)
+        scene.apply(director.apply([.reportDelivered(agent: cast[1])]))
+        // Long enough that the first reporter has delivered and is on its way
+        // home — the window in which the old bookkeeping would have handed its
+        // station away.
+        step(3)
+        #expect(stations[cast[1]] != nil, "the first reporter never delivered")
+        #expect(scene.character(for: cast[1])?.isScripted == true,
+                "the first reporter is already home; the overlap under test never happened")
+        scene.apply(director.apply([.reportDelivered(agent: cast[3])]))
+        step(10)
+
+        let first = try #require(stations[cast[1]])
+        let second = try #require(stations[cast[3]])
+        #expect(abs(first - second) >= RoomLayout.deliverySlotPitch,
+                "two reporters delivered \(abs(first - second)) px apart")
+        #expect(overlaps == 0, "\(overlaps) frames with intersecting nameplates")
+        // Both are home and sitting again: a report takes nobody out of the room.
+        #expect(scene.population == 4)
+        for ref in [cast[1], cast[3]] {
+            let seat = scene.layout.seatPosition(try #require(director.seats[ref]))
+            #expect(scene.character(for: ref)?.position == CGPoint(x: seat.x, y: seat.y))
+        }
     }
 
     /// The invariant that makes the occlusion impossible rather than unlikely:

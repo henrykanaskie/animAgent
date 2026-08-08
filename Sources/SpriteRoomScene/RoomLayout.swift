@@ -96,7 +96,7 @@ public struct RoomLayout: Sendable, Hashable {
     public var seatedFacing: Facing { .right }
 
     /// Where a reporting subagent walks to before it delivers: into the aisle,
-    /// short of the main agent's seat. On the aisle rather than the seat row so
+    /// short of the anchor's seat. On the aisle rather than the seat row so
     /// it does not walk through whoever is sitting in between.
     ///
     /// The gap is a tile and a half, not a quarter-tile, and the number is
@@ -108,9 +108,28 @@ public struct RoomLayout: Sendable, Hashable {
     /// report. [criterion 5]
     public var deliveryPosition: ScenePoint { deliveryPosition(slot: 0) }
 
+    /// **Which side of the anchor a reporter stands on: its own.**
+    ///
+    /// It used to be the left, always. That was harmless while a report was the
+    /// front half of an exit — the reporter walked to the anchor and then off
+    /// the near edge, and never came back through the room. A report is now a
+    /// round trip, and a reporter seated to the *right* of its anchor would walk
+    /// past the anchor on the way in and past it again on the way home: two
+    /// crossings of the one seat every other character in the room is anchored
+    /// to, held for the length of a walk each time.
+    ///
+    /// Approaching from its own side removes both. It also halves the traverse —
+    /// a reporter now only ever crosses the aisle between its own desk and the
+    /// anchor's, never the far side of the room — and it is the more natural
+    /// read besides: you walk over to the person you report to, you do not walk
+    /// round them.
+    public func deliverySide(anchorSeat: Int, reporterSeat: Int) -> Facing {
+        seatPosition(reporterSeat).x >= seatPosition(anchorSeat).x ? .right : .left
+    }
+
     /// Subagents can stop within a second of each other, so the delivery point
     /// is a row of slots rather than a single spot. Slot 0 is nearest the
-    /// anchor and each further slot steps one pitch away.
+    /// anchor and each further slot steps one pitch away, outward on `side`.
     ///
     /// The pitch is wider than the widest nameplate the font will draw, so two
     /// reporters delivering at once cannot land their plates on top of one
@@ -118,13 +137,22 @@ public struct RoomLayout: Sendable, Hashable {
     /// character standing about waiting, and nothing in the data says it
     /// waited. [I1]
     ///
+    /// **The two sides are separate rows of slots**, so a reporter arriving from
+    /// the left is never pushed a pitch out because someone is delivering on the
+    /// right. Slot 0 on each side is 1.5 tiles from the anchor, so the two are a
+    /// full seat pitch apart — wider than the widest plate, by the same argument
+    /// that sizes the pitch.
+    ///
     /// `anchorSeat` is whose seat the reporter delivers to. It is 0 — the main
     /// agent — unless `tool_response.agentId` linked the reporter to a
     /// different parent that is still in the room.
-    public func deliveryPosition(anchorSeat: Int = 0, slot: Int) -> ScenePoint {
-        ScenePoint(
-            x: seatPosition(anchorSeat).x - Double(tile) * 1.5
-                - Double(max(0, slot)) * Self.deliverySlotPitch,
+    public func deliveryPosition(
+        anchorSeat: Int = 0, side: Facing = .left, slot: Int
+    ) -> ScenePoint {
+        let outward = side == .right ? 1.0 : -1.0
+        return ScenePoint(
+            x: seatPosition(anchorSeat).x
+                + outward * (Double(tile) * 1.5 + Double(max(0, slot)) * Self.deliverySlotPitch),
             y: aisleY)
     }
 
@@ -134,14 +162,13 @@ public struct RoomLayout: Sendable, Hashable {
     /// rather than trusting this comment.
     public static let deliverySlotPitch: Double = 80
 
-    /// Which way the reporter faces to hand its report over. It stands left of
-    /// the anchor, so it turns right — delivering with your back to the person
-    /// you are delivering to would be a small lie about a real event. [I1]
-    public var deliveryFacing: Facing { deliveryFacing(anchorSeat: 0) }
+    /// Which way the reporter faces to hand its report over: at the anchor.
+    /// Delivering with your back to the person you are delivering to would be a
+    /// small lie about a real event. [I1]
+    public var deliveryFacing: Facing { deliveryFacing(side: .left) }
 
-    public func deliveryFacing(anchorSeat: Int) -> Facing {
-        deliveryPosition(anchorSeat: anchorSeat, slot: 0).x < seatPosition(anchorSeat).x
-            ? .right : .left
+    public func deliveryFacing(side: Facing) -> Facing {
+        side == .right ? .left : .right
     }
 
     /// The point on the aisle directly in front of a seat. A character walks

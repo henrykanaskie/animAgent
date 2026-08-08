@@ -12,19 +12,41 @@ public enum SpriteIntent: Sendable, Hashable {
     case setBody(agent: AgentRef, state: BodyState, facing: Facing)
     /// The badge layer. Only ever emitted when it actually changed. [criterion 6]
     case setBadge(agent: AgentRef, selection: BadgeSelection)
-    /// Take a character out. `.report` is the `SubagentStop` choreography:
-    /// walk to the anchor, `deliver`, then `depart`.
+    /// The `SubagentStop` choreography, and **a round trip**: step into the
+    /// aisle, walk to the anchor, `deliver`, walk back, sit down again.
+    ///
+    /// This is what drives the report beat now. It used to be carried by the
+    /// `agentDeparted` that `SubagentStop` emitted right behind
+    /// `reportDelivered` — the walk was the front half of an exit and the
+    /// character never came back. A subagent that stops no longer departs
+    /// (it goes `dormant` and stays in its seat), so the beat has to be driven
+    /// by `reportDelivered` itself or it disappears from the room entirely.
+    ///
+    /// `anchorSeat` is the seat of the character this one reports to — its
+    /// parent, when `tool_response.agentId` linked them, and seat 0 otherwise.
+    /// Seat 0 is the documented fallback rather than a guess: an unlinked
+    /// subagent reports to the main agent. [I1]
+    ///
+    /// It can arrive several times for one character. Two of the four agents in
+    /// `fixtures/four-subagents.jsonl` stop, are resumed, and stop again.
+    case deliverReport(agent: AgentRef, anchorSeat: Int)
+    /// Take a character out. `.report` is the same choreography truncated: the
+    /// walk to the anchor, `deliver`, then off screen instead of home.
     case exitCharacter(agent: AgentRef, style: ExitStyle)
     /// Integer render scale. [I6]
     case setScale(Int)
 
     public enum ExitStyle: Sendable, Hashable {
-        /// `SubagentStop`. The one dramatisation the event model licenses.
+        /// A character that reported **and departed in the same frame**.
         ///
-        /// `anchorSeat` is the seat of the character this one reports to —
-        /// its parent, when `tool_response.agentId` linked them, and seat 0
-        /// otherwise. Seat 0 is the documented fallback rather than a guess:
-        /// an unlinked subagent reports to the main agent. [I1]
+        /// `SubagentStop` no longer departs anyone, so this is not the ordinary
+        /// report route any more — that is `deliverReport`. It survives for the
+        /// one shape that still produces both facts at once: a `SessionEnd` (or
+        /// an idle sweep) landing in the same batch as the stop. The character
+        /// genuinely both reported and is genuinely gone, so it leaves by the
+        /// report route rather than being yanked off screen mid-beat.
+        ///
+        /// `anchorSeat` as for `deliverReport`.
         case report(anchorSeat: Int)
         /// Everything else — session end, idle sweep. Straight `depart`.
         case walkOff
@@ -58,9 +80,19 @@ public struct SceneDirector: Sendable {
         var seat: Int
         /// Keyed by `tool_use_id`, never a single current tool. [I3]
         var openCalls: [ToolUseID: String] = [:]
-        /// Set by `reportDelivered`, so the departure that follows it in the
-        /// same batch becomes the walk instead of a plain exit.
-        var reported = false
+        /// Set by `reportDelivered` and **cleared at the end of the batch that
+        /// set it**. It answers "did this character report *in this frame*",
+        /// which is the only question anything asks of it.
+        ///
+        /// It used to answer "has this character ever reported", and stayed true
+        /// forever because the departure that consumed it always arrived in the
+        /// same batch — until `SubagentStop` stopped departing anyone. Then
+        /// three characters carried a stale `reported` all the way to
+        /// `SessionEnd` and exited by walking back to the anchor and delivering
+        /// a report that had happened minutes earlier. A room that replays a
+        /// beat is telling a lie about when it happened, and it converged three
+        /// bodies and their nameplates on one spot to do it. [I1]
+        var reportedThisBatch = false
         /// Who this character reports to, from `.agentLinked`. `nil` until the
         /// link arrives, and `nil` forever when it never does — in which case
         /// the anchor is the main agent.
@@ -138,6 +170,7 @@ public struct SceneDirector: Sendable {
         var appeared: [AgentRef] = []
         var exited: [(AgentRef, SpriteIntent.ExitStyle)] = []
         var touched: [AgentRef] = []
+        var reported: [AgentRef] = []
 
         for delta in deltas {
             switch delta {
@@ -190,7 +223,9 @@ public struct SceneDirector: Sendable {
                 note(&touched, agent)
 
             case let .reportDelivered(agent):
-                presentations[agent]?.reported = true
+                guard presentations[agent] != nil else { break }
+                presentations[agent]?.reportedThisBatch = true
+                note(&reported, agent)
                 note(&touched, agent)
 
             case let .agentDeparted(agent):
@@ -202,9 +237,13 @@ public struct SceneDirector: Sendable {
                 emittedBadge.removeValue(forKey: agent)
                 exited.append((
                     agent,
-                    presentation.reported ? .report(anchorSeat: anchorSeat) : .walkOff))
+                    presentation.reportedThisBatch ? .report(anchorSeat: anchorSeat) : .walkOff))
                 touched.removeAll { $0 == agent }
                 appeared.removeAll { $0 == agent }
+                // The exit *is* the beat for this character. Emitting a round
+                // trip as well would ask the scene to walk a node home that it
+                // is about to remove.
+                reported.removeAll { $0 == agent }
 
             case .populationChanged:
                 // The director counts its own characters. `populationChanged`
@@ -241,6 +280,18 @@ public struct SceneDirector: Sendable {
             }
         }
 
+        // After the badge and body loop, deliberately: `SubagentStop` abandons
+        // the agent's open calls, so the same batch carries the `callAbandoned`
+        // that takes the badge down. The character walks to the anchor
+        // empty-handed rather than carrying a tool badge through the beat, and
+        // it does so because the *data* said the calls ended — nothing here
+        // reaches in and clears a badge on its own account. [I2/I3]
+        for agent in reported {
+            guard let presentation = presentations[agent] else { continue }
+            intents.append(.deliverReport(
+                agent: agent, anchorSeat: anchorSeat(for: presentation)))
+        }
+
         for (agent, style) in exited {
             intents.append(.exitCharacter(agent: agent, style: style))
         }
@@ -250,6 +301,12 @@ public struct SceneDirector: Sendable {
             emittedScale = scale
             intents.append(.setScale(scale))
         }
+
+        // The flag is a fact about *this* frame and nothing outlives the frame
+        // holding it. Clearing here rather than at the top of the next `apply`
+        // means it is impossible to observe stale from outside, whatever order
+        // batches arrive in.
+        for agent in reported { presentations[agent]?.reportedThisBatch = false }
 
         return intents
     }

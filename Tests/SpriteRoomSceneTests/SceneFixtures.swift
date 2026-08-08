@@ -127,7 +127,12 @@ enum SceneArt {
     /// change that moves a test across the line.
     /// 20 as of M5b: `ManifestTests.everyBadgeFileIsExactlyTheDeclaredCanvas`
     /// opens the badge PNGs, so it has to be gated like the rest.
-    static let expectedGatedTestCount = 20
+    /// 24 as of M6c: the report round trip added four tests that play real
+    /// animations — the beat itself, the whole cast leaving in one frame, a
+    /// leaver caught in the aisle, and the delivery station held across the
+    /// return leg. Each of them reads `Character.state`, which is `nil` without
+    /// frames on disk.
+    static let expectedGatedTestCount = 24
 }
 
 /// Always runs, in both modes, and never fails for the absence of art.

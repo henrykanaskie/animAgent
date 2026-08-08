@@ -601,6 +601,71 @@ import Testing
         #expect(await model.snapshot().agents.isEmpty)
     }
 
+    /// **And `SubagentStop`, which no longer departs the character.**
+    ///
+    /// This one is a path that did not need naming before. Departure used to
+    /// clear the mark by deleting the whole `AgentState`; a subagent that stops
+    /// now *keeps* its state, so if nothing disarmed the mark it would carry an
+    /// armed gate into dormancy for the rest of the session and be badged by a
+    /// later `permission_prompt` it has nothing to do with. [I1]
+    ///
+    /// The abandon path hides this in the ordinary case — `SubagentStop`
+    /// abandons the agent's open calls, and abandoning a *marked* call disarms
+    /// by rule 2. The case it does not cover is the legal empty mark: a snapshot
+    /// of an open-call set that happened to be empty. So this test builds
+    /// exactly that, from real payloads, by feeding
+    /// `fixtures/concurrent-permission-gates.jsonl` **without** the `PreToolUse`
+    /// at t=6.434 that opens the gated `Bash`. What is left is the real capture
+    /// minus one line; no payload is invented.
+    ///
+    /// The disarm is independently correct rather than merely convenient: it is
+    /// ADR-001 (d) rule 2 read for a subagent. `Stop` disarms the main thread's
+    /// mark because the turn completed, and `SubagentStop` is that same fact.
+    @Test func aSubagentGoingDormantDisarmsItsMark() async throws {
+        let entries = try Fixtures.entries("concurrent-permission-gates")
+        let first = try #require(entries.first?.event)
+        let gated = AgentRef(
+            project: first.cwd, session: first.sessionID,
+            agent: .subagent("ac26da513c96ad388"))
+        let stillGated = AgentRef(
+            project: first.cwd, session: first.sessionID,
+            agent: .subagent("a7298874eca5a457d"))
+        let main = AgentRef(project: first.cwd, session: first.sessionID, agent: .mainThread)
+
+        let model = WorldModel()
+        var reachedStop = false
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            // Drop only this agent's gated `PreToolUse`, so its mark arms over
+            // an empty open-call set — legal, documented, and the one shape the
+            // abandon path cannot disarm.
+            if case let .preToolUse(_, tool) = event.kind,
+               tool == "Bash", event.agentID == gated.agent { continue }
+            await model.ingest(event, at: entry.receivedAt)
+            if event.kind.name == "SubagentStop", event.agentID == gated.agent {
+                reachedStop = true
+                break
+            }
+        }
+        #expect(reachedStop, "the fixture no longer stops this subagent")
+
+        // Dormant, in the room, and carrying nothing.
+        #expect(await model.snapshot().agent(gated)?.lifecycle == .dormant)
+        #expect(await model.permissionGateMark(gated) == nil)
+        // The other gate is untouched — it is genuinely still open, and the mark
+        // was always per-agent rather than per-session. That scoping is what
+        // makes this a one-line change instead of a rule.
+        #expect(await model.permissionGateMark(stillGated) != nil)
+
+        // So the next `permission_prompt` badges the agent still at a dialog and
+        // not the dormant one.
+        let notification = try entry(entries, "Notification", skipping: 1)
+        await model.ingest(try #require(notification.event), at: notification.receivedAt)
+        #expect(await model.snapshot().agent(stillGated)?.attention == .permissionPrompt)
+        #expect(await model.snapshot().agent(gated)?.attention == nil)
+        #expect(await model.snapshot().agent(main)?.attention == nil)
+    }
+
     /// A departing character takes it too. The mark lives inside the agent's
     /// own state, which is what makes all three of these true by construction
     /// rather than by three separate pieces of housekeeping somebody has to
