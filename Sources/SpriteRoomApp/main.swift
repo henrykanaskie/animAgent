@@ -551,6 +551,14 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                 viewport: PanelSize.room.cgSize,
                 themes: ThemeCatalog.declared(in: manifest),
                 themeStore: themeStore)
+            // The derived half of ADR-002 §3c. Without this the hash never
+            // runs, every project falls straight to `themes.default`, and the
+            // picker is the only way a room is ever anything but the default —
+            // which is not the design, it is half of it. `rendezvous` lives in
+            // `SpriteRoomScene` beside its pinned FNV-1a vector; implementing
+            // it here as well would leave that vector guarding half the
+            // mapping. [§11 risk 7]
+            host.derive = { cwd, pool in ThemeSelector.rendezvous(key: cwd, over: pool) }
             let controller = NotchPanelController(contentView: host.view, size: .room)
             let selector = ProjectSelector(
                 credit: manifest.credit.text, creditURL: manifest.credit.url)

@@ -130,9 +130,17 @@ extension ThemeCatalog {
     /// alternative and was refused: two decoders over one file drift, and the
     /// manifest reader belongs beside the scene that consumes the bindings.
     ///
-    /// When `Manifest.themes` exists, this function is its adapter and nothing
-    /// else in `SpriteRoomApp` changes.
+    /// `Manifest.themes` exists now, so this is that adapter and nothing else
+    /// in `SpriteRoomApp` changed. It returns `.empty` for a manifest that
+    /// declares no themes — a checkout with no art, or one whose owner has not
+    /// run the import scripts — which is why the menu's empty case is a real
+    /// path and not a stub.
     static func declared(in manifest: Manifest) -> ThemeCatalog {
-        .empty
+        ThemeCatalog(
+            themes: manifest.themes.orderedIDs.compactMap { id in
+                guard let theme = manifest.themes.theme(id) else { return nil }
+                return Theme(id: id, title: theme.title, isAssignable: theme.isAssignable)
+            },
+            defaultThemeID: manifest.themes.defaultID)
     }
 }
