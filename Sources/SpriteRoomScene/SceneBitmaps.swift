@@ -1,6 +1,6 @@
 import Foundation
 
-/// What a nameplate says, split into the two things it has to say.
+/// What a nameplate says, split into the things it has to say.
 ///
 /// **The split exists because the two halves are not equally informative**, and
 /// which half is which was got backwards twice. A single line spent its first
@@ -23,12 +23,13 @@ import Foundation
 /// purely to tell a reader where the type stopped, and that separator is free —
 /// the rows do it.
 ///
-/// **The two stored names are historical and are now a size too small for what
-/// they hold.** `lead` was named for the line that led, and it no longer leads.
-/// Renaming it is a rename of `SceneDirector.nameplate(for:)`'s three call sites
-/// as well, which is another change's file; `headline` and `tag` below state the
-/// mapping once so nothing else has to remember it, and the fields should take
-/// those names the next time this struct is opened.
+/// **The stored names are historical and are now a size too small for what they
+/// hold.** `lead` was named for the line that led, and it no longer leads.
+/// Renaming it is a rename of `SceneDirector.nameplate(for:)`'s call sites as
+/// well, which is another change's file; `headline`, `subhead` and `tag` below
+/// state the mapping once so nothing else has to remember it, and the fields
+/// should take those names the next time this struct is opened. `task` is
+/// already named for what it is.
 public struct NameplateText: Sendable, Hashable {
     /// The `agent_id` discriminator for a subagent; the name for the main agent,
     /// which has no `agent_id` and so has nothing to discriminate against.
@@ -40,34 +41,72 @@ public struct NameplateText: Sendable, Hashable {
     /// a tag for it would be the same mistake as guessing a badge for an
     /// unmapped tool. [I1]
     public var lead: String
-    /// `agent_type` — the headline. `nil` or empty when there is none: the main
-    /// agent, whose `lead` is then the only thing to draw.
+    /// `agent_type` — the second row when there is a task, the headline when
+    /// there is not. `nil` or empty when there is none: the main agent, whose
+    /// `lead` is then the only thing to draw.
     public var role: String?
 
-    public init(lead: String, role: String? = nil) {
+    /// **What this agent was dispatched to do, already shortened.** One or two
+    /// words off the `Agent` call's own `tool_input.description` — never a
+    /// paraphrase, and never present unless a real dispatch carried one. [I1]
+    ///
+    /// **It arrives after the plate is already on screen** and it is the reason
+    /// `SpriteIntent.setNameplate` exists: `agentTasked` rides one event behind
+    /// the `SubagentStart` that created the character. Growing the plate rather
+    /// than rearranging it is what makes that update flicker-free — the node is
+    /// anchored at its top edge, so a row appearing underneath moves nothing
+    /// that was already drawn.
+    ///
+    /// The shortening itself is `SceneDirector.taskLine(_:)`. This field holds
+    /// its output, not the raw description: the raw string is unbounded and the
+    /// texture cache is keyed on what is drawn.
+    public var task: String?
+
+    public init(lead: String, role: String? = nil, task: String? = nil) {
         self.lead = lead
         self.role = role
+        self.task = task
     }
 
-    /// **The line on the accent band: the `agent_type`, or `lead` when there is
-    /// no type.** The fallback is not a second policy — it is the same rule read on
-    /// the main agent, which has no `agent_type` at all and whose `lead` is
-    /// therefore the only name it has. Nothing is synthesised either way. [I1]
+    /// **The line on the accent band: the most specific true thing the plate
+    /// knows about this character.** The task if a dispatch gave it one, else
+    /// the `agent_type`, else `lead`.
+    ///
+    /// **One ladder, not three policies.** Its bottom rung is the rule the main
+    /// agent has always taken — no `agent_type` at all, so `lead` is the only
+    /// name it has — and the new top rung is the maintainer's instruction that
+    /// the task is what they want to read. Nothing is synthesised at any rung:
+    /// an agent with no task shows its type, which is a true statement about it,
+    /// and never a placeholder shaped like a task. [I1]
     public var headline: String {
-        role.flatMap { $0.isEmpty ? nil : $0 } ?? lead
+        if let task, !task.isEmpty { return task }
+        return role.flatMap { $0.isEmpty ? nil : $0 } ?? lead
     }
 
-    /// **The line under the band: the discriminator, and only when something
-    /// else is above it.** When the headline already *is* `lead` there is nothing left
-    /// to tag, and a plate that repeated its own headline underneath itself
-    /// would spend a row saying nothing.
+    /// **The row under the band: the `agent_type`, and only when the task took
+    /// the band off it.** Otherwise the type is already the headline and a plate
+    /// that repeated it underneath itself would spend a row saying nothing.
+    ///
+    /// It is a row rather than a casualty because the type is the only place
+    /// `agent_type` appears anywhere in the room: the accent hue is assigned per
+    /// *character* by `SceneDirector` round-robin, not per type, so dropping this
+    /// line would delete the fact rather than move it.
+    public var subhead: String? {
+        guard let task, !task.isEmpty else { return nil }
+        return role.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// **The last line: the discriminator, and only when something else is above
+    /// it.** When the headline already *is* `lead` there is nothing left to tag,
+    /// and a plate that repeated its own headline underneath itself would spend
+    /// a row saying nothing.
     public var tag: String? {
         guard headline != lead, !lead.isEmpty else { return nil }
         return lead
     }
 
     /// Stable, collision-free key for the texture cache.
-    var textureKey: String { lead + "\u{1}" + (role ?? "") }
+    var textureKey: String { lead + "\u{1}" + (role ?? "") + "\u{1}" + (task ?? "") }
 }
 
 /// Everything the scene draws itself rather than loading — the nameplate and
@@ -110,6 +149,23 @@ public enum SceneBitmaps {
     /// `SceneDirector.nameplate(for:)` for why no abbreviation scheme replaced
     /// it.
     public static let nameplateTypeGlyphLimit = 10
+
+    /// Glyphs the task line gets — **the same ten, and deliberately not its own
+    /// number.**
+    ///
+    /// A plate has one width. The band and the type row are both full-width
+    /// rows, so whatever the widest of them is decides the plate, and giving the
+    /// task eleven would take the plate to 69 px for one glyph while the type
+    /// stayed at ten. 69 px still buys the same three-tile pitch
+    /// [`RoomLayout.minimumSeatSpacingTiles`], so it is not *unaffordable* — but
+    /// it moves `maximumNameplateWidth`, which is the term the camera's width
+    /// test weighs when it decides who gets `2x`, and that arithmetic was tuned
+    /// in the commit before this one. Widening is therefore a separate decision
+    /// with its own evidence, not a side effect of this one.
+    ///
+    /// The eleventh glyph is worth about what it sounds like: `MOVE BADGE…`
+    /// instead of `MOVE BADG…`.
+    public static var nameplateTaskGlyphLimit: Int { nameplateTypeGlyphLimit }
 
     /// Glyphs the tag line gets, at 1×.
     ///
@@ -155,8 +211,25 @@ public enum SceneBitmaps {
     /// Ink for the headline when it sits on the accent rather than the plate.
     public static let nameplateBandInkDark = Bitmap.RGBA(20, 18, 26, 255)
 
-    /// The nameplate: a solid accent band carrying the **agent type**, and the
-    /// `agent_id` discriminator beneath it on the dark plate.
+    /// The nameplate: a solid accent band carrying **what this agent was
+    /// dispatched to do**, the `agent_type` beneath it on the dark plate, and
+    /// the `agent_id` discriminator beneath that.
+    ///
+    /// **The band's occupant is a ladder, and the rows below it are what falls
+    /// out of the ladder** — see `NameplateText.headline`. An agent with no
+    /// dispatch we saw (the main thread, always; a subagent we attached late to)
+    /// keeps exactly the two-row plate it had before this: type on the band,
+    /// discriminator under it. So the third row appears only when there is a
+    /// third true thing to say.
+    ///
+    /// **Why the task outranks the type.** The maintainer asked to be able to
+    /// glance at a plate and read what the agent is *for*, and the corpus says
+    /// the type cannot answer that: nine of the ten real dispatches in
+    /// `fixtures/` are `general-purpose`. The type is where the room's agents
+    /// agree and the task is where they differ, so the loud element goes to the
+    /// one carrying the information. The type is demoted, not dropped — it is
+    /// the only place `agent_type` appears in the room at all, because the
+    /// accent hue is assigned per character rather than per type.
     ///
     /// **Three channels, one plate, and only one of them is text.** M0 measured
     /// that this cast is not separable by silhouette (the best six-variant
@@ -168,20 +241,29 @@ public enum SceneBitmaps {
     ///   apart and lint-enforced, so unlike the sampled hues it genuinely
     ///   separates — and a band is a signal you can catch peripherally, which a
     ///   one-pixel border is not;
-    /// - the **headline** is the `agent_type`, which is what an agent is *called*
-    ///   — `Explore`, `security-reviewer`, a name the user wrote themselves — and
-    ///   is therefore the only thing on the plate a person can act on;
+    /// - the **headline** is what this agent was sent to do — `READ ALPH…`,
+    ///   `TOUCH FIL…` — which is the thing a person glancing at the room wants
+    ///   and the thing that actually differs between two characters;
+    /// - the **subhead** is the `agent_type`, what the agent is *called*
+    ///   (`Explore`, `security-reviewer`, a name the user wrote themselves). It
+    ///   is on the plate rather than the band because in the corpus it is nearly
+    ///   constant, and it is on the plate rather than nowhere because it is the
+    ///   only place the type is stated at all;
     /// - the **tag** is the discriminator, which is the tiebreaker between two
     ///   agents of one type and nothing else. It is real data and it stays, at a
-    ///   size that matches what it is worth.
+    ///   size that matches what it is worth — and it is what still separates two
+    ///   characters whose *tasks* shorten to the same nine glyphs, which is not
+    ///   hypothetical: `Touch file s1` and `Touch file s2` in
+    ///   `fixtures/concurrent-permission-gates.jsonl` both read `TOUCH FIL…`.
     ///
-    /// **The hierarchy used to be the other way up and that was the defect.**
-    /// The band — the loudest element in the room — read `430`, the last three
-    /// hex characters of an `agent_id`, at 2× on a saturated field, while
-    /// `GENERAL-P…` sat under it at half the size. A user reading the room got
-    /// the tiebreaker first and the answer second. What changed is only the
-    /// *assignment*: the band, the two rows and the construction are what they
-    /// were.
+    /// **The hierarchy has been the other way up twice, and both times that was
+    /// the defect.** First the band — the loudest element in the room — read
+    /// `430`, the last three hex characters of an `agent_id`, while `GENERAL-P…`
+    /// sat under it; the type took the band and the hex went below. Then the
+    /// band read `GENERAL-P…` for every character in a room where every
+    /// character was `general-purpose`, which is a loud element spending itself
+    /// on the one field the room agrees about. Each time what changed is only the
+    /// *assignment*: the band, the rows and the construction are what they were.
     ///
     /// **The hierarchy is carried by position and field, not by size, and that
     /// is forced.** The type is arbitrary user text — `general-purpose`,
@@ -209,18 +291,30 @@ public enum SceneBitmaps {
     public static func nameplate(
         _ text: NameplateText, accent: Bitmap.RGBA, font: PixelFont = .standard
     ) -> Bitmap {
-        let headline = font.fit(text.headline, limit: nameplateTypeGlyphLimit)
-        let tag = text.tag.map { font.fit($0, limit: nameplateTagGlyphLimit) }
+        let headline = font.fit(text.headline, limit: nameplateTaskGlyphLimit)
+        // The rows under the band, in the order they are drawn. A stack rather
+        // than two named slots because the plate has had one row for most of its
+        // life and has two now: the arithmetic below counts them instead of
+        // enumerating the cases, so a plate with none, one or two is one
+        // expression and not three.
+        let rows = [
+            text.subhead.map { font.fit($0, limit: nameplateTypeGlyphLimit) },
+            text.tag.map { font.fit($0, limit: nameplateTagGlyphLimit) },
+        ].compactMap { $0 }
         let headlineWidth = headline.isEmpty ? 0 : font.width(of: headline)
-        let tagWidth = tag.map { font.width(of: $0) } ?? 0
+        let rowWidths = rows.map { font.width(of: $0) }
 
-        let width = max(1, max(headlineWidth, tagWidth)) + 2 * platePadX
+        let width = max(1, max(headlineWidth, rowWidths.max() ?? 0)) + 2 * platePadX
         // An empty headline keeps a one-pixel stub of band rather than none, so
         // the accent still reads as a rule along the top and every plate in the
         // room shares a construction.
         let band = headline.isEmpty ? platePadY : font.glyphHeight + 2 * plateHeadY
-        let tagBand = tag == nil ? 0 : font.glyphHeight + platePadY + plateFootY
-        let height = max(band + tagBand, 3)
+        // Each row takes its own air above; the stack takes the foot padding
+        // once, at the bottom, because that is the only place a glyph would
+        // otherwise sit against the border.
+        let rowStack = rows.isEmpty
+            ? 0 : rows.count * (font.glyphHeight + platePadY) + plateFootY
+        let height = max(band + rowStack, 3)
 
         var bitmap = Bitmap(width: width, height: height)
         bitmap.fill(x: 0, y: 0, w: width, h: height, nameplatePlate)
@@ -232,23 +326,31 @@ public enum SceneBitmaps {
                 x: (width - headlineWidth) / 2, y: plateHeadY,
                 colour: contrastingInk(on: accent))
         }
-        if let tag {
+        var pen = band
+        for (row, rowWidth) in zip(rows, rowWidths) {
             font.draw(
-                tag, into: &bitmap,
-                x: (width - tagWidth) / 2, y: band + platePadY, colour: nameplateInk)
+                row, into: &bitmap,
+                x: (width - rowWidth) / 2, y: pen + platePadY, colour: nameplateInk)
+            pen += font.glyphHeight + platePadY
         }
         return bitmap
     }
 
     /// The worst case the font and the limits can produce, in both axes at once:
-    /// a full-width headline over a full-width tag. `M` because it is the widest
-    /// glyph in the table and every glyph is the same width anyway, so this is
-    /// the bound rather than a sample.
+    /// a full-width task over a full-width type over a full-width tag. `M`
+    /// because it is the widest glyph in the table and every glyph is the same
+    /// width anyway, so this is the bound rather than a sample.
+    ///
+    /// **The task has to be in it.** It is the row that made the plate three
+    /// rows tall, and the plate's height is what `RoomLayout` clears the seat
+    /// rows by and what the camera's content band is derived from. A bound
+    /// measured off a plate that could not happen would understate both.
     private static var largestPossiblePlate: Bitmap {
         nameplate(
             NameplateText(
                 lead: String(repeating: "M", count: nameplateTagGlyphLimit),
-                role: String(repeating: "M", count: nameplateTypeGlyphLimit)),
+                role: String(repeating: "M", count: nameplateTypeGlyphLimit),
+                task: String(repeating: "M", count: nameplateTaskGlyphLimit)),
             accent: .clear)
     }
 

@@ -1212,11 +1212,34 @@ therefore loses its description with its call and the child is linked with no
 task, which is the fallback and not a bug. Pending links are held in
 `SessionState`, so `SessionEnd` and the 30-minute sweep take them too.
 
-**Nothing draws it yet.** `SceneDirector` receives `agentTasked` and does
-nothing with it; the nameplate still shows `agent_type` per the table under
-"Identity resolution". `ProjectRegistry` does store and replay it, because a
-task learned while a project was off screen must survive the switch — the same
-reason it replays `agentLinked` and `dormancyChanged`.
+**The nameplate draws it, on the accent band.** `SceneDirector.taskLine(_:)`
+shortens the description to the plate's ten glyphs — drop the function words,
+join what is left, clip mid-word, and **end in `…` unless every word survived**
+— and `NameplateText.headline` is the ladder that puts it on the band: the task
+if there is one, else the `agent_type`, else the name. The type is not dropped;
+it moves to a row of its own under the band, above the `agent_id` discriminator,
+taking the plate from 21 px to 29 px for the agents that have a task. It went to
+the band because in this corpus the type is where the room's agents *agree* —
+nine of the ten dispatches are `general-purpose` — and the task is where they
+differ.
+
+The ten real descriptions render as `TOUCH FIL…` (twice), `READ ONE…`,
+`READ TWO…`, `READ THRE…`, `READ FOUR…`, `TOUCH FIL…`, `READ ALPH…`,
+`READ BETA…` and `READ DELT…`. Ten glyphs is two short words, so the two
+`Touch file s1`/`s2` dispatches collapse onto one headline and the discriminator
+row is what still separates those characters — which is the second reason it
+survived the change.
+
+An agent with no task keeps the two-row plate byte for byte: no empty row and no
+placeholder, because a slot shown empty invites the viewer to guess what was in
+it. [I1] Because `agentTasked` lands after the character is seated, the scene
+learns it through `SpriteIntent.setNameplate`, which redraws the plate texture;
+the node is anchored at its top edge, so the new row grows downward and nothing
+already drawn moves.
+
+`ProjectRegistry` stores and replays it, because a task learned while a project
+was off screen must survive the switch — the same reason it replays
+`agentLinked` and `dormancyChanged`.
 
 ### `SubagentStop` is a turn boundary, not a death
 

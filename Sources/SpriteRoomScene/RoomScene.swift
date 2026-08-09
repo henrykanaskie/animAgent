@@ -595,6 +595,14 @@ public final class RoomScene: SKScene {
             // argument of its own.
             character.enter(along: layout.entranceRoute(forSeat: seat))
 
+        case let .setNameplate(agent, nameplate):
+            // A plate that learned something after its character was drawn —
+            // almost always the task, which arrives one event behind the
+            // `SubagentStart`. Redrawing the texture is the whole of it: the
+            // node is anchored at its top edge, so a plate that gained a row
+            // grows downward and nothing on screen moves.
+            characters[agent]?.setNameplate(nameplate)
+
         case let .setBody(agent, state, facing):
             restingBody[agent] = state
             characters[agent]?.setResting(state, facing: facing)

@@ -416,4 +416,236 @@ struct NameplateTests {
             }
         }
     }
+
+    // MARK: The task line — the band's new occupant
+
+    /// **The three rows, in order, asserted where they live.**
+    ///
+    /// The hierarchy is carried by position and field rather than by size — see
+    /// `SceneBitmaps.nameplate` for why no magnification is available to any of
+    /// them — so this is the only place it can be checked: every pixel of the
+    /// task is inside the accent band, and every pixel of the type and of the
+    /// discriminator is below it, in that order.
+    @Test func theTaskIsOnTheAccentBandAndTheTypeAndTagAreBelowIt() throws {
+        let accent = Bitmap.RGBA(255, 136, 77)
+        let plate = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose", task: "MOVE BADG…"),
+            accent: accent)
+        let bandInk = SceneBitmaps.contrastingInk(on: accent)
+        #expect(bandInk != SceneBitmaps.nameplateInk, "the band and the rows share an ink")
+
+        var bandRows: Set<Int> = [], plateRows: Set<Int> = []
+        for y in 0..<plate.height {
+            for x in 0..<plate.width {
+                if plate.at(x, y) == bandInk { bandRows.insert(y) }
+                if plate.at(x, y) == SceneBitmaps.nameplateInk { plateRows.insert(y) }
+            }
+        }
+        let bandBottom = try #require(bandRows.max())
+        #expect(try #require(plateRows.min()) > bandBottom, "the task is not above the type")
+        for y in bandRows { #expect(plate.at(1, y) == accent, "row \(y) is off the band") }
+        for y in plateRows {
+            #expect(plate.at(plate.width / 2, y) != accent, "row \(y) is on the band")
+        }
+
+        // The type is above the discriminator, and both are on the dark plate.
+        // Their two runs of rows are separated by the row of air `platePadY`
+        // puts above each, so counting the gaps is what says there are two rows
+        // rather than one tall one.
+        let sorted = plateRows.sorted()
+        let breaks = zip(sorted, sorted.dropFirst()).filter { $1 - $0 > 1 }.count
+        #expect(breaks == 1, "the type and the discriminator are not two rows: \(sorted)")
+
+        // And the type really is the type: same ink count as the fitted line
+        // drawn flat, so nothing was stretched or substituted. [I6]
+        var typeInk = 0
+        for y in sorted where y <= (sorted.first! + font.glyphHeight) {
+            for x in 0..<plate.width where plate.at(x, y) == SceneBitmaps.nameplateInk {
+                typeInk += 1
+            }
+        }
+        #expect(typeInk == font.render(
+            font.fit("general-purpose", limit: SceneBitmaps.nameplateTypeGlyphLimit),
+            colour: SceneBitmaps.nameplateInk).opaquePixelCount)
+    }
+
+    /// **An agent with no task gets exactly the plate it had before this
+    /// change**, and that is the whole of "shows nothing where the task would
+    /// be". There is no empty row, no placeholder and no third band — a viewer
+    /// cannot be shown a slot and left to wonder what should have been in it.
+    /// [I1]
+    @Test func aPlateWithNoTaskIsByteIdenticalToTheTwoRowPlate() {
+        let accent = Bitmap.RGBA(77, 195, 255)
+        let withoutTask = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
+        let explicitlyNone = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose", task: nil), accent: accent)
+        #expect(withoutTask.pixels == explicitlyNone.pixels)
+        // Two rows: band plus one. 11 + 10.
+        #expect(withoutTask.height == 21)
+        // And the main agent, which has no task permanently, is untouched too.
+        #expect(SceneBitmaps.nameplate(NameplateText(lead: "main"), accent: accent).height == 11)
+    }
+
+    /// **The plate gains a row without moving one.** `agentTasked` lands after
+    /// the character is already seated, so the update has to be invisible except
+    /// for what it adds: the band keeps its height and its position, and the
+    /// plate node is anchored at its top edge, so everything new is underneath.
+    ///
+    /// What this cannot assert is that the band's *text* is unchanged — it is
+    /// not, and deliberately: the type gives the band up to the task. That is
+    /// one substitution on one row, once per agent, a frame or so after it sits
+    /// down.
+    @Test func gainingATaskGrowsThePlateDownwardsAndMovesNoRowAboveIt() {
+        let accent = Bitmap.RGBA(196, 255, 77)
+        let before = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
+        let after = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose", task: "READ ALPH…"),
+            accent: accent)
+        #expect(after.width == before.width, "the plate widened")
+        #expect(after.height == before.height + font.glyphHeight + 1)
+
+        // The accent band is the same field in the same place: same height, and
+        // every pixel of its interior still the accent.
+        func bandHeight(_ bitmap: Bitmap) -> Int {
+            var rows = 0
+            while rows < bitmap.height, bitmap.at(1, rows) == accent { rows += 1 }
+            return rows
+        }
+        #expect(bandHeight(after) == bandHeight(before))
+    }
+
+    /// **Ten glyphs is the plate's width, not the task's allowance.** The band
+    /// and the type row are both full-width, so a task limit above the type
+    /// limit would widen the plate for one line — and the plate's width is the
+    /// term the seat pitch and the camera are both derived from.
+    @Test func theTaskLineGetsThePlatesWidthAndNotAGlyphMore() {
+        #expect(SceneBitmaps.nameplateTaskGlyphLimit == SceneBitmaps.nameplateTypeGlyphLimit)
+        let accent = Bitmap.RGBA(255, 64, 0)
+        let plate = SceneBitmaps.nameplate(
+            NameplateText(lead: "8DE", role: "general-purpose", task: "MMMMMMMMMM"),
+            accent: accent)
+        #expect(plate.width == SceneBitmaps.maximumNameplateWidth)
+        #expect(plate.width == 63)
+    }
+
+    /// **The tallest plate is the three-row one, and it still clears a tile.**
+    /// `maximumNameplateHeight` is what `RoomLayout` separates the seat rows by
+    /// and what the camera's content band is measured from, so it has to be the
+    /// bound of the plate that can actually happen — not of the two-row plate
+    /// this used to be.
+    @Test func theTallestPlateIsTheOneWithATaskOnIt() {
+        let accent = Bitmap.RGBA(255, 136, 77)
+        let three = SceneBitmaps.nameplate(
+            NameplateText(lead: "MMMMM", role: "MMMMMMMMMM", task: "MMMMMMMMMM"),
+            accent: accent)
+        #expect(SceneBitmaps.maximumNameplateHeight == three.height)
+        #expect(three.height == 29)
+        #expect(three.height < RoomLayout().tile,
+                "the plate no longer fits between the aisle and the seat row")
+    }
+
+    /// **The ten real `Agent` dispatches in `fixtures/`, every one of them.**
+    ///
+    /// Not invented strings: these are the exact `tool_input.description` values
+    /// the corpus carries, and the expectation is the whole of what the rule
+    /// does. A change to the stop-word list or to the clip shows up here as ten
+    /// diffs rather than as an argument.
+    @Test func everyRealDispatchInTheCorpusShortensToSomethingReadable() {
+        let corpus: [(String, String)] = [
+            ("Touch file s1", "TOUCH FIL…"),
+            ("Touch file s2", "TOUCH FIL…"),
+            ("Read one.txt sleep", "READ ONE…"),
+            ("Read two.txt sleep", "READ TWO…"),
+            ("Read three.txt sleep", "READ THRE…"),
+            ("Read four.txt sleep", "READ FOUR…"),
+            ("Touch a file via bash", "TOUCH FIL…"),
+            ("Read alpha.txt and sleep", "READ ALPH…"),
+            ("Read beta/gamma and sleep", "READ BETA…"),
+            ("Read delta/epsilon, sleep, reread alpha", "READ DELT…"),
+        ]
+        for (description, expected) in corpus {
+            #expect(SceneDirector.taskLine(description) == expected, "\(description)")
+        }
+    }
+
+    /// **The maintainer's own two examples.** They are the specification for
+    /// this feature in the form it was given, so they are pinned in that form.
+    /// `MOVE BADG…` rather than the `move badge` that was asked for is the one
+    /// glyph the honesty mark costs — `beside the head` was dropped and the
+    /// plate has to say so.
+    @Test func theMaintainersExamplesShortenToTheirVerbAndObject() {
+        #expect(SceneDirector.taskLine("Move the badge beside the head") == "MOVE BADG…")
+        #expect(SceneDirector.taskLine("Rework the report beat") == "REWORK RE…")
+    }
+
+    /// **Three genuinely similar dispatches stay three distinct plates.** This
+    /// is the case the feature is for: `three-subagents` sends three subagents
+    /// to read three different things and sleep, and before this every plate in
+    /// that room read `EXPLORE` or `GENERAL-P…`.
+    @Test func theThreeSimilarDispatchesDoNotCollapseIntoOneHeadline() {
+        let lines = [
+            "Read alpha.txt and sleep",
+            "Read beta/gamma and sleep",
+            "Read delta/epsilon, sleep, reread alpha",
+        ].map { SceneDirector.taskLine($0) }
+        #expect(Set(lines).count == 3, "the shortening collapsed them: \(lines)")
+    }
+
+    /// **`…` means there is more in the description than is drawn, always.**
+    ///
+    /// The rule is total on purpose: a clip that lands on a word boundary reads
+    /// as a finished phrase and is the one case the eye cannot catch. `Touch
+    /// file s1` shortening to a bare `TOUCH FILE` would have the room assert
+    /// somebody was sent to touch *a* file.
+    @Test func aTaskLineEndsInAnEllipsisWheneverAnythingWasDropped() {
+        // Dropped by the clip.
+        #expect(SceneDirector.taskLine("Touch file s1")?.hasSuffix("…") == true)
+        // Dropped as a stop word, with room to spare on the line.
+        #expect(SceneDirector.taskLine("Fix the bug") == "FIX BUG…")
+        // Nothing dropped at all: no mark.
+        #expect(SceneDirector.taskLine("Touch file") == "TOUCH FILE")
+        #expect(SceneDirector.taskLine("Sleep") == "SLEEP")
+        // Never longer than the line.
+        for description in ["Fix the bug", "Touch file", "Move the badge beside the head",
+                            "Read delta/epsilon, sleep, reread alpha"] {
+            let line = SceneDirector.taskLine(description) ?? ""
+            #expect(line.count <= SceneBitmaps.nameplateTaskGlyphLimit, "\(description) → \(line)")
+        }
+    }
+
+    /// **Nothing is invented when there is nothing to shorten.** A description
+    /// with no drawable word gets no task row rather than a placeholder, and a
+    /// description that is *all* function words is shown as it is rather than
+    /// erased — dropping every word would leave a plate asserting the agent has
+    /// a task and refusing to say what. [I1]
+    @Test func aTaskLineIsNeverInventedAndNeverBlank() {
+        #expect(SceneDirector.taskLine(nil) == nil)
+        #expect(SceneDirector.taskLine("") == nil)
+        #expect(SceneDirector.taskLine("   ") == nil)
+        #expect(SceneDirector.taskLine("☃ ☃") == nil)
+        // Nothing was dropped from it, so it carries no mark either.
+        #expect(SceneDirector.taskLine("the and of") == "THE AND OF")
+    }
+
+    /// The shortening only ever contains characters the description contained,
+    /// in the order it contained them — plus the mark. No abbreviation table, no
+    /// synonym, no paraphrase. This is the mechanical form of I1 for this line.
+    @Test func everyGlyphOfATaskLineCameFromTheDescription() {
+        for description in ["Touch file s1", "Read delta/epsilon, sleep, reread alpha",
+                            "Move the badge beside the head", "Rework the report beat"] {
+            let line = (SceneDirector.taskLine(description) ?? "")
+                .replacingOccurrences(of: "…", with: "")
+            let source = description.uppercased()
+            var cursor = source.startIndex
+            for character in line where character != " " {
+                guard let found = source[cursor...].firstIndex(of: character) else {
+                    Issue.record("\(character) is not in \(description) after \(cursor)")
+                    break
+                }
+                cursor = source.index(after: found)
+            }
+        }
+    }
 }

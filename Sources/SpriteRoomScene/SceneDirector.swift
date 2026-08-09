@@ -28,6 +28,23 @@ public enum SpriteIntent: Sendable, Hashable {
     case spawnCharacter(
         agent: AgentRef, variant: String, nameplate: NameplateText, seat: Int,
         station: String, costume: String?)
+    /// **A plate that changed after its character was drawn.** Only ever emitted
+    /// when it actually changed, and never for an agent that spawned in the same
+    /// batch — `spawnCharacter` already carries the plate it should have.
+    ///
+    /// It exists because `agentTasked` is retroactive by construction: the
+    /// `Agent` call's `PostToolUse` carries the child's task, and it arrives one
+    /// event *behind* the `SubagentStart` that put the child on screen. In the
+    /// four captures that dispatch subagents, that is the very next event in
+    /// three of them. So a character learns what it was sent to do a frame or so
+    /// after it sits down, and something has to be able to tell the scene.
+    ///
+    /// **It is redrawing a texture, not rebuilding a character.** The plate node
+    /// is anchored at its top edge, so a plate that grows a row grows downward
+    /// and nothing already on screen moves. `agentAppeared` arriving a second
+    /// time with an `agent_type` we did not have the first time comes through
+    /// here too — that was previously a change the room made and never showed.
+    case setNameplate(agent: AgentRef, nameplate: NameplateText)
     /// The character's resting state. Only ever emitted when it actually
     /// changed.
     case setBody(agent: AgentRef, state: BodyState, facing: Facing)
@@ -180,6 +197,14 @@ public struct SceneDirector: Sendable {
         /// link arrives, and `nil` forever when it never does — in which case
         /// the anchor is the main agent.
         var parent: AgentID?
+        /// From `.agentTasked` — the `Agent` dispatch's own
+        /// `tool_input.description`, **carried whole and stored whole**.
+        ///
+        /// The shortening happens at `nameplate(for:)`, not here, so this field
+        /// keeps the string the payload actually carried and a test can see what
+        /// the rule was handed. `nil` for the main thread permanently, and for
+        /// any subagent whose dispatch this app never saw. [I1]
+        var task: String?
         /// From `.attentionChanged`. Orthogonal to `openCalls`: a character can
         /// be holding calls *and* be blocked at a permission gate, which is
         /// exactly what a `Bash` sitting at the dialog looks like.
@@ -320,6 +345,10 @@ public struct SceneDirector: Sendable {
     /// keeps the badge from being re-set with the value it already has.
     private var emittedBody: [AgentRef: BodyState] = [:]
     private var emittedBadge: [AgentRef: BadgeSelection] = [:]
+    /// Seeded at spawn with the plate `spawnCharacter` carried, so the only
+    /// `setNameplate` a character ever gets is one that says something the plate
+    /// on screen does not.
+    private var emittedNameplate: [AgentRef: NameplateText] = [:]
     private var emittedScale: Int?
     /// Seeded at zero rather than `nil` so a room that never overflows never
     /// emits the intent at all — the same idiom as seeding `emittedBadge` with
@@ -629,6 +658,7 @@ public struct SceneDirector: Sendable {
                 assignedVariants.removeValue(forKey: agent)
                 emittedBody.removeValue(forKey: agent)
                 emittedBadge.removeValue(forKey: agent)
+                emittedNameplate.removeValue(forKey: agent)
                 // An agent that never had a seat was never spawned, so there is
                 // no node to walk off. It leaves the overflow count instead,
                 // which is the only thing that was ever showing it.
@@ -652,15 +682,17 @@ public struct SceneDirector: Sendable {
                 // itself.
                 break
 
-            case .agentTasked:
-                // Not drawn yet. The model learns what a subagent was
-                // dispatched to do — the `Agent` call's own
-                // `tool_input.description`, carried whole — and this is the
-                // slot the nameplate will read it from. Shortening it to one
-                // or two words is a decision about a plate's width and belongs
-                // here rather than in the model; until that is built, the
-                // honest thing to do with the fact is nothing.
-                break
+            case let .agentTasked(agent, task):
+                // The nameplate's headline. Stored whole; `nameplate(for:)`
+                // shortens it, because that is where the plate's width is
+                // known. Retroactive by construction — the character is
+                // already seated when this lands — so what draws it is the
+                // `setNameplate` the touched loop emits, not a respawn.
+                //
+                // At most once per agent, so this is not a channel that can
+                // flicker: a plate gains a task and then never changes again.
+                presentations[agent]?.task = task
+                note(&touched, agent)
             }
         }
 
@@ -689,10 +721,16 @@ public struct SceneDirector: Sendable {
             // carried by `setOverflow` below until a seat frees.
             guard let presentation = presentations[agent],
                   layout.isSeatable(presentation.seat) else { continue }
+            let plate = Self.nameplate(for: presentation)
+            // The spawn intent *is* the first `setNameplate`, so the memory is
+            // seeded from it. Without this the touched loop below — which every
+            // appearing agent is also in — would emit a second intent restating
+            // the plate the character was built with.
+            emittedNameplate[agent] = plate
             intents.append(.spawnCharacter(
                 agent: agent,
                 variant: presentation.variant,
-                nameplate: Self.nameplate(for: presentation),
+                nameplate: plate,
                 seat: presentation.seat,
                 station: presentation.station,
                 costume: presentation.costume))
@@ -722,6 +760,17 @@ public struct SceneDirector: Sendable {
             // `openCalls` alone. A lingering `magnifier` therefore cannot select
             // a seated working pose — not by policy, but because the lookup is
             // not reached. [ADR-002 §6 rule 3, ADR-003 §2]
+            // **Before the body and the badge**, so that in the one batch where
+            // a character both learns its task and opens its first call, the
+            // intent stream reads identity-then-activity rather than the other
+            // way round. Neither ordering changes a pixel — the scene applies
+            // the whole batch before the next frame — and this one is easier to
+            // read in `SPRITEROOM_DEBUG` output.
+            let plate = Self.nameplate(for: presentation)
+            if emittedNameplate[agent] != plate {
+                emittedNameplate[agent] = plate
+                intents.append(.setNameplate(agent: agent, nameplate: plate))
+            }
             let badge = presentation.badge
             let body = body(for: presentation, badge: badge)
             if emittedBody[agent] != body {
@@ -973,6 +1022,7 @@ public struct SceneDirector: Sendable {
         presentations[agent]?.seat = queued
         emittedBody.removeValue(forKey: agent)
         emittedBadge.removeValue(forKey: agent)
+        emittedNameplate.removeValue(forKey: agent)
         touched.removeAll { $0 == agent }
         // An agent seated and evicted inside one batch was never spawned, so
         // there is no node to walk off and nothing to say about it at all. It
@@ -1051,12 +1101,19 @@ public struct SceneDirector: Sendable {
     /// `agent_id` and therefore no suffix, which is not an exception: absence of
     /// `agent_id` *is* the main agent.
     ///
-    /// **The discriminator now leads instead of trailing.** M5 put it last, in
-    /// the same 5×7 as the type, after an ellipsis — so three `general-purpose`
-    /// plates agreed for eight glyphs and disagreed in the three smallest ones
-    /// at the far end. The information is the same; the ordering was backwards.
-    /// The plate draws `lead` large on the accent band and `role` small beneath,
-    /// so what differs is what you see first. See `SceneBitmaps.nameplate`.
+    /// **The discriminator no longer trails.** M5 put it last, in the same 5×7
+    /// as the type, after an ellipsis — so three `general-purpose` plates agreed
+    /// for eight glyphs and disagreed in the three smallest ones at the far end.
+    /// The information is the same; the ordering was backwards. It now has a row
+    /// of its own at the foot of the plate. See `SceneBitmaps.nameplate` for the
+    /// full ordering and why the task took the band off the type.
+    ///
+    /// **Three `general-purpose` subagents dispatched together no longer read
+    /// alike at all**, which is what this change is for: `READ ALPH…`,
+    /// `READ BETA…` and `READ DELT…` in `fixtures/three-subagents.jsonl` are
+    /// three distinct headlines where the type gave one. The discriminator is
+    /// still what carries S4, because a shortening that fits ten glyphs can
+    /// collide and does — see `taskLine(_:)`.
     ///
     /// **`agent_type` is not abbreviated, and that is a decision.** `GEN` for
     /// `general-purpose` needs either a table of names we made up — which is
@@ -1072,20 +1129,115 @@ public struct SceneDirector: Sendable {
     /// something faithfully. [I1]
     static func nameplate(for presentation: Presentation) -> NameplateText {
         guard case let .subagent(id) = presentation.ref.agent else {
+            // **The main agent has no task, permanently**, and this is where
+            // that is structural rather than remembered: there is no dispatch
+            // to carry one and this branch has nowhere to put one if there
+            // were. Absence of `agent_id` *is* the main agent. [I1]
             return NameplateText(lead: "main")
         }
         // M0c found `agent_type` can arrive as the empty string, so absent has
         // to mean empty as well as nil or the plate draws a blank row.
         let type = presentation.agentType.flatMap { $0.isEmpty ? nil : $0 } ?? "subagent"
+        let task = taskLine(presentation.task)
         guard let discriminator = discriminator(id) else {
             // No usable characters in the `agent_id`, so there is nothing that
             // differs and the plate says so by having no lead: the type alone,
             // on one row. The type does *not* get promoted to the lead line —
             // a five-glyph 2× line would truncate `general-purpose` to `GENE…`
             // and lose more than the layout buys. [I1]
-            return NameplateText(lead: "", role: type)
+            return NameplateText(lead: "", role: type, task: task)
         }
-        return NameplateText(lead: discriminator, role: type)
+        return NameplateText(lead: discriminator, role: type, task: task)
+    }
+
+    /// Function words the task line drops.
+    ///
+    /// **Articles, coordinators and prepositions, and nothing else.** They are
+    /// the words that are grammar rather than content: removing `the` from
+    /// `Move the badge beside the head` removes nothing a person was reading,
+    /// and it is the difference between a ten-glyph line that says `MOVE BADG…`
+    /// and one that says `MOVE THE …`.
+    ///
+    /// **Quantifiers and adjectives are deliberately absent.** `all`, `any`,
+    /// `each`, `every`, `new`, `old` look like filler in a list and are content
+    /// in a sentence — *read all logs* is not *read logs*. The rule only removes
+    /// words that cannot carry a task, and where it is not certain it keeps the
+    /// word and lets the ellipsis do the work. That is the same instinct as the
+    /// refusal to abbreviate `agent_type`: when a rule would have to guess, the
+    /// honest fallback is visible truncation.
+    static let taskStopWords: Set<String> = [
+        "A", "AN", "THE",
+        "AND", "OR", "THEN", "SO",
+        "AT", "BY", "FOR", "FROM", "IN", "INTO", "OF", "ON", "ONTO", "TO",
+        "VIA", "WITH", "WITHIN", "WITHOUT", "OVER", "UNDER", "BESIDE",
+        "ACROSS", "AGAINST", "ABOUT", "AS",
+        "IS", "ARE", "BE", "IT", "ITS", "THIS", "THAT",
+    ]
+
+    /// **`Move the badge beside the head` → `MOVE BADG…`.**
+    ///
+    /// The rule, whole:
+    ///
+    /// 1. cut the description into words at everything that is not a letter, a
+    ///    digit or a hyphen — so `alpha.txt` is `ALPHA` and `TXT`, and
+    ///    `delta/epsilon,` is `DELTA` and `EPSILON`;
+    /// 2. drop `taskStopWords`, unless that would leave nothing;
+    /// 3. join what is left and clip it to the plate's ten glyphs, cutting mid
+    ///    word rather than at a word boundary;
+    /// 4. **end in `…` unless every word of the description survived intact.**
+    ///
+    /// **Rule 4 is the honesty condition and it is total.** `…` on a task line
+    /// means *there is more in the description than is drawn*, with no
+    /// exceptions to remember — including the case the eye cannot otherwise
+    /// catch, where the clipped text happens to land on a word boundary and
+    /// reads as a finished phrase. `TOUCH FILE` would be a plate asserting that
+    /// somebody was sent to touch a file; the description said `Touch file s1`,
+    /// and `TOUCH FIL…` is the same information without the assertion. This is
+    /// the convention `aTruncatedTypeStillSaysItWasTruncated` already pins for
+    /// the type, applied to a line that can be cut in more ways.
+    ///
+    /// **Rule 3 cuts mid-word on purpose.** Clipping at a word boundary is
+    /// tidier and loses the object: `MOVE BADGE HEAD` at a nine-glyph budget
+    /// gives `MOVE…` whole-word and `MOVE BADG…` mid-word, and *badge* is the
+    /// half of `move badge` the maintainer named. The type line has cut mid-word
+    /// since M5 (`GENERAL-P…`) and nobody has misread it.
+    ///
+    /// **What it cannot do.** Ten glyphs is two short words, so two dispatches
+    /// that differ only in their third word collapse:
+    /// `fixtures/concurrent-permission-gates.jsonl` sends `Touch file s1` and
+    /// `Touch file s2` and both plates read `TOUCH FIL…`. The tag row is what
+    /// still separates those two characters, which is the second reason it
+    /// survived this change.
+    ///
+    /// Returns `nil` — no task row at all — for `nil` in, and for a description
+    /// with no drawable word in it. Never a placeholder, never a guess. [I1]
+    static func taskLine(_ task: String?, font: PixelFont = .standard) -> String? {
+        guard let task else { return nil }
+        // `normalise` uppercases and turns anything with no glyph into a space,
+        // so the split below sees `,` and `'` as separators for free and the
+        // words are already in the case they will be drawn in.
+        let words = font.normalise(task)
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "-" })
+            .map(String.init)
+            .filter { $0.contains(where: { $0.isLetter || $0.isNumber }) }
+        guard !words.isEmpty else { return nil }
+
+        let kept = words.filter { !taskStopWords.contains($0) }
+        // A description made entirely of function words has no content to
+        // extract, so it is shown as it is rather than erased. `Read it` is not
+        // informative, but it is what the payload said.
+        let carried = kept.isEmpty ? words : kept
+        let phrase = carried.joined(separator: " ")
+        let limit = SceneBitmaps.nameplateTaskGlyphLimit
+        let elided = carried.count < words.count
+        if !elided, phrase.count <= limit { return phrase }
+        // One glyph goes to the mark, and a clip that lands on a space gives it
+        // back — `READ ONE …` is a wasted glyph and a ragged line where
+        // `READ ONE…` is neither.
+        var clipped = String(phrase.prefix(max(0, limit - 1)))
+        while clipped.last == " " { clipped.removeLast() }
+        guard !clipped.isEmpty else { return nil }
+        return clipped + "…"
     }
 
     /// Characters of `agent_id` the lead line carries.

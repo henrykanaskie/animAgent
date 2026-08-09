@@ -958,4 +958,136 @@ struct SceneDirectorTests {
         #expect(director.unmappedTools["AToolFromTheFuture"] == 1)
         #expect(director.badge(agent).badge == .questionMark)
     }
+
+    // MARK: The task reaches the plate — M7e
+
+    static func plates(_ intents: [SpriteIntent]) -> [(AgentRef, NameplateText)] {
+        intents.compactMap {
+            switch $0 {
+            case let .spawnCharacter(agent, _, plate, _, _, _): return (agent, plate)
+            case let .setNameplate(agent, plate): return (agent, plate)
+            default: return nil
+            }
+        }
+    }
+
+    /// **A task arriving behind a character already on screen redraws its plate
+    /// and nothing else.** No second spawn, no exit and re-entry: the intent
+    /// that carries it is `setNameplate`, and the character it names is the one
+    /// that is already seated.
+    @Test func aTaskLandingAfterTheSpawnRedrawsThePlateWithoutRebuildingAnyone() {
+        var director = Self.director()
+        let child = Self.ref(.subagent("a793beae9fa532d0f"))
+        _ = director.apply([
+            .agentAppeared(agent: child, agentType: "Explore", lifecycle: .active)])
+
+        let intents = director.apply([
+            .agentTasked(agent: child, task: "Read alpha.txt and sleep")])
+        #expect(intents.count == 1, "\(intents)")
+        guard case let .setNameplate(agent, plate) = intents[0] else {
+            Issue.record("the task did not produce a setNameplate: \(intents)")
+            return
+        }
+        #expect(agent == child)
+        #expect(plate.headline == "READ ALPH…")
+        #expect(plate.subhead == "Explore", "the type left the plate")
+        #expect(plate.tag == "D0F", "the discriminator left the plate")
+    }
+
+    /// A character that appears and is tasked in one batch is spawned once, with
+    /// the task already on it. The plate the scene builds is the plate the
+    /// character should have, so there is nothing to restate.
+    @Test func anAgentTaskedInItsOwnBatchIsSpawnedWithTheTaskAndNotToldTwice() {
+        var director = Self.director()
+        let child = Self.ref(.subagent("ab69ae01f1e4353c6"))
+        let intents = director.apply([
+            .agentAppeared(agent: child, agentType: "general-purpose", lifecycle: .active),
+            .agentTasked(agent: child, task: "Read one.txt sleep"),
+        ])
+        let plates = Self.plates(intents)
+        #expect(plates.count == 1, "the plate was stated twice: \(intents)")
+        #expect(plates.first?.1.headline == "READ ONE…")
+        #expect(!intents.contains { if case .setNameplate = $0 { true } else { false } })
+    }
+
+    /// **Nothing restates a plate that did not change.** The suppression memory
+    /// is what keeps `setNameplate` off the ordinary frame: a task is emitted at
+    /// most once per agent, so after it lands the plate is fixed for the rest of
+    /// that character's life however busy the room gets.
+    @Test func noFixtureEverRestatesAPlateItAlreadyDrew() async throws {
+        for name in ["three-subagents", "four-subagents", "concurrent-permission-gates",
+                     "subagent-permission", "parallel-tools", "killed-session"] {
+            var director = Self.director()
+            var seen: [AgentRef: [NameplateText]] = [:]
+            for batch in try await SceneFixtures.batchedDeltas(name) {
+                for (agent, plate) in Self.plates(director.apply(batch)) {
+                    seen[agent, default: []].append(plate)
+                }
+            }
+            for (agent, plates) in seen {
+                #expect(plates.count == Set(plates).count,
+                        "\(name): \(agent) had a plate restated with a value it already had")
+                #expect(plates.count <= 2,
+                        "\(name): \(agent) changed plate \(plates.count) times")
+            }
+        }
+    }
+
+    /// **The main agent has no task and cannot be given one.** Its absence of an
+    /// `agent_id` is what makes it the main agent, and `nameplate(for:)` returns
+    /// before it can reach a task. Asserted against a delta that should never
+    /// exist, because "the model will not emit it" is not the same guarantee as
+    /// "the plate could not draw it". [I1]
+    @Test func theMainAgentShowsNoTaskEvenIfOneIsHandedToIt() {
+        var director = Self.director()
+        let main = Self.ref(.mainThread)
+        let spawn = director.apply([
+            .agentAppeared(agent: main, agentType: nil, lifecycle: .active)])
+        #expect(Self.plates(spawn).first?.1.headline == "main")
+
+        let after = director.apply([.agentTasked(agent: main, task: "Rework the report beat")])
+        #expect(!after.contains { if case .setNameplate = $0 { true } else { false } },
+                "the main agent's plate changed: \(after)")
+    }
+
+    /// **The real capture, end to end: three subagents, three headlines.** This
+    /// is what the feature is for — before it, every plate in this room read
+    /// `EXPLORE` or `GENERAL-P…` and the seat was the only thing that told them
+    /// apart. The main agent is in the same room with no task, which is the
+    /// other half of the picture.
+    @Test func threeSubagentsEndUpWithThreeDifferentHeadlines() async throws {
+        var director = Self.director()
+        var latest: [AgentRef: NameplateText] = [:]
+        for batch in try await SceneFixtures.batchedDeltas("three-subagents") {
+            for (agent, plate) in Self.plates(director.apply(batch)) { latest[agent] = plate }
+        }
+        let subagents = latest.filter { if case .subagent = $0.key.agent { true } else { false } }
+        #expect(subagents.count == 3)
+        #expect(Set(subagents.values.map(\.headline))
+                == ["READ ALPH…", "READ BETA…", "READ DELT…"])
+
+        let main = latest.first { if case .mainThread = $0.key.agent { true } else { false } }
+        #expect(main?.value.headline == "main")
+        #expect(main?.value.subhead == nil, "the main agent grew a type row")
+    }
+
+    /// **Two dispatches whose first two words agree collapse onto one headline,
+    /// and the plate still separates the characters.** `concurrent-permission-
+    /// gates` sends `Touch file s1` and `Touch file s2`; ten glyphs cannot hold
+    /// the third word, so both read `TOUCH FIL…`. The discriminator row is what
+    /// keeps S4 — this is the case that justifies its survival, recorded rather
+    /// than discovered later.
+    @Test func twoNearlyIdenticalDispatchesShareAHeadlineAndNotAPlate() async throws {
+        var director = Self.director()
+        var latest: [AgentRef: NameplateText] = [:]
+        for batch in try await SceneFixtures.batchedDeltas("concurrent-permission-gates") {
+            for (agent, plate) in Self.plates(director.apply(batch)) { latest[agent] = plate }
+        }
+        let subagents = latest.filter { if case .subagent = $0.key.agent { true } else { false } }
+        #expect(subagents.count == 2)
+        #expect(Set(subagents.values.map(\.headline)) == ["TOUCH FIL…"],
+                "the collapse this test records has stopped happening: \(subagents.values)")
+        #expect(Set(subagents.values.map(\.tag)).count == 2,
+                "two characters with one headline are now one plate")
+    }
 }
