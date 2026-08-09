@@ -160,6 +160,25 @@ public struct RoomLayout: Sendable, Hashable {
         ScenePoint(x: seatPosition(index).x + Double(tile) * 0.875, y: baselineY)
     }
 
+    /// Bottom-centre of a station's one optional adjacent prop: a tile to the
+    /// character's **left**, on the seat row. [ADR-002 §7]
+    ///
+    /// The left because the right is the desk, and the arithmetic that keeps it
+    /// out of everyone else's way is worth writing down rather than eyeballing.
+    /// A seat pitch is three tiles. Within one pitch the desk's 32 px box spans
+    /// `x+12 … x+44` and this prop's spans `x−48 … x−16`, so a station occupies
+    /// `x−48 … x+44` — 92 px of a 96 px pitch, with the next station's prop
+    /// starting at `x+48`. Nothing overlaps and nothing is on a column any
+    /// character walks down, because every column in this room is a seat's own
+    /// and this is beside one, not on it.
+    ///
+    /// It is on `baselineY`, so it is furniture on the seat row rather than
+    /// decoration in front of the characters — the rule that replaced M5's
+    /// foreground row, and it is not weakened by anything a theme can declare.
+    public func stationPropPosition(_ index: Int) -> ScenePoint {
+        ScenePoint(x: seatPosition(index).x - Double(tile), y: baselineY)
+    }
+
     public var seatedFacing: Facing { .right }
 
     /// Where a reporting subagent walks to before it delivers: onto its own

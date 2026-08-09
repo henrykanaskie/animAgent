@@ -302,9 +302,11 @@ struct PropAnimationTests {
         let parent = AgentRef(project: "/p", session: "s", agent: .mainThread)
         let intents: [SpriteIntent] = [
             .spawnCharacter(agent: parent, variant: manifest.characters.orderedVariantIDs[0],
-                            nameplate: NameplateText(lead: "main"), seat: 0),
+                            nameplate: NameplateText(lead: "main"), seat: 0,
+                            station: ThemeSelector.mainStationID, costume: nil),
             .spawnCharacter(agent: agent, variant: manifest.characters.orderedVariantIDs[1],
-                            nameplate: NameplateText(lead: "001", role: "Explore"), seat: 1),
+                            nameplate: NameplateText(lead: "001", role: "Explore"), seat: 1,
+                            station: ThemeSelector.defaultStationID, costume: nil),
             .setBody(agent: agent, state: .working, facing: .right),
             .setBadge(agent: agent, selection: BadgeSelection.select(openToolNames: ["Bash"])),
             .setBadge(agent: agent, selection: BadgeSelection.select(

@@ -16,9 +16,21 @@ import SpriteKit
 /// event arriving, which is what keeps a burst of short calls from stuttering.
 /// [I2/I3]
 ///
-/// **Nothing is held.** The sprites have no per-frame hand anchors, so tool
-/// identity lives entirely in the badge and the body stays in its pose. There
-/// is no held-object layer here and there must not be one.
+/// **Nothing is held, and a costume is not a held thing.** The sprites have no
+/// per-frame hand anchors, so tool identity lives entirely in the badge and the
+/// body stays in its pose. There is no held-object layer here and there must not
+/// be one — the two folders that would fill it, `Books` and `Smartphones`, carry
+/// ink on one standing front-facing row each and this room is side-view seated.
+///
+/// The costume layer below is a different thing and it is worth saying why in
+/// the same breath, because they were confused for three months. A held object
+/// is a prop that must be *placed* against a hand nobody drew an anchor for. A
+/// costume is the generator's own overlay sheet at the premade sheet's exact
+/// geometry: it registers frame for frame on every pose row including `sit`,
+/// with no offset, so there is nothing to place. It also answers a different
+/// question — a held object would say what the agent is *doing*, which the badge
+/// already says; a costume says what the agent *is*, which only `agent_type`
+/// knows and which nothing on screen said until now.
 @MainActor
 public final class Character: SKNode {
 
@@ -38,6 +50,13 @@ public final class Character: SKNode {
     public enum Layer {
         /// Bodies occupy `rowDepth`, which is bounded by this.
         public static let bodyCeiling: CGFloat = 1000
+        /// Costume layers, **inside** one character's own node and therefore
+        /// relative to that character's body. `1, 2, …` in the costume's own
+        /// order, so they draw over their own body and under everything the
+        /// scene sorts by row. A costume can never paint over another
+        /// character, and nothing about the desk/body depth tie in `RoomScene`
+        /// moves, because the character node's `zPosition` is unchanged.
+        public static let costume: CGFloat = 1
         public static let badge: CGFloat = 4000
         public static let badgeCount: CGFloat = 4001
         public static let nameplate: CGFloat = 5000
@@ -49,6 +68,9 @@ public final class Character: SKNode {
     }
 
     public let agentVariant: String
+    /// What this character is wearing, or `nil` for the cast's own clothes.
+    /// **`let`** — §6 rule 2, and there is deliberately no setter.
+    public let agentCostume: String?
     /// Walk speed in unscaled scene pixels per second. **The same for every
     /// walk, at every distance.**
     ///
@@ -72,6 +94,17 @@ public final class Character: SKNode {
 
     private let store: TextureStore
     private let body = SKSpriteNode()
+    /// One node per declared costume layer, in the costume's own back-to-front
+    /// order, created once at spawn and never added to or removed from.
+    ///
+    /// **Fixed at spawn is the enforcement, not a convention.** There is no
+    /// method on this class that changes `costume`, so a character cannot change
+    /// clothes while it is on screen. [ADR-002 §6 rule 2]
+    private var costumeNodes: [SKSpriteNode] = []
+    /// The frames each costume layer plays for the state the body is playing,
+    /// in the same order and the same count. Indexed with the body's own frame
+    /// index, so a costume cannot drift out of phase with the person wearing it.
+    private var costumeFrames: [[SKTexture]?] = []
     private let badgeNode = SKSpriteNode()
     private let badgeCountNode = SKSpriteNode()
     private let nameplateNode = SKSpriteNode()
@@ -120,9 +153,18 @@ public final class Character: SKNode {
     private var moveStartedAt: TimeInterval = 0
     private var moveDuration: TimeInterval = 0
 
-    public init(variant: String, nameplate: NameplateText, store: TextureStore) {
+    /// - Parameter costume: what this agent wears, from
+    ///   `ThemeSelector.costume(agentID:agentType:in:)`. `nil` — the main
+    ///   thread, an untyped subagent, or any agent at all in a manifest that
+    ///   declares no wardrobe — builds no layer nodes, so the character is
+    ///   byte-for-byte the one this app has always drawn.
+    public init(
+        variant: String, nameplate: NameplateText, store: TextureStore,
+        costume: String? = nil
+    ) {
         self.agentVariant = variant
         self.store = store
+        self.agentCostume = costume
         super.init()
 
         let canvas = store.manifest.characters.canvas
@@ -130,6 +172,21 @@ public final class Character: SKNode {
         body.anchorPoint = CGPoint(x: anchor.x, y: anchor.y)
         body.size = CGSize(width: canvas.width, height: canvas.height)
         addChild(body)
+
+        // The costume stack, over the body and far under the badge band. Sized
+        // and anchored identically to the body because it *is* the body's
+        // geometry: the generator's overlay sheets are the premade sheets'
+        // exact dimensions, registered frame for frame, so there is no offset
+        // to solve and no anchor to guess. [I1]
+        for index in 0..<store.costumeLayerCount(costume) {
+            let node = SKSpriteNode()
+            node.anchorPoint = body.anchorPoint
+            node.size = body.size
+            node.zPosition = Layer.costume + CGFloat(index)
+            node.isHidden = true
+            costumeNodes.append(node)
+            addChild(node)
+        }
 
         let headTopY = Double(canvas.height - store.headTop(variant: variant))
         let badgeAnchor = store.manifest.badges.anchor
@@ -279,6 +336,28 @@ public final class Character: SKNode {
         framesLoop = store.loops(variant: agentVariant, state: state)
         stateStartedAt = start ?? now
         body.texture = textures[0]
+
+        // The costume follows the body into the new state, in the same call, at
+        // the same instant, with the same frame count. Nothing else in this
+        // class may touch these: a costume that could be set from anywhere else
+        // would be a second state machine with its own idea of what the
+        // character is doing.
+        costumeFrames = store.costumeFrames(
+            costume: agentCostume, state: state, facing: resolved,
+            bodyFrameCount: textures.count)
+        for (index, node) in costumeNodes.enumerated() {
+            guard index < costumeFrames.count, let textures = costumeFrames[index] else {
+                // A layer this costume does not draw for this state — or one
+                // whose frame count disagreed with the body's. Hidden, so the
+                // character is simply undressed for that layer rather than
+                // wearing a coat from another pose.
+                node.isHidden = true
+                node.texture = nil
+                continue
+            }
+            node.texture = textures[0]
+            node.isHidden = false
+        }
     }
 
     // MARK: Choreography
@@ -485,5 +564,17 @@ public final class Character: SKNode {
             index = min(index, frames.count - 1)
         }
         body.texture = frames[index]
+        // **The same index, not a second clock.** Every layer was loaded with
+        // the body's own frame count in `apply(state:facing:)`, so this cannot
+        // be out of range and cannot drift; a costume is always on exactly the
+        // frame the person wearing it is on.
+        for (layer, textures) in zip(costumeNodes, costumeFrames) {
+            guard let textures else { continue }
+            layer.texture = textures[index]
+        }
     }
+
+    /// The costume layer nodes, for tests that need to check the picture rather
+    /// than the policy. Read-only; nothing in the scene depends on it.
+    var costumeNodesForTesting: [SKSpriteNode] { costumeNodes }
 }

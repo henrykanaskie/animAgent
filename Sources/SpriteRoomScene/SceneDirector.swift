@@ -6,7 +6,28 @@ import SpriteRoomCore
 public enum SpriteIntent: Sendable, Hashable {
     /// Bring a character in. The scene plays `spawn` — the walk cycle from the
     /// room edge — and settles it at `seat`.
-    case spawnCharacter(agent: AgentRef, variant: String, nameplate: NameplateText, seat: Int)
+    ///
+    /// **`station` and `costume` ride on this intent and on no other, and that
+    /// is §6 rule 2 made structural.** Both are decided from `agent_id` and
+    /// `agent_type` at the moment the character is created and neither has a
+    /// setter anywhere: there is no `setStation`, no `setCostume`, and nothing
+    /// downstream that could rewrite a character's furniture or its clothes
+    /// while it is on screen. They are on the *agent* volatility band, so the
+    /// only event that may move them is the one that creates the agent.
+    ///
+    /// Before this, `station` was resolved by `SceneDirector`, stored in the
+    /// presentation record, and read by nothing: `Manifest.Station` had no
+    /// caller outside `ThemeSelector` and its tests, and a manifest with six
+    /// visually wild stations in all six themes rendered byte-identical to a
+    /// manifest with none. The id had nowhere to go. This is where it goes.
+    ///
+    /// `costume` is `nil` for the main thread, for an untyped subagent, and for
+    /// every agent in a manifest that declares no wardrobe — which is every
+    /// manifest today, so the character drawn is exactly the one this app has
+    /// always drawn.
+    case spawnCharacter(
+        agent: AgentRef, variant: String, nameplate: NameplateText, seat: Int,
+        station: String, costume: String?)
     /// The character's resting state. Only ever emitted when it actually
     /// changed.
     case setBody(agent: AgentRef, state: BodyState, facing: Facing)
@@ -95,6 +116,16 @@ public struct SceneDirector: Sendable {
         /// corresponding station of the new theme. That is §6 rule 4's rebuild,
         /// not a rule 2 rewrite.
         let station: String
+        /// What this character is wearing, from
+        /// `ThemeSelector.costume(agentID:agentType:in:)`. `nil` is the cast's
+        /// own clothes, which is what the main thread wears, what an untyped
+        /// subagent wears, and what everybody wears until costume art exists.
+        ///
+        /// **`let`, for the identical reason `station` is one.** It is on the
+        /// agent band. A character that changed clothes because a later
+        /// `agentAppeared` carried a type we did not have the first time would
+        /// be changing *who it is* under the user's eye.
+        let costume: String?
         /// Keyed by `tool_use_id`, never a single current tool. [I3]
         var openCalls: [ToolUseID: String] = [:]
         /// Set by `reportDelivered` and **cleared at the end of the batch that
@@ -153,6 +184,10 @@ public struct SceneDirector: Sendable {
     /// shipped manifest, which makes the lookup below constant — §5b item 2's
     /// "inert with no code path to delete".
     let workingPoses: [String: String]
+    /// `characters.costumes` — the wardrobe this director dresses agents from.
+    /// Empty in the shipped manifest, so every agent resolves to `nil` and wears
+    /// what the cast came in.
+    public let costumes: Manifest.Costumes
 
     private var presentations: [AgentRef: Presentation] = [:]
     /// Last intent actually emitted per agent — the suppression memory that
@@ -169,12 +204,14 @@ public struct SceneDirector: Sendable {
     public init(layout: RoomLayout = RoomLayout(), camera: RoomCamera = .default,
                 variantIDs: [String],
                 theme: Manifest.Theme = .unbound,
-                workingPoses: [String: String] = [:]) {
+                workingPoses: [String: String] = [:],
+                costumes: Manifest.Costumes = .none) {
         self.layout = layout
         self.camera = camera
         self.variantIDs = variantIDs.isEmpty ? ["00"] : variantIDs
         self.theme = theme
         self.workingPoses = workingPoses
+        self.costumes = costumes
     }
 
     /// - Parameter themeID: the theme the room is dressed in, so that stations
@@ -185,7 +222,8 @@ public struct SceneDirector: Sendable {
                   camera: RoomCamera(manifest: manifest),
                   variantIDs: manifest.characters.orderedVariantIDs,
                   theme: manifest.themeBindings(themeID),
-                  workingPoses: manifest.characters.workingPoses)
+                  workingPoses: manifest.characters.workingPoses,
+                  costumes: manifest.characters.costumes)
     }
 
     // MARK: Query
@@ -211,6 +249,12 @@ public struct SceneDirector: Sendable {
     /// reads it. [§8 item 6]
     public func station(_ agent: AgentRef) -> String? {
         presentations[agent]?.station
+    }
+
+    /// What this character is wearing. Decided at spawn; this only reads it.
+    /// `nil` is the cast's own clothes.
+    public func costume(_ agent: AgentRef) -> String? {
+        presentations[agent]?.costume ?? nil
     }
 
     /// The resting state to draw: `idle`, or the seated pose the badge class
@@ -257,7 +301,13 @@ public struct SceneDirector: Sendable {
                         station: ThemeSelector.station(
                             agentID: agent.agent.subagentID,
                             agentType: agentType,
-                            in: theme))
+                            in: theme),
+                        // Same inputs, same band, same `let`. Both are decided
+                        // here and nowhere else.
+                        costume: ThemeSelector.costume(
+                            agentID: agent.agent.subagentID,
+                            agentType: agentType,
+                            in: costumes))
                     // A character that has just walked in wears no badge, so
                     // "set the badge to none" is an instruction to do nothing.
                     // Seeding the memory here is what keeps the badge-change
@@ -349,7 +399,9 @@ public struct SceneDirector: Sendable {
                 agent: agent,
                 variant: presentation.variant,
                 nameplate: Self.nameplate(for: presentation),
-                seat: presentation.seat))
+                seat: presentation.seat,
+                station: presentation.station,
+                costume: presentation.costume))
         }
 
         for agent in touched {

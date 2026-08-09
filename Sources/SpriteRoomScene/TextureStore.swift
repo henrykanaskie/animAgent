@@ -90,6 +90,16 @@ public final class TextureStore {
         guard let animation = manifest.characters.variant(variant)?.animation(state) else {
             return []
         }
+        return frames(of: animation, facing: facing)
+    }
+
+    /// The same resolution, over one already-selected animation. Extracted so a
+    /// costume layer resolves its facing **by the same rule as the body it is
+    /// drawn on**: a layer that fell back to a different direction from the
+    /// sprite underneath it would be a left-facing coat on a right-facing
+    /// person, in one frame out of a loop, which is the kind of fault that only
+    /// shows up on somebody's screen.
+    private func frames(of animation: Manifest.StateAnimation, facing: Facing) -> [SKTexture] {
         let resolved: Facing
         if animation.frames(facing: facing) != nil {
             resolved = facing
@@ -101,6 +111,38 @@ public final class TextureStore {
             return []
         }
         return (animation.frames(facing: resolved) ?? []).compactMap { texture(path: $0) }
+    }
+
+    /// One costume's layers for one state and facing, back to front — **one
+    /// entry per declared layer**, `nil` where that layer draws nothing here.
+    ///
+    /// Positional rather than compacted, and that is not fussiness: the caller
+    /// owns one node per declared layer at a fixed depth, so a compacted array
+    /// would silently draw layer 1's art on layer 0's node the moment a costume
+    /// omitted a state — an overlay in the wrong order, in one pose out of six.
+    ///
+    /// **A layer whose frame count does not match the body's is `nil`, not
+    /// stretched.** The generator's sheets are the premade sheets' geometry, so
+    /// the counts agree by construction; if they ever do not, the honest answer
+    /// is the undressed layer rather than a coat that walks at a different speed
+    /// from the person in it. `bodyFrameCount` is what the caller is about to
+    /// draw, so this cannot go out of step with it.
+    public func costumeFrames(
+        costume id: String?, state: BodyState, facing: Facing, bodyFrameCount: Int
+    ) -> [[SKTexture]?] {
+        guard let id, let costume = manifest.characters.costumes.costume(id) else { return [] }
+        return costume.layers.map { layer in
+            guard bodyFrameCount > 0, let animation = layer.animation(state) else { return nil }
+            let textures = frames(of: animation, facing: facing)
+            return textures.count == bodyFrameCount ? textures : nil
+        }
+    }
+
+    /// How many layers a costume declares. Read by the scene to size its node
+    /// stack once, at spawn, rather than adding and removing nodes per frame.
+    public func costumeLayerCount(_ id: String?) -> Int {
+        guard let id else { return 0 }
+        return manifest.characters.costumes.costume(id)?.layers.count ?? 0
     }
 
     public func frameRate(variant: String, state: BodyState) -> Double {

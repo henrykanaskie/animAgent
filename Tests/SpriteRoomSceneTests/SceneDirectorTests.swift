@@ -34,7 +34,7 @@ struct SceneDirectorTests {
                 if case let .agentAppeared(agent, _, _) = delta { appeared.insert(agent) }
             }
             for intent in director.apply(batch) {
-                if case let .spawnCharacter(agent, _, _, _) = intent { spawned.append(agent) }
+                if case let .spawnCharacter(agent, _, _, _, _, _) = intent { spawned.append(agent) }
             }
         }
 
@@ -54,7 +54,7 @@ struct SceneDirectorTests {
                     if case let .agentAppeared(agent, _, _) = delta { appeared.insert(agent) }
                 }
                 for intent in director.apply(batch) {
-                    if case let .spawnCharacter(agent, _, _, _) = intent { spawned.insert(agent) }
+                    if case let .spawnCharacter(agent, _, _, _, _, _) = intent { spawned.insert(agent) }
                 }
             }
             #expect(spawned == appeared, "\(name)")
@@ -475,7 +475,7 @@ struct SceneDirectorTests {
         let main = Self.ref(.mainThread)
         let intents = director.apply([
             .agentAppeared(agent: main, agentType: nil, lifecycle: .active)])
-        guard case let .spawnCharacter(_, variant, nameplate, seat) = intents[0] else {
+        guard case let .spawnCharacter(_, variant, nameplate, seat, _, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
         #expect(seat == 0)
@@ -494,7 +494,7 @@ struct SceneDirectorTests {
         for batch in try await SceneFixtures.batchedDeltas("three-subagents") {
             for intent in director.apply(batch) {
                 switch intent {
-                case let .spawnCharacter(agent, variant, _, seat):
+                case let .spawnCharacter(agent, variant, _, seat, _, _):
                     #expect(!liveVariants.values.contains(variant), "variant \(variant) reused")
                     #expect(!liveSeats.values.contains(seat), "seat \(seat) reused")
                     liveVariants[agent] = variant
@@ -513,7 +513,7 @@ struct SceneDirectorTests {
         let child = Self.ref(.subagent("a894ded5b0c4b18de"))
         let intents = director.apply([
             .agentAppeared(agent: child, agentType: "security-reviewer", lifecycle: .spawning)])
-        guard case let .spawnCharacter(_, _, nameplate, _) = intents[0] else {
+        guard case let .spawnCharacter(_, _, nameplate, _, _, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
         // The discriminator leads and the type is the second line — the two
@@ -524,7 +524,7 @@ struct SceneDirectorTests {
         var mainDirector = Self.director()
         let mainIntents = mainDirector.apply([
             .agentAppeared(agent: Self.ref(.mainThread), agentType: nil, lifecycle: .active)])
-        guard case let .spawnCharacter(_, _, mainPlate, _) = mainIntents[0] else {
+        guard case let .spawnCharacter(_, _, mainPlate, _, _, _) = mainIntents[0] else {
             Issue.record("expected a spawn"); return
         }
         // No `agent_id`, so no discriminator. That is the identity rule, not a
@@ -549,7 +549,7 @@ struct SceneDirectorTests {
             let intents = director.apply([
                 .agentAppeared(agent: Self.ref(.subagent(id)),
                                agentType: "general-purpose", lifecycle: .spawning)])
-            for case let .spawnCharacter(_, _, plate, _) in intents { plates.append(plate) }
+            for case let .spawnCharacter(_, _, plate, _, _, _) in intents { plates.append(plate) }
         }
         #expect(plates.count == 3)
         #expect(Set(plates).count == 3, "same-typed subagents share a plate: \(plates)")
@@ -609,7 +609,7 @@ struct SceneDirectorTests {
         let intents = director.apply([
             .agentAppeared(agent: Self.ref(.subagent("a1c0ffee0badf00d1")),
                            agentType: "Explore", lifecycle: .spawning)])
-        guard case let .spawnCharacter(_, _, plate, _) = intents[0] else {
+        guard case let .spawnCharacter(_, _, plate, _, _, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
         #expect(plate == NameplateText(lead: "0D1", role: "Explore"))
@@ -643,7 +643,7 @@ struct SceneDirectorTests {
             let intents = director.apply([
                 .agentAppeared(agent: Self.ref(.subagent(id)),
                                agentType: type, lifecycle: .spawning)])
-            for case let .spawnCharacter(_, _, plate, _) in intents {
+            for case let .spawnCharacter(_, _, plate, _, _, _) in intents {
                 let bitmap = SceneBitmaps.nameplate(plate, accent: Bitmap.RGBA(255, 0, 0))
                 #expect(bitmap.width <= SceneBitmaps.maximumNameplateWidth,
                         "\(plate) drew \(bitmap.width) px")

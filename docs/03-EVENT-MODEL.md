@@ -17,6 +17,25 @@ Run on every event, in this order:
 3. `agent_id` present → that subagent. **Absent → the main thread agent.**
 4. `agent_type` → sprite variant and nameplate. Absent → default variant.
 
+`agent_type` now drives three visible channels, not one, and all three are on the
+**agent** volatility band [ADR-002 §6 rule 2] — decided at spawn, carried on
+`SpriteIntent.spawnCharacter`, stored in a `let`, and never rewritten:
+
+| Channel | From | Absent / empty `agent_type` | No `agent_id` |
+|---|---|---|---|
+| Nameplate | the string itself | `subagent` | `MAIN` |
+| **Station** — the desk and chair at its seat | rendezvous over the theme's numbered stations | `station.default` | `station.main` |
+| **Costume** — what it is wearing | the wardrobe's `roles` table, else rendezvous over the neutral pool | nothing | nothing |
+
+The station's rules are ADR-002 §4 and its art contract is §7. The reason it is
+named here at all is that until M6h it resolved and **reached nothing**:
+`Manifest.Station` had no caller, the id never left `SceneDirector`, and a
+manifest with six visually wild stations in every theme rendered byte-identical
+to one with none. It is drawn now, and the assertion that would have caught its
+absence is `StationSceneTests.twoAgentsOfDifferentTypeDrawDifferentPixelsAtTheir
+Seats` — the maintainer's own question, mechanised: *can you tell one agent from
+another by looking at the room?*
+
 Two subagents of the same `agent_type` are different characters; identity is
 `agent_id`, never the type. Do not merge them into one avatar.
 
@@ -756,6 +775,97 @@ for writing one is easy to state: **held art keyed to the `sit` row, side-on,
 with a frame for every frame of the loop.** Until a sheet like that exists, the
 honest held object is no held object — which is the `question_mark` answer
 applied to a layer instead of a glyph, and it is always true.
+
+### The costume layer, which is a different layer and a different question
+
+The paragraph above stays true and it was answering the wrong folder. `Books` and
+`Smartphones` are the generator's two *held* layers, so they are the two that
+inherit the `sit` row's problem. The generator also ships four layers that are
+**worn** — `Outfits` (132 files), `Hairstyles` (200), `Accessories` (84),
+`Eyes` (7) — every one of them at the premade sheet's exact 1792×1312 geometry.
+Nobody had looked at those, because the question had always been phrased as "can
+the character hold something".
+
+The claim was checked before anything was built on it, in the terms the last one
+failed on:
+
+> **An outfit composited onto a premade's `sit` row lands on the torso, covers
+> the premade's own garment, and leaves the head alone.** Over all six cast
+> variants and both seated directions: outfit ink 168–412 px per frame against a
+> 952–1171 px body, of which **0 px fall outside the body's silhouette** for 26
+> of the 33 families and 4–16 px for the rest. There is no offset to solve — the
+> sheets are the premade sheets, and `Body_32x32_01`'s bare seated frame is
+> 904 px, every one of them inside premade 06's 952.
+
+Two consequences, and the second is the honest limitation:
+
+- **The desk hides almost none of it.** The desk is a 32 px sprite placed 28 px
+  to the character's right, so it overlaps four columns of a 32 px body:
+  `office`, `briefing`, `broadcast` and `stage` hide **12 px of 952**, 1%.
+  `mission_control` hides 136 (14%) and `library` 396 (42%), because their
+  surfaces are wider and taller. So an outfit is 244–400 visible pixels in four
+  of six themes — a quarter of the character, contiguous, and the largest single
+  region of it.
+- **It is a value-and-hue channel, not a silhouette one.** Silhouette gain is
+  0–16 px. M0's finding that this cast cannot be told apart by outline is not
+  repaired by an outfit; what an outfit changes is the *value* of the torso, and
+  a white coat against a dark uniform is a large value step in the biggest patch
+  of the sprite. Anything that needs silhouette has to come from a hat — the
+  measured winners on the seated frames are snapback **+156 px**, beanie **+132**
+  and detective hat **+128** per frame, against a bare 952 — or from an outfit
+  with a hood, of which the pack has one.
+
+**What it may claim, and the two tiers that decide.** A costume can say
+something: a lab coat says *this agent tests things*. Whether that is fiction
+depends entirely on how the costume was reached, so the wardrobe has two tiers
+and they are not the same rule.
+
+| Tier | Key | May it assert? | Why |
+|---|---|---|---|
+| `characters.costumes.roles` | the **exact** `agent_type` string | **Yes** | The user named the agent `test-engineer`. Translating a name the user chose is what the nameplate already does. Nothing is inferred at any arrow. |
+| `characters.costumes.assignable` | rendezvous over `agent_type` | **No** | An `agent_type` nobody anticipated is arbitrary text and licenses no claim about the work. "Different clothes" may say only *these are different agents*. |
+
+`Costume.asserts` records which kind a costume is, and
+`CostumeContractTests.noAssertingCostumeIsInThePoolTheHashDrawsFrom` is what
+keeps a hard hat out of the hash's range. It is `question_mark`'s discipline
+applied to a wardrobe: **the honest costume for something we do not recognise is
+a costume that claims nothing.**
+
+The selection is total and lives in `ThemeSelector.costume(agentID:agentType:in:)`:
+
+```
+costume(agent) =
+    nil                            if agent_id is absent   — the main thread
+    nil                            if agent_type is absent or ""
+    roles[agent_type]              if the wardrobe translates that exact name
+    rendezvous(agent_type, pool)   otherwise
+    nil                            if the pool is empty
+```
+
+It is on the **agent** volatility band [ADR-002 §6], decided at spawn from
+`agent_id` and `agent_type`, carried on `SpriteIntent.spawnCharacter`, and stored
+in a `let`. There is no `setCostume` and there must not be one: a character that
+changed clothes because a later `agentAppeared` carried a type we did not have
+the first time would be changing *who it is* under the user's eye, which is M5's
+argument for the always-on nameplate suffix applied to a second channel.
+
+**Exact match, no case folding, no trimming.** `agent_type` is the user's own
+string, and this app does not invent normalisations of those — the same decision
+`ThemeSelector.theme(for:stored:manifest:)` makes about `cwd`. A wardrobe that
+wants `Explore` and `explore` to agree lists both.
+
+**There is no hair layer and there must not be one.** The 200 hairstyle sheets
+register exactly as well. The cast's hair is the channel M0 measured as actually
+separating the six variants, and a costume that overwrote it would spend a proven
+identity channel to buy an unproven one. The same caution applies to a hooded
+outfit, which covers the head as a side effect: it is the strongest silhouette in
+the set and the only one that costs a variant its hair.
+
+**`characters.costumes` ships empty**, so every lookup is `nil`, no layer node is
+built, and the character drawn is the one this app has always drawn. The mechanism
+is inert until art exists, and `CostumeContractTests` asserts the empty state is a
+legal one rather than skipping past it — the same shape as
+`characters.poses.working`, and written this way *because* of it.
 
 ## The reporting animation
 

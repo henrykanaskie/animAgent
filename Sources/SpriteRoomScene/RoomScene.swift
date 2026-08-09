@@ -183,7 +183,11 @@ public final class RoomScene: SKScene {
         // the pack drew no front- or back-facing sit. Drawn a hair behind the
         // body so the character is on the chair rather than in front of it.
         for seat in 0..<layout.seatCapacity {
-            place(role: Self.seatRole, at: layout.seatPosition(seat), depthBias: -0.25)
+            guard let node = place(
+                role: Self.seatRole, at: layout.seatPosition(seat), depthBias: seatDepthBias),
+                  let path = store.room.prop(Self.seatRole)?.file else { continue }
+            emptySeatFurniture[seat, default: []].append(
+                SeatFurniture(node: node, path: path))
         }
 
         // A desk at every seat, occupied or not — an office has empty desks,
@@ -205,7 +209,13 @@ public final class RoomScene: SKScene {
         // walkway exists.
         for seat in 0..<layout.seatCapacity {
             let position = layout.deskPosition(seat)
-            if place(role: Self.surfaceRole, at: position, depthBias: 0.5) { continue }
+            if let node = place(
+                role: Self.surfaceRole, at: position, depthBias: surfaceDepthBias),
+               let path = store.room.prop(Self.surfaceRole)?.file {
+                emptySeatFurniture[seat, default: []].append(
+                    SeatFurniture(node: node, path: path))
+                continue
+            }
             // Nothing in the manifest is called a desk. Draw an obvious
             // placeholder rather than picking a single that looks desk-shaped.
             // [I1]
@@ -217,9 +227,146 @@ public final class RoomScene: SKScene {
             node.anchorPoint = CGPoint(x: 0.5, y: 0)
             node.size = CGSize(width: bitmap.width, height: bitmap.height)
             node.position = CGPoint(x: position.x, y: position.y)
-            node.zPosition = Character.Layer.rowDepth(position.y) + 0.5
+            node.zPosition = Character.Layer.rowDepth(position.y) + surfaceDepthBias
             world.addChild(node)
+            // The placeholder has no manifest path, and saying so is the point:
+            // nothing in the manifest is called a desk here. It is still a piece
+            // of this seat's furniture, so a station still hides it.
+            emptySeatFurniture[seat, default: []].append(
+                SeatFurniture(node: node, path: ""))
         }
+    }
+
+    // MARK: Stations [ADR-002 §4, §8 items 4 and 6]
+
+    /// The chair sits a hair behind the body; the desk a half-row in front of
+    /// it. Named once because the station path has to reproduce both exactly —
+    /// a station whose desk sorted differently from the theme's desk would
+    /// change whether the near edge crosses the body, which is the one cue at
+    /// 32 px that a character is sitting *at* a desk rather than beside one.
+    private let seatDepthBias: CGFloat = -0.25
+    private let surfaceDepthBias: CGFloat = 0.5
+
+    /// The theme-wide desk and chair drawn at each seat at build time.
+    ///
+    /// They are the **empty desk**: an office has them, and drawing furniture
+    /// only when somebody arrives would make the room rearrange itself as agents
+    /// come and go. When a character with a station sits down, its seat's pair
+    /// is hidden and the station's own furniture is drawn in their place; when
+    /// it leaves, they come back. The nodes are never destroyed, which is what
+    /// keeps `noPropNodeIsEverRebuiltAcrossAnyFixtureReplay` — §6 rule 1 made
+    /// mechanical — true through every arrival and departure in every fixture.
+    private var emptySeatFurniture: [Int: [SeatFurniture]] = [:]
+
+    /// One piece of furniture at a seat, with the manifest path behind it.
+    ///
+    /// The path is carried rather than recoverable, because node identity says a
+    /// desk was *placed* and says nothing about which picture — and "a desk was
+    /// placed" was true for three months while every desk in the room was the
+    /// same one.
+    private struct SeatFurniture {
+        let node: SKSpriteNode
+        let path: String
+    }
+
+    /// The furniture drawn for one seated character's station, and the seat it
+    /// stands at. Keyed by agent because a seat can be vacated and refilled
+    /// while the leaver is still walking out.
+    private var stationFurniture: [AgentRef: [SeatFurniture]] = [:]
+    private var stationSeat: [AgentRef: Int] = [:]
+
+    /// One sprite the room has drawn at a seat, flattened to values a test can
+    /// rasterise without SpriteKit.
+    ///
+    /// This exists because the assertion that matters is about *pixels*, and the
+    /// failure it has to catch produced perfectly correct nodes: six stations in
+    /// six themes, every one placed, every one drawn — and the same picture at
+    /// every seat, because the picture came from `props.roles` and the station
+    /// id reached nothing. Positions and counts cannot see that. A path and a
+    /// placement can.
+    public struct DrawnFurniture: Sendable, Hashable {
+        public let path: String
+        public let x: Double, y: Double
+        public let anchorX: Double, anchorY: Double
+        public let width: Double, height: Double
+        public let z: Double
+    }
+
+    /// Everything currently visible at one seat, in draw order.
+    ///
+    /// Hidden nodes are omitted: the theme-wide pair is hidden, not destroyed,
+    /// while a station stands on its seat, so "what is on screen" and "what
+    /// nodes exist" are different questions and this answers the first.
+    public func furnitureForTesting(seat: Int) -> [DrawnFurniture] {
+        var pieces = emptySeatFurniture[seat] ?? []
+        for (agent, furniture) in stationFurniture where stationSeat[agent] == seat {
+            pieces += furniture
+        }
+        return pieces
+            .filter { !$0.node.isHidden }
+            .map {
+                DrawnFurniture(
+                    path: $0.path,
+                    x: Double($0.node.position.x), y: Double($0.node.position.y),
+                    anchorX: Double($0.node.anchorPoint.x),
+                    anchorY: Double($0.node.anchorPoint.y),
+                    width: Double($0.node.size.width), height: Double($0.node.size.height),
+                    z: Double($0.node.zPosition))
+            }
+            .sorted { $0.z < $1.z }
+    }
+
+    /// Draws one character's station at its seat: the station's own desk and
+    /// chair in place of the theme-wide pair, plus at most one adjacent
+    /// floor-standing prop. [ADR-002 §7]
+    ///
+    /// **The theme's `props.roles` stay the fallback**, and they are the whole
+    /// answer for a seat whose station names nothing: a theme that declares no
+    /// stations, a station id the theme does not bind, or a manifest that
+    /// predates stations entirely all leave the build-time pair exactly where it
+    /// was and draw nothing here. That is what makes this change degrade to the
+    /// picture the app drew yesterday rather than to an empty room.
+    ///
+    /// **Placement is the seat's own, not the station's.** The chair goes on
+    /// `seatPosition`, the desk on `deskPosition`, both at the same depth biases
+    /// the build-time pair uses, and each is anchored on its own measured
+    /// content box. A station cannot move a seat, so the layout stays
+    /// theme-independent and every plate-clearance argument in `RoomLayout`
+    /// survives untouched.
+    private func placeStation(_ id: String, for agent: AgentRef, at seat: Int) {
+        guard let station = store.room.station(id) else { return }
+        for piece in emptySeatFurniture[seat] ?? [] { piece.node.isHidden = true }
+
+        var placed: [SeatFurniture] = []
+        func draw(_ role: Manifest.PropRole, at point: ScenePoint, depthBias: CGFloat) {
+            guard let node = place(prop: role, at: point, depthBias: depthBias) else { return }
+            placed.append(SeatFurniture(node: node, path: role.file))
+        }
+        draw(station.chair, at: layout.seatPosition(seat), depthBias: seatDepthBias)
+        draw(station.desk, at: layout.deskPosition(seat), depthBias: surfaceDepthBias)
+        if let prop = station.prop {
+            draw(prop, at: layout.stationPropPosition(seat), depthBias: seatDepthBias)
+        }
+
+        stationFurniture[agent] = placed
+        stationSeat[agent] = seat
+    }
+
+    /// Takes a character's station down and puts the empty desk back.
+    ///
+    /// Called when the node is actually retired rather than when the exit intent
+    /// arrives, so a character walking out is still walking away from its own
+    /// desk for the whole of the walk. The seat may already have been reclaimed
+    /// by then — a seat is free the instant its occupant starts leaving — so the
+    /// empty pair is only restored if nobody else has since drawn a station on
+    /// it.
+    private func retireStation(for agent: AgentRef) {
+        for piece in stationFurniture.removeValue(forKey: agent) ?? [] {
+            piece.node.removeFromParent()
+        }
+        guard let seat = stationSeat.removeValue(forKey: agent) else { return }
+        guard !stationSeat.values.contains(seat) else { return }
+        for piece in emptySeatFurniture[seat] ?? [] { piece.node.isHidden = false }
     }
 
     /// Every furniture node drawn from an identified manifest role. Read-only;
@@ -253,33 +400,31 @@ public final class RoomScene: SKScene {
 
     var propAnimationsForTesting: [PropAnimation] { propAnimations }
 
-    /// Draws one identified prop with its **content box's** bottom-centre on
-    /// `point`. Returns false, having drawn nothing, when the manifest has no
-    /// such role.
+    /// Draws the theme's prop for one role. `nil`, having drawn nothing, when
+    /// the manifest has no such role.
     ///
-    /// The anchor comes from the measured box rather than from the canvas,
-    /// because the Modern Office singles are 64×96 canvases with the object
-    /// dropped in wherever it sat on the source sheet: the desk's baseline is at
-    /// row 87 and the plant's at row 75, in canvases of identical size. Any
-    /// fixed offset would be right for one file and wrong for the next.
+    /// This is the **room's** furniture: it is registered in `propNodes` and
+    /// therefore covered by §6 rule 1's "zero prop-node rebuilds across an
+    /// entire fixture replay", and it is the only path that starts a prop
+    /// animation.
     @discardableResult
-    private func place(role: String, at point: ScenePoint, depthBias: CGFloat = 0) -> Bool {
+    private func place(role: String, at point: ScenePoint, depthBias: CGFloat = 0)
+    -> SKSpriteNode? {
         guard let prop = store.room.prop(role),
-              let texture = store.texture(path: prop.file) else { return false }
-        let canvas = store.room.propCanvas
-        let anchor = prop.anchor(inCanvas: canvas)
-        let node = SKSpriteNode(texture: texture)
-        node.anchorPoint = CGPoint(x: anchor.x, y: anchor.y)
-        node.size = CGSize(width: canvas.width, height: canvas.height)
-        node.position = CGPoint(x: point.x, y: point.y)
-        node.zPosition = Character.Layer.rowDepth(point.y) + depthBias
-        world.addChild(node)
+              let node = place(prop: prop, at: point, depthBias: depthBias) else { return nil }
         propNodes.append(node)
         propPaths.append(prop.file)
 
         // A prop that idles. `prop.file` is frame 0 and is already on the node,
         // so a manifest without this key — or with art that will not load —
         // draws exactly the still prop it always did.
+        //
+        // **Only room props idle, and stations deliberately do not.** The motion
+        // budget is I7 on the time axis and it is a budget on moving pixels per
+        // second *summed over every copy the room draws* — which the room knows
+        // at build time and cannot know for a station, because how many copies
+        // of a station exist is how many agents of that type turned up. A budget
+        // that cannot be computed is not a budget. [ADR-002 §14b]
         if let animation = prop.animation, animation.isPlayable {
             let textures = animation.frames.compactMap { store.texture(path: $0) }
             if textures.count == animation.frames.count,
@@ -288,7 +433,35 @@ public final class RoomScene: SKScene {
                 propAnimations.append(player)
             }
         }
-        return true
+        return node
+    }
+
+    /// Draws one identified prop with its **content box's** bottom-centre on
+    /// `point`. `nil`, having drawn nothing, when its art will not load.
+    ///
+    /// The anchor comes from the measured box rather than from the canvas,
+    /// because the Modern Office singles are 64×96 canvases with the object
+    /// dropped in wherever it sat on the source sheet: the desk's baseline is at
+    /// row 87 and the plant's at row 75, in canvases of identical size. Any
+    /// fixed offset would be right for one file and wrong for the next.
+    ///
+    /// One primitive for the room's props and for a station's, so a station desk
+    /// is anchored, sized and depth-sorted by exactly the arithmetic the theme's
+    /// desk is. Two placement paths over one kind of object drift, and the drift
+    /// here would be a desk sitting a few pixels into the floor for one agent
+    /// and not another.
+    private func place(prop: Manifest.PropRole, at point: ScenePoint, depthBias: CGFloat)
+    -> SKSpriteNode? {
+        guard let texture = store.texture(path: prop.file) else { return nil }
+        let canvas = store.room.propCanvas
+        let anchor = prop.anchor(inCanvas: canvas)
+        let node = SKSpriteNode(texture: texture)
+        node.anchorPoint = CGPoint(x: anchor.x, y: anchor.y)
+        node.size = CGSize(width: canvas.width, height: canvas.height)
+        node.position = CGPoint(x: point.x, y: point.y)
+        node.zPosition = Character.Layer.rowDepth(point.y) + depthBias
+        world.addChild(node)
+        return node
     }
 
     // MARK: Intents
@@ -300,13 +473,19 @@ public final class RoomScene: SKScene {
 
     public func apply(_ intent: SpriteIntent) {
         switch intent {
-        case let .spawnCharacter(agent, variant, nameplate, seat):
+        case let .spawnCharacter(agent, variant, nameplate, seat, station, costume):
             guard characters[agent] == nil else { break }
-            let character = Character(variant: variant, nameplate: nameplate, store: store)
+            let character = Character(
+                variant: variant, nameplate: nameplate, store: store, costume: costume)
             world.addChild(character)
             characters[agent] = character
             animated.append(character)
             seatOf[agent] = seat
+            // **The station reaches the room here and only here.** It was
+            // resolved at spawn, it rode in on the spawn intent, and it is drawn
+            // once — there is no code path that could redraw it, which is §6
+            // rule 2 enforced by there being nothing to enforce.
+            placeStation(station, for: agent, at: seat)
             // **Straight up its own column, from its own ring's delivery row.**
             // See `RoomLayout.entranceRoute(forSeat:)`: the walk-in used to run
             // one seat pitch sideways along the aisle, which is the one row
@@ -382,7 +561,10 @@ public final class RoomScene: SKScene {
                     facing: layout.deliveryFacing(side: side),
                     home: layout.homeRoute(forSeat: reporterSeat),
                     thenExitAt: exit
-                ) { [weak self, weak character] in self?.retire(character) }
+                ) { [weak self, weak character] in
+                    self?.retire(character)
+                    self?.retireStation(for: agent)
+                }
             case .report, .walkOff:
                 // No seat, or a self-report: nothing to walk to, so it just
                 // leaves. A character caught **on a delivery row** — mid-report
@@ -396,7 +578,10 @@ public final class RoomScene: SKScene {
                             forSeat: $0, fromY: Double(character.position.y))
                     } ?? [],
                     to: exit
-                ) { [weak self, weak character] in self?.retire(character) }
+                ) { [weak self, weak character] in
+                    self?.retire(character)
+                    self?.retireStation(for: agent)
+                }
             }
 
         case let .setScale(scale):

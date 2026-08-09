@@ -84,6 +84,13 @@ enum SceneArt {
                 for (_, paths) in animation.frames { declared.formUnion(paths) }
             }
         }
+        // The wardrobe. Empty in the shipped manifest; walked anyway, because
+        // the survey that under-counts is the one that goes green with art
+        // missing, and `role.file` already taught this lesson once.
+        for id in manifest.characters.costumes.orderedIDs {
+            guard let costume = manifest.characters.costumes.costume(id) else { continue }
+            declared.formUnion(costume.declaredPaths)
+        }
         for (_, art) in manifest.badges.map { declared.insert(art.file) }
         for (_, art) in manifest.badges.states { declared.insert(art.file) }
         declared.formUnion(manifest.room.builderTiles)
@@ -178,7 +185,18 @@ enum SceneArt {
     /// 40 with the seated-pose guard: `characters.poses.working` may only name
     /// a pose whose every frame keeps its feet off the canvas's floor row, and
     /// that is a claim about pixels, so it opens the character PNGs.
-    static let expectedGatedTestCount = 40
+    /// 49 when the station finally reached the room: nine tests that need the
+    /// art because they are about the picture rather than about the ids. Five
+    /// are `StationSceneTests` — two agents of different `agent_type` differing
+    /// in pixels at their seats, a station changing the seat it is drawn at, a
+    /// seat whose station names nothing keeping the theme's own furniture, a
+    /// station going up at spawn and coming down at retirement, and the fixture
+    /// sweep down the branch that actually draws one. Three are `CostumeTests`
+    /// — a manifest with no wardrobe dressing nobody, a costume drawn on every
+    /// state the body plays, and a layer whose frame count disagrees not being
+    /// drawn. One is `CostumeContractTests`, which opens every frame a declared
+    /// costume names.
+    static let expectedGatedTestCount = 49
 }
 
 /// Always runs, in both modes, and never fails for the absence of art.

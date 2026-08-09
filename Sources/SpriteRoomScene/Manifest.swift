@@ -66,6 +66,110 @@ public struct Manifest: Sendable, Hashable {
         public func animation(_ state: BodyState) -> StateAnimation? { states[state] }
     }
 
+    /// One costume: an ordered stack of overlay layers drawn **on** a character,
+    /// in the generator's own back-to-front order. [ADR-002 §4, the costume
+    /// amendment]
+    ///
+    /// A layer is variant-shaped on purpose — the same `states` map, the same
+    /// facings, the same frame counts — because that is literally what the art
+    /// is. Modern Interiors' `Character_Generator/Outfits` sheets are the
+    /// premade sheet's exact geometry, registered frame for frame on every pose
+    /// row including `sit`, so a layer is a second `CharacterVariant` drawn over
+    /// the first with no offset to solve. Verified before this type was written:
+    /// an outfit composited onto each of the six cast premades' seated frames
+    /// lands on the torso, covers the premade's own garment, and leaves the
+    /// hair and the skin — which is where M0 put the variant identity — alone.
+    ///
+    /// **There is no hair layer and there must not be one.** The generator ships
+    /// 200 hairstyles and they register just as well; the cast's hair is the one
+    /// channel M0 measured as actually separating the six variants, and a
+    /// costume that overwrote it would spend a proven identity channel to buy an
+    /// unproven one.
+    public struct Costume: Sendable, Hashable {
+        public let id: String
+        /// What the costume *is*, in the manifest's words. Never drawn — it is
+        /// what an art report and a contract test name it by.
+        public let title: String
+        /// **Whether wearing this makes a claim about the work.**
+        ///
+        /// A lab coat says *this agent tests things*. That is a true sentence
+        /// when the user named the agent `test-engineer` and the manifest
+        /// translates that name; it is fiction when a hash put an arbitrary
+        /// `agent_type` in it. So an asserting costume may be reached only
+        /// through `Costumes.roles` — the tier that is keyed on the exact text
+        /// the user wrote — and never through the pool. `ThemeSelector` enforces
+        /// the reachability; `CostumeContractTests` enforces that the pool
+        /// contains no costume declaring this. [I1]
+        public let asserts: Bool
+        /// Back to front. `layers[0]` draws nearest the body.
+        public let layers: [Layer]
+
+        public struct Layer: Sendable, Hashable {
+            public let states: [BodyState: StateAnimation]
+
+            public func animation(_ state: BodyState) -> StateAnimation? { states[state] }
+        }
+
+        /// Every path this costume needs on disk. The art survey asks this
+        /// rather than reaching into `layers`, for the reason
+        /// `PropRole.declaredPaths` exists: a walk that collects most of an
+        /// asset's frames reports a plausible number and goes green with the
+        /// rest missing.
+        public var declaredPaths: Set<String> {
+            var paths: Set<String> = []
+            for layer in layers {
+                for (_, animation) in layer.states {
+                    for (_, frames) in animation.frames { paths.formUnion(frames) }
+                }
+            }
+            return paths
+        }
+    }
+
+    /// `characters.costumes` — the wardrobe, and the two tiers that keep it
+    /// honest.
+    ///
+    /// ```
+    /// costume(agent) =
+    ///     nil                            if agent_id is absent   — the main thread
+    ///     nil                            if agent_type is absent or ""
+    ///     roles[agent_type]              if the manifest translates that exact name
+    ///     rendezvous(agent_type, pool)   otherwise
+    ///     nil                            if the pool is empty
+    /// ```
+    ///
+    /// **Tier 1 translates; tier 2 must not claim.** `roles` is a table the
+    /// manifest carries, keyed on `agent_type` **exactly as received** — the same
+    /// rule `ThemeSelector.theme(for:stored:manifest:)` follows for `cwd`, and
+    /// for the same reason: this app does not invent normalisations of the user's
+    /// own strings. A `test-engineer` in a lab coat is the room repeating a name
+    /// the user chose. A hash that put an unrecognised type in the same coat
+    /// would be inventing the claim, which is why the pool is a separate list
+    /// and why nothing in it may assert.
+    ///
+    /// **Empty is a legal state and is the shipped one.** No costume art has been
+    /// cut, so `sets` is empty, every lookup is `nil`, and the room draws exactly
+    /// what it drew before this type existed.
+    public struct Costumes: Sendable, Hashable {
+        public let sets: [String: Costume]
+        /// Sorted. Dictionary order is not stable and neither a hash pool nor a
+        /// report may depend on it.
+        public let orderedIDs: [String]
+        /// `agent_type` → costume id. Exact match, no case folding, no trimming.
+        public let roles: [String: String]
+        /// The pool the hash draws from, sorted. Ids naming no costume are
+        /// dropped at decode; an asserting costume in here is a manifest defect
+        /// and a test says so.
+        public let assignableIDs: [String]
+
+        public func costume(_ id: String) -> Costume? { sets[id] }
+
+        public var isEmpty: Bool { sets.isEmpty }
+
+        public static let none = Costumes(
+            sets: [:], orderedIDs: [], roles: [:], assignableIDs: [])
+    }
+
     public struct Characters: Sendable, Hashable {
         public let canvas: Size
         public let anchor: Anchor
@@ -96,6 +200,10 @@ public struct Manifest: Sendable, Hashable {
         /// `sleep` is a head on a pillow. See `03-EVENT-MODEL.md`, "One seated
         /// pose is all the pack has".
         public let workingPoses: [String: String]
+        /// `characters.costumes`. **Empty in the shipped manifest**, which makes
+        /// every costume lookup `nil` and the character exactly the sprite it
+        /// has always been.
+        public let costumes: Costumes
 
         /// The key §7 requires every pose table to carry. It is what
         /// `question_mark` resolves to, and therefore what every unmapped tool
@@ -509,29 +617,9 @@ public struct Manifest: Sendable, Hashable {
             guard let variantObject = raw as? [String: Any] else {
                 throw LoadError.malformed("characters.variants.\(id) is not an object")
             }
-            let statesObject = try Self.object(variantObject, "states")
-            var states: [BodyState: StateAnimation] = [:]
-            for (stateName, rawState) in statesObject {
-                guard let state = BodyState(rawValue: stateName) else { continue }
-                guard let stateObject = rawState as? [String: Any],
-                      let framesObject = stateObject["frames"] as? [String: Any] else {
-                    throw LoadError.malformed("characters.variants.\(id).states.\(stateName)")
-                }
-                var frames: [Facing: [String]] = [:]
-                for (direction, rawPaths) in framesObject {
-                    guard let facing = Facing(rawValue: direction),
-                          let paths = rawPaths as? [String], !paths.isEmpty else { continue }
-                    frames[facing] = paths
-                }
-                guard !frames.isEmpty else {
-                    throw LoadError.malformed(
-                        "characters.variants.\(id).states.\(stateName) has no usable frames")
-                }
-                states[state] = StateAnimation(
-                    loops: (stateObject["loop"] as? Bool) ?? true,
-                    fps: Double((stateObject["fps"] as? Int) ?? Int(frameRate)),
-                    frames: frames)
-            }
+            let states = try Self.states(
+                try Self.object(variantObject, "states"),
+                frameRate: frameRate, context: "characters.variants.\(id)")
             variants[id] = CharacterVariant(
                 id: id,
                 headTopPx: (variantObject["head_top_px"] as? Int) ?? 0,
@@ -551,7 +639,9 @@ public struct Manifest: Sendable, Hashable {
             frameRate: frameRate,
             variants: variants,
             orderedVariantIDs: variants.keys.sorted(),
-            workingPoses: workingPoses)
+            workingPoses: workingPoses,
+            costumes: try Self.costumes(
+                charactersObject["costumes"] as? [String: Any], frameRate: frameRate))
 
         // Badges
         let badgesObject = try Self.object(object, "badges")
@@ -616,6 +706,98 @@ public struct Manifest: Sendable, Hashable {
             defaultID: declaredDefault.flatMap { sets[$0] != nil ? $0 : nil },
             sets: sets,
             orderedIDs: sets.keys.sorted())
+    }
+
+    /// Decodes a `states` map — the shape a character variant and a costume
+    /// layer share, because the art is the same geometry drawn on two sheets.
+    ///
+    /// One decoder for both. Two decoders over one shape drift, and this one
+    /// drifting would show up as a costume layer that plays at a different
+    /// frame rate from the body it is drawn on.
+    private static func states(
+        _ statesObject: [String: Any], frameRate: Double, context: String
+    ) throws -> [BodyState: StateAnimation] {
+        var states: [BodyState: StateAnimation] = [:]
+        for (stateName, rawState) in statesObject {
+            guard let state = BodyState(rawValue: stateName) else { continue }
+            guard let stateObject = rawState as? [String: Any],
+                  let framesObject = stateObject["frames"] as? [String: Any] else {
+                throw LoadError.malformed("\(context).states.\(stateName)")
+            }
+            var frames: [Facing: [String]] = [:]
+            for (direction, rawPaths) in framesObject {
+                guard let facing = Facing(rawValue: direction),
+                      let paths = rawPaths as? [String], !paths.isEmpty else { continue }
+                frames[facing] = paths
+            }
+            guard !frames.isEmpty else {
+                throw LoadError.malformed("\(context).states.\(stateName) has no usable frames")
+            }
+            states[state] = StateAnimation(
+                loops: (stateObject["loop"] as? Bool) ?? true,
+                fps: Double((stateObject["fps"] as? Int) ?? Int(frameRate)),
+                frames: frames)
+        }
+        return states
+    }
+
+    /// Decodes `characters.costumes`.
+    ///
+    /// **Absent is the shipped state and decodes to `.none`**, so a manifest
+    /// that has never heard of costumes produces a wardrobe that dresses nobody
+    /// and a room identical to the one before this key existed.
+    ///
+    /// Two entries are dropped rather than thrown on, and both droppings are the
+    /// honest answer rather than leniency:
+    ///
+    /// - a `roles` entry naming a costume that is not in `sets` — a costume
+    ///   removed from the art, or a hand-edited manifest. That `agent_type`
+    ///   falls through to the pool, which is what it would have done had the
+    ///   entry never been written.
+    /// - an `assignable` id naming no costume. The pool is the hash's range and
+    ///   an id with nothing behind it would be a character wearing nothing while
+    ///   the code believed it was dressed.
+    private static func costumes(
+        _ object: [String: Any]?, frameRate: Double
+    ) throws -> Costumes {
+        guard let object else { return .none }
+        var sets: [String: Costume] = [:]
+        for (id, raw) in (object["sets"] as? [String: Any]) ?? [:] {
+            guard let entry = raw as? [String: Any] else {
+                throw LoadError.malformed("characters.costumes.sets.\(id) is not an object")
+            }
+            var layers: [Costume.Layer] = []
+            for (index, rawLayer) in ((entry["layers"] as? [[String: Any]]) ?? []).enumerated() {
+                let states = try Self.states(
+                    (rawLayer["states"] as? [String: Any]) ?? [:],
+                    frameRate: frameRate,
+                    context: "characters.costumes.sets.\(id).layers[\(index)]")
+                guard !states.isEmpty else {
+                    throw LoadError.malformed(
+                        "characters.costumes.sets.\(id).layers[\(index)] draws no state")
+                }
+                layers.append(Costume.Layer(states: states))
+            }
+            guard !layers.isEmpty else {
+                throw LoadError.malformed("characters.costumes.sets.\(id) has no layers")
+            }
+            sets[id] = Costume(
+                id: id,
+                title: (entry["title"] as? String) ?? id,
+                asserts: (entry["asserts"] as? Bool) ?? false,
+                layers: layers)
+        }
+        var roles: [String: String] = [:]
+        for (agentType, raw) in (object["roles"] as? [String: Any]) ?? [:] {
+            guard let costumeID = raw as? String, sets[costumeID] != nil else { continue }
+            roles[agentType] = costumeID
+        }
+        let assignable = ((object["assignable"] as? [String]) ?? [])
+            .filter { sets[$0] != nil }
+            .sorted()
+        return Costumes(
+            sets: sets, orderedIDs: sets.keys.sorted(),
+            roles: roles, assignableIDs: assignable)
     }
 
     /// Decodes one `room`-shaped object: tile, builder, props, stations.

@@ -164,4 +164,53 @@ public enum ThemeSelector {
         guard let agentType, !agentType.isEmpty else { return defaultStationID }
         return rendezvous(key: agentType, over: theme.numberedStationIDs) ?? defaultStationID
     }
+
+    // MARK: The costume
+
+    /// What this agent is wearing, or `nil` for the clothes the cast came in.
+    ///
+    /// ```
+    /// costume(agent) =
+    ///     nil                            if agent_id is absent
+    ///     nil                            if agent_type is absent or ""
+    ///     roles[agent_type]              if the wardrobe translates that exact name
+    ///     rendezvous(agent_type, pool)   otherwise
+    ///     nil                            if the pool is empty
+    /// ```
+    ///
+    /// **The two tiers are the whole of I1 here, and they are not the same
+    /// rule.** A costume can say something — a lab coat says *this agent tests
+    /// things* — and whether that is true depends entirely on how it was
+    /// reached:
+    ///
+    /// - **Reached by `roles`, it is a translation.** The key is the exact
+    ///   `agent_type` the user typed. If they called an agent `test-engineer`
+    ///   and the manifest translates that name into a coat, the room is
+    ///   repeating a name the user chose, which is the same licence the
+    ///   nameplate already runs on. Nothing was inferred at any arrow.
+    /// - **Reached by the hash, it must claim nothing.** An `agent_type` nobody
+    ///   anticipated is arbitrary text and nothing in it licenses a costume that
+    ///   asserts. So the hash draws only from `assignableIDs`, whose members are
+    ///   neutral by contract, and "different clothes" then says exactly and only
+    ///   *these are different agents* — which is exactly and only what we know.
+    ///   It is `question_mark`'s answer worn instead of drawn.
+    ///
+    /// Keyed on `agent_type`, never on `agent_id`, for §4's reason: two
+    /// `general-purpose` subagents are the same kind of worker and dressing them
+    /// differently would spend the channel's meaning on variety. `nil` for the
+    /// main thread is not a gap — absence of `agent_id` **is** the main agent,
+    /// and it wears the cast's own clothes because there is no type to translate.
+    ///
+    /// **Exact match, no folding.** `agent_type` is the user's own string and
+    /// this app does not invent normalisations of those — the same decision
+    /// `theme(for:stored:manifest:)` makes about `cwd`. A wardrobe that wants
+    /// `Explore` and `explore` to agree lists both.
+    public static func costume(
+        agentID: String?, agentType: String?, in costumes: Manifest.Costumes
+    ) -> String? {
+        guard agentID != nil else { return nil }
+        guard let agentType, !agentType.isEmpty else { return nil }
+        if let named = costumes.roles[agentType] { return named }
+        return rendezvous(key: agentType, over: costumes.assignableIDs)
+    }
 }
