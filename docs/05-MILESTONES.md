@@ -199,19 +199,30 @@ Do not close one of these by editing the criterion.
   `aCameraCanStillPreferACloserScaleIfItIsToldTo` proves the mechanism survives.
   Recorded as a spend, not a defect.
 - **A nameplate leads with the part that distinguishes it.** Two rows: a solid
-  accent band carrying the discriminator at double size, type small beneath.
-  Measured on rendered pixels rather than asserted — two same-typed plates differ
-  in **at least four times** the separation the single-line plate gave (61.5% of
-  pixels against 21.7%), cap height 14 px from 7, stroke 2 px from 1. No plate
-  exceeds the seat pitch, no two plates ever intersect, and a truncated type still
-  says it was truncated — the ellipsis is lossy but *visibly* lossy, and no
-  abbreviation scheme degrades honestly over arbitrary text.
-  `sameTypedSubagentPlatesDifferByFourTimesTheOldSeparation`,
+  accent band on top and a dark row beneath it. No plate exceeds the seat pitch,
+  no two plates ever intersect, and a truncated type still says it was truncated
+  — the ellipsis is lossy but *visibly* lossy, and no abbreviation scheme
+  degrades honestly over arbitrary text.
+  `sameTypedSubagentPlatesDifferByExactlyTheFacesOwnSeparation`,
   `theDiscriminatorIsTheTailOfTheAgentIDAndSurvivesOddIDs`, `noPlateExceedsTheSeatPitch`,
   `noTwoNameplatesEverIntersect`, `noTwoNameplatesEverIntersectAcrossResumedSubagents`,
   `aTruncatedTypeStillSaysItWasTruncated`. This carries M2's criterion forward:
   M0 found the cast is not separable by silhouette, so the plate is a primary
   identity channel and not decoration.
+
+  **Which row got which half was wrong until M7d, and this bullet said so
+  approvingly.** It read "a solid accent band carrying the discriminator at
+  double size, type small beneath", and claimed four times the separation of the
+  single-line plate as the win. The separation was real and it was spent on the
+  wrong string: the loudest element in the room said `430` — the last three hex
+  characters of an `agent_id` — while `GENERAL-P…` sat under it at half the size.
+  The maintainer had already asked for agent *names* that read better, and this
+  is the second answer to that question. The band now carries the `agent_type`
+  at eleven glyphs and the discriminator is the small row; the multiplier this
+  bullet was proud of is gone, deliberately, and
+  `theTypeIsOnTheAccentBandAndTheDiscriminatorIsBelowIt` is what replaces it.
+  See `04-ART-DIRECTION`, "The plate leads with the type — M7d", for why no
+  amount of magnification was available to the type instead.
 
   **This criterion was deleted by accident at `70f5793` and restored here.** The
   reconciliation that closed four items anchored a patch on a string that sat
@@ -369,7 +380,12 @@ Do not close one of these by editing the criterion.
   nothing we own could honestly draw the difference between *finished a turn* and
   *waiting for work* — the `Z` bubble is real pack art saying exactly the true
   thing, so the refusal is reversed with its reason recorded rather than
-  overwritten. Precedence is **attention > sleep > tool**, and the middle
+  overwritten. **The bubble did not survive M7**: at `1x` it was 84% of a working
+  badge's footprint inside its silhouette, so the room's loudest signal fired for
+  *finished* exactly as it fired for *working*. Dormancy now draws
+  `SceneBitmaps.dormancyTab`, which says the same `Z` at a fifth of the size in
+  the room's own lettering; the fact, the key and the ranking are unchanged. See
+  `04-ART-DIRECTION.md` §1b. Precedence is **attention > sleep > tool**, and the middle
   comparison turned out reachable where it was expected not to be:
   `PermissionRequest` arms a gate mark without going through `ensureAgent`, so it
   does not revive a dormant agent.

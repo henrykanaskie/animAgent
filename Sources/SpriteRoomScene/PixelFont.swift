@@ -149,6 +149,16 @@ public struct PixelFont: Sendable {
 
     /// Draws text into a bitmap at the given top-left origin, magnified by an
     /// integer `scale`.
+    ///
+    /// **Both axes together, never one of them.** A non-uniform `scaleX`/
+    /// `scaleY` was written for the nameplate's headline — the type is too wide
+    /// to magnify horizontally inside a seat pitch, so stretching it vertically
+    /// looked like the free win. It was rendered at `1x` and it is worse than
+    /// no magnification at all: a 5×14 cell leaves 1 px vertical strokes beside
+    /// 2 px horizontal ones and 1 px of tracking beside a 14 px glyph, so words
+    /// close up into a picket fence and `MAIN` reads as `MFIN`. The face is
+    /// designed on a square grid and only survives being scaled on both. The
+    /// parameter is gone rather than left available. [I6]
     public func draw(
         _ text: String, into bitmap: inout Bitmap, x: Int, y: Int, colour: Bitmap.RGBA,
         scale: Int = 1

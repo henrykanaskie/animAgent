@@ -276,6 +276,13 @@ There is **one** badge anchor and there are four things that can want it. The
 order is **attention > sleep > open tool badge > closing beat**, and the
 comparisons are argued separately because they are different kinds of question.
 
+**The order is about which fact gets the anchor, not about which picture is
+drawn there.** Three of the four ranks draw the pack's speech bubble; `sleep`
+draws a small dark tab instead, for the reason recorded under "`SubagentStop` is
+a turn boundary" — at `1x` a bubble's *presence* is the loudest signal the room
+has, and spending it on an agent that has stopped inverted the one distinction
+the room exists to make. Nothing about the ranking moved.
+
 The fourth rank is `ADR-003`'s and it is the existing order with one entry
 appended at the bottom — nothing above it moves. A beat is a glyph about work
 that has *finished*, so everything that is about now outranks it, and each of the
@@ -711,7 +718,7 @@ Four things about it are rules rather than details:
   `working` for the beat would assert an agent still reading, which is false,
   and `ADR-003` §6 declares itself void — not degraded — if an implementation
   does it. The precedent is already in the room: the attention badge has no body
-  state at all, and the `sleep` `Z` sits over an idle body.
+  state at all, and the dormancy `Z` sits over an idle body.
 - **It is scene-side.** `WorldModel` knows nothing about it. The call really
   closed; holding it open in the true layer would be fiction in the one place
   that may not have any, would lie to the reaper, and would break the replay
@@ -1159,9 +1166,71 @@ then returns to its seat, `dormant`, and stays there.
 - The mark is disarmed on the way in, which is ADR-001 (d) rule 2 read for a
   subagent — see "Reaping" below.
 
-**A dormant character wears the `sleep` badge: a blue `Z` over an otherwise
-ordinary idle character, in its own seat, under its own plate.** Nothing else
-about it moves.
+**A dormant character wears a small dark `Z` tab over an otherwise ordinary idle
+character, in its own seat, under its own plate.** Nothing else about it moves —
+and since the idle body holds one frame, *nothing about it moves at all*.
+
+**The tab is not a speech bubble, and that is the whole of the decision.** It was
+one until M7: the pack's blue `Z` bubble, drawn in the same anchor at the same
+size as the six tool badges. At `1x` — which is every frame this app renders,
+`RoomCamera.comfortablePopulation` being empty — that made *finished* and
+*working* the same picture. Measured against a working badge, the `Z` bubble
+occupied **84%** of the slot's pixels in a silhouette that is a strict **subset**
+of every tool bubble (IoU 0.792, 100% contained), at the same value. A fresh
+reading of a real frame counted six bubbles as six busy agents when all six were
+`Z`, zero agents were working, and the one character with **no** badge was the
+only live one: the badge was marking the dead and its absence was marking the
+living.
+
+So the slot now draws two families, and the split is what a glance reads:
+
+- **a white speech bubble means a tool call** — open, closed inside a closing
+  beat, or parked at a gate under the attention glyph. Nothing else puts one
+  there;
+- **a dark tab means a turn ended.** It is `SceneBitmaps.dormancyTab`: the room's
+  own lettering, the `×N` chip's construction, 9x11 px against a bubble's 24x34.
+
+The pack's `sleep` art stays declared in `badges.states.sleep` and
+`TextureStore.sleepTexture()` stays with it — the fact is unchanged and the
+manifest is where it is recorded — but the scene no longer draws it. The one
+residue is a dormant agent raising attention, which takes the slot ahead of
+dormancy and so does put a bubble over an agent with nothing running; that
+precedence is argued below and is not disturbed here.
+
+#### It keeps its seat, but not ahead of a working agent
+
+The room has seven seats and this decision, taken alone, spent all seven of them
+on agents that had finished. Seats were released on `agentDeparted` and on
+nothing else, and a dormant subagent departs only at `SessionEnd` or the
+30-minute idle sweep — so over one ordinary session the seven filled with
+sleepers and stayed that way. A strictly serial ten-subagent run, one worker at
+a time, drew the main agent and six characters **all wearing the `Z`**, the
+oldest of them finished three minutes earlier, over a plate reading `+4`; and
+the single agent that was actually working at that instant was inside that `+4`
+and off screen. That is S5 failing at the plainest session shape there is.
+
+Nothing above is retracted. *Stays visible* and *outranks a working agent for a
+seat* are separable claims and only the second was doing damage:
+
+- **A live agent with no seat takes one from the longest-dormant character that
+  has one.** The evicted character walks out and is carried by the overflow
+  count in the same frame — the room's existing sentence about an agent it
+  cannot seat: *this one exists, it is counted, it is not drawn.* It has **not**
+  departed: it is still in the population, still revivable in place, and still
+  leaves only on the two paths that genuinely mean gone. [I1]
+- **Lazily, only under pressure.** Freeing the seat on `dormancyChanged(true)`
+  would empty a room the moment its last subagent stopped, leaving the main
+  agent alone under `+6` and six empty desks. A quiet room keeps showing its
+  sleepers, which is what this decision is for.
+- **The revival path is unchanged and now also brings a character back on
+  screen.** A revived agent is live, so it outranks the sleepers that took its
+  place and is seated again by the same rule.
+- **Still no deadline.** The dormancy clock added for this orders evictions and
+  nothing else. No amount of elapsed dormancy removes a character by itself,
+  which is the paragraph above held exactly.
+
+The rule lives in `SceneDirector.settleSeats`; it is scene-side seating policy
+and no part of it reaches the model.
 
 This paragraph used to say the opposite, and the reversal is recorded rather
 than overwritten because the old argument was half right. It ran: "finished and

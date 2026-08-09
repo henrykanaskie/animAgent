@@ -42,10 +42,20 @@ public struct RoomLayout: Sendable, Hashable {
     /// plate against another 77 px plate needs 77 px and has 48.
     ///
     /// So the seats are the seats, and what overflows them is *said* rather than
-    /// drawn: `SceneDirector` seats the first `seatCapacity` agents and counts
-    /// the rest, and the room stands a plate at `overflowPlatePosition` that
-    /// says how many it is not showing. Seven characters plus "+1" is still a
-    /// count, and it asserts nothing false. See `isSeatable(_:)`.
+    /// drawn: `SceneDirector` seats `seatCapacity` agents and counts the rest,
+    /// and the room stands a plate at `overflowPlatePosition` that says how many
+    /// it is not showing. Seven characters plus "+1" is still a count, and it
+    /// asserts nothing false. See `isSeatable(_:)`.
+    ///
+    /// **Which `seatCapacity` agents is not "the first".** It was, and that was
+    /// the defect: seats came free only on `agentDeparted`, so the seven filled
+    /// with *dormant* subagents over a session's life and a working agent could
+    /// sit in the overflow indefinitely — the room drawing six sleepers and
+    /// hiding the one worker, which is S5 failing at the criterion this file's
+    /// whole argument is in service of. A live agent with no seat now takes one
+    /// from the longest-dormant character that has one. The number of seats is
+    /// unchanged and every clearance argument below is untouched; what changed
+    /// is only who is sitting in them. See `SceneDirector.settleSeats`.
     public let seatCapacity: Int
     /// Tiles between adjacent seats: one for the character, one for its desk,
     /// one of air.

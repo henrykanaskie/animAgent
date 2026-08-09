@@ -179,18 +179,63 @@ public enum AmbientMotion {
         }
     }
 
+    /// **A character with no open call holds one frame.** [I1]
+    ///
+    /// The shipped `idle` loop is 6 frames at 8 fps. It was playing at full
+    /// amplitude under every character that had nothing to show, and that is not
+    /// a cosmetic complaint — it inverted the one distinction this room exists to
+    /// make. Measured over 8 consecutive 125 ms frames of the real capture
+    /// (`scratchpad/observe/baseline/capture.jsonl` at t=110, a 32x52 body box,
+    /// total absolute RGB delta):
+    ///
+    /// | character | state | delta |
+    /// |---|---|---:|
+    /// | A69 | `terminal` open | 577,962 |
+    /// | **MAIN** | **idle, zero open calls** | **196,404** |
+    /// | 430 | `plug` open | 181,080 |
+    /// | 8AB | dormant | 123,480 |
+    ///
+    /// The idle body out-moved a working one. Motion is the channel that
+    /// survives `1x` — `RoomCamera.comfortablePopulation` is empty, so nothing
+    /// else does — and it was carrying no busy/idle signal at all.
+    ///
+    /// **The art cannot fix this from the other end.** The type note above
+    /// re-derives it: the seated pack row holds *two* positions, 2 px of
+    /// upper-body lift, and there is no third. A working loop cannot be given
+    /// more amplitude than it has. The only lever is the idle loop, and the only
+    /// honest thing to do with it is take it away: I1 says that where the data
+    /// does not say something happened, the room shows nothing, and the hook
+    /// stream says **nothing at all** about an agent between its calls — 84% of
+    /// its life, by ADR-003 §0's measurement. A breathing loop over that silence
+    /// was the room's one piece of invented activity, small enough that nobody
+    /// called it fiction and loud enough to drown the real signal beside it.
+    ///
+    /// So `idle` is one frame, held. Nothing else changes: `walk`, `spawn`,
+    /// `depart` and `deliver` play exactly as authored, because each of those is
+    /// a real event being told. After this, **movement in a seat means an open
+    /// call**, and that is a claim the room can back.
+    ///
+    /// What it costs, stated rather than discovered later: a room where nobody
+    /// is working is a room where nothing moves. That is the truth about such a
+    /// room, but it is also indistinguishable at a glance from a room that has
+    /// stopped updating, and this file cannot close that gap — see
+    /// `notes.md` for the one channel that could.
+    public static let idleSequence = [0]
+
     /// The frame indices a character plays, given what its badge says and how
     /// many frames its current animation has.
     ///
-    /// `nil` badge, `questionMark`, or any state other than `working` yields the
-    /// identity sequence, which is byte-for-byte what this app drew before this
-    /// file existed.
+    /// `idle` is `idleSequence` — one held frame, see above. `nil` badge,
+    /// `questionMark`, or any other non-`working` state yields the identity
+    /// sequence, which is byte-for-byte what this app drew before this file
+    /// existed.
     public static func sequence(
         for badge: ToolBadge?, state: BodyState, frameCount: Int
     ) -> [Int] {
-        let identity = Array(0..<max(frameCount, 1))
-        guard state == .working, frameCount > 0,
-              let phrase = phrase(for: badge) else { return identity }
+        guard frameCount > 0 else { return [0] }
+        if state == .idle { return idleSequence }
+        let identity = Array(0..<frameCount)
+        guard state == .working, let phrase = phrase(for: badge) else { return identity }
         return phrase.map { $0.frameIndex(inFrameCount: frameCount) }
     }
 }

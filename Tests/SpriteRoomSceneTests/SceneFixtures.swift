@@ -233,7 +233,16 @@ enum SceneArt {
     /// `AmbientMotionPolicyTests` is deliberately **not** gated — the phrase
     /// table and the question-mark rule are this repository's own, so a fresh
     /// clone can and should still check them.
-    static let expectedGatedTestCount = 65
+    ///
+    /// 66 with `RoomSceneTests.anIdleCharacterPutsOneTextureOnScreenForever`.
+    /// The logic half of that claim — `AmbientMotionTests.anIdleBodyHoldsOneFrame`
+    /// — is ungated and always runs; the gated one is the same claim read off the
+    /// texture the node is actually wearing, which needs the pack. The defect it
+    /// pins was found in pixels, so one assertion of it lives near the pixels.
+    /// `SleepBadgeTests.theDormancyTabIsNotABubble` is **not** gated for the
+    /// reason it exists: the tab is drawn rather than loaded, so it is there on a
+    /// checkout with no art.
+    static let expectedGatedTestCount = 66
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

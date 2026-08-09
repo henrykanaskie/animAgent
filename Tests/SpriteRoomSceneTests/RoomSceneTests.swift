@@ -125,8 +125,35 @@ struct RoomSceneTests {
         #expect(character.currentTextureForTesting === before)
     }
 
+    /// `walk` rather than `idle`, and the swap is the point: `idle` is now a
+    /// single held frame [`AmbientMotion.idleSequence`], so the looping-and-
+    /// wrapping property this test exists for has to be checked on a state that
+    /// still loops. `walk` is the same six-frame animation `idle` was.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aLoopingStateCyclesAndNeverRunsOffTheEnd() throws {
+        let store = try Self.store()
+        let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
+        character.advance(to: 0)
+        character.apply(state: .walk, facing: .down)
+        var textures: Set<ObjectIdentifier> = []
+        for step in 0..<200 {
+            character.advance(to: Double(step) / 60.0)
+            if let texture = character.currentTextureForTesting {
+                textures.insert(ObjectIdentifier(texture))
+            }
+        }
+        #expect(textures.count == 6, "walk should cycle its six frames")
+    }
+
+    /// **The same clock over an idle character puts one texture on screen.**
+    ///
+    /// The unit-level statement is `AmbientMotionTests.anIdleBodyHoldsOneFrame`;
+    /// this is the same claim made where it is actually observable — through the
+    /// texture the node is wearing, over 200 frames of the room's own clock. The
+    /// defect it pins was measured in pixels, so it deserves an assertion nearer
+    /// the pixels than the sequence array.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func anIdleCharacterPutsOneTextureOnScreenForever() throws {
         let store = try Self.store()
         let character = Character(variant: "06", nameplate: NameplateText(lead: "main"), store: store)
         character.advance(to: 0)
@@ -138,7 +165,7 @@ struct RoomSceneTests {
                 textures.insert(ObjectIdentifier(texture))
             }
         }
-        #expect(textures.count == 6, "idle should cycle its six frames")
+        #expect(textures.count == 1, "an idle body moved")
     }
 
     // MARK: Choreography
@@ -1661,7 +1688,17 @@ struct RoomSceneTests {
 
         scene.apply([.setOverflow(12)])
         let twelve = try #require(scene.overflowPlateBoxForTesting())
-        #expect(twelve.width > three.width, "a wider count did not widen the plate")
+        // **The plate no longer widens with the count, and that is not a
+        // regression — it is `MORE` setting the width.** The count used to be
+        // drawn at 2× and was the widest thing on the plate, so "a wider count
+        // widens the plate" was a usable proxy for "the number is drawn". Both
+        // rows are 1× now, and four glyphs of `MORE` are wider than any count
+        // under five digits. So the number is checked directly: the plates say
+        // different things, and `theOverflowPlateSaysTheCountAndBelongsToNobody`
+        // checks *which* row says it.
+        #expect(twelve.width == three.width)
+        #expect(SceneBitmaps.overflowPlate(12).pixels != SceneBitmaps.overflowPlate(3).pixels,
+                "the plate drew the same thing for 3 and 12")
 
         scene.apply([.setOverflow(0)])
         #expect(scene.overflowPlateBoxForTesting() == nil, "it kept saying it at zero")
@@ -1686,10 +1723,20 @@ struct RoomSceneTests {
         }
         #expect(accented > 0, "the overflow plate wears a character's accent band")
 
-        // And it is legible at the only scale the app uses: the count is drawn
-        // at the nameplate's own lead scale, which is 2x. [I6]
-        #expect(SceneBitmaps.nameplateLeadScale == 2)
-        #expect(plate.height >= 20, "the plate is shorter than a nameplate's lead row")
+        // And the count is what the plate leads with — the row a character's
+        // plate gives to its `agent_type`, because on this plate the number is
+        // the thing that differs and `MORE` is the context. All the ink on the
+        // top half of the plate is the count.
+        var top = 0
+        for y in 0..<(plate.height / 2) {
+            for x in 0..<plate.width where plate.at(x, y) == SceneBitmaps.nameplateInk {
+                top += 1
+            }
+        }
+        #expect(top == PixelFont.standard
+                    .render("+4", colour: SceneBitmaps.nameplateInk).opaquePixelCount,
+                "the count is not the line the plate leads with")
+        #expect(plate.height >= 20, "the plate lost a row")
     }
 }
 

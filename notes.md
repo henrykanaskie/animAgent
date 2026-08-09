@@ -3981,3 +3981,400 @@ and this file. `assets/manifest.json`, `scripts/process-assets.py` and
 `SceneFixtures.expectedGatedTestCount` was moving under me from concurrent work
 and I added **no** art-gated test on purpose, partly to stay out of its way.
 Whoever merges should still re-derive it.
+
+---
+
+## Seat eviction — a live agent always outranks a finished one
+
+### The defect
+
+`occupiedSeats.remove(_:)` happened in exactly one place: the `.agentDeparted`
+case of `SceneDirector.apply`. `dormancyChanged` freed nothing, and a subagent
+departs only at `SessionEnd` or the 30-minute session-idle sweep. So over one
+ordinary session the seven seats filled with **finished** subagents and stayed
+that way for the rest of the session, and the eighth-onward agent was counted by
+`setOverflow` and never drawn.
+
+This is not the "8 concurrent agents" case the earlier overflow work addressed.
+It is **8 subagents ever**, which is an entirely ordinary session. In a strictly
+serial ten-worker replay the room at t=212 drew MAIN plus WORKER0–5, *all six
+wearing the dormant `Z`* — WORKER0 had finished 182 s earlier — over `+4 MORE`,
+with WORKER9, the only agent doing anything at that instant, inside the `+4`.
+S5 — "a cold observer can say how many agents are running" — failing at the
+plainest session shape there is.
+
+### What changed
+
+`seatTheWaiting` became `settleSeats`, two passes:
+
+1. Fill every genuinely free seat, longest wait first, **live agents before
+   dormant ones**.
+2. While a live agent has no seat and a dormant character has one, the
+   **longest-dormant** character gives it up: it walks out, its seat number
+   becomes a queue slot, and `setOverflow` counts it in the same frame.
+
+Supporting state: `Presentation.arrival` (a monotonic counter — a seat number
+now goes up as well as down, so it stopped being able to double as a queue
+position, which is what it used to be) and `Presentation.dormantSince` (ordering
+only; it is a rank, never a deadline).
+
+`anchorSeat(for:)` now also rejects a parent whose seat is not seatable. Every
+position function in `RoomLayout` wraps, so an unseated parent used to send a
+reporter to seat 0's *column* to deliver its report to whoever was sitting
+there. It was reachable before and eviction made it ordinary.
+
+### Lazy, not eager — and why the dormancy decision stands
+
+Freeing the seat on `dormancyChanged(true)` is a one-liner and it is wrong: a
+session whose subagents have all finished would empty its room the moment the
+last one stopped, leaving MAIN alone under `+6` with six unoccupied desks.
+Nothing needed those seats. The pressure is what makes the eviction worth
+making, so the eviction waits for the pressure.
+
+`03-EVENT-MODEL.md`'s argument — `SubagentStop` is a turn boundary, not a death,
+so a stopped subagent keeps a presence in the room — is correct and is not
+overturned. *Stays visible* and *holds a scarce seat ahead of a working agent*
+are separable claims and only the second was doing damage. A dormant agent is
+still in the population, still counted, still revived in place by a second
+`SubagentStart`, and still departs only on `SessionEnd` and the idle sweep. It
+simply no longer keeps a working agent off screen.
+
+An evicted character exits by `.walkOff`. That style now covers two things and
+the difference is worth stating: `SessionEnd` and the idle sweep mean the agent
+is gone; eviction does not. What the style asserts is only *this character has
+left the room*, which is true in both. Population is asserted by `setOverflow`,
+and only `agentDeparted` removes an agent from it. [I1]
+
+The main agent is never evicted — it is never dormant (`Stop` sets no dormancy)
+and the guard says so rather than relying on that. Seat 0 is the anchor every
+report walks to.
+
+**Settling is a fixed point.** Pass 1 leaves no free seat and pass 2 puts a live
+agent in every seat it takes, so an empty frame moves nobody; a later swap needs
+a new real event. Asserted directly (`settlingTwiceChangesNothing`) and again by
+a 600-step randomised mix of arrivals, sleeps, revivals and departures that
+checks at *every* step that no live agent is waiting while a sleeper holds a
+seat, that no two characters share a seat, and that seated + overflow ==
+population.
+
+### Evidence
+
+Re-rendered the serial scenario offscreen at 720×400, `office`:
+
+- `scratchpad/eval/serial/serial-office-720x400-t212.00.png` (before) — MAIN +
+  WORKER0–5, six `Z`s, `+4 MORE`, no working agent on screen.
+- `scratchpad/eval/serial-clean/serial-office-720x400-t212.00.png` (after) —
+  seven characters: MAIN, WORKER4, 5, 6, 7, 8 (all `Z`) and **WORKER9, the
+  working agent, drawn and the only subagent without a `Z`**. `+4 MORE` is now
+  WORKER0–3, the four longest-finished. 7 + 4 = 11 = MAIN + ten workers.
+- t=160 likewise: WORKER6 (live) replaced WORKER0 (dormant since t≈30) in seat
+  4; the plate still reads `+1`.
+- `many.jsonl` (the concurrent case, nobody dormant) renders **byte-identical**
+  before and after, which is the check that nothing about the ordinary busy room
+  moved.
+
+### Gates
+
+Verified in a clean worktree at `020b988` carrying only this change, because two
+other agents had the shared tree mid-edit and not compiling:
+
+- `swift build --build-tests -Xswiftc -warnings-as-errors` — clean.
+- `SPRITE_ROOM_REQUIRE_ART=1 SPRITE_ROOM_REQUIRE_WINDOW_SERVER=1 swift test` —
+  **561 tests in 51 suites passed**; art PRESENT (65 art tests ran), window
+  server PRESENT (28 tests ran, all three I8 assertions). 550 → 561 is the 11
+  new tests in `SeatEvictionTests`.
+- `spriteroom-replay --all` — all 17 fixtures, zero open calls after the sweep.
+- `python3 scripts/lint-palette.py` — passed.
+
+Every required fixture is well under seven agents, so none of them contests a
+seat and no fixture's intent stream is disturbed (`noFixtureIsDisturbed`).
+
+### What is NOT fixed
+
+**The room still shows five sleepers.** That is the design — dormancy's whole
+point is that a finished subagent keeps a presence — but it means a busy serial
+session spends six of seven seats on history and one on the present. The fix
+guarantees the working agent is *among* the seven; it does not make it easy to
+find. If that turns out to be the real complaint, the next move is legibility
+(the dormant character reading as clearly recessive), not more eviction, and it
+belongs to whoever owns badge/dormancy legibility.
+
+**A dormant agent can still be evicted and re-seated repeatedly** if it keeps
+waking and sleeping while the room is full — each swap is driven by a real
+event, so nothing is fictional, but a very churny session will show characters
+walking in and out. Not observed in any capture; noted because nothing bounds
+it.
+
+### Scope
+
+`Sources/SpriteRoomScene/{SceneDirector,RoomLayout}.swift`,
+`Tests/SpriteRoomSceneTests/SeatEvictionTests.swift` (new),
+`docs/03-EVENT-MODEL.md`, and this file. No new art-gated test, so
+`SceneFixtures.expectedGatedTestCount` is untouched. `assets/` and `scripts/`
+untouched. Nothing under `~/.claude/`.
+
+## The nameplate leads with the type, not the hex
+
+**The defect.** Every character wore a saturated accent band — the loudest thing
+in the room — and what it said was the last three hex characters of an
+`agent_id`: `430`, `A69`, `2D4`, `8EF`, `8AB`. Underneath it, at half the size
+and truncated, was `GENERAL-P…`. The maintainer had already complained once that
+"the agent names should also be better differentiators, they are hard to read";
+M5 answered that by making the plate more legible and inverting its hierarchy in
+the same move. The reading order was tiebreaker first, answer second.
+
+**The change.** The accent band now carries the `agent_type` at **11 glyphs**,
+and the discriminator is the small row beneath. The main agent has no
+`agent_type`, so its `MAIN` is what goes on the band — the identity rule read
+once, not a special case. The overflow plate follows the same rule and lands the
+other way round: there is no type on it, so the **count** is the headline and
+`MORE` is the small row.
+
+Nothing about the discriminator's *reasoning* changed. It is still always on,
+still the last three alphanumerics of `agent_id`, still real data. Only its size
+did.
+
+### Three things I measured, two of which killed the obvious fix
+
+**1. The type cannot be magnified horizontally.** A plate is 6 px of frame plus
+its text; 11 glyphs at 6 px is 71 px against a 96 px seat pitch, a 25 px gap.
+Twelve glyphs is 77 px and a 19 px gap — the exact width the maintainer called
+*nearly touching*. So 11 is not a taste, it is the ceiling. At 2× the same 66 px
+of interior holds five glyphs: `GENE…`, `SECU…`, `CLAU…`, which collapses
+`claude-code-guide` onto every other `claude-code-*`.
+
+**2. The two seat rows buy no width, though the brief suggested they might.**
+Ring parity puts adjacent columns on different rows, so no two *seated* plates
+share a horizontal strip at all — that part is true. But a back-row character
+walking down its own column to the aisle crosses the front row's line one pitch
+from a front-row seat, and two reporters of one ring stand a pitch apart on the
+same delivery row. Both are same-row pairs at exactly one pitch, so the pitch is
+still the bound. Checked against `RoomLayout.isBackRow` and
+`theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` rather than assumed.
+
+**3. Vertical-only magnification fits and does not work.** This is the one I
+would have shipped if I had not rendered it. A 1×-wide, 2×-tall headline holds
+eleven glyphs, doubles the ink, keeps the plate at its old 26 px, and is exact
+pixel replication — so the distinctness the 1× table was checked for carries
+over by construction. I implemented it, extended `PixelFont.draw` with
+`scaleX`/`scaleY`, and rendered a seven-agent room at `1x`. It is **worse than
+no magnification**: a 5×14 cell leaves 1 px vertical strokes against 2 px
+horizontal ones and 1 px of tracking beside a 14 px glyph, so words close into a
+picket fence and `MAIN` reads as `MFIN`. The face is designed on a square grid
+and survives scaling only on both axes at once. Frames are in
+`scratchpad/plates/ba3x.png`. The `scaleX`/`scaleY` parameter is **removed**
+rather than left available, because an unused knob that produces that is worse
+than no knob.
+
+So the hierarchy is carried by **position and field**, not by size: the type is
+on the saturated band, the discriminator on the dark row beneath. The type's row
+keeps 2 px of air each side instead of 1 — a band cut tight to a 5×7 face reads
+as letters jammed into a strip — which makes the plate 21 px where it was 26.
+
+### What it costs
+
+- **`MAIN` got smaller.** It was the shortest string on any plate and so was the
+  one that actually fitted at 2×. It is now the same size as `EXPLORE`, which is
+  consistent, and it is also the one character nobody ever needs to look up.
+- **The camera moved 5 px.** `contentBand.bottom` is derived from
+  `maximumNameplateHeight`, which fell 26 → 21, so `cameraY` rises by 5 and the
+  wall keeps ~89 px of the frame rather than ~84. Inside every existing bound;
+  `theCameraNeverCropsTheContentBandAtAnyScale` still passes.
+- **Two same-typed agents are separated by a 1× line now, not a 2× one.**
+  `sameTypedSubagentPlatesDifferByFourTimesTheOldSeparation` asserted that
+  multiplier and is renamed to
+  `sameTypedSubagentPlatesDifferByExactlyTheFacesOwnSeparation`, which asserts
+  what is now true: the tag is the 1× face, drawn as it is. The multiplier was
+  real and it was spent on the wrong string.
+- **Truncation is still lossy and now it is lossy on the identifying half.**
+  `claude-code-guide` and a hypothetical `claude-code-runner` truncate to one
+  headline. That is the *second* job the discriminator turned out to be doing,
+  and it is why dropping it was never on the table —
+  `typesSeparateOnTheHeadlineAndTheTagCatchesTheRest` pins both halves.
+
+### Stale numbers I did not fix, and why
+
+`RoomLayout.seatCapacity` and `RoomLayout.isBackRow` quote a **77 px** plate in
+their clearance arguments, as do two paragraphs of `04-ART-DIRECTION`. It was
+65 px before this change and is 71 px now. Every conclusion survives the
+correction with room to spare — a half-pitch is 48 px, which clears neither
+number — so nothing in the layout is wrong; the figures are. `RoomLayout.swift`
+was another agent's file for the duration of this change, so the correction is
+flagged in `04-ART-DIRECTION` under "The plate leads with the type — M7d" and
+left for whoever holds that file next. A clearance argument should be re-derived
+by the person holding it, not patched by the person who noticed.
+
+`NameplateText.lead` and `.role` are also now misnamed — `lead` no longer leads.
+Renaming them is a rename of `SceneDirector.nameplate(for:)`'s call sites, which
+was out of scope. `NameplateText.headline` and `.tag` state the mapping once so
+nothing else has to remember it, and the fields should take those names the next
+time that struct is opened.
+
+### Evidence
+
+`scratchpad/plates/`, all at `1x` on the 720×400 panel, `office`:
+
+- `before/` and `after/` — a **seven-agent room**, both seat rows occupied, from
+  `plates/team.jsonl`: `general-purpose` ×2 (same type, different agents),
+  `security-reviewer`, `claude-code-guide`, `Explore`, `Plan`, and the main
+  agent. `ba-060.00.png` stacks the two; `evidence4x.png` is the plate row at 4×.
+- `after-overflow/` — fifteen subagents, so seven seats plus the `+9` / `MORE`
+  plate, and three `ARCHIVIST` characters separated only by their tags.
+- `ba3x.png` — the rejected 2×-tall headline, which is why it was rejected.
+
+`plates/team.jsonl` is `eval/many.jsonl` with six agents kept and relabelled;
+every event, timing, `agent_id` and `tool_use_id` in it is a real capture. It is
+**not** a fixture and is not in `fixtures/`. `plates/make-team.py` builds it.
+
+### Gates
+
+- `swift build --build-tests -Xswiftc -warnings-as-errors` — clean.
+- `SPRITE_ROOM_REQUIRE_ART=1 SPRITE_ROOM_REQUIRE_WINDOW_SERVER=1 swift test` —
+  **568 tests in 51 suites passed**; art PRESENT (66 art tests ran), window
+  server PRESENT.
+- `spriteroom-replay --all` — all 17 fixtures, zero open calls after the sweep.
+- `python3 scripts/lint-palette.py` — passed, six themes agree with the scene.
+
+### Scope
+
+`Sources/SpriteRoomScene/SceneBitmaps.swift` (the plate),
+`Sources/SpriteRoomScene/PixelFont.swift` (the non-uniform draw, added then
+removed — net change is one doc comment),
+`Tests/SpriteRoomSceneTests/NameplateTests.swift`, three assertions and their
+comments in `Tests/SpriteRoomSceneTests/{SceneDirectorTests,RoomSceneTests}.swift`
+that pinned the old hierarchy, `docs/04-ART-DIRECTION.md`,
+`docs/05-MILESTONES.md`, and this file. `SceneDirector.swift`, `RoomLayout.swift`,
+`Character.swift`, `ToolBadge.swift`, `AmbientMotion.swift`, `assets/` and
+`scripts/` untouched. Nothing under `~/.claude/`.
+
+## #52 — the room was marking the dead and the living was moving least
+
+Two channels were carrying the busy/idle signal backwards at the same time, and
+a fresh-eyes reading of a real frame got the room exactly inverted — correctly.
+Both are fixed. Green on my diff alone (a clean `HEAD` worktree, my hunks only):
+`swift build --build-tests -Xswiftc -warnings-as-errors`, `swift test` — **554
+tests, 50 suites, all passed**, art PRESENT (2228 paths) — and
+`python3 scripts/lint-palette.py`, six themes all "agrees with the scene". The
+replay harness: **all 17 fixtures, zero open calls after the sweep.**
+
+### The badge — dormancy left the bubble
+
+The `Z` was drawn from the pack's own speech bubble in the one badge anchor, so
+at `1x` (which is every frame — `comfortablePopulation` is empty) it was the same
+picture as *working*. Measured, not asserted:
+
+| | |
+|---|---|
+| silhouette IoU, `sleep` vs every tool bubble | **0.792** |
+| share of the `sleep` silhouette *inside* a tool bubble | **100%** — a strict subset |
+| badge-slot footprint, real 1x frame | **548 px vs 678** = **84%** |
+| median value vs the floor | 210 vs 154 |
+
+So "has a bubble" was the only thing the eye got, and it fired for both states.
+In `capture.jsonl` at t=160 that produced six bubbles over six agents of which
+**zero were working**, and the one live-ish character wore nothing.
+
+`SceneBitmaps.dormancyTab` replaces it: **9x11 px**, plate colour, the room's own
+font, the `×N` chip's construction. Four candidates were rendered and measured on
+the same frame, badge-slot pixels differing from the floor:
+
+| variant | dormant char | working char | ratio |
+|---|---:|---:|---:|
+| today (pack bubble) | 548-576 | 678 | **84%** |
+| same bubble at `alpha 0.3` | 472-500 | 678 | **72%** |
+| **tab (shipped)** | **99-127** | 678 | **15-19%** |
+| drawn not at all | 0 | 678 | 0% |
+
+**Dimming lost on the number that matters.** Alpha cuts the slot's *contrast* to
+~28% but cannot cut its *extent*, and extent is what "there is a bubble over that
+head" is read from at a glance. The tab also lands in the other visual family:
+every white bubble in this room is pack art about a tool call, every dark plate
+is the room's own lettering about a character — and telling those two apart is a
+size-and-value judgement, which is what survives `1x`.
+
+Drawing-not-loading was rejected: it throws away a real fact, and the fact is
+cheap to keep once it stops competing. The pack art and `TextureStore.sleepTexture()`
+stay declared and are now unused by the scene; that is recorded in
+`04-ART-DIRECTION.md` §1b rather than left to be discovered.
+
+### The motion — an idle body holds one frame
+
+Measured before, 8 consecutive 125 ms frames at t=110 of the real capture, a
+32x52 body box, total absolute RGB delta (`scratchpad/badge-task/delta.py`):
+
+| character | truth | before | after |
+|---|---|---:|---:|
+| A69 | `terminal` open | 577,962 | 577,962 |
+| **MAIN** | **idle, zero open calls** | **196,404** | **0** |
+| 430 | `plug` open | 181,080 | 181,080 |
+| 8EF | idle, inside an ADR-003 beat | 180,624 | **0** |
+| 8AB | dormant | 123,480 | **0** |
+| 2D4 | dormant | 107,016 | **0** |
+
+The idle body out-moved a working one. After: **non-zero ⟺ an open call**, with
+no in-between.
+
+**The art could not be fixed from the other end and I re-derived that rather than
+trusting it.** Row 4 holds two positions and 2 px of lift; there is no third, so
+a working loop cannot be given more amplitude. The only lever was the idle loop.
+`BodyState.loopsByDefault` is *not* that lever and the brief's guess at it was
+wrong: `assets/manifest.json` declares `loop: true` for every character state, and
+`TextureStore.loops` reads the manifest first, so `loopsByDefault` is dead code
+for any declared variant. The change is in `AmbientMotion.sequence`, which already
+owned the frame schedule — `idle` returns `[0]`. No manifest touched.
+
+Why this is not a loss under I1: the hook stream says **nothing** about an agent
+between its calls — 84% of its life, by ADR-003 §0 — and the idle loop was the one
+animation in the room with no event behind it. `walk`, `spawn`, `depart` and
+`deliver` are untouched, because each of those is a real event being told.
+
+### What I could not fix, and one thing I broke that the lint cannot see
+
+- **A room where nobody is working is now a room where nothing moves.** That is
+  the truth about such a room and it is also indistinguishable at a glance from a
+  room that has stopped updating. Nothing in my scope closes that; the honest
+  candidate is a heartbeat that traces to something real (the listener's own
+  liveness), which is a different change and a different argument.
+- **`04-ART-DIRECTION.md`'s prop-motion ceiling now rests on a sentence that is
+  false.** It is 1461 px/s taken from the `idle` sheet, justified as "an idling
+  character is the quietest thing the cast can legitimately be while still on
+  screen, and the room has to be under *that*". An idling character now moves 0.
+  The lint still passes on all six themes because it measures the *sheet*, which I
+  did not touch — but measured on rendered frames, `library`'s animated prop moves
+  **164,014** over 8 frames while its two working characters move 841,718 (5.1x,
+  and the prop is in the wall band, clear of the seat rows). So a prop does not
+  out-move a *working* character; it does out-move an idle one. In `office` — the
+  room this capture actually draws — everything outside the character columns
+  measures **exactly 0**, so there "motion means an open call" holds unqualified.
+  Written up in the doc as REVISIT WITH DATA; re-deriving the ceiling from the
+  motion the room *draws* is a change to the lint and the accepted prop set, not a
+  side effect of a change to the characters.
+- **A dormant agent raising attention still wears a bubble.** `isSleeping` is
+  `isDormant && !isAttention`, so attention takes the slot. Rare, and its
+  precedence is settled doctrine here; left alone deliberately.
+- **The 500 ms closing beat is a bubble over an idle body**, which is ADR-003 §11
+  item 2 made visible — 8EF at t=110 is exactly that. Not a defect: it expires on
+  the frame the ADR says it should (measured, bright pixels in the slot go to 0 at
+  t=110.5, D=0.5 s to the frame).
+
+### Scope, and the concurrent-tree caveat
+
+`Sources/SpriteRoomScene/{AmbientMotion,Character,SceneBitmaps}.swift`,
+`Tests/SpriteRoomSceneTests/{AmbientMotionTests,RoomSceneTests,SleepBadgeTests,SceneFixtures}.swift`,
+`docs/{01-PRD,03-EVENT-MODEL,04-ART-DIRECTION,05-MILESTONES}.md`, this file.
+`ToolBadge.swift` needed nothing — `BadgeSelection`'s semantics and precedence are
+unchanged; only the picture the middle rank draws changed.
+
+`SceneFixtures.expectedGatedTestCount` **65 → 66** for
+`RoomSceneTests.anIdleCharacterPutsOneTextureOnScreenForever`. The logic half of
+that claim is ungated and always runs; the gated one reads the texture the node
+is wearing, which needs the pack. Whoever merges must re-derive it — two other
+agents were live in this tree.
+
+I gated in a clean `HEAD` worktree with only my hunks applied, because the shared
+tree could not build: `Tests/SpriteRoomSceneTests/SeatEvictionTests.swift`
+(untracked, another agent's) calls `.callAbandoned(agent:toolUseID:startedAt:reason:)`
+against a signature that takes `toolName`. In the shared tree with that file
+removed my three broken tests went green and the only remaining failures were the
+nameplate agent's (`nameplateHeadlineScaleY`, and two test names in
+`05-MILESTONES.md` with no matching functions).

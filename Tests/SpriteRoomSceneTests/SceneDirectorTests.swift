@@ -617,8 +617,8 @@ struct SceneDirectorTests {
     ///
     /// Tightened: it is not enough that the *plates* differ — they differed at
     /// M5 too, in the three smallest glyphs at the end of a twelve-glyph line.
-    /// The **lead**, which is the line the plate draws at 2× on the accent
-    /// band, must differ.
+    /// The **discriminator** must differ, because it is the only field that can:
+    /// the type is shared by construction here.
     @Test func sameTypedSubagentsGetDifferentPlates() {
         var director = Self.director()
         let ids = ["a894ded5b0c4b18de", "a3b448736697956e7", "a793beae9fa532d0f"]
@@ -632,22 +632,24 @@ struct SceneDirectorTests {
         #expect(plates.count == 3)
         #expect(Set(plates).count == 3, "same-typed subagents share a plate: \(plates)")
         #expect(Set(plates.map(\.lead)).count == 3,
-                "the difference is not on the line that is drawn large: \(plates)")
+                "the difference is not in the only field that can carry it: \(plates)")
         #expect(plates.allSatisfy { $0.role == "general-purpose" })
     }
 
-    /// The rendered plates must differ, and the size of that difference is the
-    /// whole point — so this measures it rather than asserting inequality.
+    /// The rendered plates must differ, and the size of that difference is
+    /// measured rather than asserted.
     ///
-    /// **The claim is a multiplier, not a floor.** How far apart two
-    /// discriminators are is a property of the font: `E` and `F` differ in four
-    /// cells whatever you do, and inventing a floor above that would only be a
-    /// number that happened to pass for the ids in this test. What the change
-    /// buys is that every one of those cells is now drawn four times as large,
-    /// exactly — pixel doubling is exact, so the separation between any two
-    /// plates is exactly 4× what the same pair produced on the old single-line
-    /// plate. That is checked here against the 1× rendering of the same text.
-    @Test func sameTypedSubagentPlatesDifferByFourTimesTheOldSeparation() {
+    /// **The multiplier is one, and that is the price of the fix.** This test
+    /// used to assert 4×: the discriminator was drawn at 2× in both axes, so
+    /// every differing cell of the 1× face became four. It is now the small line
+    /// at 1×, because the accent band belongs to the `agent_type` — the thing a
+    /// person can actually act on — and the plate has no width to give both. So
+    /// what is checked is that the discriminator is drawn *exactly* the 1× face,
+    /// unshrunk and unabbreviated, and that two of them still separate the
+    /// plates. The identity channel that grew instead is the headline, and
+    /// `NameplateTests.theTypeIsOnTheAccentBandAndTheDiscriminatorIsBelowIt`
+    /// measures that.
+    @Test func sameTypedSubagentPlatesDifferByExactlyTheFacesOwnSeparation() {
         let accent = Bitmap.RGBA(255, 136, 77)
         let font = PixelFont.standard
         let leads = ["8DE", "6E7", "D0F"]
@@ -673,8 +675,8 @@ struct SceneDirectorTests {
                     font.render(lead, colour: Bitmap.RGBA(255, 255, 255)),
                     font.render(other, colour: Bitmap.RGBA(255, 255, 255)))
                 #expect(atOne > 0, "\(lead) and \(other) render alike at 1×")
-                #expect(differingPixels(plateA, plateB) == atOne * 4,
-                        "\(lead) vs \(other): the lead is not the 1× face doubled")
+                #expect(differingPixels(plateA, plateB) == atOne,
+                        "\(lead) vs \(other): the tag is not the 1× face, drawn as it is")
             }
         }
     }

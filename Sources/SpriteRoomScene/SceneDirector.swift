@@ -84,7 +84,15 @@ public enum SpriteIntent: Sendable, Hashable {
         ///
         /// `anchorSeat` as for `deliverReport`.
         case report(anchorSeat: Int)
-        /// Everything else — session end, idle sweep. Straight `depart`.
+        /// Everything else — session end, idle sweep, **and eviction**. Straight
+        /// `depart`.
+        ///
+        /// The first two mean the agent is gone. The third does not: a dormant
+        /// character gives its seat up to a live agent that has none, walks out,
+        /// and is carried by `setOverflow` in the same frame. Both are the room
+        /// taking a character off screen, which is all this style says, and the
+        /// population is asserted by `setOverflow` rather than by this. See
+        /// `SceneDirector.settleSeats`. [I1]
         case walkOff
     }
 }
@@ -114,6 +122,18 @@ public struct SceneDirector: Sendable {
         var agentType: String?
         var variant: String
         var seat: Int
+        /// **The order this agent walked into the project, and it never
+        /// changes.** Seats are handed out lowest-free, so before eviction
+        /// existed a waiting agent's *seat number* was also its place in the
+        /// queue and "who has waited longest" was a comparison of seats with no
+        /// second list to keep in step.
+        ///
+        /// Eviction broke that identity: a seat number now goes up as well as
+        /// down, so it records where an agent is rather than when it got here.
+        /// This is the number that means when. It is a monotonic counter rather
+        /// than a `Date` because two agents can appear in one batch, under one
+        /// `now`, and the tie still has to break the same way on every run.
+        let arrival: Int
         /// Which station this character works at, from
         /// `ThemeSelector.station(agentID:agentType:in:)`.
         ///
@@ -169,6 +189,17 @@ public struct SceneDirector: Sendable {
         /// `SubagentStop` abandons every open call in the same batch that sets
         /// this, so a dormant character is an empty-handed one.
         var isDormant = false
+        /// When `isDormant` last went true, and `nil` whenever it is false.
+        ///
+        /// **The only thing it is for is ordering evictions**: when a live agent
+        /// needs a seat the room does not have, the dormant character that has
+        /// been dormant longest gives one up. Nothing is drawn from it and no
+        /// deadline is derived from it — dormancy still carries no clock of its
+        /// own, which is the decision `03-EVENT-MODEL.md` takes deliberately and
+        /// this does not reopen. A rank is not a deadline: no amount of elapsed
+        /// dormancy removes an agent from the room by itself, and an agent that
+        /// has been asleep for an hour in a quiet room keeps its seat forever.
+        var dormantSince: Date?
         /// ADR-003's closing beat: the badge that was on screen at the instant
         /// this agent's open-call set emptied by a real close, and when it comes
         /// down. `nil` almost always.
@@ -295,6 +326,8 @@ public struct SceneDirector: Sendable {
     /// `.none` at spawn.
     private var emittedOverflow = 0
     private var occupiedSeats: Set<Int> = []
+    /// Hands out `Presentation.arrival`. Never reused, never reset.
+    private var nextArrival = 0
     private var assignedVariants: [AgentRef: String] = [:]
     /// Tool names that fell through the mapping table. Counted, never guessed
     /// at. [I1]
@@ -432,6 +465,8 @@ public struct SceneDirector: Sendable {
         var exited: [(AgentRef, SpriteIntent.ExitStyle)] = []
         var touched: [AgentRef] = []
         var reported: [AgentRef] = []
+        /// Still in the population, no longer in a seat. See `settleSeats`.
+        var evicted: [AgentRef] = []
 
         // Expiry, before the deltas: a beat armed by *this* batch is armed at
         // `now + D` and so cannot be expired by the same `now`. Ordered by seat
@@ -460,8 +495,11 @@ public struct SceneDirector: Sendable {
                 if presentations[agent] == nil {
                     let seat = claimSeat(for: agent)
                     let variant = claimVariant(for: agent)
+                    let arrival = nextArrival
+                    nextArrival += 1
                     presentations[agent] = Presentation(
                         ref: agent, agentType: agentType, variant: variant, seat: seat,
+                        arrival: arrival,
                         // Decided here and nowhere else. §6 rule 2, and the
                         // `let` on the field is what keeps it true.
                         station: ThemeSelector.station(
@@ -568,6 +606,13 @@ public struct SceneDirector: Sendable {
                 // Going dormant cancels a beat: the `Z` is a fact about now and
                 // the beat is not. [ADR-003 §3]
                 if isDormant { presentations[agent]?.closingBeat = nil }
+                // The instant it *became* dormant, not the last time we were
+                // told it is: `SubagentStop` can arrive twice for one sleep and
+                // restamping would keep pushing a long sleeper down the eviction
+                // order for events that changed nothing.
+                if let presentation = presentations[agent], presentation.isDormant != isDormant {
+                    presentations[agent]?.dormantSince = isDormant ? now : nil
+                }
                 presentations[agent]?.isDormant = isDormant
                 note(&touched, agent)
 
@@ -609,12 +654,23 @@ public struct SceneDirector: Sendable {
             }
         }
 
-        // Seats that this batch freed go to whoever has been waiting longest.
-        // After the deltas rather than inside them, so a batch that departs
-        // three agents and appears one settles once instead of three times.
-        seatTheWaiting(appeared: &appeared, touched: &touched)
+        // Who is in the seven seats. After the deltas rather than inside them,
+        // so a batch that departs three agents and appears one settles once
+        // instead of three times.
+        settleSeats(appeared: &appeared, touched: &touched, evicted: &evicted)
 
         var intents: [SpriteIntent] = []
+
+        // Before the spawns, because an eviction and the arrival that caused it
+        // share a seat and therefore a column. The leaver walks upstage out of
+        // it and the newcomer walks upstage into it: same direction, same
+        // speed, a convoy — which is the property `RoomLayout.entranceRoute`
+        // already rests on for a departure-and-refill. Emitting the exit second
+        // would not change what the scene does, since both animations start in
+        // the same frame; it would only make the intent stream read backwards.
+        for agent in evicted {
+            intents.append(.exitCharacter(agent: agent, style: .walkOff))
+        }
 
         for agent in appeared {
             // **An agent with no seat is counted, not drawn.** There is no
@@ -718,10 +774,14 @@ public struct SceneDirector: Sendable {
     ///
     /// **It still counts past `layout.seatCapacity`, and those numbers are a
     /// queue rather than a room.** `layout.isSeatable(_:)` is the line: at or
-    /// past it the agent is not drawn — it is carried by `setOverflow` and takes
-    /// the first seat that frees. Keeping one unbounded, unique, monotonic
-    /// number per agent is what makes "who waits longest goes first" a
-    /// comparison rather than a second list to keep in step with this one.
+    /// past it the agent is not drawn — it is carried by `setOverflow` and waits
+    /// for `settleSeats` to find it one.
+    ///
+    /// A number past the seats is a *slot*, not a rank. It used to be both —
+    /// lowest-free meant a smaller waiting number was an earlier arrival, so the
+    /// queue ordered itself. Eviction ended that, because a seat number now goes
+    /// up as well as down; `Presentation.arrival` is what orders the queue and
+    /// all this has to do is hand out something unique and unseatable.
     private mutating func claimSeat(for agent: AgentRef) -> Int {
         if agent.agent == .mainThread, !occupiedSeats.contains(0) {
             occupiedSeats.insert(0)
@@ -733,41 +793,184 @@ public struct SceneDirector: Sendable {
         return seat
     }
 
-    /// **Moves waiting agents into seats this batch freed, longest wait first.**
+    /// **Decides who is in the seven seats, once per batch.**
     ///
-    /// Without it the overflow would be permanent: seats are released on
-    /// departure and reused by *new* arrivals, so an agent that found the room
-    /// full when it appeared would still be uncounted-and-undrawn after every
-    /// character on screen had left. A room of empty desks over a plate reading
-    /// "+3" is true and useless.
+    /// Two passes, and the second one is the whole of the fix:
     ///
-    /// Longest wait first is what the queue number already encodes — seats are
-    /// claimed lowest-free, so a smaller waiting number is an earlier arrival —
-    /// which is why there is no second list here and nothing to keep in step.
+    /// 1. **Every genuinely free seat is filled**, longest wait first, live
+    ///    agents ahead of dormant ones. Without this the overflow would be
+    ///    permanent: seats are released on departure and reused by *new*
+    ///    arrivals, so an agent that found the room full when it appeared would
+    ///    still be uncounted-and-undrawn after every character on screen had
+    ///    left. A room of empty desks over a plate reading "+3" is true and
+    ///    useless.
+    /// 2. **A live agent with no seat evicts the longest-dormant agent that has
+    ///    one.**
     ///
-    /// **A promoted agent walks in.** That is the same `spawn` every character
+    /// ## Why pass 2 exists
+    ///
+    /// Seats were freed on `agentDeparted` and on nothing else, and a subagent
+    /// departs only at `SessionEnd` or the 30-minute session-idle sweep. So over
+    /// one ordinary session the seven seats silently filled with **finished**
+    /// subagents and stayed that way: a strictly serial ten-subagent session —
+    /// one worker at a time, the plainest shape there is — drew the main agent
+    /// and six characters all wearing the dormant `Z`, the oldest of them
+    /// finished three minutes earlier, over a plate reading `+4`; and the single
+    /// agent that was actually doing something at that instant was inside that
+    /// `+4`, not on screen.
+    ///
+    /// That is S5 — *a cold observer watching 15 s can say how many agents are
+    /// running* — failing at the one thing the room is for. The count was
+    /// honest; **what the seven seats were spent on was not.** A seat is the
+    /// scarcest thing this room has and it was being held by the agents with the
+    /// least to show.
+    ///
+    /// ## Why it does not overturn dormancy
+    ///
+    /// `03-EVENT-MODEL.md` establishes that `SubagentStop` is a turn boundary
+    /// and not a death, so a stopped subagent keeps a presence in the room. That
+    /// argument is correct and survives intact — *stays visible* and *outranks a
+    /// working agent for a seat* are separable claims and only the second was
+    /// doing damage. A dormant agent is still in the room's population, still
+    /// counted, still revivable in place, and still departs only on the paths
+    /// that genuinely mean gone. It is simply no longer allowed to keep a
+    /// working agent off screen.
+    ///
+    /// ## Why lazily, rather than freeing the seat on dormancy
+    ///
+    /// Freeing on `dormancyChanged(true)` is a one-line change and it is wrong:
+    /// a session whose subagents have all finished would empty its room the
+    /// moment the last one stopped, leaving the main agent alone under `+6`
+    /// while six unoccupied desks stood there. Nothing needed those seats. The
+    /// pressure is what makes an eviction worth making, so the eviction waits
+    /// for the pressure — a quiet room keeps showing its sleepers, exactly as
+    /// the dormancy decision intends, and a busy one spends its seats on the
+    /// agents that are working.
+    ///
+    /// ## What the eviction asserts
+    ///
+    /// The evicted character walks out, and the overflow plate goes up by one in
+    /// the same frame. That is the same sentence the room already says about
+    /// every agent it has no seat for: *this one exists, it is counted, it is
+    /// not drawn.* The walk asserts that the character has left the room, which
+    /// is exactly true, and it does not assert that the agent ended — that
+    /// claim belongs to `agentDeparted`, which is not what happened here and
+    /// which alone removes the agent from the population. [I1]
+    ///
+    /// **The main agent is never evicted.** It holds seat 0, which is the anchor
+    /// every report walks to, and it is never dormant in the first place — `Stop`
+    /// sets no dormancy. The guard below says so rather than relying on that.
+    ///
+    /// **A seated agent walks in.** That is the same `spawn` every character
     /// gets and it claims nothing about when the agent started: the walk is the
-    /// room seating somebody it was already counting, driven by the departure
-    /// that freed the chair, which is a real event. The alternative — a
-    /// character that blinks into a seat — is a beat the room has no art for and
-    /// would read as a glitch. [I1]
-    private mutating func seatTheWaiting(
-        appeared: inout [AgentRef], touched: inout [AgentRef]
+    /// room seating somebody it was already counting, driven by a real event —
+    /// the departure that freed the chair, or the arrival that needed one. The
+    /// alternative — a character that blinks into a seat — is a beat the room
+    /// has no art for and would read as a glitch. [I1]
+    ///
+    /// **It cannot oscillate.** Pass 1 leaves no free seat behind it, and pass 2
+    /// puts a live agent into every seat it takes, so nothing this function does
+    /// creates work for its own next iteration. A later swap needs a *new* real
+    /// event — a dormancy, a revival, an arrival or a departure.
+    private mutating func settleSeats(
+        appeared: inout [AgentRef], touched: inout [AgentRef], evicted: inout [AgentRef]
     ) {
-        while let seat = (0..<layout.seatCapacity).first(where: { !occupiedSeats.contains($0) }),
-              let next = presentations
-                .filter({ !layout.isSeatable($0.value.seat) })
-                .min(by: { $0.value.seat < $1.value.seat })?.key,
-              let waiting = presentations[next]?.seat {
-            occupiedSeats.remove(waiting)
-            occupiedSeats.insert(seat)
-            presentations[next]?.seat = seat
-            // `note`, not `append`: an agent that appeared into the queue and
-            // was promoted inside the same batch is already on this list, and
-            // spawning it twice would put two intents on the stream for one
-            // character.
-            note(&appeared, next)
-            note(&touched, next)
+        while let free = freeSeat(), let next = firstWaiting() {
+            take(next, into: free, appeared: &appeared, touched: &touched)
+        }
+        while let waiting = firstWaiting(dormant: false), let sleeper = longestDormantSeated(),
+              let freed = presentations[sleeper]?.seat {
+            unseat(sleeper, appeared: &appeared, touched: &touched, evicted: &evicted)
+            take(waiting, into: freed, appeared: &appeared, touched: &touched)
+        }
+    }
+
+    /// The lowest seat nobody holds, or `nil` when the room is full.
+    private func freeSeat() -> Int? {
+        (0..<layout.seatCapacity).first { !occupiedSeats.contains($0) }
+    }
+
+    /// Whoever has waited longest without a seat: live agents before dormant
+    /// ones, and within each group the earliest arrival.
+    ///
+    /// - Parameter dormant: `false` restricts it to agents that are not dormant,
+    ///   which is what pass 2 asks for — a sleeper never evicts another sleeper.
+    ///   `nil` considers everyone.
+    private func firstWaiting(dormant: Bool? = nil) -> AgentRef? {
+        presentations
+            .filter { _, presentation in
+                guard !layout.isSeatable(presentation.seat) else { return false }
+                guard let dormant else { return true }
+                return presentation.isDormant == dormant
+            }
+            .min { a, b in
+                if a.value.isDormant != b.value.isDormant { return !a.value.isDormant }
+                return a.value.arrival < b.value.arrival
+            }?.key
+    }
+
+    /// The seated character that has been dormant longest, and never the main
+    /// agent. `nil` when every seat holds someone the room can still say
+    /// something about.
+    private func longestDormantSeated() -> AgentRef? {
+        presentations
+            .filter {
+                $0.value.isDormant && layout.isSeatable($0.value.seat)
+                    && $0.key.agent != .mainThread
+            }
+            .min { a, b in
+                let (x, y) = (a.value.dormantSince, b.value.dormantSince)
+                if x != y { return (x ?? .distantPast) < (y ?? .distantPast) }
+                return a.value.arrival < b.value.arrival
+            }?.key
+    }
+
+    /// Puts `agent` in `seat` and queues its walk-in.
+    private mutating func take(
+        _ agent: AgentRef, into seat: Int, appeared: inout [AgentRef], touched: inout [AgentRef]
+    ) {
+        guard let held = presentations[agent]?.seat else { return }
+        occupiedSeats.remove(held)
+        occupiedSeats.insert(seat)
+        presentations[agent]?.seat = seat
+        // `note`, not `append`: an agent that appeared into the queue and was
+        // seated inside the same batch is already on this list, and spawning it
+        // twice would put two intents on the stream for one character.
+        note(&appeared, agent)
+        note(&touched, agent)
+    }
+
+    /// Takes `agent` out of its seat and back into the queue, still in the
+    /// population and still counted by `overflowCount`.
+    ///
+    /// The queue number is the lowest free one past the seats. It is a slot
+    /// rather than a rank — `arrival` is what orders the queue — so all it has
+    /// to be is unique and unseatable.
+    ///
+    /// The suppression memory goes with the seat, for the same reason it is
+    /// never seeded for an agent that arrived into the queue: nothing is emitted
+    /// for an unseated character, so when this one is seated again its body and
+    /// badge must be stated afresh rather than suppressed as unchanged.
+    private mutating func unseat(
+        _ agent: AgentRef, appeared: inout [AgentRef], touched: inout [AgentRef],
+        evicted: inout [AgentRef]
+    ) {
+        guard let held = presentations[agent]?.seat else { return }
+        var queued = layout.seatCapacity
+        while occupiedSeats.contains(queued) { queued += 1 }
+        occupiedSeats.remove(held)
+        occupiedSeats.insert(queued)
+        presentations[agent]?.seat = queued
+        emittedBody.removeValue(forKey: agent)
+        emittedBadge.removeValue(forKey: agent)
+        touched.removeAll { $0 == agent }
+        // An agent seated and evicted inside one batch was never spawned, so
+        // there is no node to walk off and nothing to say about it at all. It
+        // simply drops off both lists.
+        if appeared.contains(agent) {
+            appeared.removeAll { $0 == agent }
+        } else {
+            note(&evicted, agent)
         }
     }
 
@@ -794,13 +997,22 @@ public struct SceneDirector: Sendable {
     /// parent is still in the room; seat 0 — the main agent's anchor —
     /// otherwise. The fallback is documented, not invented: a subagent whose
     /// link we never saw reports to the main agent rather than to a guess. [I1]
+    ///
+    /// **A parent that is not on screen is not an anchor either.** Its seat
+    /// number is then a place in the queue, and every position function in
+    /// `RoomLayout` wraps — so seat 7 would send the reporter to seat 0's column
+    /// and it would deliver its report to whoever happens to be sitting there.
+    /// The fallback is the same fallback, for the same reason: with no visible
+    /// parent, a subagent reports to the main agent. Eviction is what made this
+    /// case ordinary rather than rare.
     private func anchorSeat(for presentation: Presentation) -> Int {
         guard let parent = presentation.parent else { return 0 }
         let ref = AgentRef(
             project: presentation.ref.project,
             session: presentation.ref.session,
             agent: parent)
-        return presentations[ref]?.seat ?? 0
+        guard let seat = presentations[ref]?.seat, layout.isSeatable(seat) else { return 0 }
+        return seat
     }
 
     /// `agent_type` names the character. Its absence is the main agent — that

@@ -274,19 +274,35 @@ public final class Character: SKNode {
 
     /// The badge layer. **attention > sleep > tool** — see
     /// `BadgeSelection.isAttention` and `.isSleeping` for why, and why the `×N`
-    /// goes with either of the first two.
+    /// goes with either of the first two. The *precedence* is unchanged by this
+    /// method; what changed is what the middle rank draws.
     ///
-    /// If a state glyph is missing from the manifest the next one down is drawn
-    /// instead. That is a *rendering* fallback, not a policy one: the selection
-    /// above already decided the order, and losing everything to one missing
-    /// file would hide information we have. A manifest test asserts both keys
-    /// are declared, so these paths only fire on a manifest older than the
-    /// change that added them.
+    /// **Two pictures, and the split is the point.** A white speech bubble in
+    /// this slot means a tool call — open, just closed inside an ADR-003 beat, or
+    /// parked at a gate waiting on you. Nothing else puts one there. Dormancy
+    /// gets `SceneBitmaps.dormancyTab` instead, which is small, dark and shaped
+    /// like the room's lettering rather than like a bubble; that file carries the
+    /// measurement that made it necessary. So at `1x` the question "is this agent
+    /// working right now" is answered by *whether there is a bubble*, which is
+    /// the one thing the eye gets at that size.
+    ///
+    /// **Attention keeps the bubble deliberately.** It is the only badge a glance
+    /// can act on, and a gated call is a call the agent is still holding — so a
+    /// bubble over it is not the inversion this split exists to remove. The one
+    /// residue is a *dormant* agent raising attention (`isSleeping` is
+    /// `isDormant && !isAttention`, so attention takes the slot): that draws a
+    /// bubble over an agent with nothing running. It is rare, it is the more
+    /// urgent of two true things, and its precedence is settled — see
+    /// `BadgeSelection.isSleeping`.
+    ///
+    /// If the attention glyph is missing from the manifest nothing is drawn in
+    /// its place. That is a *rendering* fallback, not a policy one: the selection
+    /// above already decided the order. The dormancy tab cannot go missing — it
+    /// is drawn, not loaded, so it survives a checkout with no art.
     public func apply(badge selection: BadgeSelection) {
         guard selection != currentBadge else { return }
         currentBadge = selection
         let attentionTexture = selection.isAttention ? store.attentionTexture() : nil
-        let sleepTexture = selection.isSleeping ? store.sleepTexture() : nil
         let toolTexture = selection.badge.flatMap(store.badgeTexture)
         // The hands follow the badge, in the same call, at the same instant —
         // and before the early return below, so a selection that puts no glyph
@@ -296,7 +312,32 @@ public final class Character: SKNode {
         // place: the motion is a function of (body state, badge class), and this
         // is one of exactly two calls that can change either.
         refreshAmbient()
-        guard let texture = attentionTexture ?? sleepTexture ?? toolTexture else {
+        // **Dormancy leaves the bubble.** It is the one selection in this slot
+        // that is not about a tool call, and while it was drawn from the pack's
+        // speech bubble it was 84% of a working badge's footprint in the same
+        // shape family — so at `1x` the room's loudest signal fired for
+        // *finished* exactly as it fired for *working*. `SceneBitmaps.dormancyTab`
+        // carries the measurement and the argument. The tab goes in the same
+        // anchor, at the tab's own size rather than the badge canvas's.
+        if selection.isSleeping {
+            badgeCountNode.isHidden = true
+            let bitmap = SceneBitmaps.dormancyTab()
+            guard let tab = store.texture(bitmap: bitmap, key: "dormancy") else {
+                badgeNode.isHidden = true
+                return
+            }
+            badgeNode.texture = tab
+            badgeNode.size = CGSize(width: bitmap.width, height: bitmap.height)
+            badgeNode.isHidden = false
+            return
+        }
+        // Back to the badge canvas, because the tab above resized the node and a
+        // bubble drawn at 9x11 would be the fractional resample I6 exists to
+        // prevent.
+        badgeNode.size = CGSize(
+            width: store.manifest.badges.canvas.width,
+            height: store.manifest.badges.canvas.height)
+        guard let texture = attentionTexture ?? toolTexture else {
             badgeNode.isHidden = true
             badgeCountNode.isHidden = true
             return
@@ -304,11 +345,11 @@ public final class Character: SKNode {
         badgeNode.texture = texture
         badgeNode.isHidden = false
         // The `×N` annotates a *tool* badge — "N calls, of which this is the
-        // lowest ordinal". Pinned to either state glyph it would read as N
-        // notifications or N naps, neither of which is a thing we count. A
-        // dormant character has no open calls anyway, so this arm of it is
-        // belt and braces rather than a case that fires.
-        if attentionTexture == nil, sleepTexture == nil, selection.count > 1 {
+        // lowest ordinal". Pinned to the attention glyph it would read as N
+        // notifications, which is not a thing we count. The dormant arm returned
+        // above with the count already hidden, so this test is over the two
+        // pictures that can still be here.
+        if attentionTexture == nil, selection.count > 1 {
             let bitmap = SceneBitmaps.badgeCount(selection.count)
             if let countTexture = store.texture(bitmap: bitmap, key: "count:\(selection.count)") {
                 badgeCountNode.texture = countTexture

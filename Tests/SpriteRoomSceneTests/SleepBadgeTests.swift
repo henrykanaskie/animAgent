@@ -267,8 +267,14 @@ struct SleepBadgeTests {
         }
     }
 
-    /// The character actually swaps the glyph, attention takes the slot off it,
-    /// and clearing the attention gives it back.
+    /// The character actually swaps the picture, attention takes the slot off
+    /// it, and clearing the attention gives it back.
+    ///
+    /// **What dormancy draws is no longer the pack's bubble.** It is
+    /// `SceneBitmaps.dormancyTab` — see that symbol for the measurement, and
+    /// `theDormancyTabIsNotABubble` below for the property. The precedence this
+    /// test was written for is untouched: attention still takes the slot and
+    /// still gives it back.
     @Test(.enabled(if: SceneArt.isAvailable))
     @MainActor
     func theCharacterDrawsTheSleepGlyphAndAttentionTakesTheSlot() throws {
@@ -277,10 +283,14 @@ struct SleepBadgeTests {
         let variant = try #require(manifest.characters.orderedVariantIDs.first)
         let character = Character(
             variant: variant, nameplate: NameplateText(lead: "8DE", role: "Explore"), store: store)
+        let tab = SceneBitmaps.dormancyTab()
 
         character.apply(badge: BadgeSelection.select(openToolNames: [String](), isDormant: true))
         #expect(character.isBadgeVisible)
-        #expect(character.badgeTextureForTesting === store.sleepTexture())
+        let drawn = try #require(character.badgeTextureForTesting)
+        #expect(drawn !== store.sleepTexture(), "dormancy is back in the bubble")
+        #expect(Int(drawn.size().width) == tab.width)
+        #expect(Int(drawn.size().height) == tab.height)
         #expect(!character.isBadgeCountVisible)
 
         character.apply(badge: BadgeSelection.select(
@@ -288,9 +298,44 @@ struct SleepBadgeTests {
         #expect(character.badgeTextureForTesting === store.attentionTexture())
 
         character.apply(badge: BadgeSelection.select(openToolNames: [String](), isDormant: true))
-        #expect(character.badgeTextureForTesting === store.sleepTexture())
+        #expect(character.badgeTextureForTesting === drawn)
+
+        // And a tool badge coming back gets the badge canvas back with it. A
+        // node left at the tab's 9x11 would resample a 24x34 bubble into it,
+        // which is the shimmer I6 exists to prevent.
+        character.apply(badge: BadgeSelection.select(openToolNames: ["Bash"]))
+        let bubble = try #require(character.badgeTextureForTesting)
+        #expect(Int(bubble.size().width) == manifest.badges.canvas.width)
+        #expect(Int(bubble.size().height) == manifest.badges.canvas.height)
 
         character.apply(badge: .none)
         #expect(!character.isBadgeVisible)
+    }
+
+    /// **The one that had to be true and was not.**
+    ///
+    /// At `1x` the badge slot's *presence* is the loudest thing in the room, and
+    /// the pack's `sleep` glyph put a bubble there for an agent that had stopped
+    /// — 84% of a working badge's footprint, in a silhouette that is a strict
+    /// subset of every tool bubble. Six bubbles read as six busy agents when all
+    /// six were `Z`. This pins the fix as a size relation rather than as "the
+    /// texture changed", because the texture changing is not what fixed it.
+    ///
+    /// A quarter is not a threshold anybody tuned to pass: the tab measures 99
+    /// px against a bubble's 816, which is 12%, and `dim` — the same bubble at
+    /// `alpha 0.3`, the alternative that was tried — measures 100% here, because
+    /// alpha does not change extent. That is the whole reason it lost.
+    @Test func theDormancyTabIsNotABubble() throws {
+        let manifest = try SceneFixtures.manifest()
+        let tab = SceneBitmaps.dormancyTab()
+        let canvas = manifest.badges.canvas
+        #expect(tab.width * tab.height * 4 < canvas.width * canvas.height,
+                "the dormancy tab is bubble-sized again")
+        // Dark, not white: the bubbles are the bright family and the room's own
+        // lettering is the dark one. The tab belongs to the lettering. [I7]
+        #expect(tab.at(0, 0) == SceneBitmaps.nameplatePlate)
+        // It is drawn, not loaded, so it exists on a checkout with no art — the
+        // reason this test needs no `SceneArt` gate while the one above does.
+        #expect(tab.opaquePixelCount == tab.width * tab.height)
     }
 }

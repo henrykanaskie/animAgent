@@ -86,6 +86,18 @@ Testable, not aspirational:
 - **S5** — A cold observer watching the panel for 15 seconds can correctly say
   how many agents are running and whether any are idle.
 
+  **It was measured answering *backwards* and that is worth keeping written
+  down.** Given a real frame, a cold reading counted six speech bubbles as six
+  busy agents; all six were the dormancy `Z`, zero agents were working, and the
+  one character with no badge was the only live one. Two channels were carrying
+  the wrong sign at once: the `Z` shared a slot, a size and a silhouette with the
+  six tool badges (84% of a working badge's footprint), and the idle body looped
+  at full amplitude — measured *out-moving* a working body over 8 consecutive
+  frames of the same capture. Both are fixed at M7: a white bubble now means a
+  tool call and nothing else, an idle body holds one frame, and movement in a
+  seat means an open call. See `04-ART-DIRECTION.md` §1b and
+  `AmbientMotion.idleSequence`.
+
 - **S6** — The same project draws the same room on every launch, and on two
   launches of the same binary against the same `cwd`. Added with the per-project
   theme; it is the property that mechanism most easily loses by accident, and a

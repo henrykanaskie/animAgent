@@ -105,17 +105,50 @@ struct AmbientMotionPolicyTests {
     }
 
     /// **Only a `working` body plays a phrase.** [I2] There is nothing to claim
-    /// about how a character walks, idles, spawns, departs or hands a report
-    /// over, so every one of those plays its animation exactly as authored —
-    /// which also means an `ADR-003` closing beat, whose body is `idle` for
-    /// every frame by definition, cannot reach this channel.
+    /// about how a character walks, spawns, departs or hands a report over, so
+    /// every one of those plays its animation exactly as authored.
+    ///
+    /// `idle` is excluded here and pinned by `anIdleBodyHoldsOneFrame` instead —
+    /// it plays no phrase either, but it no longer plays the shipped loop.
     @Test func noStateButWorkingPlaysAPhrase() {
-        for state in BodyState.allCases where state != .working {
+        for state in BodyState.allCases where state != .working && state != .idle {
             for badge in ToolBadge.allCases {
                 let sequence = AmbientMotion.sequence(for: badge, state: state, frameCount: 6)
                 #expect(sequence == Array(0..<6),
                         "\(state.rawValue) under \(badge.rawValue) is not the shipped loop")
             }
+        }
+    }
+
+    /// **A character with no open call holds one frame, whatever its badge says.**
+    ///
+    /// This is the busy/idle signal at `1x`, and it only works if it is exact:
+    /// *any* residual idle motion competes with a working body that can never
+    /// move more than 2 px, so the assertion is `[0]` rather than "less than".
+    ///
+    /// The badge loop matters because the two channels are deliberately allowed
+    /// to disagree — an `ADR-003` closing beat is a tool glyph over an idle body,
+    /// and a dormant character wears a tab over one. Neither may put the body
+    /// back in motion, because the body is the channel I2 makes truthful for
+    /// every frame.
+    @Test func anIdleBodyHoldsOneFrame() {
+        for frameCount in 1...10 {
+            for badge in ToolBadge.allCases.map({ Optional($0) }) + [nil] {
+                #expect(AmbientMotion.sequence(
+                    for: badge, state: .idle, frameCount: frameCount) == [0],
+                        "idle under \(badge?.rawValue ?? "no badge") moved")
+            }
+        }
+    }
+
+    /// The states that are a *told event* keep every frame the artist drew. The
+    /// idle loop was the one animation in the room with no event behind it, and
+    /// it is the only one that went. Nothing here is a preference: a walk that
+    /// froze would be a character sliding across the floor.
+    @Test func everyStateWithAnEventBehindItStillAnimates() {
+        for state in BodyState.allCases where state != .idle {
+            #expect(AmbientMotion.sequence(for: nil, state: state, frameCount: 6).count == 6,
+                    "\(state.rawValue) lost its frames")
         }
     }
 

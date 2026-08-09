@@ -642,6 +642,84 @@ delivery-slot pitch, so neighbours' plates still cannot touch.
 Commissioning custom bodies remains the only way to satisfy the silhouette rule
 as originally written, and it is still a real cost. Nothing here needs it.
 
+### The plate leads with the type — M7d
+
+The section above is why the discriminator exists and it is still right about
+that. What it left unsettled — and what the two-row plate then got backwards —
+is **which of the two halves the plate leads with.**
+
+Between M5 and M7d the plate was a saturated accent band carrying the
+discriminator at 2×, with the type at 1× underneath. So the loudest element in
+the room said `430`, `A69`, `2D4` — the last three hex characters of an
+`agent_id` — and the half that answers *what is this agent* read `GENERAL-P…`
+beneath it at half the size. The maintainer's complaint that started this line of
+work was "the agent names should also be better differentiators, they are hard to
+read"; M5 improved the legibility of the plate and inverted its hierarchy while
+doing so.
+
+**The type is the identity and the discriminator is the tiebreaker.** So:
+
+| | band (top row) | dark row |
+|---|---|---|
+| before | discriminator, 2× | `agent_type`, 1×, 10 glyphs |
+| after | `agent_type`, 1×, **11 glyphs** | discriminator, 1× |
+
+The main agent has no `agent_type`, so its `MAIN` is what goes on the band —
+which is the identity rule read once, not a special case, and it means every
+character's band carries whatever name that character has.
+
+#### No amount of magnification was available to the type, and this was measured
+
+The type could not simply take the 2× the discriminator gave up.
+
+- **Horizontally there is nothing to spend.** A plate is 6 px of frame plus its
+  text, and 11 glyphs at 6 px each is 71 px against a 96 px seat pitch — a 25 px
+  gap. Twelve glyphs is 77 px and a 19 px gap, which is the exact width that read
+  as *nearly touching* at the wide default. At 2× the same 66 px of interior
+  holds **five** glyphs: `GENE…`, `SECU…`, `CLAU…`. That is not an
+  identification, and it collapses `claude-code-guide` onto every other
+  `claude-code-*`.
+- **The two seat rows do not buy any width, though they look as if they should.**
+  Ring parity puts adjacent columns on different rows, so no two *seated* plates
+  share a horizontal strip at all. But a back-row character walking down its own
+  column to the aisle crosses the front row's line one pitch from a front-row
+  seat, and two reporters of one ring stand a pitch apart on the same delivery
+  row. Both are same-row pairs at exactly one pitch. The pitch is still the
+  bound. [`RoomLayout.isBackRow`]
+
+  > **Stale figures, named rather than quietly corrected.** The plate width these
+  > arguments quote is **77 px** in three places — the "stagger" paragraph and
+  > the "seven seats" paragraph in this document, and the matching doc comments
+  > on `RoomLayout.seatCapacity` and `RoomLayout.isBackRow`. It was 65 px after
+  > the rows split and it is 71 px now. Every conclusion survives the correction
+  > with room to spare (a half-pitch is 48 px, which clears neither number), so
+  > nothing in the layout is wrong; the numbers are. They are left for the change
+  > that owns `RoomLayout` rather than edited from here, because a clearance
+  > argument should be re-derived by whoever is holding that file, not patched by
+  > whoever noticed.
+- **Vertically it fits, and it does not work.** A 1×-wide, 2×-tall headline holds
+  eleven glyphs and doubles the ink, and it was implemented and rendered into a
+  seven-agent room at `1x`. It is *less* legible than 1×, not more: a 5×14 cell
+  keeps 1 px vertical strokes against 2 px horizontal ones and keeps 1 px of
+  tracking beside a 14 px glyph, so a word closes up into a picket fence and
+  `MAIN` reads as `MFIN`. This face is designed on a square grid and survives
+  being scaled only on both axes at once. The non-uniform `scaleX`/`scaleY` that
+  was added to `PixelFont` for it has been taken back out rather than left
+  available.
+
+So the hierarchy is carried by **position and field**: the type is on the
+saturated band, which is the plate's loudest element and the first thing a glance
+lands on, and the discriminator is on the dark row beneath. The plate is 21 px
+tall where it was 26 — the type's row keeps 2 px of air each side instead of 1,
+because a band cut tight to a 5×7 face reads as letters jammed into a strip.
+
+**The discriminator stays, always on, and none of M5's reasoning about it
+changes.** Two `general-purpose` subagents are still separated by it; two agents
+whose *types* truncate to the same eleven glyphs — `claude-code-guide` against a
+hypothetical `claude-code-runner` — are separated by it too, which is a second
+job it turned out to be doing all along. What changed is its size, not its
+presence.
+
 ## Typography
 
 Confirmed: **no font ships with either pack** — no `.ttf`, no `.otf`, nothing
@@ -1323,6 +1401,55 @@ saturation **0.710** and bottoms at value **0.337** — pixel-identical numbers 
 `question_mark`, because it is the same bubble and the same blue ink. No badge
 owns the darkest pixel on screen and that still holds at eight badges.
 
+#### 1b. The `sleep` bubble is no longer drawn, and "it is the same bubble" is why
+
+Everything above is still the right *layer* argument and none of it is retracted:
+dormancy is a badge-state fact, `badges.states.sleep` is where it is recorded,
+and no body pose could honestly carry it. What did not survive contact with the
+room is the sentence in the paragraph immediately above — **"it is the same
+bubble"** — read as a virtue.
+
+At `1x`, and `1x` is every frame this app renders, the bubble's *presence* is the
+loudest thing on screen: 548 opaque pixels at a median value of 210 over a floor
+of 154, above an 11 px head. Measured against the six tool badges the `sleep`
+bubble is:
+
+| | |
+|---|---|
+| silhouette IoU vs every tool bubble | **0.792** |
+| fraction of the sleep silhouette *inside* a tool bubble | **100%** |
+| badge-slot footprint on a real 1x frame | **548 px vs 678** — 84% |
+
+So the glyph that meant *stopped* was 84% of the glyph that meant *working*, in
+the same slot, in the same shape, at the same value — and the only thing telling
+them apart was ~11 px of ink nobody can resolve at this size. Given a real frame,
+a cold reading of it inverted: six bubbles read as six busy agents when all six
+were `Z` and the only working agent was the one with **no** badge.
+
+**What ships instead is `SceneBitmaps.dormancyTab`** — 9x11 px, the plate colour,
+the room's own font, the `×N` chip's construction. Two properties, and both were
+tested before either was chosen:
+
+- **Extent, not value, is what had to change.** Dimming the same bubble to
+  `alpha 0.3` was rendered and measured: it drops the slot's contrast to ~28% of
+  a working badge but leaves **72%** of the footprint, because alpha cannot make
+  a bubble smaller. The tab is **15-19%**. At a glance you read *whether there is
+  a bubble over that head*; you read how bright it is only after you have already
+  looked.
+- **It lands in the other family.** Every white bubble in this room is pack art
+  about a tool call; every dark plate is the room's own lettering about a
+  character. Dormancy is a statement about a character, so it joins the
+  lettering — and telling a dark tab from a white bubble is a size-and-value
+  judgement, which is exactly what survives `1x`. [I7]
+
+Drawing it rather than loading it also means it exists on a checkout with no art,
+which is why its test needs no `SceneArt` gate.
+
+The pack art stays declared. `TextureStore.sleepTexture()` stays with it and is
+now unused by the scene; both are kept because the *fact* is unchanged and the
+manifest is where facts about art are recorded. If a future pack ships a
+dormancy mark that is not a speech bubble, this is the key it goes under.
+
 ### 2. `characters.poses.working` stays empty, and now there is a number for it
 
 ADR-002 §7's pose table is implemented in the scene and absent from the
@@ -1729,6 +1856,32 @@ produced by a judgement about which frames get drawn. `idle` is also the right
 family to take it from on the merits: I2 says a character idles unless it holds
 an open tool call, so an idling character is the quietest thing the cast can
 legitimately be while still on screen, and the room has to be under *that*.
+
+**That last sentence stopped being true in M7 and the number did not move with
+it.** The room no longer plays the idle loop: an idle body holds one frame, so an
+idling character moves **0 px/s**, and the ceiling is now derived from an
+animation the scene never draws. Nothing mechanical broke — 1461 px/s is a
+property of the *sheet*, `scripts/lint-palette.py` measures it there, and it
+still passes on all six themes — but the argument behind it now reads
+differently: it bounds props against *the quietest thing the cast's art
+contains*, not against the quietest thing the room actually shows.
+
+The consequence is measurable and is recorded rather than argued away. In
+`library`, over 8 consecutive 125 ms frames of the real capture, the animated
+prop moves **164,014** of absolute pixel delta while the two working characters
+move 841,718 — so a prop still does not out-move a working character, by 5.1×,
+and it is a wall-band object well clear of the seat rows. But it *does* out-move
+an idle one, which is now zero. In a themed room with an animated prop,
+"something in the frame is moving" no longer means "somebody is working"; that
+claim holds unqualified only where the props are still, which includes `office`,
+the room this capture actually draws, measured at exactly **0** outside the
+character columns.
+
+**REVISIT WITH DATA.** The honest fix is to re-derive this ceiling from the
+motion the room draws rather than from the motion the sheet contains, which would
+lower it to the seated `working` loop and would reprice every candidate in the
+table below. That is a change to the lint and to the accepted prop set, and it is
+not one to make as a side effect of a change to the characters.
 
 **The share is 1.0** — the room, in total, must move less than one character
 does. That is the literal time-axis reading of I7 and it is the maintainer's own
