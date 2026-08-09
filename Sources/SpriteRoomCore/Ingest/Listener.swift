@@ -175,9 +175,33 @@ struct HTTPRequest {
 
     private static let headerTerminator = Data("\r\n\r\n".utf8)
 
+    /// The largest body this listener will frame, at 64 MB.
+    ///
+    /// Chosen against the measured ceiling rather than a round number that felt
+    /// safe: the largest POST observed is 5.7 MB, produced by a 5.5 MB `Edit`,
+    /// because a hook payload carries the whole `tool_input`. 64 MB leaves an
+    /// order of magnitude over that and still bounds what one connection can
+    /// make this process hold.
+    static let maximumBodyBytes = 64 * 1024 * 1024
+
+    /// The largest head this listener will wait through, at 256 KB. Claude
+    /// Code's hook request carries a handful of ordinary headers; anything past
+    /// this is not going to terminate.
+    static let maximumHeaderBytes = 256 * 1024
+
     /// Returns `nil` while the buffer holds less than one complete request.
     static func parse(_ buffer: Data) -> Parsed? {
-        guard let headerEnd = buffer.firstRange(of: headerTerminator) else { return nil }
+        guard let headerEnd = buffer.firstRange(of: headerTerminator) else {
+            // The other unbounded path, and the quieter one: a client that never
+            // sends `\r\n\r\n` leaves this returning `nil` forever while the
+            // caller appends to the same buffer. Capping the body alone would
+            // not have caught it, because a request with no head has no
+            // declared length to check.
+            guard buffer.count > maximumHeaderBytes else { return nil }
+            return Parsed(
+                request: HTTPRequest(body: Data(), keepAlive: false),
+                remainder: Data())
+        }
 
         let headerBytes = buffer[buffer.startIndex..<headerEnd.lowerBound]
         guard let headerText = String(data: headerBytes, encoding: .utf8) else {
@@ -194,10 +218,30 @@ struct HTTPRequest {
             let name = line[line.startIndex..<colon].trimmingCharacters(in: .whitespaces).lowercased()
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             switch name {
-            case "content-length": contentLength = Int(value) ?? 0
+            // **Clamped at zero, and that is a crash fix rather than tidiness.**
+            // `Int(value) ?? 0` accepted a negative, which made `bodyEnd` land
+            // *before* `bodyStart`, and `buffer[bodyStart..<bodyEnd]` on a
+            // reversed range is a trap, not an error — one malformed header
+            // would take the listener down and with it every session posting to
+            // it. A negative length frames no body, so it reads as empty, which
+            // decodes to nothing, which is counted malformed and answered `202`
+            // like any other unparseable request. [I5]
+            case "content-length": contentLength = max(0, Int(value) ?? 0)
             case "connection": keepAlive = value.lowercased() != "close"
             default: break
             }
+        }
+
+        // A body larger than anything Claude Code can legitimately send is a
+        // broken or hostile client, and buffering it is how a listener becomes
+        // the reason a machine runs out of memory. Consume the head and frame an
+        // empty body: the connection cannot wedge, and the sender is answered
+        // rather than left waiting on a socket that will never reply. The
+        // largest real POST measured is 5.7 MB, from a 5.5 MB `Edit`.
+        guard contentLength <= maximumBodyBytes else {
+            return Parsed(
+                request: HTTPRequest(body: Data(), keepAlive: false),
+                remainder: Data())
         }
 
         let bodyStart = headerEnd.upperBound
