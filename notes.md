@@ -3657,3 +3657,39 @@ desaturate to one slab.
    Note the maintainer's explicit ask: a tester or verifier should have the lab
    coat.
 5. **#40** widen the identifier cross-check beyond `05-MILESTONES.md`.
+
+### #49: two approaches ruled out before anyone spends time on them
+
+I worked the fix and stopped short of landing it. Both obvious routes fail, and
+the reasons are cheap to record and expensive to rediscover.
+
+**Raising `seatCapacity` does not work.** At 1x the panel is 720 px and the seat
+pitch is 96 px, so about 7 seats is the physical maximum across the visible
+width (`96 x 7 = 672`). More seats moves the failure from "two characters
+overlapping" to "characters off-screen" — S5 is broken either way, just less
+visibly. The room genuinely cannot show 13 agents at this pitch and this zoom.
+
+**Reusing the new back row as extra seats does not work either**, which is a
+shame because it looks free: flip `isBackRow` on odd "laps" of `seatCapacity`
+and seat 7 lands in seat 0's column but on the other row, giving 14
+non-overlapping positions in the same width. Seating is fine — the file's own
+argument says two rows a character's height apart cannot share a horizontal
+strip at any x.
+
+It breaks the **movement** argument instead. `isBackRow`'s doc closes the
+walk-out crossing with: *"A front-row character walking upstage out of the room
+crosses the back row's line. It does so inside its own column, and its own
+column is a pitch from every back-row seat."* Under the lap flip that sentence
+becomes false — seat 0's column now *contains* back-row seat 7, so a front-row
+character walking upstage walks through an occupied seat. Offsetting lap 1 by
+half a pitch (48 px) does not rescue it: bodies clear, but a 77 px plate against
+another 77 px plate needs 77 px and has 48.
+
+So the honest fix is **a truthful overflow indicator**, not more seats: the room
+shows the seats it has and says out loud that there are N more. That satisfies
+I1 (it asserts nothing false), keeps S5 answerable (7 + "+1" is still a count),
+and needs no geometry change. It does need a plate-like element the room does
+not have yet, which is why I did not start it on the remaining budget.
+
+What must NOT happen: silently dropping the overflow agents. That is the same
+class of lie as drawing two on one spot, just harder to notice.
