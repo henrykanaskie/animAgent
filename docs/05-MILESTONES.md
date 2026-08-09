@@ -383,15 +383,41 @@ Do not close one of these by editing the criterion.
   answers stayed true. No other row in the sheet is seated, so nothing else can
   fill it. Closing this needs art that does not exist, which is a purchase or an
   authoring decision, not an implementation task.
-- **Open — nothing checks `preview-theme.py`'s geometry.** Its `prop_origin`
-  returned a y-up offset where a y-down blit needed a top row: up to ~80 px of
-  error at `1x`, most of two tiles, and invisible because it was consistent. Every
-  theme accepted at M6 was accepted against a wrong picture. The bug is fixed and
-  the scene was never affected — but this is the tool the project accepts a theme
-  with, and its docstring already said "the geometry is a transcription, and
-  transcriptions drift". Nothing checked it then and nothing checks it now. What
-  would settle it: a pixel comparison of a preview against the scene, which needs
-  a window server and is therefore art-gated like the rest of the pixel suite.
+- **`preview-theme.py`'s geometry is checked against the real scene.** Closed at
+  M6f. `preview-theme.py --verify` renders the room the scene actually draws —
+  `spriteroom --render --theme`, offscreen, no window server, which is what makes
+  this closeable at all; the criterion as written assumed one was needed — and
+  compares floor, wall and every copy of every prop pixel for pixel over the
+  whole tile field, in an empty room. It runs as a stage in
+  `scripts/lint-palette.py` rather than as a command someone remembers, because
+  the lint already imported `role_placements()` and its motion budget was priced
+  on that transcription with nothing tying the number to a renderer.
+
+  Seven injections are watched failing, including both historical bugs.
+  `SPRITE_ROOM_REQUIRE_SCENE=1` turns the no-binary skip into a failure.
+
+  **It found two more defects on its first run, and they are open.**
+
+  **Open — every prop in the preview stands one pixel into the floor.** All six
+  themes, all 21 copies. `prop_origin` returns `y + bottom_row` where a y-down
+  blit needs `y + bottom_row + 1`. This is M6b's own bug with one pixel left
+  behind: that fix corrected which *end of the canvas* the offset was measured
+  from, not which *side of the line* the bottom row sits on.
+
+  **Open — the depth bias is transcribed with the wrong sign, and this one is not
+  cosmetic.** The scene sorts `zPosition = rowDepth(y) + bias` where
+  `rowDepth = 1000 − y`, so z runs opposite to y and a positive bias pulls a prop
+  *forward*; the preview sorts `y + bias` with larger keys painted first, which
+  pushes it *back*. Scene order is chair → character → desk; the preview's is the
+  reverse. **So every picture this tool has ever written shows the character
+  sitting in front of its desk** — the exact cue the desk offset exists to
+  produce. It hid because four of six themes use a desk whose ink never touches
+  the chair's; it shows only in `mission_control` and `library`.
+
+  Both sit in a named register printed on every run, so the check stays green
+  without a silent tolerance and still fails if the offset changes, stops being
+  uniform, or anything disagrees outside the recorded overlap. Fixing either does
+  not turn it red.
 - **Open — three animated props are cut to `assets/processed/animated/` and were
   not in the manifest at `eedd89c`.** `props.roles.<role>` held one `file`; an
   animated prop needs a frame list and a rate. The additive `animation` key is
