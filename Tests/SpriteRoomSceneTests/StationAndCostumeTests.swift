@@ -370,6 +370,61 @@ struct StationContractTests {
         }
     }
 
+    /// **The wardrobe's asserting tier, held to the same standard as the
+    /// station's** — this is the test the comment above says the wardrobe does
+    /// not have.
+    ///
+    /// It did not have it, and the consequence was exactly what that comment
+    /// predicted: `roles` named `Explore` and `general-purpose` but spent its
+    /// four *expressive* costumes — lab coat, hi-vis, dungarees, apron — on
+    /// `test-engineer`, `build-verifier`, `scene-engineer`, `ingest-engineer`,
+    /// `ui-engineer` and `art-director`, every one of them a name invented for
+    /// this repository's own dev team. A real session produced a plain shirt
+    /// every time.
+    ///
+    /// Keyed off `fixtures/` at run time rather than a typed list, so a fourth
+    /// `agent_type` appearing in a future capture turns this red instead of
+    /// quietly getting a costume that says nothing.
+    @Test func everyAgentTypeTheFixturesContainIsDressedOrDeliberatelyNot() throws {
+        let manifest = try SceneFixtures.manifest()
+        let costumes = manifest.characters.costumes
+        let observed = try Self.agentTypesInFixtures()
+        #expect(observed.contains(""), "the fixture sweep found no empty agent_type at all")
+        #expect(observed.count >= 3, "the fixture sweep found \(observed.count) agent types")
+
+        for type in observed.sorted() where !type.isEmpty {
+            #expect(costumes.roles[type] != nil, Comment(rawValue:
+                "`\(type)` occurs in fixtures/ and the costume roles table does not name it,"
+                + " so the commonest agent in a real room is dressed by a hash"))
+        }
+
+        // The empty string takes the default branch before `roles` is consulted:
+        // an agent we cannot name may not be given a meaning. [I1]
+        #expect(costumes.roles[""] == nil,
+                "the empty agent_type is in roles, so an unnameable agent is being dressed")
+    }
+
+    /// The maintainer's own words: a tester or a verifier should be the one in
+    /// the lab coat. Pinned because it is a product decision, not an accident of
+    /// which key happened to be typed first.
+    @Test func theCostumesThatAssertAreReachableByNamesPeopleActuallyUse() throws {
+        let costumes = try SceneFixtures.manifest().characters.costumes
+
+        for name in ["test-engineer", "tester", "verifier"] {
+            let id = try #require(costumes.roles[name], "no costume for `\(name)`")
+            #expect(costumes.costume(id)?.title == "lab coat", Comment(rawValue:
+                "`\(name)` wears \(id), not the lab coat"))
+        }
+
+        // Every costume that makes a claim must be reachable by *some* name, or
+        // the art is unreachable decoration.
+        for id in costumes.orderedIDs where costumes.costume(id)?.asserts == true {
+            #expect(costumes.roles.values.contains(id), Comment(rawValue:
+                "costume \(id) asserts something and no agent_type maps to it, so nothing"
+                + " in any room can ever wear it"))
+        }
+    }
+
     /// **No station the hash can reach may assert.** The contract check that
     /// binds over whatever the manifest declares, not over what it declares
     /// today.
