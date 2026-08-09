@@ -269,14 +269,31 @@ def prop_origin(role, canvas, x, y):
     them, and the room read as furniture floating in the foreground. It was
     invisible as a bug because every prop was wrong *in proportion to how low
     its art sits in its own canvas*, so the picture stayed internally plausible.
-    The scene was never affected. Derivation, so the next person does not have
-    to redo it: image row `r` lands at panel row `(296 - top) + r`; we want row
-    `bottom_row` at panel row `296 - y`; therefore `top = y + bottom_row`.
+    The scene was never affected.
+
+    **Corrected again at M6g — M6b's repair left one pixel of itself behind.**
+    M6b fixed which *end of the canvas* the offset is measured from and stopped
+    there; it did not ask which *side of the placement line* the content box's
+    bottom row falls on. `top = y + bottom_row` puts that row on the panel row
+    whose scene band is [y-1, y] — one pixel *into* the floor. SpriteKit's
+    `anchor(inCanvas:)` puts it on [y, y+1], standing *on* the line, which is
+    what `--verify` measured against the real renderer: every prop, every theme,
+    all 21 copies, exactly one row low. The `+ 1` is that row.
+
+    Derivation, so the next person does not have to redo it. `to_screen` maps
+    scene y to panel row `origin_y - y`, and `blit` fills *downwards* from that
+    row, so image row `r` of a canvas whose top is at scene `top` lands on panel
+    row `(origin_y - top) + r`. The content box's bottom row must land on the
+    last panel row *above* the line, which is `origin_y - y - 1`. Therefore
+    `(origin_y - top) + bottom_row = origin_y - y - 1`, i.e.
+    `top = y + bottom_row + 1`. The third time this function has been wrong
+    about y, and the first time something other than another copy of itself
+    said so.
     """
     box = role["content_box"]
     left = x - (box["x"] + box["w"] / 2.0)
     bottom_row = box["y"] + box["h"] - 1
-    top = y + bottom_row
+    top = y + bottom_row + 1
     return left, top
 
 
@@ -411,7 +428,8 @@ def render(theme, name, population, out_path, characters, seed_variants,
         frames = role_frames(role)
         left, top = prop_origin(role, canvas, x, y)
         census[role_name] = census.get(role_name, 0) + 1
-        drawn.append((y + bias, "prop", (frames[frame % len(frames)], left, top)))
+        # `y - bias`, not `y + bias`. See the sort below.
+        drawn.append((y - bias, "prop", (frames[frame % len(frames)], left, top)))
 
     # One placement list, drawn here and counted by `role_placements()`.
     for role_name, x, y, bias in prop_layout():
@@ -446,6 +464,25 @@ def render(theme, name, population, out_path, characters, seed_variants,
                 "the second one." % (name, n, role_name, expected.get(role_name)))
 
     # Higher y is further away, so it paints first.
+    #
+    # **The bias is subtracted, and it was added until M6g.** The scene sorts on
+    # `zPosition = Character.Layer.rowDepth(y) + bias` where `rowDepth` is
+    # `1000 - y`, so z runs *opposite* to y and a positive bias pulls a node
+    # **forward**. This list is sorted on the row itself, largest first, so a
+    # positive bias added here would push the node **backward** — the same
+    # number meaning the opposite thing, which reversed the paint order inside
+    # every seat:
+    #
+    #     scene    back -> front:   chair (-0.25), character, desk (+0.5)
+    #     preview  back -> front:   desk,          character, chair
+    #
+    # Negating it puts this list back on the scene's convention: the desk's
+    # +0.5 lowers its key so it paints last and its near edge crosses the seated
+    # body, which `RoomLayout.deskPosition` says is the only cue at 32 px that a
+    # character is sitting *at* a desk rather than beside one. The chair's -0.25
+    # raises its key so its backrest goes behind. `prop_layout()` keeps the
+    # scene's own numbers; only the direction they are read in was ours, and it
+    # was wrong.
     for _depth, kind, payload in sorted(drawn, key=lambda d: -d[0]):
         if kind == "prop":
             path, left, top = payload
@@ -539,56 +576,66 @@ VERIFY_AT = 60.0
 # I7 on the real renderer's output as a side effect.
 VERIFY_EMPTY_MAX_SAT = 0.25
 
-# **A known disagreement, named rather than absorbed.** M6f measured that every
-# prop in this preview lands exactly one pixel lower than the scene draws it,
-# relative to the floor the two agree on:
+# ---------------------------------------------------------------------------
+# The known-defect register
+# ---------------------------------------------------------------------------
 #
-#   `prop_origin` returns `top = y + bottom_row`, which puts the content box's
-#   bottom *pixel* on the row whose scene band is [y-1, y] — below the placement
-#   line. SpriteKit's anchor puts it on [y, y+1], standing *on* the line.
-#   The correction is `top = y + bottom_row + 1`.
+# **It is empty, and its emptiness is printed on every run.** M6f found two
+# disagreements between this picture and the scene's and entered them here
+# rather than absorbing them into a tolerance, because the ask then was to
+# learn that the transcription was still wrong rather than to have it quietly
+# corrected. Both were corrected at M6g and both entries are gone:
 #
-# It is recorded and not applied, because the maintainer asked to learn that
-# the transcription is still wrong rather than have it quietly corrected. So the
-# check accepts a whole-picture prop offset of 0 rows (fixed) or -1 (today, the
-# scene's copy sitting one panel row *above* where this tool puts it), and
-# nothing else. Every other guard stays live around it: the offset must be the
-# same for every role, the prop ink must match exactly at it, and every pixel
-# the two pictures disagree on must fall inside a prop's own box — so a moved
-# floor, a phantom copy or a copy this tool has stopped drawing all still fail.
-# Fixing `prop_origin` does not turn this red; forgetting about it does not turn
-# it green either, because the offset is named on every run.
-ACCEPTED_PROP_ROW_OFFSETS = (0, -1)
+#   1. Every prop stood one pixel into the floor, all six themes, all 21
+#      copies. `prop_origin` returned `y + bottom_row` where a y-down blit
+#      needs `y + bottom_row + 1`. See that function.
+#   2. The depth bias was transcribed with the wrong sign, so the paint order
+#      inside every seat was reversed and every picture this tool had written
+#      showed the character in front of its desk. `render()` sorts on
+#      `y - bias` now. See the sort.
+#
+# What is left is the shape, and it is kept rather than deleted for one
+# reason: a defect that is found next time is entered here **by name, with its
+# correction and its measured extent**, or it is not accepted at all. A silent
+# tolerance is what this whole file exists to not be. `register_summary()` is
+# printed by `verify()` whether or not there is anything in it, so "the
+# register is empty" is a claim someone made this run and not an absence
+# nobody noticed.
 
-# **A second known disagreement, M6f, same shape: the depth bias is transcribed
-# with the wrong sign.**
-#
-#   The scene sorts by `zPosition = Character.Layer.rowDepth(y) + bias`, and
-#   `rowDepth` is `1000 - y`, so z runs *opposite* to y and a positive bias
-#   pulls a node **forward**. This tool sorts by `y + bias` descending, where a
-#   larger key paints first, so the same positive bias pushes the node
-#   **backward**. Within one row the paint order is therefore exactly reversed:
-#
-#       scene    back -> front:   chair, character, desk
-#       preview  back -> front:   desk,  character, chair
-#
-#   The correction is one character: sort on `y - bias`.
-#
-# Its visible consequence is the one thing `RoomLayout.deskPosition` says the
-# offset exists to produce — "at 32 px the only cue that a character is sitting
-# *at* a desk rather than beside one is whether the desk's near edge crosses
-# it". In the scene it crosses. In every picture this tool has ever written the
-# character sits in front of its desk instead, and the chair's backrest is
-# painted over the desk.
-#
-# Only the second half of that is checkable here, because the comparison runs on
-# an empty room: `chair` over `desk` shows up wherever their ink overlaps, which
-# is `mission_control` and `library` — the two themes whose desk is not the
-# narrow Office single. The character half is derivation plus a picture, not a
-# measurement, and this check does not cover it. So the accepted region is the
-# per-seat intersection of the `chair` and `desk` boxes and nothing wider: a
-# desk that moves, changes art, or stops being drawn escapes it immediately.
-ACCEPT_CHAIR_DESK_OVERLAP = True
+# Whole-picture prop row offsets the check will accept. `(0,)` is "every prop
+# lands exactly where the scene puts it". M6f also accepted -1 while defect 1
+# was open; that entry is removed, so a reappearance of it now fails.
+ACCEPTED_PROP_ROW_OFFSETS = (0,)
+
+# Whether a `chair`-over-`desk` inversion inside a seat's own overlap rectangle
+# is accepted. **False.** M6f set it True while defect 2 was open and confined
+# it to the per-seat intersection of the two boxes, which is all an empty room
+# can show of a paint-order bug. With the sign corrected the two pictures agree
+# there pixel for pixel, so the exemption is withdrawn rather than left
+# standing over a thing that no longer happens.
+ACCEPT_CHAIR_DESK_OVERLAP = False
+
+
+def register_summary():
+    """One line naming what the check is currently willing to forgive.
+
+    Printed on every `--verify` run, including the one inside
+    `scripts/lint-palette.py`. An empty register has to say so out loud: the
+    failure mode this whole comparison was built against is a disagreement that
+    nobody is looking at, and a tolerance that prints nothing is one.
+    """
+    entries = []
+    for offset in ACCEPTED_PROP_ROW_OFFSETS:
+        if offset != 0:
+            entries.append("a whole-picture prop row offset of %+d" % offset)
+    if ACCEPT_CHAIR_DESK_OVERLAP:
+        entries.append("`chair` over `desk` inside a seat's own overlap")
+    if not entries:
+        return ("known-defect register: empty — every prop must land exactly "
+                "where the scene puts it, and nothing about a seat's paint "
+                "order is forgiven")
+    return "known-defect register: %d entr%s — %s" % (
+        len(entries), "y" if len(entries) == 1 else "ies", "; ".join(entries))
 
 
 def spriteroom_binary():
@@ -977,23 +1024,23 @@ def verify_theme(theme, name, binary, out_dir, scratch, fixture=VERIFY_FIXTURE,
     if (uniform and len(unexplained) == 0 and n_stray == 0 and prop_offset[0] == 0
             and prop_offset[1] in ACCEPTED_PROP_ROW_OFFSETS
             and (absorbed == 0 or ACCEPT_CHAIR_DESK_OVERLAP)):
+        # Reached only when the register is non-empty, because with it empty
+        # this function has already returned on `total == 0` above. Both
+        # branches name the register entry that let the picture through, so a
+        # forgiven disagreement is never a silent one.
         report["ok"] = True
         if prop_offset[1] != 0:
             report["notes"].append(
-                "KNOWN DEFECT 1 of 2 — props agree only %d row off. `prop_origin` "
-                "returns `y + bottom_row` where a y-down blit needs "
-                "`y + bottom_row + 1`, so every prop in this picture stands one "
-                "pixel into the floor. Otherwise exact: %d copies over %d roles, "
-                "same art, same columns, nothing disagreeing outside a prop's box."
+                "REGISTER — props agree only %d row off, which "
+                "ACCEPTED_PROP_ROW_OFFSETS permits. Otherwise exact: %d copies "
+                "over %d roles, same art, same columns, nothing disagreeing "
+                "outside a prop's box."
                 % (abs(prop_offset[1]), len(all_boxes), len(per_role)))
         if absorbed:
             report["notes"].append(
-                "KNOWN DEFECT 2 of 2 — %d pixels where this tool paints `chair` "
-                "over `desk` and the scene paints `desk` over `chair`. The depth "
-                "bias is transcribed with the wrong sign: sort on `y - bias`, not "
-                "`y + bias`. Confined to the %d seat overlaps, which is all an "
-                "empty room can show of it — the same inversion also puts every "
-                "seated character in front of its desk instead of at it."
+                "REGISTER — %d pixels inside the %d seat chair/desk overlaps "
+                "where the two pictures paint the same two props in the "
+                "opposite order, which ACCEPT_CHAIR_DESK_OVERLAP permits."
                 % (absorbed, len(overlaps)))
         return report
 
@@ -1045,6 +1092,11 @@ def verify(sets, names, out_dir, fixture=VERIFY_FIXTURE, at=VERIFY_AT,
               "to make this a failure." % (len(names), ", ".join(names)),
               file=sys.stderr)
         return 1 if required else 0
+
+    # Before anything is compared, say what this run is prepared to forgive.
+    # An empty register is the interesting case and it is the one a silence
+    # would hide, so it is printed too.
+    print("  %-16s %s" % ("", register_summary()))
 
     scratch = tempfile.mkdtemp(prefix="preview-verify-")
     codes = []

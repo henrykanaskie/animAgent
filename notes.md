@@ -2757,3 +2757,160 @@ the milestones file was out of scope, and M6e is the entry where an accidental
 edit to it deleted a criterion outright. It should be closed by someone whose
 scope includes it, and the two defects above should be entered as open items
 when they are.
+
+## 2026-08-09 — M6g: two fixes, a manifest half that nothing draws, and the held layer we ruled out on the wrong premise
+
+Three jobs arrived as one and they came apart in an order nobody chose: the two
+preview defects were nearly free, the station work turned out to be blocked in
+the scene rather than in the manifest, and the held-object claim that landed
+mid-task turned out to be **true about the files and wrong about what they
+cover**. All three are below with their numbers.
+
+### 1. The two defects are fixed and the register is empty
+
+M6f entered both in a named register rather than absorbing them, on the
+instruction to report rather than repair. Both are repaired now.
+
+**`prop_origin` returns `y + bottom_row + 1`.** One pixel, all six themes, all
+21 copies. The derivation is in the function so it is not re-derived a fourth
+time: `to_screen` maps scene y to panel row `origin_y − y` and `blit` fills
+downwards, so the content box's bottom row must land on `origin_y − y − 1`, the
+last row above the line. M6b corrected which end of the canvas the offset came
+from; it never asked which side of the line the bottom row falls on.
+
+**`render()` sorts on `y − bias`.** The scene's z is `1000 − y + bias`, so its
+sign convention is the opposite of a list sorted on the row itself. The biases
+in `prop_layout()` are the scene's own numbers and were never wrong; the
+direction they were read in was ours.
+
+**The second one is the one you can see, and it is worse than "cosmetic" made it
+sound.** It changes 7 768–15 696 px of a 288 000-px panel in *every* theme, not
+only the two where an empty room could show it. Cropped at 4×, `mission_control`
+before: the chair's backrest painted across the character's face and the desk
+behind it. After: the character on the chair with the desk's near edge crossing
+it, which is the one cue `RoomLayout.deskPosition` exists to produce. The M6f
+measurement of 364 px and 1484 px was the *empty-room* half. The other half is
+every picture with a character in it, which is every picture anyone looks at.
+
+`--verify` now passes at **zero differing pixels** in all six themes with nothing
+forgiven. All seven of M6f's watched injections still fail, and I added the two
+defects themselves as injections — re-inject either and the check goes red
+(7364 px and 1484 px), which is the property the register was trading away.
+`register_summary()` prints on every run including the empty one, because a
+tolerance that prints nothing is indistinguishable from a check nobody ran.
+
+Lint colour numbers are bit-identical before and after — this is the review
+tool, not the art. Six themes, unchanged: `briefing` 0.817/0.182/0.667/0.503,
+`broadcast` 0.784/0.114/0.667/0.470, `library` 0.766/0.183/0.667/0.452,
+`mission_control` 0.741/0.182/0.604/0.427, `office` 0.793/0.183/0.659/0.480,
+`stage` 0.786/0.183/0.667/0.472. Motion budget unchanged at `library` 0.57 of
+the ceiling and 0.00 everywhere else.
+
+### 2. Stations: the scene resolves them and draws nothing
+
+The brief said this was a manifest swap with zero code change because the scene
+already resolves stations. It resolves them. It does not draw them, and I
+checked that in pixels rather than by reading:
+
+- `Manifest.Station` is decoded and exposed and **has no caller** outside
+  `ThemeSelector` and the tests.
+- `SpriteIntent.spawnCharacter` carries `variant`, `nameplate`, `seat`. No
+  station. The id never leaves `SceneDirector`.
+- `RoomScene.buildRoom()` draws `props.roles.desk` and `props.roles.chair` at
+  every seat from the theme-wide roles, once, at build time.
+- A manifest with six stations in **all six themes**, whose numbered desks are a
+  chalkboard, a drum kit, a softbox, a flip chart and a two-screen post, renders
+  **byte-identical** to a manifest with no stations, over a fixture with three
+  agents of two `agent_type`s, at 720×400. Six pairs, zero differing bytes.
+
+So I stopped, as instructed, rather than writing a manifest nothing can show.
+That is the same call M6b made about `characters.poses.working`, for the same
+reason: a table whose entries render identically makes §7 look satisfied while
+the maintainer's actual complaint stays true.
+
+What I decided anyway so the scene work is not blocked twice — all of it in
+`04-ART-DIRECTION.md` with the measurements:
+
+- **Pool of 6, ids `01`…`06`.** `fixtures/` holds exactly three `agent_type`
+  values across 17 captures: `general-purpose` ×165, `Explore` ×23, and `""`
+  ×17, which is `default` by construction. Two hashable types, so the collision
+  question is arithmetic, not probability. **Pool size is not monotone in
+  separation**: at 8 stations ten of twelve plausible agent names land on `"8"`
+  and the two real types collide. The ids are part of the hashed key — `"10"`…
+  `"80"` reproduces `"1"`…`"8"` exactly — and zero-padding to `"01"`…`"06"` uses
+  6 of 6 stations at 12.1% pairwise collisions, better than an ideal hash's 1/6.
+  Choosing a pool by feel would have produced a room where every subagent sits
+  at the same desk.
+- **The desk varies; the chair cannot.** With six agents seated, the chair is
+  97–207 visible px per seat and the desk 552–2 391 — 5.7× to 16.6×, because the
+  chair is behind the character and the desk is in front. Swapping only the desk
+  moves 45–83% of all the ink in the room. And there is no second chair to swap:
+  Office 104 is the only side-view backrest-left chair in any pack we own.
+- **`station.main` is the widest surface the theme owns, plus the theme's one
+  optional `prop`.** Not a different *kind* of furniture: a throne asserts
+  seniority and no datum says that.
+
+### 3. The held layer — right about anchors, wrong about the pack, and still no
+
+Mid-task the claim arrived that `Character_Generator/Books`, `/Accessories` and
+`/Smartphones` are pre-registered overlay layers, so "nothing is held" was
+answering a question about anchors these files do not ask.
+
+**The claim is true and I verified it before using it.** Books and 80 of 84
+Accessories are 1792×1312 — the premade sheet's exact geometry. Composited with
+no offset the book lands in the hands and a hat lands on the head, in every
+frame. There is nothing to anchor.
+
+**And it still does not reach this room, on coverage.** Alpha-scanned per pose
+row: `Books` carries ink on **row 7 only** (`phone_b`), `Smartphones` on the row
+that registers to **row 6** (`phone_a`), and both of those rows are
+**single-direction, front-facing, standing** — no two of their twelve frames are
+pixel mirrors, where an ordinary row's blocks 0 and 2 are exact mirrors. Every
+working character in this room is a side-view *seated* sprite. There is no book
+ink on the seated row to composite.
+
+I cut it and put it in the room anyway, because that is the rule: six agents in
+the row-7 pose at `1x` are six front-facing figures standing at side-view desks
+with a pale patch at chest height. It is the `sleep` row a second time.
+
+Two numbers that close it:
+
+- **The premades already contain the book.** `Book_01` over premade 06's row-7
+  frame changes **8 px of 1080** and **0 px of silhouette**; the other five
+  change 68–96. The folder is a recolour of a book already drawn into the pose.
+- **It would not read even where it exists.** Max saturation 0.822 and darkest
+  0.314 — the body's own numbers to three decimals, because it is the same ink.
+  It cannot out-shout the body and for the same reason does not separate from it.
+
+**What survives is `Accessories`, and it is a different channel.** It registers
+exactly on the seated frames — glasses on the eyes, hat on the head at 8× — and
+covers all twelve. On variant 06 seated against its bare 952 px: chef hat +404
+silhouette px, snapback +156, beanie +132, detective hat +128, backpack +60,
+medical mask +8, and **glasses, monocle and gloves +0**. None changes the
+darkest value from the cast's 0.314, so no accessory can ever be the darkest
+thing on screen. At `1x` with six agents the snapback, beanie and detective hat
+separate instantly and the 0 px ones are invisible, which is the silhouette rule
+predicting the picture exactly.
+
+Nothing was cut into `assets/`. It is *worn*, so it says who is sitting there
+rather than what they are doing and cannot key on a badge class; drawing it is a
+second sprite per character, which is a scene change and the same wall the
+stations hit; and half the vocabulary asserts — a hash that puts a
+`security-reviewer` in a policeman's hat has made a claim about the work. The
+neutral subset is four items of which two have a silhouette worth having.
+
+**The distinction I was asked to keep, kept.** The original paragraph was right
+that this art has no per-frame hand anchors and that an arbitrary prop cannot be
+placed against it. It was wrong that the pack therefore offers nothing, and the
+file sizes said so at M0. Reaching the right answer from a wrong premise is not
+being right: it meant the question was never reopened, and when it was reopened
+the answer turned out to rest on something else entirely.
+
+### Gate
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. `swift test`
+**452** passing. `python3 scripts/lint-palette.py` passes, unweakened, six
+themes reported, motion budget unchanged, scene comparison green with an empty
+register. Nothing under `Sources/`, `Tests/`, `fixtures/` or the ADRs was
+touched; `assets/manifest.json` is byte-identical to where it started, checked
+with `cmp` after the station experiment restored it.
