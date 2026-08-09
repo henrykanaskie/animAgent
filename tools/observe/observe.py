@@ -61,6 +61,7 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 PTYDRIVE = os.path.join(REPO, "tools", "pty-capture", "ptydrive.py")
 LOGGER = os.path.join(REPO, "tools", "hook-logger", "logger.py")
 FILMSTRIP = os.path.join(HERE, "filmstrip.py")
+MCPSERVER = os.path.join(HERE, "mcpserver.py")
 
 # The maintainer's app is bound here and their live session posts to it. Binding
 # it would take their hooks; killing it would take their session.
@@ -88,65 +89,114 @@ ENV_CLEAR = [
 # Two agent types that do not exist as built-ins, defined in the sandbox so the
 # session has more than one kind of worker in it. The *payloads* are still real
 # — this decides what the session does, not what the capture says about it.
+#
+# Neither declares a `tools:` line, so both inherit everything, including the
+# sandbox's MCP tool. A restricted list is what stopped the first attempt at a
+# `plug` badge from being reachable at all.
 SANDBOX_AGENTS = {
     "reviewer": """---
 name: reviewer
-description: Reads a file and reports what is in it. Used by the observe harness.
-tools: Read, Bash, Grep
+description: Edits files in place. Used by the observe harness.
 ---
 
-Read the file you are given, run the shell command you are given, and reply with
-one short line. Do not write anything.
+Do exactly the work you are given, in the order given, one tool call at a time.
+Reply with one short line when you are done.
 """,
     "archivist": """---
 name: archivist
-description: Reads a file and files it away. Used by the observe harness.
-tools: Read, Bash, Glob
+description: Files things away using the observe MCP server. Used by the observe harness.
 ---
 
-Read the file you are given, run the shell command you are given, and reply with
-one short line. Do not write anything.
+Do exactly the work you are given, in the order given, one tool call at a time.
+Reply with one short line when you are done.
 """,
 }
 
+# ------------------------------------------------------------- the workload
+#
 # Five subagents, four distinct `agent_type`s, one type used twice — the case
 # that breaks anything keyed on the type rather than on `agent_id`. Plus the
 # main thread, which is six characters: S4's population.
 #
-# Staggered waits so the room is never uniformly busy: at most sample instants
-# some characters hold an open call and some do not, which is the second half of
-# what S5 asks an observer to read off the screen.
+# **Different agents on different badge classes, because the first baseline had
+# them all on one.** That run held 235 tool-frames and every one was `Bash`, so
+# every badge in it was the terminal glyph and the badge table — seven glyphs,
+# four of them hand-authored — was never exercised. Worse, a room full of
+# identical bubbles is easy to misread as the product failing when it was the
+# workload that was uniform. The mapping under test is in
+# `docs/03-EVENT-MODEL.md` and `Sources/SpriteRoomScene/ToolBadge.swift`.
 #
-# **The wait is a Python `time.sleep`, not `sleep(1)`.** A rehearsal found that
-# Claude Code refuses a bare foreground `sleep`, and the agents worked around it
-# by backgrounding the shell — which closes the `Bash` call immediately and
-# leaves every character idle within a second of starting. The capture was real
-# and useless: a filmstrip of six characters doing nothing is not a test of
-# whether you can tell who is working. `python3 -c` holds the call open for as
-# long as it says, verified before this was written.
+# **What can and cannot hold a badge on screen, measured (see notes below).**
+# Every tool in Claude Code except `Bash` closes in about ten milliseconds while
+# the model takes seconds to choose the next one, so most badges are sub-frame
+# events. Measured in a probe session against 2.1.226:
+#
+#     Bash + python sleep     any duration      terminal
+#     mcp__observe__hold      any duration      plug
+#     WebFetch                ~1.5 s            globe
+#     Edit (40 MB file)       ~0.3-3 s          document
+#     Grep/Glob/Read          0.01-0.4 s        magnifier
+#     Agent / SendMessage     ~0.016 s          checklist
+#
+# So three classes can be *held* — terminal, plug, globe — and the rest can only
+# be made frequent. The design puts a held class on three characters for the
+# whole window and the frequent ones on the others, which is what makes a frame
+# with several distinct classes on screen at once possible at all.
+#
+# Two classes are out of reach honestly and are not faked:
+#   - `question_mark` needs a tool the badge table does not name. `Monitor` is
+#     the only one ever captured and it is not offered in this session.
+#   - a second `plug` source; there is one MCP server and it is ours.
+
+
 def wait_command(seconds):
+    """**A Python `time.sleep`, not `sleep(1)`.** A rehearsal found Claude Code
+    refuses a bare foreground `sleep`, and agents route round it by
+    backgrounding the shell — which closes the `Bash` call immediately and
+    leaves every character idle within a second. That capture was real and
+    useless."""
     return 'python3 -c "import time; time.sleep(%d)"' % seconds
 
 
+# (agent_type, badge class this character is meant to show, what it does)
 DISPATCH = [
-    ("general-purpose", "note-1.txt", 40),
-    ("general-purpose", "note-2.txt", 70),
-    ("Explore", "note-3.txt", 55),
-    ("reviewer", "note-4.txt", 85),
-    ("archivist", "note-5.txt", 100),
+    ("general-purpose", "terminal", (
+        "read observe-work/note-1.txt with Read, then run each of these three "
+        "commands in the foreground with Bash, one at a time, waiting for each: "
+        "%s then %s then %s"
+        % (wait_command(35), wait_command(35), wait_command(30)))),
+    ("archivist", "plug", (
+        "read observe-work/note-2.txt with Read, then call the MCP tool "
+        "mcp__observe__hold four times in a row, one at a time, with seconds 25 "
+        "and label a, then b, then c, then d")),
+    ("Explore", "globe", (
+        "read observe-work/note-3.txt with Read, then use WebFetch eight times "
+        "in a row, one at a time, on https://example.com then https://example.org "
+        "then https://example.net then https://www.iana.org/domains/reserved "
+        "and then those four again, each time with the prompt 'give me the title'")),
+    ("reviewer", "document", (
+        "read the first 20 lines of observe-work/doc-1.txt with Read, then use "
+        "Edit on observe-work/doc-1.txt ten times in a row, one at a time, each "
+        "time replacing the text ANCHOR-<n> with ANCHOR-<n>-done for n from 1 to "
+        "10 in order")),
+    ("general-purpose", "magnifier", (
+        "use Grep on observe-work/corpus for the pattern needle-0*[0-9]+ with "
+        "output_mode content, then Glob on observe-work/corpus/**/*.txt, then "
+        "Read observe-work/note-5.txt, and repeat that whole sequence six more "
+        "times")),
 ]
 
 PROMPT = (
     "In ONE single message make FIVE Agent tool calls, every one with "
     "run_in_background true so all five run concurrently. "
     + " ".join(
-        "Subagent %d: subagent_type %s, read observe-work/%s with Read, then run "
-        "exactly this in the foreground with Bash: %s , then reply done."
-        % (i + 1, kind, note, wait_command(seconds))
-        for i, (kind, note, seconds) in enumerate(DISPATCH))
-    + " Every subagent must run its command in the foreground and wait for it; "
-      "none of them may background it. After dispatching all five reply only with "
-      "DISPATCHED. Do not wait for them and do not use any other tool."
+        "Subagent %d: subagent_type %s, %s, then reply done."
+        % (i + 1, kind, work)
+        for i, (kind, _badge, work) in enumerate(DISPATCH))
+    + " Every subagent must do its calls in the foreground, one at a time, and "
+      "wait for each; none of them may background anything or batch calls in "
+      "parallel. After dispatching all five reply only with DISPATCHED. Do not "
+      "wait for them and do not use any other tool."
 )
 
 
@@ -243,7 +293,9 @@ class Sandbox:
         self.out = out
         self.settings = os.path.join(path, ".claude", "settings.json")
         self.backup = os.path.join(out, "sandbox-settings.orig.json")
+        self.mcp_json = os.path.join(path, ".mcp.json")
         self.had_settings = False
+        self.had_mcp = False
         self.wrote_agents = []
         self.work = os.path.join(path, "observe-work")
 
@@ -252,7 +304,18 @@ class Sandbox:
         if os.path.exists(self.settings):
             shutil.copy2(self.settings, self.backup)
             self.had_settings = True
-        json.dump(hook_settings(self.port), open(self.settings, "w"), indent=1)
+        blob = hook_settings(self.port)
+        # Without this the MCP server needs someone to approve it, and there is
+        # nobody at the keyboard. Scoped to the sandbox settings file, which is
+        # restored on the way out.
+        blob["enableAllProjectMcpServers"] = True
+        json.dump(blob, open(self.settings, "w"), indent=1)
+
+        self.had_mcp = os.path.exists(self.mcp_json)
+        if not self.had_mcp:
+            json.dump({"mcpServers": {"observe": {
+                "command": sys.executable, "args": [MCPSERVER]}}},
+                open(self.mcp_json, "w"), indent=1)
 
         agents_dir = os.path.join(self.path, ".claude", "agents")
         os.makedirs(agents_dir, exist_ok=True)
@@ -262,10 +325,42 @@ class Sandbox:
                 open(target, "w").write(body)
                 self.wrote_agents.append(target)
 
-        os.makedirs(self.work, exist_ok=True)
-        for i in range(1, len(DISPATCH) + 1):
+        self.stage_work()
+        return self
+
+    def stage_work(self):
+        """Real files for the agents to work on, sized so the tool calls last.
+
+        The sizes are the arrangement, and they are the only arrangement: a
+        `Grep` over 4 KB and a `Grep` over 300 MB are the same tool doing the
+        same thing, and one of them is visible on a filmstrip. Nothing here
+        changes what the hooks report."""
+        shutil.rmtree(self.work, ignore_errors=True)
+        corpus = os.path.join(self.work, "corpus")
+        os.makedirs(corpus, exist_ok=True)
+        for i in range(1, 6):
             open(os.path.join(self.work, "note-%d.txt" % i), "w").write(
                 "note %d\nthis file exists so a subagent has something real to Read\n" % i)
+
+        # ~300 MB over 600 files: enough that a Grep across it takes long enough
+        # to land on a frame, small enough not to matter on a full disk.
+        block = ("the quick brown fox jumps over the lazy dog while a heron watches\n"
+                 "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu\n") * 4000
+        for i in range(600):
+            with open(os.path.join(corpus, "part-%03d.txt" % i), "w") as fh:
+                fh.write(block)
+                fh.write("MARKER-%03d needle-%03d\n" % (i, i))
+
+        # One file for `Edit`, with ten anchors in it. Big enough that rewriting
+        # it costs a measurable fraction of a second, small enough that the
+        # PostToolUse payload does not blow the hook's 2 s timeout — a 492 MB
+        # file did exactly that in the probe and the call closed on
+        # `PostToolBatch` instead.
+        line = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu\n"
+        with open(os.path.join(self.work, "doc-1.txt"), "w") as fh:
+            for n in range(1, 11):
+                fh.write("ANCHOR-%d marker line\n" % n)
+                fh.write(line * 8000)
         return self
 
     def __exit__(self, *_):
@@ -283,6 +378,9 @@ class Sandbox:
                 os.remove(target)
         with contextlib.suppress(OSError):
             os.rmdir(os.path.join(self.path, ".claude", "agents"))
+        if not self.had_mcp:
+            with contextlib.suppress(OSError):
+                os.remove(self.mcp_json)
         shutil.rmtree(self.work, ignore_errors=True)
         return False
 
@@ -470,7 +568,8 @@ def main():
                     replay_sha256=sha256(replay)),
         "manifest_sha256": sha256(os.path.join(REPO, "assets", "manifest.json")),
         "sandbox": sandbox,
-        "dispatch": [{"agent_type": k, "reads": n, "sleeps": s} for k, n, s in DISPATCH],
+        "dispatch": [{"agent_type": k, "badge_class": b, "work": w}
+                     for k, b, w in DISPATCH],
     })
 
     if not args.frames_only:

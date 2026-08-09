@@ -522,6 +522,51 @@ def observations(truth, roster, intents):
     }
 
 
+def badge_summary(index):
+    """Which badge glyphs the room actually drew, and how often.
+
+    Exists because the first baseline did not have it and could not be read
+    without it: every one of its 235 tool-frames was `Bash`, so every badge was
+    the terminal glyph, and six characters showing six identical bubbles looks
+    like the product failing when it is the workload being uniform.
+
+    Two views, from the two sources, and they answer different questions:
+
+      `badge_agent_frames` — the glyph the scene put over a character, counted
+      per (frame, character). This is the picture.
+      `tool_agent_frames` — the tool the deltas say that character had open.
+      This is reality, and it counts calls no frame ever caught.
+
+    `frames_by_distinct_classes` is the one the design is really asking about: a
+    frame holding three different glyphs at once is the case the badge table
+    exists for, and no capture before this one contained a single one."""
+    badge_frames, tool_frames, distinct = {}, {}, {}
+    attention_frames = 0
+    for record in index:
+        classes = set()
+        for character in record["scene_intents"]["characters"].values():
+            if character["badge_attention"]:
+                attention_frames += 1
+            glyph = character["badge"]
+            if glyph:
+                badge_frames[glyph] = badge_frames.get(glyph, 0) + 1
+                classes.add(glyph)
+        for agent in record["truth"]["agents"]:
+            for tool in agent["open_calls"]:
+                tool_frames[tool] = tool_frames.get(tool, 0) + 1
+        distinct[len(classes)] = distinct.get(len(classes), 0) + 1
+    return {
+        "badge_agent_frames": dict(sorted(badge_frames.items(),
+                                          key=lambda kv: -kv[1])),
+        "tool_agent_frames": dict(sorted(tool_frames.items(),
+                                         key=lambda kv: -kv[1])),
+        "distinct_classes_max": max(distinct) if distinct else 0,
+        "frames_by_distinct_classes": {str(k): distinct[k] for k in sorted(distinct)},
+        "frames_with_three_or_more_classes": sum(v for k, v in distinct.items() if k >= 3),
+        "attention_agent_frames": attention_frames,
+    }
+
+
 def motion_summary(index):
     """How much the room moves, split by whether anything was working.
 
@@ -576,7 +621,9 @@ def main():
     frames_dir = os.path.join(out, "frames")
     os.makedirs(frames_dir, exist_ok=True)
 
-    entries = [json.loads(l) for l in open(args.capture) if l.strip()]
+    lines = [l for l in open(args.capture) if l.strip()]
+    payload_sizes = [len(l) for l in lines]
+    entries = [json.loads(l) for l in lines]
     if not entries:
         print("capture is empty: %s" % args.capture)
         return 2
@@ -612,6 +659,13 @@ def main():
     #    per mark because `debugRoster` prints at the end of a run, so the only
     #    way to have it *at* a frame is to end the run there. The renderer is
     #    deterministic, so this is the same simulation each time.
+    #    **This is the expensive step and its cost scales with the capture, not
+    #    just the frame count**, because every invocation re-parses the whole
+    #    JSONL. At 132 KB that is 0.5 s a frame; the badge-diverse baseline came
+    #    to 57 MB — ten `Edit` calls on a 5.5 MB file, each POSTing the file back
+    #    in `tool_response` — and the same 225 frames took ten times as long.
+    #    Worth knowing before pointing this at a capture full of large payloads.
+    #
     #    A second render `--motion-probe` seconds after each mark answers a
     #    question a filmstrip cannot: *is the room moving here*. Two frames 1.5 s
     #    apart come out pixel-identical about half the time even while five
@@ -699,6 +753,8 @@ def main():
             "scene_roster": roster,
             "scene_intents": scene,
             "observations": obs,
+            "badge_classes": sorted({c["badge"] for c in scene["characters"].values()
+                                     if c["badge"]}),
             "pixels": pixels,
             "disagreements": findings,
         }
@@ -722,6 +778,16 @@ def main():
         "viewport": {"width": size[0], "height": size[1]},
         "room": room,
         "unmapped_tools": unmapped,
+        # The hook payload sizes, because one of them is a surprise worth
+        # keeping: an `Edit` on a 5.5 MB file POSTs a 5.7 MB `PostToolUse` body,
+        # the whole file coming back in `tool_response`. Ten of them made a
+        # 57 MB capture out of 212 events. Every one of those bodies is read by
+        # a listener that S2 holds to 10 ms at p99, and no fixture contains one.
+        "payload_bytes": {
+            "total": sum(payload_sizes),
+            "max": max(payload_sizes) if payload_sizes else 0,
+            "over_1mb": sum(1 for s in payload_sizes if s > 1_000_000),
+        },
         "peak_agents": max(r["truth"]["agent_count"] for r in index),
         "agent_types_seen": sorted({t for r in index for t in r["truth"]["agent_types"]}),
         "peak_distinct_variants": max(r["observations"]["distinct_variants"] for r in index),
@@ -730,6 +796,7 @@ def main():
         "render_scales": sorted({r["observations"]["render_scale"] for r in index
                                  if r["observations"]["render_scale"] is not None}),
         "distinct_frames": len({r["pixels"].get("sha256") for r in index}),
+        "badges": badge_summary(index),
         "motion": motion_summary(index),
         "disagreement_count": len(all_findings),
         "disagreement_kinds": sorted({f["kind"] for f in all_findings}),
