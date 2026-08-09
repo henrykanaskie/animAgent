@@ -30,11 +30,28 @@ struct RoomCameraTests {
     /// The ladder is untouched and still integer [I6]; only the preference
     /// changed. If a future policy wants a closer view again, this is the test
     /// that has to change with it, and it should say why the way this one does.
-    @Test func theRoomIsDrawnWideAtEveryPopulation() {
+    ///
+    /// **A future policy did want one, and this is that change.** The wide-at-
+    /// every-population rule held for as long as it was forced: the content
+    /// band was 300 px against the 200 a `2x` view of this panel gives, so no
+    /// closer scale fitted and the preference was not really a preference. M6f
+    /// spent 96 px of delivery rows and 34 px of badge slot to bring the band
+    /// to 170, and the question became live again.
+    ///
+    /// The maintainer's original complaint survives intact where it applies: a
+    /// **one-agent** room is still not a close-up of one desk, because `2x` at
+    /// population 1 frames 360×200 of room, not a seat. What changed is that
+    /// three agents now get a view in which their costumes, stations and held
+    /// objects are legible — none of which is true at `1x`.
+    @Test func theRoomIsDrawnCloseUntilTheFourthAgentArrives() {
         let camera = RoomCamera.default
-        for population in [0, 1, 2, 3, 5, 6, 40] {
+        for population in [0, 1, 2, 3] {
+            #expect(camera.scale(forPopulation: population) == 2,
+                    "population \(population) should get the close view")
+        }
+        for population in [4, 5, 6, 7, 40] {
             #expect(camera.scale(forPopulation: population) == 1,
-                    "population \(population) should get the wide view")
+                    "population \(population) is too wide for 2x and should get the wide view")
         }
     }
 
@@ -127,14 +144,16 @@ struct RoomCameraTests {
     }
 
     /// A zero-sized viewport cannot be fitted against, so the population scale
-    /// stands unmodified. Under the wide default that is the floor — the point
-    /// is that the degenerate path defers to the policy rather than inventing
-    /// a scale of its own, which is still what this proves.
+    /// stands unmodified. The point is that the degenerate path defers to the
+    /// policy rather than inventing a scale of its own — which is now a
+    /// stronger claim than it was, because the policy no longer returns the
+    /// floor for a small room, so "defers to the policy" and "returns 1" have
+    /// stopped being the same sentence.
     @Test func degenerateDimensionsFallBackToThePopulationScale() {
         #expect(RoomCamera.default.scale(
             forPopulation: 2,
             viewportWidth: 0, viewportHeight: 0,
-            contentWidth: 0, contentHeight: 0) == 1)
+            contentWidth: 0, contentHeight: 0) == 2)
         // Same call, on a camera that does prefer a closer scale: the fallback
         // follows the policy rather than the floor.
         #expect(RoomCamera(comfortablePopulation: [3: 2]).scale(
@@ -223,12 +242,17 @@ struct RoomCameraTests {
                     "population \(population) fits at \(scale)x")
         }
 
-        // And the camera still draws `1x` everywhere, because
-        // `comfortablePopulation` is empty and preferring a closer scale is a
-        // decision this test does not get to make. [`RoomCamera.init`]
-        #expect(camera.comfortablePopulation.isEmpty)
+        // **And the shipped policy agrees with that arithmetic**, which is the
+        // assertion that keeps the table honest. `comfortablePopulation` is a
+        // typed constant; `across` is derived from the seat pitch and the panel
+        // width. Pinning them to each other means a change to either — a wider
+        // plate, a different pitch, a resized panel — makes the policy fail
+        // rather than quietly promise a scale that no longer fits.
+        #expect(camera.comfortablePopulation == [2: across], Comment(rawValue:
+            "the camera prefers 2x up to \(camera.comfortablePopulation[2] ?? 0) agents,"
+            + " but only \(across) fit across a 2x frame at this pitch"))
         for population in 0...layout.seatCapacity {
-            #expect(camera.scale(forPopulation: population) == 1)
+            #expect(camera.scale(forPopulation: population) == (population <= across ? 2 : 1))
         }
     }
 

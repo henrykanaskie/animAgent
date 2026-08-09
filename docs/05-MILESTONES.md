@@ -174,12 +174,31 @@ Do not close one of these by editing the criterion.
   escaping it until somebody remembers a name. The count of three is pinned as
   well as the equality: a new capture with no `SessionEnd` turns them red on
   purpose, and the number moves here and in the tests together, or not at all.
-- **The room is drawn at `1x` at every population.** `RoomCamera`'s
-  `comfortablePopulation` is empty by default, so population no longer pulls the
-  camera in, and a camera explicitly told to prefer a closer scale still gets it —
-  this is a policy change, not a deletion of the ladder's upper rungs. `1x` is
-  still the floor and every emitted scale is still an integer [I6].
-  `oneAgentIsDrawnWideInsideThePanel`,
+- **The room is drawn at `2x` up to three agents and `1x` from four.**
+  `RoomCamera.comfortablePopulation` is `[2: 3]`, and the 3 is not a taste: a
+  `2x` frame is 360 px wide and holds three seat columns, seats fill outward
+  from the centre, so the third agent is the last one inside the frame. The
+  policy constant is pinned *against that arithmetic* rather than typed, so a
+  wider plate or a resized panel makes it fail instead of quietly promising a
+  scale that no longer fits.
+
+  **This superseded "the room is drawn at `1x` at every population", which held
+  for as long as it was forced.** The content band was 300 px against the 200 a
+  `2x` view of this panel gives, so no closer scale fitted and the preference
+  was not really one. M6f spent 96 px of delivery rows and 34 px of badge slot
+  and brought the band to 170. The maintainer's complaint that produced the wide
+  rule — a one-agent room should not be a close-up of one desk — still holds
+  where it was aimed: `2x` frames 360×200 of room, which is three seats wide.
+  `3x`, the scale actually objected to, does not fit 170 and is not offered.
+
+  The cost is stated rather than discovered: **the camera changes scale when the
+  fourth agent arrives.** That step is the price of an integer ladder [I6] —
+  there is no rung between 2 and 1 to slide through — and it buys the three
+  features that are illegible at `1x`: costumes, held objects, stations.
+  `1x` is still the floor and every emitted scale is still an integer.
+  `oneAgentIsDrawnCloseButStillInsideARoom`,
+  `theRoomIsDrawnCloseUntilTheFourthAgentArrives`,
+  `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt`,
   `aCameraCanStillPreferACloserScaleIfItIsToldTo`,
   `oneIsTheFloorAndTheRoomNeverGoesBelowIt`,
   `everyPopulationMapsToAnIntegerOnTheLadder`.

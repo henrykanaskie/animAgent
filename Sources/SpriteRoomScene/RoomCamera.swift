@@ -24,7 +24,29 @@ public struct RoomCamera: Sendable, Hashable {
 
     public static let `default` = RoomCamera()
 
-    public init(scales: [Int] = [3, 2, 1], comfortablePopulation: [Int: Int]? = nil) {
+    /// `2x` up to three agents, `1x` from four.
+    ///
+    /// Three is not a taste. A `2x` frame is 360 px wide and holds **three seat
+    /// columns**; seats fill outward from the centre, so the third agent is the
+    /// last one whose column is inside that frame. Height stopped being the
+    /// binding term at M6f, when the band went 300 → 170 against the 200 a `2x`
+    /// view gives; width decides this now, and width says three.
+    ///
+    /// `3x` is absent because 170 does not fit its 133.
+    ///
+    /// **The cost, stated so nobody has to discover it:** the camera changes
+    /// scale when the fourth agent arrives. That is a visible step, and it is
+    /// the price of the ladder being integer [I6] — there is no level between 2
+    /// and 1 to slide through. It is paid in exchange for the three features
+    /// that are illegible at `1x` and readable at `2x`: costumes (0.00%
+    /// silhouette difference, a hue channel), held objects (~90 px), and
+    /// stations.
+    public static let defaultComfortablePopulation = [2: 3]
+
+    public init(
+        scales: [Int] = [3, 2, 1],
+        comfortablePopulation: [Int: Int]? = RoomCamera.defaultComfortablePopulation
+    ) {
         let sorted = scales.filter { $0 >= 1 }.sorted(by: >)
         self.scales = sorted.isEmpty ? [1] : sorted
         // Was `[3: 2, 2: 5]` — 3x up to two characters, 2x up to five. The

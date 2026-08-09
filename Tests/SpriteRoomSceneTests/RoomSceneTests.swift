@@ -1223,13 +1223,20 @@ struct RoomSceneTests {
     /// band, not the nominal box, which is what made the ladder reachable at
     /// all.
     ///
-    /// What changed is the preference on top of it. The maintainer looked at
-    /// the shipped panel and asked for the room to be bigger from the start.
-    /// So the camera no longer pulls in on a small population, and one agent is
-    /// drawn at the floor with the room around it. The ladder is untouched and
-    /// still integer [I6]; `RoomCameraTests` proves the closer rungs still work
-    /// when a camera is told to prefer them.
-    @Test func oneAgentIsDrawnWideInsideThePanel() throws {
+    /// What changed is the preference on top of it, and it has now changed
+    /// twice. It first went to `1x` at every population, because the maintainer
+    /// asked for the room to be bigger from the start. It is `2x` for a small
+    /// room again as of M6f — not by reversing that decision, but because the
+    /// reason it was cheap has gone: the content band was 300 px against the
+    /// 200 a `2x` view of this panel gives, so nothing closer fitted anyway.
+    /// M6f spent 96 px of delivery rows and 34 px of badge slot and brought it
+    /// to 170.
+    ///
+    /// The original complaint still holds where it was aimed. `2x` at one agent
+    /// frames 360×200 of room — a place with somebody in it, not a close-up of
+    /// one desk, which is what `3x` gave and what was objected to. The ladder
+    /// is untouched and still integer [I6].
+    @Test func oneAgentIsDrawnCloseButStillInsideARoom() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
         scene.setViewport(CGSize(width: 720, height: 400))
@@ -1237,7 +1244,11 @@ struct RoomSceneTests {
         let ref = AgentRef(project: "/p", session: "s", agent: .mainThread)
         scene.apply(director.apply([
             .agentAppeared(agent: ref, agentType: nil, lifecycle: .active)]))
-        #expect(scene.currentScale == 1)
+        #expect(scene.currentScale == 2)
+        // The framing claim, which is the half the maintainer actually cared
+        // about: a 2x view still shows a room, not a desk. 360x200 unscaled
+        // pixels against a 96px seat pitch is three seats wide.
+        #expect(720 / scene.currentScale == 360)
     }
 
     /// Whatever the camera prefers, it may never crop an identity. The
