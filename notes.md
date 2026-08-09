@@ -3576,3 +3576,84 @@ confined to one half of the room, and zero wasted pixels below the content band
 **untouched**. Evidence in `scratchpad/compose/`: `pairs/_ba.png` (before/after
 at populations 1, 4, 8), `themes/_sheet.png` (all six themes at population 6),
 `beat/_sheet.png` (a back-row report walk, six frames).
+
+## Handoff — 2026-08-09, stopped by the account spend cap
+
+Two agents (costume rekey + generator reproducibility; the two geometry
+defects) were dispatched and **both terminated on "You've hit your monthly spend
+limit"** before editing anything. `git status` was clean afterwards — they died
+while still reading. Nothing is half-applied.
+
+**The repo is green and committed at `a59715c`.** `swift build --build-tests
+-Xswiftc -warnings-as-errors`, `swift test` (527 tests, 47 suites),
+`scripts/lint-palette.py` (six themes, all "agrees with the scene").
+
+### What landed overnight
+
+- `2795db8` a 500 ms badge beat (ADR-003). `magnifier` 0 -> 10 frames,
+  `checklist` 0 -> 2, over the same capture. Those two were not rare on screen,
+  they were absent in principle: 16 calls totalling 0.11 s against a 1/60 frame.
+- `33a224f` the art notice pinned as a pure function; a broken manifest no
+  longer fails with "0 of 0 paths missing".
+- `4c505cf` **a crash in the hook listener.** `Content-Length: -1` put `bodyEnd`
+  before `bodyStart`, and slicing `Data` with a reversed range traps. Verified
+  against the old arithmetic in isolation: exit 133. Hook POSTs block the
+  session that sent them, so this could stop every Claude Code session pointed
+  at the port. Two unbounded-buffering paths closed with it.
+- `a59715c` M7 — 11 stations, held objects, seats folded onto two rows. Panel
+  occupancy 28% -> ~63%.
+
+### The finding that should shape whatever comes next
+
+**Three consecutive detail features have been shipped at the one zoom where
+detail cannot be read.** `RoomCamera.comfortablePopulation` is empty by
+deliberate decision (the maintainer asked for a wider, less zoomed room), so
+`scale(forPopulation:)` always returns `minimumScale` and the app renders at
+**1x in every configuration**. At 1x:
+
+- a held object reads as "this one is working", not as *which* tool;
+- costumes are a value/hue channel — closest-pair silhouette difference 0.00%;
+- every desk is the same slab, because all 274 candidates that fit the width
+  limit come out of the I7 desaturation identical.
+
+Room breadth and character legibility pull against each other, and every feature
+so far has been built on the losing side. The conclusion is not to revert the
+wide room — it was asked for explicitly. It is that character signals must stop
+being *detail* and become **silhouette, motion and value**, the three channels
+that survive at 1x.
+
+Two of the asks are bounded by the packs rather than the code, and no more packs
+are being bought: the generator's Book/Smartphone layers exist only for a
+front-facing *standing* pose (our room is side-view seated), and the desks all
+desaturate to one slab.
+
+### Open, in the order I would take them
+
+1. **#49 population 8 draws 7 characters.** `seatColumn` and `ring` both wrap
+   mod `seatCapacity` (7), so seat 7 lands on seat 0's column *and* its ring —
+   and since the new two-row fold keys on ring parity, that is a total overlap,
+   not a near miss. This breaks S5, the real success criterion, and asserts
+   something false about how many agents exist [I1]. Either raise `seatCapacity`
+   (note `columns = seatCapacity * seatSpacingTiles + 4`, so the room widens) or
+   add a truthful overflow indicator. Silently dropping an agent is not an
+   option.
+2. **#48 the library theme's desk is 56x70 and draws over every seated face.**
+   Limit is <=32 wide, <=44 tall. `mission_control` is 44x36. Placed by
+   `buildRoom()` at every seat regardless of stations, so it predates the
+   station work. The station geometry test checks only what a station
+   *declares*, not what it *inherits* — widen it or this returns.
+3. **#47 the manifest is not reproducible from its generator.** `build-manifest.py`
+   knows nothing about the wardrobe (`/characters/costumes`) or the station map
+   (`room.props.stations`), so a rerun **deletes both**. This has already
+   happened once in this project (a 148-path manifest overwrote a 1344-path
+   one). Until fixed, do not run `scripts/process-assets.py` or
+   `scripts/build-manifest.py` without diffing the result.
+4. **#45 costume roles are keyed to agent types nobody runs.** Lab coat, hi-vis
+   and dungarees are keyed on `test-engineer`, `build-verifier`,
+   `scene-engineer` — names invented for this repo's own dev team. `fixtures/`
+   holds exactly three real values, verified twice: `general-purpose` (106),
+   `Explore` (17), `""` (17). The station map already solved this correctly and
+   is the pattern to copy, including a test that reads `fixtures/` at run time.
+   Note the maintainer's explicit ask: a tester or verifier should have the lab
+   coat.
+5. **#40** widen the identifier cross-check beyond `05-MILESTONES.md`.
