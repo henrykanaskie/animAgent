@@ -3136,3 +3136,69 @@ byte-identical across a forced rerun. Nothing under `Sources/`, `Tests/`,
   nineteen items — beanie and snapback — assert nothing. Neither is drawn, and
   neither has been checked against the badge, which floats in the same band
   above the head.
+
+## ADR-003 landed, and an honest look at the room (2026-08-09)
+
+**What the badge beat actually bought.** Measured over the same 224 s capture,
+badge-frames at 1 s sampling: `magnifier` 0 -> 10, `checklist` 0 -> 2,
+`document` 1 -> 5, `globe` 12 -> 18. Frames showing >=3 distinct glyphs went
+10 -> 27. Those first two classes were not rare on screen, they were absent from
+it in principle -- 16 calls totalling 0.11 s against a 1/60 frame. I compared
+the rendered frames rather than the table: at t=33 the room goes from one bubble
+to three, two of them `magnifier` over agents that had just read. The differing
+pixels are 1384 of 288 000 and lie entirely inside the badge band, which is
+simultaneously the best evidence that no body moved.
+
+**ADR-003 §3 item 2 was wrong and is corrected in place.** It claimed the beat
+"adds no badge changes; it moves one". Drawn changes go 108 -> 128. All twenty
+belong to the 11 calls whose open and close landed inside a single frame: the
+badge was suppressed before it was ever emitted, so those calls previously drew
+*nothing*, not two things. The claim holds only for calls that spanned a frame.
+
+**The risk the ADR named for itself did not materialise, but the larger one
+did.** It said the change might "satisfy the instrument and not the maintainer".
+The picture genuinely improved. What it does not touch is the half of the
+complaint that matters more -- "the sprites just sit at their desk". They still
+do.
+
+### Four findings from using it as a user
+
+1. **Nobody holds anything**, though this was asked for directly. Held-object
+   art exists but is severely constrained: `Book_32x32_01.png` is a 41x56 sheet
+   with exactly ONE non-empty row (row 15, 12 frames); `Smartphone_32x32_1.png`
+   is 12x24 with one (row 9, 8 frames). Holding an object pins the body pose.
+   That is the real shape of "I know that's possible" -- it is, but not for free.
+2. **The station map does not exist.** `assets/manifest.json` has no `stations`
+   key at any level, global or per-theme. Resolver, storage and draw path were
+   all built and tested; every desk in the room is the same desk. The five
+   `StationSceneTests` pass against *fixture* manifests, so the shipped one
+   declaring none was invisible.
+3. **~60% of the canvas is dead space.** Emptying `RoomCamera.comfortablePopulation`
+   made the room render wide at every population, but only the zoom changed.
+   Characters sit in a thin band with bare floor below and grey void above.
+4. **The costume `roles` table is keyed to agent types nobody runs.** Lab coat,
+   hi-vis, dungarees and apron are keyed on `test-engineer`, `build-verifier`,
+   `scene-engineer`, `ingest-engineer`, `art-director` -- names invented for
+   *this* dev team. A real session produces `Explore` and `general-purpose`,
+   which map to a plaid shirt and a plain shirt. Every expressive costume is
+   keyed to a type that will essentially never appear. Ground truth for the real
+   values is in `fixtures/`.
+
+### The art notice was unpinned
+
+The notice exists so a green run is unambiguous about whether 49 art-dependent
+tests ran or skipped -- and it was built inline and merely printed, so on a
+machine with art its other two branches were never evaluated by anything. Now
+`SceneArt.notice(survey:gated:required:)`, text unchanged.
+
+Separately the `SPRITE_ROOM_REQUIRE_ART=1` failure used one message for both
+unavailable states, so an unparseable manifest failed with "0 of 0 paths
+missing" -- both counts zero precisely because nothing parsed to declare a path.
+Split into `requirementFailure(survey:required:)`.
+
+Worth recording which test covers which, because I nearly miscredited it: the
+notice always branched on `manifestError` first, so the NO MANIFEST *notice*
+test pins behaviour that was already correct. Only
+`aBrokenManifestDoesNotFailWithACountOfNothing` fails against the old code.
+This is the project's recurring trap in miniature -- a test that reads as
+coverage of a fix while covering something that was never broken.
