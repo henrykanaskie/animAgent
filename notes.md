@@ -2914,3 +2914,87 @@ themes reported, motion budget unchanged, scene comparison green with an empty
 register. Nothing under `Sources/`, `Tests/`, `fixtures/` or the ADRs was
 touched; `assets/manifest.json` is byte-identical to where it started, checked
 with `cmp` after the station experiment restored it.
+
+---
+
+## 2026-08-09 — M7a: the first honest look, and it caught my own evaluation
+
+The maintainer's complaint, in their words: *"I can only tell the agent by the
+nameplate… they should be doing more than just sitting at a desk and having a
+speech bubble."* They are right, and running the loop they asked for found the
+reason faster than reasoning about it did.
+
+### The premise I got wrong, then half-wrong
+
+I found `Books` and `Accessories` are full generator layers at the character
+sheet's exact geometry — 1792×1312, registered frame for frame — and concluded
+held objects were back after six milestones of "nothing is held". **The
+registration claim was true**: `Book_01` is 96.1% pixel-identical to what a
+premade already carries, with 0 of 3936 opaque pixels outside the silhouette.
+`04-ART-DIRECTION.md`'s reasoning was about *placing* a prop and was never a
+claim about the download.
+
+**And the inventory it unlocks is empty for this room.** Books carry ink on one
+standing, front-facing row; Smartphones on another; all 84 accessories are worn.
+There is no held-object art for the seated pose at all. The layer stays retired
+for a better reason than the original: not "we cannot align it" but "there is
+nothing seated to align".
+
+Then the actual answer, which was in a folder nobody had opened: **132 outfits
+and 200 hairstyles**, same geometry, registered to *every* row including `sit`.
+We shipped six *pre-composited* premades since M0 and never touched the layers
+the generator exists for. A lab coat is an outfit. I had been reading the two
+folders about *holding* and not the folder that *dresses*.
+
+### The blocker was one layer up from where anyone was looking
+
+`ThemeSelector` resolved a station per agent. `SceneDirector` stored it.
+**`Manifest.Station` had no caller.** A manifest with six visually wild stations
+in all six themes rendered **byte-identical** to no stations — six pairs, zero
+differing bytes. So every station the art-director might have cut would have
+drawn nothing, and ADR-002 §4 has been half-implemented since it landed.
+
+The art-director found that and **stopped**, rather than writing a manifest that
+does nothing. That is the empty-`poses.working` lesson being applied by someone
+who was not there for it.
+
+### Measured, so the expectation is right
+
+An outfit is a **value** channel, not a silhouette one: **zero silhouette gain
+for 26 of 33 families**. It does not repair M0's finding that this cast has no
+outline separation. What it buys is the largest contiguous quarter of the sprite
+changing value, which is why a white coat against a dark uniform reads at `1x`.
+Outline still only comes from headwear — snapback +156 px seated, beanie +132,
+chef +404 — and half that vocabulary asserts a role.
+
+Hence the two-tier rule, which is the whole I1 argument for costumes: a
+**recognised** `agent_type` may wear what its name says, because the user chose
+that name; anything else is hashed over a pool whose members are marked
+`asserts: false`. A hash must never put an arbitrary agent in a lab coat.
+
+### The loop caught the loop
+
+The rig captured a baseline before the costume work, so improvement could be
+told from change. I looked at `t=42.00`, saw six characters with six identical
+bubbles, and was one sentence from calling it the product failing.
+
+**It was not.** Five agents were running `Bash` and the sixth was idle; the room
+drew five terminal badges and no badge on the idle one. The picture was
+truthful. Then the measurement: **across all 124 frames the only tool ever
+observed is `Bash`** — 235 tool-frames, every one. The badge system, seven
+glyphs and four of them authored by hand, **was never exercised by the baseline
+at all.**
+
+So the first honest look found a flaw in the looking. The workload made every
+agent do the same thing, and a baseline that can be misread that way is worse
+than none. Re-capturing with work that exercises the badge table; the
+`Bash`-only run is kept as evidence of the rig flaw rather than overwritten.
+
+One thing the rig established that no test could: **44 of 74 consecutive frame
+pairs are byte-identical while five agents are working**, because the ambient
+loop aliases against the 1.5 s sample. Over 0.25 s the median changed-pixel
+fraction is **0.82% working against 0.67% idle**. The rig reported that as a
+number and declined to draw the conclusion. The conclusion is mine: a room that
+differs by 0.15 percentage points between *busy* and *nothing happening* is not
+carrying the one signal it exists to carry, and that is the maintainer's
+complaint stated as a measurement rather than a feeling.
