@@ -175,7 +175,10 @@ enum SceneArt {
     /// prop's node is never rebuilt across a fixture replay, the animation is
     /// identical with and without a delta stream, and no `SpriteIntent` can move
     /// a prop texture.
-    static let expectedGatedTestCount = 39
+    /// 40 with the seated-pose guard: `characters.poses.working` may only name
+    /// a pose whose every frame keeps its feet off the canvas's floor row, and
+    /// that is a claim about pixels, so it opens the character PNGs.
+    static let expectedGatedTestCount = 40
 }
 
 /// Always runs, in both modes, and never fails for the absence of art.

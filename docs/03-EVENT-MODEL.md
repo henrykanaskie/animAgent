@@ -667,6 +667,96 @@ sits identically. The behaviour is decided by the lookup, not by the sentence:
 fill the table in the manifest and the room changes with no code change, which is
 also the moment this paragraph's first clause starts to be visible.
 
+### One seated pose is all the pack has, and that is now closed — M6g
+
+The sentence above says *what* ships. This says *why nothing more can*, because
+the emptiness kept being read as a backlog. It is not one. Every pose row in
+Modern Interiors was cut and rendered, not read off its name, and the result is a
+single measurement that decides all of them at once:
+
+> **Of the pack's 20 pose rows, exactly two are seated, and both are the same
+> sit.** A character is bottom-aligned in its 32 × 64 frame, so the last pixel
+> row is the floor. `sit_a` (row 4) and `sit_b` (row 5) never reach it, in any
+> frame of any direction of any cast variant — their feet are on a chair.
+> **Every other row reaches it in at least one frame**, because standing is what
+> those rows are.
+
+`sit_b` was already refused on pixels; it is refused again here on meaning, and
+the second reason is the stronger one because it does not depend on how much of
+it a desk hides. It is a **cross-legged floor sit** — the bare `Bodies/` sheet
+extends the legs forward in row 4 and folds them under in row 5 — and no event
+means *sit on the ground*. A pose table that gave `terminal` the floor sit and
+`magnifier` the chair sit would be asserting a difference in posture that no
+payload contains, on a character who is visibly on an office chair. [I1]
+
+The rows never previously examined all fail the same way. `pick_up` (9), `lift`
+(11), `throw` (12) and `push_cart` (8) are ordinary four-direction rows whose
+side blocks are near-mirrors, so any of them **can** be cut `right`/`left` only
+and satisfy §7's facings clause exactly — and every one of them is a person
+standing up. That is the hole
+`ThemeContractTests.everyNamedPoseStateIsSeatedRatherThanMerelySideOn` closes:
+side-on is necessary and it was the only thing being checked.
+
+**`phone` is refused three times over, and the third refusal is the one that
+outlives the art.** Rows 6 and 7 are the pack's phone and reading rows. Neither
+is seated — every frame stands on the floor row — and neither has a side view at
+all: measured against the `base` row's known directions, whose side views score
+0.85–1.05 on self-mirror asymmetry and whose front and back score 0.21–0.24, all
+12 frames of row 6 score 0.39–0.47 and all 12 of row 7 score 0.22–0.37. They are
+front views, twelve of them, with no direction blocks. But suppose the art were
+perfect. **The pose keys on the badge class, not on the tool** [ADR-002 §5a], and
+`checklist` is `TodoWrite`, `Agent` *and* `SendMessage` — so a phone bought for
+"messaging another agent" is a phone drawn for `TodoWrite`, which is not a call
+by anybody's reading. Keying the pose on `SendMessage` alone is not available:
+it is exactly the totality property §5a exists to preserve, and losing it means a
+tool name that appears tomorrow needs new art. So the earlier refusal of `phone`
+for `WebFetch` was right, and it was right for a reason that survives being
+re-argued with a better tool.
+
+### Nothing is held, and this is now a measurement rather than an inference
+
+`04-ART-DIRECTION.md` retired the held-prop model on the grounds that the sprites
+carry no per-frame hand anchors. That reasoning is about *placing* a prop and it
+is not a claim about the download, so the download was checked.
+
+**The generator's held layers are real and are registered frame for frame.** Not
+inferred from the sheet dimensions — proved by pixels: `Book_32x32_01`'s art is
+**96.1%** identical to what premade 06 already carries, and 0 of its 3936 opaque
+pixels fall outside the character's silhouette on the pose it belongs to. There
+is no anchor to solve. Composite the sheet and every frame lands.
+
+**And the inventory it unlocks is empty for this room.**
+
+| Layer | Files | Pose rows carrying art |
+|---|---:|---|
+| `Books/32x32` | 6 | **row 7 only** — standing, front-facing |
+| `Smartphones/32x32` | 5 | **row 6 only** — standing, front-facing |
+| `Accessories/32x32` | 84 in 19 families | every row, and **not one is held** — hats, glasses, beards, masks, gloves, a backpack |
+
+**There is no held-object art for the seated pose. Zero files, zero frames.** The
+two objects the generator ships exist for the two rows this section has already
+refused, which is not a coincidence — they are the rows *about* holding
+something.
+
+The near miss is worth recording so nobody finds it again. `Smartphones` is a
+24 × 6 sheet rather than the full 56 × 20, and read naively its content sits on
+"row 4", which is the sit row; composited there it looks almost plausible. It is
+off by two. The sheet is y-offset a whole two rows, and the premade's own baked
+phone settles it: sheet row 4 against premade row 6 is **95.9%** identical, and
+against premade row 4 it is 16.9%. Placed on the seat it would also **strobe** —
+it covers 2 of the 3 frames of the seated `right` block and none of `down` — and
+it would move 30.4 pixels per frame, about **122 of 288 000** for a four-agent
+room, which is the same order as the 96 that was judged invisible. A book placed
+the same way changes 205 px per frame and draws a slab across a side-view
+character's chin, 8% of it floating clear of the body.
+
+So the third layer stays retired, and **no manifest key is proposed for it**. A
+contract for art that does not exist is speculative generality, and the condition
+for writing one is easy to state: **held art keyed to the `sit` row, side-on,
+with a frame for every frame of the loop.** Until a sheet like that exists, the
+honest held object is no held object — which is the `question_mark` answer
+applied to a layer instead of a glyph, and it is always true.
+
 ## The reporting animation
 
 `SubagentStop` is the only event that licenses the walk. What it actually means

@@ -412,6 +412,89 @@ struct ThemeContractTests {
         }
     }
 
+    /// §5a's other word: body state while working is a **seated** pose in every
+    /// case. This is the half of §7's pose clause that had nothing checking it.
+    ///
+    /// The check above tests *side-on*, by requiring exactly `right` and `left`.
+    /// That is necessary and it is not sufficient, and the gap is not
+    /// hypothetical — it is the shape of every remaining pose row in the pack.
+    /// Modern Interiors' `pick_up` (row 9), `lift` (11), `throw` (12) and
+    /// `push_cart` (8) are laid out in the ordinary four direction blocks whose
+    /// blocks 0 and 2 are near-mirrors, so any of them can be cut `right`/`left`
+    /// only, drop into `characters.poses.working`, and satisfy the facings check
+    /// exactly. Every one of them is a person **standing up**. Dropped into a
+    /// chair at a desk it is not a second way of working; it is a character who
+    /// has got out of its seat, and the room would be asserting a posture no
+    /// event says. [I1]
+    ///
+    /// **The discriminator is measured, not named.** A pose row cannot be
+    /// trusted by its label — `sleep` was a head on a pillow and `phone_b` is a
+    /// person reading — so this reads the pixels. A character is bottom-aligned
+    /// in its 32×64 frame with the anchor on the canvas's bottom edge, so the
+    /// last pixel row is the floor a standing character stands on:
+    ///
+    /// - **every** frame of `idle`, in every direction of every variant,
+    ///   occupies it. That is the calibration, and it is asserted rather than
+    ///   assumed so that a flipped row order turns this red instead of vacuous.
+    /// - **no** frame of a seated pose does, because the feet are on a chair.
+    ///   The shipped `working` row clears it by 2 px in all 12 of its
+    ///   variant-directions.
+    ///
+    /// `walk`, `spawn` and `depart` would *pass* a bottom-row check taken on one
+    /// frame — a mid-stride foot leaves the floor — which is why the assertion
+    /// is over every frame of the loop rather than a representative one.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyNamedPoseStateIsSeatedRatherThanMerelySideOn() throws {
+        let manifest = try SceneFixtures.manifest()
+        let floorRow = manifest.characters.canvas.height - 1
+
+        func touchesFloorRow(_ path: String) throws -> Bool {
+            let bitmap = try #require(
+                try? PixelImage.bitmap(contentsOf: manifest.url(path)),
+                Comment(rawValue: "\(path) did not load"))
+            guard bitmap.height == manifest.characters.canvas.height else { return false }
+            return (0..<bitmap.width).contains { bitmap.at($0, floorRow).a > 0 }
+        }
+
+        func frames(_ state: BodyState) throws -> [(String, String)] {
+            var out: [(String, String)] = []
+            for id in manifest.characters.orderedVariantIDs {
+                guard let animation = try #require(manifest.characters.variant(id))
+                    .animation(state) else { continue }
+                for facing in Facing.allCases {
+                    for path in animation.frames(facing: facing) ?? [] {
+                        out.append(("\(id)/\(state.rawValue)/\(facing.rawValue)", path))
+                    }
+                }
+            }
+            return out
+        }
+
+        // Calibration: standing means standing on the last row, everywhere.
+        let standing = try frames(.idle)
+        #expect(!standing.isEmpty, "no idle frames — the calibration checked nothing")
+        for (label, path) in standing {
+            #expect(try touchesFloorRow(path), Comment(rawValue:
+                "\(label) does not reach row \(floorRow), so the floor row is not"
+                + " where a standing character stands and this check is measuring"
+                + " the wrong end of the canvas"))
+        }
+
+        // The claim. The fallback pose is checked too: `workingPose` resolves to
+        // `working` for a manifest carrying no table at all, so it is a named
+        // pose whether or not anyone named it.
+        var named = Set(manifest.characters.workingPoses.values.compactMap(BodyState.init(rawValue:)))
+        named.insert(.working)
+        for state in named.sorted(by: { $0.rawValue < $1.rawValue }) {
+            for (label, path) in try frames(state) {
+                #expect(!(try touchesFloorRow(path)), Comment(rawValue:
+                    "\(label) puts a foot on row \(floorRow): it is a standing pose,"
+                    + " and characters.poses.working may only name seated ones"
+                    + " [ADR-002 §5a]"))
+            }
+        }
+    }
+
     /// **No filename and no theme name appears in `Sources/`.** [§8 item 5]
     ///
     /// Mechanical, because it is exactly the kind of rule that decays quietly: a

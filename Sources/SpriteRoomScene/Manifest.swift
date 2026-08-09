@@ -83,6 +83,18 @@ public struct Manifest: Sendable, Hashable {
         /// path to delete*. `workingPose(forBadgeKey:)` is total either way, so
         /// the day a second sit row is imported the table appears in the
         /// manifest and nothing here changes.
+        ///
+        /// **A pose named here must be seated, and side-on is not the same
+        /// claim.** §5a's sentence is "a *seated* pose in every case"; the
+        /// facings clause only says it is drawn `right` and `left`. Four of the
+        /// pack's remaining rows — `pick_up`, `lift`, `throw`, `push_cart` —
+        /// satisfy the facings clause exactly and are people standing up, so the
+        /// two are checked separately:
+        /// `ThemeContractTests.everyNamedPoseStateExistsWithExactlyRightAndLeftFrames`
+        /// and `…IsSeatedRatherThanMerelySideOn`. The second reads pixels,
+        /// because a pose row cannot be trusted by its label — the row called
+        /// `sleep` is a head on a pillow. See `03-EVENT-MODEL.md`, "One seated
+        /// pose is all the pack has".
         public let workingPoses: [String: String]
 
         /// The key §7 requires every pose table to carry. It is what
