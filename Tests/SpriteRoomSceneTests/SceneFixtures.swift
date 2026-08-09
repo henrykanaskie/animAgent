@@ -365,6 +365,43 @@ enum SceneFixtures {
         return batches
     }
 
+    /// `batchedDeltas`, with the instant each batch belongs to.
+    ///
+    /// ADR-003 made the director a function of deltas *and time*, so a test that
+    /// asks anything about the badge over a fixture needs the fixture's own
+    /// clock rather than a made-up one. The batches are identical to
+    /// `batchedDeltas`'; only the instant is added.
+    static func timedBatchedDeltas(
+        _ name: String, frameInterval: TimeInterval = 1.0 / 60.0
+    ) async throws -> [(at: Date, deltas: [WorldDelta])] {
+        let entries = try HookLog.load(contentsOf: url(name))
+        let model = WorldModel()
+        var batches: [(at: Date, deltas: [WorldDelta])] = []
+        var current: [WorldDelta] = []
+        var frameEnd: Date?
+        var frameStart: Date?
+
+        for entry in entries {
+            guard let event = entry.event else { continue }
+            if let end = frameEnd, entry.receivedAt > end {
+                if !current.isEmpty, let start = frameStart {
+                    batches.append((at: start, deltas: current))
+                }
+                current = []
+                frameStart = entry.receivedAt
+                frameEnd = entry.receivedAt.addingTimeInterval(frameInterval)
+            } else if frameEnd == nil {
+                frameStart = entry.receivedAt
+                frameEnd = entry.receivedAt.addingTimeInterval(frameInterval)
+            }
+            current += await model.ingest(event, at: entry.receivedAt)
+        }
+        if !current.isEmpty, let start = frameStart {
+            batches.append((at: start, deltas: current))
+        }
+        return batches
+    }
+
     /// Replays a fixture **at its own pace** against a scene, stepping the
     /// scene clock a frame at a time and delivering each event as its
     /// `_receivedAt` passes.
@@ -403,15 +440,44 @@ enum SceneFixtures {
                 }
                 index += 1
             }
-            if !pending.isEmpty {
-                scene.apply(director.apply(pending))
-                pending.removeAll(keepingCapacity: true)
-            }
+            // Unguarded, exactly as `SceneBinding.apply` and the offscreen
+            // renderer are: the director is a function of deltas *and time* as
+            // of ADR-003, and a closing beat ends on a frame that carries
+            // nothing. `cutoff` is the fixture instant, so a beat lasts 500 ms
+            // of fixture time here rather than 500 ms of however long the test
+            // machine took.
+            scene.apply(director.apply(pending, at: cutoff))
+            pending.removeAll(keepingCapacity: true)
             scene.advance(to: time)
             onFrame(time)
             time += step
         }
         return director
+    }
+}
+
+extension SceneDirector {
+
+    /// A **frozen** instant, for the tests that predate ADR-003's closing beat.
+    ///
+    /// `apply` takes a clock now. Most tests in this suite are about seats,
+    /// variants, stations, costumes, nameplates or props and have nothing to say
+    /// about time; giving each of them a hand-rolled clock would be noise, and
+    /// giving them `Date()` would make them flaky — a beat armed inside a test
+    /// that happens to take longer than 500 ms would expire, and one inside a
+    /// faster test would not.
+    ///
+    /// So the shim below freezes time instead. It is deliberately **not** a way
+    /// to switch the beat off: a beat armed under a frozen clock is armed, and
+    /// stays up, so any test whose expectations ADR-003 actually changed fails
+    /// loudly rather than quietly keeping its old answer. Tests that are *about*
+    /// the beat — and every test that measures badge changes over a fixture —
+    /// call `apply(_:at:)` with a real, advancing instant.
+    static let frozenTestInstant = Date(timeIntervalSinceReferenceDate: 0)
+
+    @discardableResult
+    mutating func apply(_ deltas: [WorldDelta]) -> [SpriteIntent] {
+        apply(deltas, at: Self.frozenTestInstant)
     }
 }
 

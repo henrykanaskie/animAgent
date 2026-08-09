@@ -506,7 +506,11 @@ func renderOffscreen(options: Options, root: URL, entries: [HookLogEntry]) async
             await driver.ingest(entries[entryIndex..<batchEnd])
             entryIndex = batchEnd
         }
-        let produced = binding.apply(driver.drain())
+        // `cutoff` is fixture time, which is the renderer's only clock: this
+        // loop runs 224 s of a capture in a few seconds of wall time, so a beat
+        // measured against `Date()` here would cover twenty seconds of the
+        // picture instead of half of one. [ADR-003 §8 item 2]
+        let produced = binding.apply(driver.drain(), at: cutoff)
         if traceIntents, !produced.isEmpty {
             let line = produced.map { "\($0)" }.joined(separator: " | ")
             print(String(format: "  t=%7.3f ", time) + line)
@@ -621,7 +625,11 @@ final class WindowDelegate: NSObject, NSApplicationDelegate {
             onMark: { mark in
                 if let name = self.capture(scene: scene, at: mark) { written.append(name) }
             },
-            into: { binding.apply($0) })
+            // The window host draws to a screen a person is watching in real
+            // time, so wall time is the right clock for a wall-clock dwell —
+            // including under `--speed`, where fixture time is compressed but
+            // the viewer's is not.
+            into: { binding.apply($0, at: Date()) })
 
         if options.windowRenderDirectory != nil {
             print("captured \(written.count) frame(s) from the live window")

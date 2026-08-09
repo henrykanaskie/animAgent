@@ -272,9 +272,17 @@ exactly as long as nobody has come back to it.
 
 ### Precedence in the badge slot
 
-There is **one** badge anchor and there are three things that can want it. The
-order is **attention > sleep > tool**, and the two comparisons are argued
-separately because they are different kinds of question.
+There is **one** badge anchor and there are four things that can want it. The
+order is **attention > sleep > open tool badge > closing beat**, and the
+comparisons are argued separately because they are different kinds of question.
+
+The fourth rank is `ADR-003`'s and it is the existing order with one entry
+appended at the bottom — nothing above it moves. A beat is a glyph about work
+that has *finished*, so everything that is about now outranks it, and each of the
+three does more strongly than it outranks a live tool badge. It does not merely
+lose the slot to them: a rising attention or a `dormancyChanged(true)` **cancels**
+a beat outright, so answering the prompt or waking the agent does not bring a
+stale glyph back. See "The closing beat" below.
 
 A character can hold open calls *and* have a notification outstanding — that is
 what every permission prompt looks like, since `PermissionRequest` lands ~16 ms
@@ -646,19 +654,113 @@ merely for usually carrying a shell command.
 table above, plus a small `×N`. Deterministic ordering means the badge is
 stable while calls interleave; most-recent-wins would flicker. [I3]
 
-**Two badges are not in this table and both outrank all of it.** Neither is a
-tool; both live under `badges.states` rather than `badges.map`; and while either
-is up it replaces the tool badge and suppresses the `×N`.
+**This rule never sees a lingering call**, and that is worth stating now that
+one can linger. `ADR-003`'s closing beat exists *only* while an agent's open set
+is empty, so the count during a beat is zero and the `×N` — drawn only above one
+— is suppressed with no new rule. The lowest-ordinal selection is not modified,
+not extended, and not read in a new situation: the glyph a beat carries is
+literally the last value the rule above returned for a non-empty set. Had the
+rule instead been "every closed call lingers", the badge would flip from
+`terminal` to `magnifier` at the moment work *stopped*, because `magnifier` is
+the lower ordinal — a badge change caused by nothing happening, which is the
+flicker the ordering exists to prevent, coming back through a side door.
+
+**Three badges are not in this table.** None is a tool. The first two live under
+`badges.states` rather than `badges.map` and outrank everything; the third is a
+tool glyph the slot keeps for a moment after its call ended, and it is outranked
+by everything. While any of them is up the `×N` is suppressed.
 
 | Badge | Raised by | Cleared by |
 |---|---|---|
 | attention | `Notification` | the badged agent's next consumed event |
 | sleep | `SubagentStop` (`dormancyChanged`) | the same agent's next consumed event, which revives it |
+| **closing beat** — the tool glyph that was on screen | the close that empties an agent's open-call set, and no other close | `D` = 500 ms elapsing; or immediately by a `callOpened`, a rising attention, `dormancyChanged(true)`, departure, project switch, scene rebuild or `SessionEnd` |
 
-They are cleared by the same rule because they are the same kind of fact: a
-statement about an agent that stopped, which that agent's next event refutes.
-The order between them, and against the tool badge, is under "Precedence in the
-badge slot" above.
+The first two are cleared by the same rule because they are the same kind of
+fact: a statement about an agent that stopped, which that agent's next event
+refutes. The order between them, and against the tool badge, is under
+"Precedence in the badge slot" above.
+
+### The closing beat — `ADR-003`, accepted 2026-08-09
+
+> When an agent's open-call set becomes empty **by a real close**, the badge that
+> was on screen at that instant remains for `D` and then clears. The `×N` is
+> suppressed for the whole beat. **The body goes idle at the close and is idle
+> for every frame of the beat.** Nothing else ever lingers.
+
+It exists because three of the six tool classes were structurally unobservable:
+across a measured 224 s session, `magnifier` had 16 calls totalling 0.11 s and
+landed on **zero** sampled frames, `checklist` 5 calls and 0.07 s and zero
+frames, `document` 10 calls and one frame. The badge system was drawing exactly
+what it was told — predicted frames matched observed on all six classes — and
+what it was told was almost nothing.
+
+Four things about it are rules rather than details:
+
+- **Only on the transition to zero.** A close into a still-occupied set gets
+  nothing: the slot is occupied and the character is visibly working anyway.
+- **`.callAbandoned` arms no beat**, even when it empties the set. An abandon is
+  the reaper closing our blind spot rather than a completed action, and it fires
+  up to fifteen minutes after the fact — a `magnifier` beat at t+900 saying
+  "just did a read" about a call we lost track of is fiction. [I1] The scene
+  splits the two close paths for this reason and no other.
+- **The body carries tense; the badge carries kind.** `agent is working ⟺
+  !openCalls.isEmpty` is unchanged and the ambient loop still ends with the
+  call, to the frame. An idle character under a `magnifier` bubble reads "not
+  working; the last thing was a read", which is true. Holding the body in
+  `working` for the beat would assert an agent still reading, which is false,
+  and `ADR-003` §6 declares itself void — not degraded — if an implementation
+  does it. The precedent is already in the room: the attention badge has no body
+  state at all, and the `sleep` `Z` sits over an idle body.
+- **It is scene-side.** `WorldModel` knows nothing about it. The call really
+  closed; holding it open in the true layer would be fiction in the one place
+  that may not have any, would lie to the reaper, and would break the replay
+  harness's no-orphaned-state property.
+
+`D` = 500 ms, derived rather than tasted: the floor is the room's own 8 fps
+animation grain and its shortest complete gesture (`working` is 3 frames =
+375 ms), and the ceiling is that "just now" has to still be true. 500 ms is the
+first value on the 125 ms grid above 375 ms, and 2.7% of the measured 18.5 s
+mean gap between an agent's calls, so it cannot make an intermittent agent read
+as continuously busy. It lives in `SceneDirector.closingBeatDuration` with the
+derivation attached.
+
+**What it measurably bought**, replaying the same 224 s capture through the same
+offscreen renderer, badge-frames per class at the rig's 1 s sampling:
+
+| class | before | after |
+|---|---:|---:|
+| terminal | 103 | 114 |
+| plug | 100 | 102 |
+| globe | 12 | 18 |
+| document | 1 | 5 |
+| **magnifier** | **0** | **10** |
+| **checklist** | **0** | **2** |
+
+Frames showing three or more distinct glyphs at once went from 10 to 27. The
+only pixels that differ between a before and after render of the same instant
+are inside the badge band: 1384 of 288 000 at t=33 s, two `magnifier` bubbles,
+and not one pixel of any body.
+
+**It adds badge changes, and only where there were none.** Over the same
+capture, drawn badge changes go from 108 to 128. All twenty are pairs belonging
+to the eleven calls whose open and close landed inside one 1/60 frame — the
+badge was suppressed before it was ever emitted, so those calls previously
+produced *zero* badge changes rather than two. (`ADR-003` §3 item 2 says the beat
+"adds no badge changes; it moves one", which is true only of a call that spanned
+a frame.) The flicker bound is unaffected: such a call changes the open-call set
+twice, so two badge changes is inside its allowance, and the rule "a character's
+badge changes no more often than its open-call set does" still holds for every
+character in every fixture.
+
+**What it does not do**, because overstating it is the failure mode here. It
+takes the badge channel from *unobservable* to *observable*, not to
+*glanceable* — there is no value of `D` that makes a 6 ms call catchable by a
+random one-second glance without lying, and `ADR-003` §9 rejects a longer one on
+exactly that ground. It touches no body, no costume, no pose and no station, so
+a room where every character sits identically still has every character sitting
+identically. And agents spend 84% of a session in a state the hook stream does
+not describe at all; nothing here changes what the room can know.
 
 **Body state while working is a seated pose in every case**, and *which* seated
 pose is a function of the **badge class** — the one the lowest-ordinal rule above
@@ -667,6 +769,13 @@ up in `characters.poses.working` keyed by the badge's manifest key, falling
 through to the table's required `default` and then to `working` itself, so the
 lookup is total for any badge and for a manifest carrying no table at all.
 [ADR-002 §5a and §8 item 7, implemented]
+
+**The pose follows the body, not the badge**, and `ADR-003` is when that stopped
+being a distinction without a difference. A lingering beat glyph must never
+select a seated working pose: the lookup above is reached only from `working`,
+the body is `idle` for every frame of a beat, so the beat cannot reach it. The
+table ships empty, so nothing is visible either way today — which is exactly why
+the rule is written down before somebody fills it in.
 
 This paragraph used to read "the sitting pose, regardless of tool", and **the
 property it was there to protect is unchanged: a tool name that appears tomorrow

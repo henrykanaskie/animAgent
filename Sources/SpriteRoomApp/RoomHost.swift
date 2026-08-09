@@ -37,6 +37,10 @@ final class RoomHost {
 
     private(set) var selected: String?
 
+    /// The instant of the most recent frame, as `consume` was told it. Held only
+    /// so `rebuild()` has a clock to hand the binding without reading one.
+    private var lastFrame = Date.distantPast
+
     /// The themes the manifest declares, and the user's stored picks among
     /// them. [ADR-002 §3c, §3d]
     let themes: ThemeCatalog
@@ -120,7 +124,12 @@ final class RoomHost {
         binding = SceneBinding(manifest: manifest, themeID: themeID, viewport: viewport)
         view.presentScene(binding.scene)
         if let selected {
-            binding.apply(registry.reconstruct(selected))
+            // The last instant `consume` was handed, not a clock this type
+            // reads: `RoomHost` has never observed one and a rebuild is not the
+            // place to start. A reconstruction carries no close, so it arms no
+            // beat, and the beat a rebuild throws away is thrown away with the
+            // director that held it. [ADR-003 §3]
+            binding.apply(registry.reconstruct(selected), at: lastFrame)
         }
         onRosterChanged?(registry.entries, selected)
     }
@@ -147,8 +156,14 @@ final class RoomHost {
         if selected == nil, let first = registry.projects.first {
             selected = first
         }
-        if !deltas.isEmpty, let selected {
-            binding.apply(deltas.filter { $0.projectKey == selected })
+        // **Unguarded on purpose.** The scene binding runs every frame, deltas
+        // or none, because `SceneDirector` is a function of deltas and time as
+        // of ADR-003 and a closing beat ends on a frame that usually carries
+        // nothing. The precedent is four lines above: `registry.absorb` already
+        // takes this clock for exactly the same reason.
+        lastFrame = now
+        if let selected {
+            binding.apply(deltas.filter { $0.projectKey == selected }, at: now)
         }
         // The selection is pinned: whatever the user is looking at is never
         // dropped out from under them. It can still be marked ended.

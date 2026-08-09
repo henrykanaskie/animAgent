@@ -154,7 +154,30 @@ public struct SceneDirector: Sendable {
         /// `SubagentStop` abandons every open call in the same batch that sets
         /// this, so a dormant character is an empty-handed one.
         var isDormant = false
+        /// ADR-003's closing beat: the badge that was on screen at the instant
+        /// this agent's open-call set emptied by a real close, and when it comes
+        /// down. `nil` almost always.
+        ///
+        /// **It is scene-side dwell over a delta that already arrived.** The
+        /// call really closed; `WorldModel` knows nothing about this field and
+        /// must not, because holding a call open in the true layer would be
+        /// fiction in the one place that may not have any and would break the
+        /// replay harness's no-orphaned-state property. [ADR-003 §13]
+        var closingBeat: ClosingBeat?
 
+        /// **The body carries tense.** [ADR-003 §1]
+        ///
+        /// It reads `openCalls` and nothing else — not `attention`, not
+        /// `isDormant`, and **not `closingBeat`**. That last omission is the
+        /// load-bearing one and it is enforced here rather than asserted
+        /// elsewhere: ADR-003 is *void*, not degraded, if the body is held in
+        /// `working` for the beat, because an idle body under a `magnifier`
+        /// bubble reads "not working; the last thing was a read" — which is
+        /// true — while a `working` body under it asserts the agent is still
+        /// reading, which is false. There is no expression below that could
+        /// make the beat visible on the body, which is why the guarantee lives
+        /// in this property and not in a rule someone has to keep.
+        ///
         /// **The body does not change for attention, and it does not change for
         /// dormancy either.** The pack ships no animation for "waiting on a
         /// human" and none for "finished a turn" — M6b cut the `sleep` row and
@@ -165,11 +188,68 @@ public struct SceneDirector: Sendable {
         /// dormant one has none and so is `idle`. Both are what the data says.
         /// [I1/I2]
         var body: BodyState { openCalls.isEmpty ? .idle : .working }
+        /// **The badge carries kind.** The beat is passed in as the slot's
+        /// lowest-precedence source; `BadgeSelection.select` reaches it only
+        /// when the open set is empty.
         var badge: BadgeSelection {
             BadgeSelection.select(
-                openToolNames: openCalls.values, attention: attention, isDormant: isDormant)
+                openToolNames: openCalls.values, attention: attention, isDormant: isDormant,
+                closingBeat: closingBeat?.badge)
         }
     }
+
+    /// The badge left on screen by a close that emptied an agent's open-call
+    /// set, and the instant it clears. [ADR-003 §3]
+    ///
+    /// **`until` is an absolute instant, never a frame budget.** A retracted
+    /// panel stops rendering, so a beat counted in frames would freeze while
+    /// hidden and be presented stale on reveal; compared against a `Date`, a
+    /// beat that expired while the panel was down is already gone when it comes
+    /// back up. This is the one detail that is cheap to get wrong and expensive
+    /// to notice. [ADR-003 §8 item 4]
+    public struct ClosingBeat: Sendable, Hashable {
+        public let badge: ToolBadge
+        public let until: Date
+    }
+
+    /// `D` — how long the badge that was on screen survives the close that
+    /// emptied the set. [ADR-003 §4]
+    ///
+    /// **500 ms, and the derivation rather than the taste**, in the shape
+    /// `Reaper.permissionGateGraceInterval` already uses. Four constants
+    /// already in the repository bound it, and the binding one is the room's own
+    /// animation:
+    ///
+    /// - **Floor A — one rendered frame.** 1/60 s = 16.7 ms. Necessary and
+    ///   useless alone; this is the value at which the strobe lives.
+    /// - **Floor B — the room's animation grain.** `assets/manifest.json` runs
+    ///   every character state at 8 fps: 125 ms per animation frame. A badge
+    ///   whose life is not a whole number of these is shorter than the smallest
+    ///   unit of change the room draws.
+    /// - **Floor C — the shortest complete gesture, and this is the binding
+    ///   one.** `working` is 3 frames at 8 fps = 375 ms per ambient loop. A
+    ///   badge up for less than that is on screen for less time than one
+    ///   complete gesture of the character wearing it.
+    /// - **Floor D — S1, corroborating.** `01-PRD.md` accepts up to 250 ms
+    ///   between the hook firing and the call appearing, which is this
+    ///   project's own ruling that 250 ms of *absence* passes unnoticed.
+    ///
+    /// 500 ms is the first value on B's grid above C: four animation frames,
+    /// 1⅓ working loops, twice S1's budget, thirty render frames.
+    ///
+    /// The ceilings push the other way. It is 2.7% of the measured 18.5 s mean
+    /// gap between calls, so it cannot make an intermittent agent read as
+    /// continuously busy; it is under `LiveDriver.sweepInterval` (1 s), so it
+    /// never interacts with a deadline, an abandon or the idle sweep; and
+    /// "just did a read" has to still be true, which five seconds makes
+    /// arguable and thirty makes a lie.
+    ///
+    /// **The floor comes from perception and the ceiling from truth, and they
+    /// squeeze from opposite directions.** The band is roughly [375 ms, 2 s] and
+    /// this sits at its bottom on purpose: every millisecond above the floor is
+    /// bought from honesty, so the right value is the smallest one that clears
+    /// it. A longer `D` is rejected in ADR-003 §13, not merely unchosen.
+    public static let closingBeatDuration: TimeInterval = 0.5
 
     // MARK: Stored
 
@@ -271,6 +351,12 @@ public struct SceneDirector: Sendable {
     /// The tool badge is read even while `attention` outranks it in the badge
     /// slot, because the character is still holding those calls — the attention
     /// glyph is about the *badge*, and the body is about the work.
+    ///
+    /// **During an ADR-003 closing beat the `guard` below returns first.** The
+    /// badge argument may name a class; the resting state is `idle` because the
+    /// open set is empty, so the lookup into `workingPoses` is never reached and
+    /// a lingering glyph cannot put a working pose on an idle character. That is
+    /// ADR-003 §2's third bullet, held structurally.
     func body(for presentation: Presentation, badge: BadgeSelection) -> BodyState {
         let resting = presentation.body
         guard resting == .working else { return resting }
@@ -279,14 +365,57 @@ public struct SceneDirector: Sendable {
         return named.flatMap(BodyState.init(rawValue:)) ?? resting
     }
 
+    /// The badge left on screen by the close that emptied this agent's set, if
+    /// one is up. `nil` almost always; read by tests.
+    public func closingBeat(_ agent: AgentRef) -> ClosingBeat? {
+        presentations[agent]?.closingBeat
+    }
+
     // MARK: Apply
 
     /// One frame's worth of deltas in, one frame's worth of intents out.
-    public mutating func apply(_ deltas: [WorldDelta]) -> [SpriteIntent] {
+    ///
+    /// **`now` is the instant this frame happened, and it is a parameter rather
+    /// than a clock this type owns.** That is the discipline
+    /// `WorldModel.sweep(at:)` and `ProjectRegistry.absorb(_:at:)` already keep,
+    /// and it is what lets ADR-003's beat be tested without waiting and
+    /// replayed deterministically by the offscreen renderer, which runs fixture
+    /// time far faster than wall time.
+    ///
+    /// **It must be called on every frame, including frames carrying no
+    /// deltas.** The beat ends by the clock passing its expiry, and a frame with
+    /// nothing in it is exactly the frame that usually happens next: an agent
+    /// whose set has just emptied is, by definition, not producing deltas. A
+    /// caller that only applies when deltas arrive would leave the last badge
+    /// up until the agent's next event — 18.5 s on average in the M7a capture,
+    /// which is the lie this rule is bounded to 500 ms precisely to avoid.
+    @discardableResult
+    public mutating func apply(_ deltas: [WorldDelta], at now: Date) -> [SpriteIntent] {
         var appeared: [AgentRef] = []
         var exited: [(AgentRef, SpriteIntent.ExitStyle)] = []
         var touched: [AgentRef] = []
         var reported: [AgentRef] = []
+
+        // Expiry, before the deltas: a beat armed by *this* batch is armed at
+        // `now + D` and so cannot be expired by the same `now`. Ordered by seat
+        // rather than by the dictionary, because a dictionary's order is not
+        // stable across runs and the intent stream is read by a harness that
+        // diffs it.
+        //
+        // The `contains` is the frame-rate path: this runs 60 times a second on
+        // every character, and almost none of those frames has a beat on any of
+        // them. It allocates nothing; the walk below allocates only when there
+        // is something to clear.
+        if presentations.contains(where: { $0.value.closingBeat != nil }) {
+            let expiring = presentations
+                .filter { $0.value.closingBeat.map { $0.until <= now } ?? false }
+                .keys
+                .sorted { (presentations[$0]?.seat ?? 0) < (presentations[$1]?.seat ?? 0) }
+            for agent in expiring {
+                presentations[agent]?.closingBeat = nil
+                note(&touched, agent)
+            }
+        }
 
         for delta in deltas {
             switch delta {
@@ -332,14 +461,50 @@ public struct SceneDirector: Sendable {
                 if ToolBadge.isUnmapped(call.toolName) {
                     unmappedTools[call.toolName, default: 0] += 1
                 }
+                // A beat is a statement about work that has stopped. Work has
+                // restarted, so the normal rule resumes and the open set decides
+                // the glyph. [ADR-003 §3]
+                presentations[agent]?.closingBeat = nil
                 presentations[agent]?.openCalls[call.toolUseID] = call.toolName
                 note(&touched, agent)
 
-            case let .callClosed(agent, toolUseID, _, _),
-                 let .callAbandoned(agent, toolUseID, _, _):
+            // **The two close paths are split here, and the beat is the first
+            // thing that ever needed them apart.** [ADR-003 §3]
+            case let .callClosed(agent, toolUseID, _, _):
+                guard var presentation = presentations[agent] else { break }
+                // The glyph that was on screen at this instant: literally the
+                // last value `BadgeSelection.select` returned for a non-empty
+                // set. No new selection rule — lowest-ordinal is untouched, and
+                // it never sees a lingering call because a beat exists only
+                // while the count is zero. [ADR-003 §3 item 1, §5]
+                let onScreen = BadgeSelection.select(
+                    openToolNames: presentation.openCalls.values).badge
+                let removed = presentation.openCalls.removeValue(forKey: toolUseID) != nil
+                // Three conditions, all of them load-bearing. `removed` keeps a
+                // duplicate close — `PostToolBatch` re-reports ids a
+                // `PostToolUse` already closed — from arming or re-arming, so a
+                // beat can be cancelled but never extended. `isEmpty` is the
+                // transition to zero: a close into a still-occupied set gets
+                // nothing, because the slot is occupied and the character is
+                // visibly working anyway.
+                if removed, presentation.openCalls.isEmpty, let onScreen {
+                    presentation.closingBeat = ClosingBeat(
+                        badge: onScreen, until: now + Self.closingBeatDuration)
+                }
+                presentations[agent] = presentation
+                note(&touched, agent)
+
+            case let .callAbandoned(agent, toolUseID, _, _):
                 // An abandoned call is our blind spot, not the user's failure:
                 // it closes exactly like a normal one and the character just
                 // returns to idle. No error is shown. [I4]
+                //
+                // **And it arms no beat, including when it empties the set.**
+                // An abandon is the reaper closing that blind spot rather than a
+                // completed action, and it fires up to fifteen minutes after the
+                // fact — a `magnifier` beat at t+900 saying "just did a read"
+                // about a call we lost track of is fiction of the plainest kind.
+                // [I1, ADR-003 §3]
                 presentations[agent]?.openCalls.removeValue(forKey: toolUseID)
                 note(&touched, agent)
 
@@ -347,6 +512,12 @@ public struct SceneDirector: Sendable {
                 // Nothing but the badge. The existing suppression memory then
                 // does the rest: `setBadge` is emitted only if this actually
                 // changed what is on the character's head.
+                //
+                // A rising attention **cancels** a beat rather than merely
+                // outranking it: it outranks a live tool badge for three
+                // reasons, and it beats a finished one more strongly still.
+                // [ADR-003 §3]
+                if attention != nil { presentations[agent]?.closingBeat = nil }
                 presentations[agent]?.attention = attention
                 note(&touched, agent)
 
@@ -356,6 +527,10 @@ public struct SceneDirector: Sendable {
                 // change at all, so a wake that arrives in the same batch as
                 // the `callOpened` that caused it produces one `setBadge`
                 // carrying the tool glyph, not two.
+                //
+                // Going dormant cancels a beat: the `Z` is a fact about now and
+                // the beat is not. [ADR-003 §3]
+                if isDormant { presentations[agent]?.closingBeat = nil }
                 presentations[agent]?.isDormant = isDormant
                 note(&touched, agent)
 
@@ -410,9 +585,18 @@ public struct SceneDirector: Sendable {
             // here already. **No new trigger, no new timer, no new state** —
             // §8 item 7 — which is also what makes §6 rule 3 true for free: the
             // pose changes exactly when the badge changes, because it is a pure
-            // function of the badge and is read at the same instant. A dwell
-            // timer would make the body assert a tool class the badge above it
-            // says has ended. [§6 rule 3]
+            // function of the badge and is read at the same instant.
+            //
+            // **ADR-003 puts a dwell in the slot above and the pose still does
+            // not follow it**, which is the sentence ADR-002 §6 rule 3 was
+            // written to protect and the condition ADR-003 §2 makes
+            // non-negotiable: *the pose follows the body, not the badge.*
+            // `body(for:badge:)` returns before it reaches `workingPoses` unless
+            // the resting state is `working`, and the resting state is `idle`
+            // for every frame of a beat because `Presentation.body` reads
+            // `openCalls` alone. A lingering `magnifier` therefore cannot select
+            // a seated working pose — not by policy, but because the lookup is
+            // not reached. [ADR-002 §6 rule 3, ADR-003 §2]
             let badge = presentation.badge
             let body = body(for: presentation, badge: badge)
             if emittedBody[agent] != body {

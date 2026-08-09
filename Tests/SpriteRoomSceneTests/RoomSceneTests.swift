@@ -517,6 +517,27 @@ struct RoomSceneTests {
     /// frame, three times. That is the data being honest about an
     /// asynchronously-launched subagent, not flicker — and suppressing it would
     /// mean a minimum-duration hack, which is exactly what [I2/I3] rules out.
+    /// **Measured on the pixels, and on the fixture's own clock.** Two things
+    /// changed with ADR-003 and both are the beat being taken seriously rather
+    /// than worked around.
+    ///
+    /// The comparison is on `BadgeSelection.drawn`, because the close that
+    /// empties an agent's set now moves `count` from 1 to 0 while the glyph
+    /// stays put — a change in the value and none in the picture, since the `×N`
+    /// is drawn only above one. A test named for flicker has to count what an
+    /// eye could catch.
+    ///
+    /// The beat does not leave that count alone — see the same assertion in
+    /// `SceneDirectorTests` for the measurement — but it only ever raises it for
+    /// a call whose open and close landed inside one frame and which therefore
+    /// drew *nothing* before. Such a call still changes the open-call set twice,
+    /// so the bound holds, and the bound is what this test is for.
+    ///
+    /// And the replay steps fixture time at 1/60 rather than one batch per
+    /// frame, because a beat that ends 500 ms after a close cannot be observed
+    /// on a clock that only advances when an event arrives — a compressed replay
+    /// would show every beat still up at the end of the run and would prove
+    /// nothing about the transition this test exists to bound.
     @Test func noCharacterOnScreenChangesBadgeMoreOftenThanItsCallSet() async throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
@@ -525,11 +546,26 @@ struct RoomSceneTests {
 
         var callChanges: [AgentRef: Int] = [:]
         var badgeChanges: [AgentRef: Int] = [:]
-        var lastBadge: [AgentRef: BadgeSelection] = [:]
-        var time = 0.0
+        var lastBadge: [AgentRef: BadgeSelection.Drawn] = [:]
 
-        for batch in try await SceneFixtures.batchedDeltas("three-subagents") {
-            for delta in batch {
+        let entries = try HookLog.load(contentsOf: SceneFixtures.url("three-subagents"))
+        let origin = try #require(entries.first?.receivedAt)
+        let end = try #require(entries.last?.receivedAt)
+        let model = WorldModel()
+        var index = entries.startIndex
+        var time = 0.0
+        let step = 1.0 / 60.0
+
+        while time <= end.timeIntervalSince(origin) + 10 {
+            var pending: [WorldDelta] = []
+            let cutoff = origin.addingTimeInterval(time)
+            while index < entries.endIndex, entries[index].receivedAt <= cutoff {
+                if let event = entries[index].event {
+                    pending += await model.ingest(event, at: entries[index].receivedAt)
+                }
+                index += 1
+            }
+            for delta in pending {
                 switch delta {
                 case let .callOpened(agent, _),
                      let .callClosed(agent, _, _, _),
@@ -538,17 +574,17 @@ struct RoomSceneTests {
                 default: break
                 }
             }
-            scene.apply(director.apply(batch))
-            time += 1.0 / 60.0
+            scene.apply(director.apply(pending, at: cutoff))
             scene.advance(to: time)
 
             for (agent, _) in callChanges {
                 guard let character = scene.character(for: agent) else { continue }
-                if lastBadge[agent] != character.badgeSelection {
-                    lastBadge[agent] = character.badgeSelection
+                if lastBadge[agent] != character.badgeSelection.drawn {
+                    lastBadge[agent] = character.badgeSelection.drawn
                     badgeChanges[agent, default: 0] += 1
                 }
             }
+            time += step
         }
 
         #expect(!badgeChanges.isEmpty)

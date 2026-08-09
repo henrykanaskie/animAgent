@@ -227,17 +227,64 @@ public struct BadgeSelection: Sendable, Hashable {
     /// The open-call set is kept even when `attention` overrides it, so that
     /// answering the prompt restores the tool badge without needing the model
     /// to re-announce the calls.
+    ///
+    /// **`closingBeat` is the slot's lowest-precedence source and it is reached
+    /// only when the open set is empty** — the `guard` below is the whole of
+    /// that ordering, so there is no new rule to get wrong. [ADR-003 §8 item 6]
+    /// It carries `count: 0`, which is not a special case either: the count
+    /// annotates the *open* set, the open set is empty for every frame of a
+    /// beat, and the existing "`×N` only above one" rule then suppresses the
+    /// annotation with nothing added. [ADR-003 §5]
+    ///
+    /// The full order in this slot is **attention > sleep > open tool badge >
+    /// closing beat**: the existing three with one entry appended at the
+    /// bottom. `isAttention` and `isSleeping` are unchanged and both still win,
+    /// and they win *more* strongly here than over a live tool badge — they are
+    /// beating a glyph about something that has already finished.
     public static func select(
         openToolNames toolNames: some Collection<String>,
         attention: AttentionKind? = nil,
-        isDormant: Bool = false
+        isDormant: Bool = false,
+        closingBeat: ToolBadge? = nil
     ) -> BadgeSelection {
         guard !toolNames.isEmpty else {
             return BadgeSelection(
-                badge: nil, count: 0, attention: attention, isDormant: isDormant)
+                badge: closingBeat, count: 0, attention: attention, isDormant: isDormant)
         }
         let badge = toolNames.map(ToolBadge.badge(forTool:)).min()
         return BadgeSelection(
             badge: badge, count: toolNames.count, attention: attention, isDormant: isDormant)
+    }
+
+    /// What this selection actually **draws**, as a value that compares equal
+    /// when two selections put the same pixels in the slot.
+    ///
+    /// The `×N` is drawn only above one — `Character.apply(badge:)` — so
+    /// `(magnifier, count: 1)` and `(magnifier, count: 0)` are the same picture.
+    /// That distinction is what ADR-003's closing beat turns from a curiosity
+    /// into something the flicker bounds have to be stated in terms of: the
+    /// close that empties an agent's set moves the count from 1 to 0 while the
+    /// glyph stays put, and counting that as "the badge changed" would report a
+    /// flicker that no eye can see.
+    ///
+    /// Deliberately **not** `==`. The selection's own equality stays exact,
+    /// because the `setBadge` intent has to carry the true count — the ground-
+    /// truth rig compares it against the open-call set and a suppressed count
+    /// change would read there as the room lying. [I1]
+    public var drawn: Drawn {
+        Drawn(
+            badge: isAttention || isSleeping ? nil : badge,
+            attention: attention,
+            isSleeping: isSleeping,
+            // `nil` rather than the number, so 1 and 0 are one value.
+            annotation: !isAttention && !isSleeping && count > 1 ? count : nil)
+    }
+
+    /// The pixels, not the state. See `drawn`.
+    public struct Drawn: Sendable, Hashable {
+        public let badge: ToolBadge?
+        public let attention: AttentionKind?
+        public let isSleeping: Bool
+        public let annotation: Int?
     }
 }

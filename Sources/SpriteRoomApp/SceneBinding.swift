@@ -45,10 +45,19 @@ final class SceneBinding {
 
     var unmappedTools: [String: Int] { director.unmappedTools }
 
+    /// One frame's deltas, and the instant that frame happened.
+    ///
+    /// **The empty-batch guard is gone and its absence is load-bearing.**
+    /// `SceneDirector` is a function of deltas *and time* as of ADR-003: the
+    /// closing beat ends by the clock passing its expiry, and the frame that
+    /// ends it is almost always a frame with nothing in it — an agent whose
+    /// open-call set has just emptied is by definition not producing deltas.
+    /// Guarding on `!deltas.isEmpty` would leave the beat up until that agent's
+    /// next event, which the M7a capture measures at a mean of 18.5 s.
     @discardableResult
-    func apply(_ deltas: [WorldDelta]) -> [SpriteIntent] {
-        guard !deltas.isEmpty else { return [] }
-        let intents = director.apply(deltas)
+    func apply(_ deltas: [WorldDelta], at now: Date) -> [SpriteIntent] {
+        let intents = director.apply(deltas, at: now)
+        guard !intents.isEmpty else { return [] }
         scene.apply(intents)
         return intents
     }

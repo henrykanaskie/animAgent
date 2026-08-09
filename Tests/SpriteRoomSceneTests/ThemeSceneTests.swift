@@ -119,9 +119,16 @@ struct ThemeSceneTests {
     /// The bound holds *structurally*, and that is the point of writing it here:
     /// the pose is a pure function of the badge class, read at the instant the
     /// director already computes the badge, so it cannot change more often than
-    /// its input does. There is no dwell timer to get wrong because there is no
-    /// dwell timer. §6 rule 3 refused one, on the grounds that a dwell makes the
-    /// body assert a tool class the badge above it says has ended.
+    /// its input does.
+    ///
+    /// **ADR-003 put a dwell in the badge slot and §6 rule 3 still holds**, for
+    /// the reason it was written rather than by luck. Rule 3 refused a dwell
+    /// that makes the *body* assert a tool class the badge above it says has
+    /// ended; ADR-003's beat only ever runs while the open set is empty, so the
+    /// body is `idle` for every frame of it and the pose lookup — which
+    /// `SceneDirector.body(for:badge:)` reaches only from `working` — is not
+    /// entered at all. A lingering `magnifier` cannot move the pose because the
+    /// pose follows the body, not the badge. [ADR-003 §2]
     ///
     /// Idle is not a pose. A character leaving its seat has not changed which
     /// seated pose it uses, so `.idle` does not count and does not reset the
@@ -153,20 +160,20 @@ struct ThemeSceneTests {
                 }
                 index += 1
             }
-            if !pending.isEmpty {
-                for intent in director.apply(pending) {
-                    switch intent {
-                    case let .setBody(agent, state, _):
-                        guard state != .idle else { continue }
-                        if lastPose[agent] != state {
-                            lastPose[agent] = state
-                            poseChanges[agent, default: 0] += 1
-                        }
-                    case let .setBadge(agent, _):
-                        badgeChanges[agent, default: 0] += 1
-                    default:
-                        break
+            // Unguarded since ADR-003: the director is a function of deltas and
+            // time, and the frames a beat ends on are the ones carrying nothing.
+            for intent in director.apply(pending, at: cutoff) {
+                switch intent {
+                case let .setBody(agent, state, _):
+                    guard state != .idle else { continue }
+                    if lastPose[agent] != state {
+                        lastPose[agent] = state
+                        poseChanges[agent, default: 0] += 1
                     }
+                case let .setBadge(agent, _):
+                    badgeChanges[agent, default: 0] += 1
+                default:
+                    break
                 }
             }
             frames += 1

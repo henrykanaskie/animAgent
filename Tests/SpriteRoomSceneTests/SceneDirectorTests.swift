@@ -166,19 +166,43 @@ struct SceneDirectorTests {
 
     // MARK: Badge — criterion 3
 
-    @Test func theBadgeAppearsOnOpenAndDisappearsOnTheMatchingClose() {
+    /// **The close no longer takes the badge down at the close.** ADR-003 leaves
+    /// it up for `D` and then clears it, so the assertion this test has always
+    /// made — "the badge disappears on the matching close" — is now an assertion
+    /// about the instant `D` later. The clock is injected, so nothing waits.
+    ///
+    /// The `count` half is checked at both instants because it is the half that
+    /// did *not* move: the `×N` annotates the open set, the open set is empty
+    /// from the close onwards, and the beat carries `count: 0` for every frame
+    /// of its life. [ADR-003 §5]
+    @Test func theBadgeAppearsOnOpenAndSurvivesTheCloseByExactlyTheBeat() {
         var director = Self.director()
         let agent = Self.ref(.mainThread)
-        _ = director.apply([.agentAppeared(agent: agent, agentType: nil, lifecycle: .active)])
+        let t0 = Date(timeIntervalSinceReferenceDate: 1000)
+        _ = director.apply(
+            [.agentAppeared(agent: agent, agentType: nil, lifecycle: .active)], at: t0)
         #expect(director.badge(agent).badge == nil)
 
-        _ = director.apply([.callOpened(agent: agent, call: Self.call("a", "Read"))])
+        _ = director.apply([.callOpened(agent: agent, call: Self.call("a", "Read"))], at: t0)
         #expect(director.badge(agent).badge == .magnifier)
         #expect(director.badge(agent).count == 1)
 
-        _ = director.apply([
-            .callClosed(agent: agent, toolUseID: "a", toolName: "Read", outcome: .succeeded)])
+        let closedAt = t0.addingTimeInterval(0.006)
+        _ = director.apply(
+            [.callClosed(agent: agent, toolUseID: "a", toolName: "Read", outcome: .succeeded)],
+            at: closedAt)
+        #expect(director.badge(agent).badge == .magnifier, "the beat did not arm")
+        #expect(director.badge(agent).count == 0, "the ×N is suppressed for the whole beat")
+
+        // One frame short of `D`: still up.
+        _ = director.apply(
+            [], at: closedAt.addingTimeInterval(SceneDirector.closingBeatDuration - 1.0 / 60.0))
+        #expect(director.badge(agent).badge == .magnifier)
+
+        // Exactly `D`: gone.
+        _ = director.apply([], at: closedAt.addingTimeInterval(SceneDirector.closingBeatDuration))
         #expect(director.badge(agent).badge == nil)
+        #expect(director.closingBeat(agent) == nil)
     }
 
     @Test func theBadgeShowsTheLowestOrdinalPlusTheTotal() {
@@ -213,16 +237,64 @@ struct SceneDirectorTests {
 
     /// The badge may change at most once per change of the open-call set, for
     /// every character, over the whole fixture. Anything more is flicker.
+    ///
+    /// **The bound is measured on what is drawn, and ADR-003 is why.** It used
+    /// to compare whole `BadgeSelection` values, which was the same thing when
+    /// every field of one was visible. It is not any more: the close that
+    /// empties an agent's set moves `count` from 1 to 0 while the glyph stays
+    /// put, and the `×N` is drawn only above one, so that transition is a change
+    /// in the value and no change at all in the picture. Counting it would
+    /// report a flicker nobody can see and would fail a test named for one.
+    ///
+    /// **This is not the bound being relaxed to accommodate the beat.**
+    /// Everything the old comparison caught it still catches: a `×3` becoming a
+    /// `×2` with no call closing is still a visible change and still counted,
+    /// and a re-sent identical value is asserted against below on *exact*
+    /// equality, unchanged.
+    ///
+    /// **The beat does add drawn badge changes, and ADR-003 §3 item 2 is wrong
+    /// to say it adds none.** Measured on the M7a capture, drawn changes go from
+    /// 108 to 128. Every one of the twenty is a *pair* belonging to a call whose
+    /// open and close landed inside one 1/60 frame: the badge was suppressed
+    /// before it was ever emitted, so that call's previous contribution was
+    /// **zero** badge changes rather than two, and the ADR's "the sequence is
+    /// what it is today with one transition delayed" holds only for calls that
+    /// spanned a frame. All ten were `magnifier`. The bound below is unaffected,
+    /// and that is the point: a sub-frame call still changes the open-call set
+    /// twice, so two badge changes is inside its allowance. A call that drew
+    /// nothing now draws something, which is the ADR working rather than
+    /// flicker.
+    ///
+    /// It also replays in fixture time at 1/60 rather than one batch per step,
+    /// because a beat that ends by the clock cannot be measured against a clock
+    /// that only moves when an event arrives.
     @Test func noCharacterChangesBadgeMoreOftenThanItsOpenCallSetChanges() async throws {
         for name in ["three-subagents", "parallel-tools", "single-agent-simple",
                      "tool-failure", "killed-session"] {
             var director = Self.director()
             var openCallChanges: [AgentRef: Int] = [:]
             var badgeChanges: [AgentRef: Int] = [:]
+            var lastDrawn: [AgentRef: BadgeSelection.Drawn] = [:]
             var lastBadge: [AgentRef: BadgeSelection] = [:]
 
-            for batch in try await SceneFixtures.batchedDeltas(name) {
-                for delta in batch {
+            let entries = try HookLog.load(contentsOf: SceneFixtures.url(name))
+            let origin = try #require(entries.first?.receivedAt)
+            let end = try #require(entries.last?.receivedAt)
+            let model = WorldModel()
+            var index = entries.startIndex
+            var time = 0.0
+            let step = 1.0 / 60.0
+
+            while time <= end.timeIntervalSince(origin) + 10 {
+                var pending: [WorldDelta] = []
+                let cutoff = origin.addingTimeInterval(time)
+                while index < entries.endIndex, entries[index].receivedAt <= cutoff {
+                    if let event = entries[index].event {
+                        pending += await model.ingest(event, at: entries[index].receivedAt)
+                    }
+                    index += 1
+                }
+                for delta in pending {
                     switch delta {
                     case let .callOpened(agent, _),
                          let .callClosed(agent, _, _, _),
@@ -231,14 +303,20 @@ struct SceneDirectorTests {
                     default: break
                     }
                 }
-                for intent in director.apply(batch) {
+                // Unguarded: the frames with nothing in them are the frames a
+                // beat ends on.
+                for intent in director.apply(pending, at: cutoff) {
                     guard case let .setBadge(agent, selection) = intent else { continue }
                     #expect(
                         lastBadge[agent] != selection,
                         "\(name): \(agent) was re-sent the badge it already had")
                     lastBadge[agent] = selection
-                    badgeChanges[agent, default: 0] += 1
+                    if lastDrawn[agent] != selection.drawn {
+                        lastDrawn[agent] = selection.drawn
+                        badgeChanges[agent, default: 0] += 1
+                    }
                 }
+                time += step
             }
 
             for (agent, changes) in badgeChanges {
