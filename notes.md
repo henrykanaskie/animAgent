@@ -2576,3 +2576,184 @@ observation: **on this project, a number that is transcribed is eventually
 wrong, and a document that nothing runs eventually lies.** The code has 449
 assertions guarding it and has survived six audits. Every defect found in all
 six has been in the things no assertion touches.
+
+## 2026-08-08 — M6f: the preview is compared against the scene, and it was wrong twice more
+
+M6e ended on a rule: *a transcription checked against a transcription is not a
+check.* `scripts/preview-theme.py` is the tool this project accepts a theme
+with, it had been wrong twice, and both times the only thing checking it was
+another copy of itself. This closes that by comparing its picture against the
+picture the product actually draws.
+
+**It was possible now and was not before.** `spriteroom --render DIR --theme ID`
+puts the real `RoomScene` through the real `SKRenderer`, offscreen, at any
+theme, with no window server and without touching the display. So both rooms
+come from one command each. (`--panel-render` would have revealed the real panel
+over the maintainer's screen. It is never the answer.)
+
+### What is compared
+
+Not the whole frame. The scene draws characters, plates and badges this tool
+does not model, and its camera centres on the occupied span where the preview
+centres on the room. What is compared is **the room** — floor, wall, and every
+copy of every prop — pixel for pixel, over the whole tile field, in an **empty**
+room. That is the surface both known bugs lived on: which roles, how many
+copies, and where each content box lands.
+
+Three decisions that make it a comparison rather than a fit, and each one exists
+because the alternative was how the last two bugs hid:
+
+- **Emptiness is asserted, not hoped for.** The render is after `SessionEnd`,
+  and the check refuses to proceed if a single pixel exceeds 0.25 saturation.
+  The room is clamped to 0.18 by the import transform and characters own
+  everything above it, so one saturated pixel means somebody is still on stage.
+  I7 is what proves the stage is clear, which is cheaper than modelling
+  departures and checks I7 on the real renderer as a side effect.
+- **Registration is measured off the pixels.** Both tools paint tiles over
+  `drawnRows` x `drawnColumns` and nothing outside, so at 1600x900 — wide enough
+  to show the whole field, where the shipped 720x400 panel crops the outer seats
+  and a prop the panel cannot show is a prop the check could not count — the
+  field's bounding box *is* the camera. The recovery is validated on the
+  preview's own picture first, where `camera()` states the answer outright, and
+  only then applied to the scene's. A field of the wrong *size* is a drifted
+  drawn range and is reported, not fitted away.
+- **A residual offset fails.** The check does not slide until the diff is zero.
+  It measures the single translation that best explains the props, and then
+  demands it be identical for every role, the prop ink match *exactly* at it,
+  and every disagreeing pixel fall inside a prop's own box.
+
+Every differing pixel is sorted into one of three sentences — ink this tool drew
+over bare room (a phantom copy), ink the scene drew over bare room (a copy we
+are missing or have moved off), ink both drew and differing (a misplacement
+inside the overlap) — so a failure reads as a finding instead of as a number.
+
+### It found a third disagreement. Then a fourth.
+
+Neither is fixed. The ask was to learn whether the transcription is still wrong,
+not to have it corrected under the maintainer's feet, and I would rather hand
+over two one-line repairs with derivations than a diff that went quietly green.
+
+**Third: every prop in the preview stands one pixel into the floor.** Six themes,
+four roles, twenty-one copies each, all of them. `prop_origin` returns
+`top = y + bottom_row`, which puts the content box's bottom *pixel* on the panel
+row covering scene y in [y-1, y] — below the placement line. SpriteKit's
+`anchor(inCanvas:)` puts it on [y, y+1], standing *on* it. Fix:
+`top = y + bottom_row + 1`.
+
+It is M6b's own bug with one pixel of itself left behind. M6b corrected which end
+of the canvas the offset was measured from; it did not correct which side of the
+line the bottom row falls on. At `1x` it changes no theme judgement. It is still
+the third time this function has been wrong about y.
+
+**Fourth, and this one is not cosmetic: the depth bias is transcribed with the
+wrong sign, so the paint order inside a seat is exactly reversed.** The scene
+sorts on `zPosition = rowDepth(y) + bias` and `rowDepth` is `1000 - y`, so z runs
+opposite to y and a positive bias pulls a node *forward*. The preview sorts on
+`y + bias` with larger keys painted first, so the same bias pushes it *backward*.
+
+    scene    back -> front:  chair, character, desk
+    preview  back -> front:  desk,  character, chair
+
+Fix: sort on `y - bias`. One character.
+
+`RoomLayout.deskPosition` says the seven-eighths-of-a-tile offset exists because
+"at 32 px the only cue that a character is sitting *at* a desk rather than beside
+one is whether the desk's near edge crosses it". In the scene it crosses. **In
+every picture this tool has ever written the character sits in front of its desk
+instead**, and the chair's backrest is painted over the desk. I cropped one seat
+of `mission_control` from each renderer at 4x and it is not subtle.
+
+And it hid the way the other three hid — by being invisible in most of the room.
+Four of the six themes use the narrow Office 34 desk, whose ink never touches the
+chair's, so the reversal has nothing to show. It is visible only in
+`mission_control` (364 px) and `library` (1484 px), and it is zero in the rest.
+
+### The register, and why the gate is still green
+
+Both defects sit in a **named register** in `preview-theme.py` rather than being
+absorbed. Everything around them stays live: the check still fails if the offset
+changes, if it stops being the same for every role, if any prop pixel disagrees
+outside the recorded chair/desk overlap rectangles, or if anything at all
+disagrees outside a prop box. Both are printed by name on every run, including
+inside the lint. Fixing either does not turn it red; forgetting about them does
+not turn it green.
+
+That is the compromise between two instructions that a real defect put in
+tension — report rather than fix, and keep `lint-palette.py` green. A baseline
+that pins the exact shape of the accepted difference and prints it every time is
+the version of that I can defend. A silent tolerance is not.
+
+### Where it lives
+
+`preview-theme.py --verify`, exiting non-zero — geometry and check in one file,
+so drift and the thing that catches it are on the same screen. **And a stage in
+`scripts/lint-palette.py`, which is the half that matters**, because a script
+somebody has to remember to run is exactly what failed twice. The lint was
+already a gate and already imported `role_placements()` from this tool, so its
+motion budget was already priced on this transcription and nothing tied that
+number to a renderer.
+
+The same pass collapsed the duplication that made M6e possible. `prop_layout()`
+is now the one placement list; `role_placements()` counts it and `render()` draws
+it. That makes `render()`'s census assertion a tautology, and it now says so in
+as many words rather than looking like a check — M6d's seventh watched-failing
+injection is no longer constructible, and its job has moved to the comparison.
+
+### Watched failing
+
+Seven injections, every one non-zero and naming the theme and the quantity, plus
+both skip behaviours:
+
+| injected | result |
+|---|---|
+| M6e's foreground row of seven plants restored | FAIL — 6338 px this tool drew over bare room |
+| M6b's mirrored `prop_origin` restored | FAIL — 16528 px disagreeing outside every prop box |
+| the drawn tile range narrowed one column | FAIL — "the drawn tile field is 1344x672 where this layout paints 1312x672" |
+| one seat's `chair` no longer placed | FAIL — 400 px outside every prop box |
+| the back row moved one tile sideways | FAIL — 6286 px outside every prop box |
+| the floor tile swapped for the wall tile | FAIL — 396430 px outside every prop box |
+| the scene rendered at t=8, before the room empties | FAIL — "saturation 0.698 … a character is still on stage" |
+| no built app | SKIP naming the unchecked themes, exit 0 |
+| the same with `SPRITE_ROOM_REQUIRE_SCENE=1` | FAIL |
+
+### What it cannot cover, said plainly
+
+- **It needs the app built and the art on disk**, so it cannot run in a checkout
+  without either. Missing binary is a visible skip naming the unchecked themes;
+  `SPRITE_ROOM_REQUIRE_SCENE=1` turns it into a failure, the same arrangement
+  `SPRITE_ROOM_REQUIRE_ART` gives the pixel tests. `--no-scene` skips it loudly.
+- **Characters, plates and badges are not compared at all** — the room is empty
+  by construction. So `--state`, `--badge` and `--population` are unverified, and
+  the half of the fourth defect that puts a character in front of its desk is a
+  derivation and a picture rather than a measurement.
+- **The camera is not compared, on purpose.** The two differ by -16,-3 px at
+  every theme and that is framing, not placement. A change to the content band,
+  the vertical bias or the scale ladder passes this untouched.
+- **Animation phase is not compared** — the scene must equal *some* frame of the
+  loop, because phase is a function of render time. At `--at 60` the harness's
+  accumulated float clock lands a hair under 60.0, so `library`'s 5 fps clock
+  shows frame 3 rather than frame 0. That is the harness, not the art.
+- **One population, one moment.** Seat 0 is always framed so the camera does not
+  move with population, but nothing here checks a busy room.
+
+Cost: about 2.5 s a theme, ~15 s for six, on a lint that was under a second.
+
+### Gate
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean.
+`swift test` **452** passing — the brief said 449 and three more arrived from
+another agent while this ran; nothing here touches `Sources/` or `Tests/`.
+`python3 scripts/lint-palette.py` passes, colour numbers untouched, with the two
+defects named in its output.
+
+### Still open
+
+`docs/05-MILESTONES.md` carries "**Open — nothing checks `preview-theme.py`'s
+geometry**", and says the close would be "a pixel comparison of a preview
+against the scene, which needs a window server and is therefore art-gated like
+the rest of the pixel suite". That is what this is, except that it needs no
+window server — `--render` is offscreen. **I have not edited that criterion**:
+the milestones file was out of scope, and M6e is the entry where an accidental
+edit to it deleted a criterion outright. It should be closed by someone whose
+scope includes it, and the two defects above should be entered as open items
+when they are.

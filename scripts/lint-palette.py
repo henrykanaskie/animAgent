@@ -243,29 +243,76 @@ def motion_rate(transitions, fps):
     return (float(sum(transitions)) / len(transitions)) * float(fps)
 
 
+def preview_module():
+    """`scripts/preview-theme.py`, imported. None if it is not there."""
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "preview-theme.py")
+    if not os.path.exists(path):
+        return None
+    spec = importlib.util.spec_from_file_location("_preview_theme", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def role_placements():
     """How many times the room draws each prop role on one panel.
 
     **Imported from `scripts/preview-theme.py` rather than transcribed**, because
     a prop placed four times costs four times as much and that count is the one
     number in this check the manifest cannot supply — it is scene geometry, not
-    art. `preview-theme.py` owns the transcription of RoomLayout.swift, renders
-    the real 720x400 panel with it, and asserts its own census against the same
-    function this returns. So there is one copy of the number and something
-    draws a picture with it.
+    art. `preview-theme.py` owns the transcription of RoomLayout.swift and draws
+    the real panel with it.
+
+    **What vouches for that number changed at M6f, and it matters.** It used to
+    be that the preview tool asserted its own census against its own `render()`
+    — two transcriptions of one layout, which at M6e were found agreeing with
+    each other about a foreground row of seven plants the scene had demolished
+    two commits earlier. They now come from one list, and that list is checked
+    against the real `RoomScene` pixel for pixel by `scene_agreement()` below.
+    A count is only as good as the picture it draws, and the picture is only as
+    good as the renderer it is compared with.
 
     Returns `{}` if the preview tool is unreadable, and the caller fails rather
     than guessing — an assumed placement count is a budget wrong by a factor.
     """
-    import importlib.util
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "preview-theme.py")
-    if not os.path.exists(path):
-        return {}
-    spec = importlib.util.spec_from_file_location("_preview_theme", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    fn = getattr(mod, "role_placements", None)
+    mod = preview_module()
+    fn = getattr(mod, "role_placements", None) if mod else None
     return dict(fn()) if fn else {}
+
+
+def scene_agreement(sets, names):
+    """Check the preview's room against the room the product actually draws.
+
+    The motion budget above is priced on `role_placements()`, and the placement
+    census has been wrong twice — once about *where* a prop goes (M6b, ~80 px)
+    and once about *how many* there are (M6e, 3.3x). Both survived because the
+    only thing checking the transcription was another copy of it. This runs the
+    real `RoomScene` through the real `SKRenderer` offscreen
+    (`spriteroom --render`, never `--panel-render`) and compares the two
+    pictures, so the number this lint multiplies by is tied to a renderer rather
+    than to a second opinion from the same author.
+
+    **What it costs, stated the way the art gate states its own.** It needs the
+    app built and the art on disk, so it cannot run in a checkout without either.
+    A missing binary is a *visible skip* naming the themes it did not check, not
+    a silent pass, and `SPRITE_ROOM_REQUIRE_SCENE=1` turns that skip into a
+    failure — the same arrangement `SPRITE_ROOM_REQUIRE_ART` gives the pixel
+    tests. It adds a couple of seconds per theme.
+    """
+    mod = preview_module()
+    if mod is None or not hasattr(mod, "verify"):
+        return ["scene agreement: scripts/preview-theme.py could not be imported "
+                "or carries no --verify, so nothing checked this lint's placement "
+                "census against the scene. Refusing to assume it."]
+    if not names:
+        return []
+    code = mod.verify(sets, names, out_dir=None)
+    return [] if code == 0 else [
+        "scene agreement: the preview room and the room `spriteroom --render` "
+        "draws disagree beyond the defects recorded in preview-theme.py. The "
+        "per-theme detail is above. The placement census this lint's motion "
+        "budget multiplies by is therefore not describing the shipped room."]
 
 
 def character_motion_floor(variants):
@@ -347,6 +394,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--manifest", default=MANIFEST)
     ap.add_argument("--verbose", action="store_true", help="print per-variant measurements")
+    ap.add_argument("--no-scene", action="store_true",
+                    help="skip the comparison against `spriteroom --render`. For "
+                         "iterating on colour only — it leaves the placement "
+                         "census unchecked, and it says so in the output")
     args = ap.parse_args(argv)
 
     if not os.path.exists(args.manifest):
@@ -731,6 +782,17 @@ def main(argv=None):
                 print("              %-14s %-12s %d x %.0f = %-8.0f "
                       "(%.1f%% of its own visible px move)"
                       % (role_name, ident, n, own, placed, frac * 100))
+
+    # Scene agreement. Last, because it is the only check here that leaves this
+    # process — and printed whatever it finds, including "skipped", because a
+    # gate whose absence looks exactly like a pass is the gate this project has
+    # already been bitten by twice.
+    if not args.no_scene:
+        print("scene:      the preview room vs `spriteroom --render`, per theme")
+        failures.extend(scene_agreement(themes, sorted(themes)))
+    else:
+        print("scene:      NOT CHECKED — --no-scene. The placement census the "
+              "motion budget uses is unverified in this run.")
 
     if failures:
         print("\nI7 palette lint FAILED — %d violation(s):" % len(failures), file=sys.stderr)

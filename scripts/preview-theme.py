@@ -24,6 +24,16 @@ narrow — floor, wall, the four prop slots, seated bodies — and it does not d
 nameplates or badges, which live in an overlay band this is not trying to model.
 Treat it as a picture of the room, not as a second implementation of the scene.
 
+**`--verify` is what stops that sentence being an excuse.** It renders the real
+`RoomScene` through the real `SKRenderer` (`spriteroom --render`, offscreen, no
+window server) and compares the two pictures pixel for pixel. It exists because
+this transcription has been wrong twice — M6b's `prop_origin` mirrored a y-up
+anchor into a y-down blit, and M6e's placement census counted a foreground row
+the scene had stopped drawing — and both times the only thing checking it was
+*itself*: a census compared against a `render()` transcribing the same layout.
+A transcription checked against a transcription is not a check. See "Verifying
+against the scene" below the code, and docs/04-ART-DIRECTION.md.
+
 Usage
 -----
     preview-theme.py --out DIR                 # every theme in the manifest
@@ -32,14 +42,20 @@ Usage
     preview-theme.py --out DIR --state working --badge sleep
     preview-theme.py --out DIR --theme library --frames        # every frame
     preview-theme.py --out DIR --animated old_tv --frames      # a candidate
+    preview-theme.py --out DIR --size 1600x900                 # a wider panel
+    preview-theme.py --verify --out DIR        # against the real scene; exits 1
 
 Python 3 stdlib only.
 """
 
 import argparse
+import glob
 import json
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pnglite
@@ -127,6 +143,57 @@ def seat_x(index):
     return seat_column(index) * TILE + TILE // 2
 
 
+def prop_layout():
+    """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
+
+    Scene coordinates, y-up, the point being the content box's bottom-centre.
+    Transcribed from `RoomScene.furnish()`; ordered the way that function draws,
+    so a reader can hold the two side by side.
+
+    This is the *only* copy of the placement arithmetic in this file.
+    `role_placements()` counts it and `render()` draws it, so those two can no
+    longer drift apart — and that means the census cross-check inside `render()`
+    is now a tautology rather than a check. It is kept for the one thing it can
+    still catch (a `render()` that stops drawing something it enumerated) and it
+    is **not** what ties this file to the scene. `--verify` is. See below.
+
+    **Why one copy matters here specifically.** At M6e `role_placements()` was
+    found counting a foreground row of seven plants that `4e7b43d` had removed
+    from the scene two commits earlier, and it survived because the cross-check
+    compared it against a `render()` that transcribed the *same* dead layout.
+    Two agreeing transcriptions of a room that does not exist is what this
+    collapse removes; comparing the result against the real renderer is what
+    replaces it.
+
+    Consequence of that error, recorded rather than quietly corrected: the
+    motion budget was **3.3x too strict on `plant`**, and ADR-002 §14b's
+    argument that `board` is the only role that can carry motion was priced on
+    the demolished row. `plant` is in fact the *cheaper* slot. The budget is the
+    rule; the role is not.
+    """
+    placed = []
+    # Back row: board and plant alternating, one tile behind the seat line.
+    for seat in range(SEAT_CAPACITY):
+        x = seat_column(seat) * TILE + TILE // 2 + TILE * 1.5
+        if x >= WIDTH:
+            continue
+        placed.append(("board" if seat % 2 == 0 else "plant", x, BACK_ROW_Y, 0.0))
+    # No foreground row. `4e7b43d` removed it from the scene and replaced it
+    # with a stronger rule than the one it lost: nothing decorative is drawn
+    # nearer the camera than the seat row. This preview drew seven plants that
+    # did not exist for two commits, which is why every theme picture between
+    # `4e7b43d` and M6e shows them.
+    #
+    # Chair at every seat, drawn a hair behind the body. Then the desk, which
+    # takes the row depth plus a half so it occludes the seated body — at 32 px
+    # that overlap is the only cue the character is sitting *at* the desk.
+    for seat in range(SEAT_CAPACITY):
+        placed.append(("chair", seat_x(seat), BASELINE_Y, -0.25))
+    for seat in range(SEAT_CAPACITY):
+        placed.append(("desk", seat_x(seat) + TILE * 0.875, BASELINE_Y, 0.5))
+    return placed
+
+
 def role_placements():
     """How many times the room draws each prop role on one panel. One panel, not
     one theme: this is a fact about the *layout*, and it is the same for every
@@ -135,40 +202,18 @@ def role_placements():
     It exists because `scripts/lint-palette.py`'s motion budget is a budget on
     what reaches the screen, and a prop placed four times costs four times as
     much as one placed once — a quantity the manifest cannot see, because the
-    manifest describes art and this is geometry. Rather than transcribe the seat
-    arithmetic a third time (RoomLayout.swift, `render()` below, and then the
-    lint), the lint imports this, and `render()` counts what it actually drew and
-    fails if the two disagree. Two copies of a number that can drift apart is how
-    the 10.4%-vs-27.9% error happened; this is the same number computed once.
+    manifest describes art and this is geometry. The lint imports this rather
+    than transcribing the seat arithmetic a fourth time.
 
     The counts on the shipped 25-column layout are `board` 4, `plant` 3,
     `chair` 7, `desk` 7. `board` and `plant` alternate across the seven seats of
-    the back row, and nothing else is placed.
-
-    **This said `plant` 10 until M6e, and it was wrong the moment it was
-    written.** It counted a foreground row of seven that `4e7b43d` had already
-    removed from the scene two commits earlier — the room draws no decoration
-    nearer the camera than the seat row now. The cross-check below compared this
-    against `render()`, which transcribed the *same* dead layout, so the two
-    agreed with each other and with nothing the scene does. That is the failure
-    the `prop_origin` bug taught and it repeated inside the fix for it: a
-    transcription checked against a transcription.
-
-    Consequence, recorded rather than quietly corrected: the motion budget was
-    **3.3× too strict on `plant`**, and ADR-002 §14b's argument that `board` is
-    the only role that can carry motion was priced on the demolished row.
-    `plant` is in fact the *cheaper* slot. The budget is the rule; the role is
-    not.
+    the back row, and nothing else is placed. The four keys are always present,
+    at zero if nothing is placed, so a caller cannot read a missing role as a
+    missing count.
     """
     counts = {"board": 0, "plant": 0, "chair": 0, "desk": 0}
-    for seat in range(SEAT_CAPACITY):
-        x = seat_column(seat) * TILE + TILE // 2 + TILE * 1.5
-        if x >= WIDTH:
-            continue
-        counts["board" if seat % 2 == 0 else "plant"] += 1
-    for _seat in range(SEAT_CAPACITY):
-        counts["chair"] += 1
-        counts["desk"] += 1
+    for role, _x, _y, _bias in prop_layout():
+        counts[role] = counts.get(role, 0) + 1
     return counts
 
 
@@ -296,23 +341,42 @@ def role_frames(role):
     return list(frames) if frames else [role["file"]]
 
 
+def camera(panel_w, panel_h):
+    """The preview's own panel<->scene mapping, as two functions.
+
+    Split out of `render()` so `--verify` can convert a placement to a panel
+    pixel with the *same* arithmetic the picture was drawn with rather than a
+    fifth copy of it. `origin` is the panel pixel of scene (0, 0): panel x is
+    `origin.x + sx` and panel y is `origin.y - sy`, which is all a y-down blit
+    of a y-up scene ever is.
+
+    Camera: 1x, centred on the room. The room is 800 px wide and the panel is
+    720, so a full-width room is cropped a tile and a bit each side — which is
+    what the shipped panel does at 1x. The *scene* centres on the occupied span
+    instead, so the two pictures differ by a whole-picture translation; that is
+    a framing choice, not a placement, and `--verify` measures it rather than
+    assuming it.
+    """
+    cam_x, cam_y = WIDTH / 2.0, HEIGHT / 2.0
+    x0 = panel_w / 2.0 - cam_x * SCALE
+    y0 = panel_h / 2.0 + cam_y * SCALE
+
+    def to_screen(sx, sy):
+        """Scene (y-up) -> panel pixel (y-down)."""
+        return (int(round(x0 + sx * SCALE)), int(round(y0 - sy * SCALE)))
+
+    return to_screen, (x0, y0)
+
+
 def render(theme, name, population, out_path, characters, seed_variants,
-           badge=None, animated=None, frame=0):
+           badge=None, animated=None, frame=0, panel=None):
+    panel_w, panel_h = panel or (PANEL_W, PANEL_H)
     floor_p, wall_p, how = pick_tiles(theme)
     _fw, _fh, floor_px = load(floor_p)
     _ww, _wh, wall_px = load(wall_p)
 
-    buf = bytearray(bytes(VOID) * (PANEL_W * PANEL_H))
-
-    # Camera: 1x, centred on the room. The room is 800 px wide and the panel is
-    # 720, so a full-width room is cropped a tile and a bit each side — which is
-    # what the shipped panel does at 1x.
-    cam_x, cam_y = WIDTH / 2.0, HEIGHT / 2.0
-
-    def to_screen(sx, sy):
-        """Scene (y-up) -> panel pixel (y-down)."""
-        return (int(round(PANEL_W / 2.0 + (sx - cam_x) * SCALE)),
-                int(round(PANEL_H / 2.0 - (sy - cam_y) * SCALE)))
+    buf = bytearray(bytes(VOID) * (panel_w * panel_h))
+    to_screen, _origin = camera(panel_w, panel_h)
 
     # Floor and wall, over the drawn range so no zoom shows the void.
     for r in DRAWN_ROWS:
@@ -320,7 +384,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
         src = wall_px if y0 >= WALL_BASE_Y else floor_px
         for c in DRAWN_COLUMNS:
             sx, sy = to_screen(c * TILE, y0 + TILE)
-            blit(buf, PANEL_W, PANEL_H, src, TILE, TILE, sx, sy)
+            blit(buf, panel_w, panel_h, src, TILE, TILE, sx, sy)
 
     canvas = theme["props"]["canvas"]
     roles = dict(theme["props"]["roles"])
@@ -349,36 +413,30 @@ def render(theme, name, population, out_path, characters, seed_variants,
         census[role_name] = census.get(role_name, 0) + 1
         drawn.append((y + bias, "prop", (frames[frame % len(frames)], left, top)))
 
-    # Back row: board and plant alternating, one tile behind the seat line.
-    for seat in range(SEAT_CAPACITY):
-        x = seat_column(seat) * TILE + TILE // 2 + TILE * 1.5
-        if x >= WIDTH:
-            continue
-        add_prop("board" if seat % 2 == 0 else "plant", x, BACK_ROW_Y)
+    # One placement list, drawn here and counted by `role_placements()`.
+    for role_name, x, y, bias in prop_layout():
+        add_prop(role_name, x, y, bias=bias)
 
-    # No foreground row. `4e7b43d` removed it from the scene and replaced it
-    # with a stronger rule than the one it lost: nothing decorative is drawn
-    # nearer the camera than the seat row. This preview drew seven plants that
-    # did not exist for two commits, which is why every theme picture between
-    # `4e7b43d` and M6e shows them.
-
-    # Chair and desk at every seat; a body at the occupied ones. The desk takes
-    # the row depth plus a half so it occludes the seated body — at 32 px that
-    # overlap is the only cue the character is sitting *at* the desk.
-    for seat in range(SEAT_CAPACITY):
-        add_prop("chair", seat_x(seat), BASELINE_Y, bias=-0.25)
+    # A body at the occupied seats. Depth sorting puts it between its chair and
+    # its desk, which is what the biases in `prop_layout()` are for.
     for seat in range(population):
         variant = seed_variants[seat % len(seed_variants)]
         drawn.append((BASELINE_Y, "char", (characters[variant], seat_x(seat))))
-    for seat in range(SEAT_CAPACITY):
-        add_prop("desk", seat_x(seat) + TILE * 0.875, BASELINE_Y, bias=0.5)
 
     # What was placed must match what `role_placements()` says is placed, because
     # the lint's motion budget multiplies a prop's own motion by that count and
-    # never renders anything. A silent disagreement here would make the budget
-    # wrong by a factor, which is the exact class of defect the budget exists to
-    # catch. Only roles this theme actually declares are compared — a theme
-    # missing a role draws none of it, which is not a drift.
+    # never renders anything.
+    #
+    # **This is no longer the check it used to be, and saying so is the point.**
+    # Both sides now read `prop_layout()`, so they cannot disagree about the
+    # room; all this can still catch is a drawing loop that drops or duplicates
+    # a placement it was handed. Until M6e the two sides were separate
+    # transcriptions and this comparison was believed to be the tie between the
+    # budget and the picture — it was not, because both transcribed a foreground
+    # row the scene had already demolished, and they agreed with each other and
+    # with nothing the scene draws. `--verify` is the tie now. Only roles this
+    # theme actually declares are compared — a theme missing a role draws none
+    # of it, which is not a drift.
     expected = role_placements()
     for role_name, n in sorted(census.items()):
         if expected.get(role_name) != n:
@@ -393,12 +451,12 @@ def render(theme, name, population, out_path, characters, seed_variants,
             path, left, top = payload
             w, h, px = load(path)
             sx, sy = to_screen(left, top)
-            blit(buf, PANEL_W, PANEL_H, px, w, h, sx, sy)
+            blit(buf, panel_w, panel_h, px, w, h, sx, sy)
         else:
             path, x = payload
             w, h, px = load(path)
             sx, sy = to_screen(x - w / 2.0, BASELINE_Y + h)
-            blit(buf, PANEL_W, PANEL_H, px, w, h, sx, sy)
+            blit(buf, panel_w, panel_h, px, w, h, sx, sy)
 
     # Badges last, and above everything, which is where the scene puts them.
     # This tool does not model the overlay band; it draws one badge over every
@@ -410,10 +468,605 @@ def render(theme, name, population, out_path, characters, seed_variants,
         for seat in range(population):
             head_top = BASELINE_Y + CHAR_H - badge["head_top_px"]
             sx, sy = to_screen(seat_x(seat) - bw / 2.0, head_top + bh)
-            blit(buf, PANEL_W, PANEL_H, bpx, bw, bh, sx, sy)
+            blit(buf, panel_w, panel_h, bpx, bw, bh, sx, sy)
 
-    pnglite.save(out_path, PANEL_W, PANEL_H, buf)
-    return how
+    if out_path is not None:
+        pnglite.save(out_path, panel_w, panel_h, buf)
+    return how, (panel_w, panel_h, buf)
+
+
+# ---------------------------------------------------------------------------
+# Verifying against the scene
+# ---------------------------------------------------------------------------
+#
+# Everything above draws a picture of the room from a transcription of
+# RoomLayout.swift and RoomScene.swift. Everything below checks that picture
+# against the room the product actually draws.
+#
+# **Why it is not enough to check this file against itself.** It has been wrong
+# twice and both times it looked right, because the only thing checking it was
+# another copy of the same transcription:
+#
+#   M6b  `prop_origin` returned a y-up anchor offset where a y-down blit origin
+#        was needed — up to ~80 px at 1x, invisible because it was *consistent*,
+#        so every picture stayed internally plausible and every theme accepted
+#        at M6 was accepted against a wrong picture.
+#   M6e  `role_placements()` counted a foreground row of seven plants the scene
+#        had stopped drawing two commits earlier. Its cross-check compared that
+#        census against a `render()` transcribing the same dead layout. The two
+#        agreed with each other and with nothing the scene does.
+#
+# So the reference here is the real thing: `spriteroom --render DIR --theme ID`
+# draws the actual `RoomScene` through the actual `SKRenderer`, offscreen, at
+# any theme, with no window server and without touching the display. Never
+# `--panel-render`, which reveals the real panel over the user's screen.
+#
+# **What is compared, and why that is the property that matters.** Not bytes:
+# the scene draws characters, nameplates and badges this tool deliberately does
+# not model, and its camera centres on the occupied span where this one centres
+# on the room. What is compared is the *room* — floor, wall, and every copy of
+# every prop — pixel for pixel, in an empty room, after registering the two
+# pictures on the tile field they both draw. That is exactly the surface the
+# two known bugs lived on: which roles, how many copies, and where each one's
+# content box lands. A picture that agrees on all of it agrees about placement,
+# because a misplaced, missing or phantom prop cannot leave the pixels equal.
+#
+# **Registration is measured, not transcribed.** Both tools paint floor and wall
+# over `DRAWN_ROWS` x `DRAWN_COLUMNS` and nothing outside it, so at a viewport
+# wide enough to show the whole field the field's bounding box *is* the camera.
+# The recovery is validated on this tool's own picture first — where the camera
+# is known by construction from `camera()` — and only then applied to the
+# scene's. If the two fields differ in *size*, the drawn range has drifted, and
+# that is reported rather than fitted away.
+
+# A viewport wide enough that the whole drawn tile field, 1344x672, is inside
+# both pictures with margin. Bigger than the 720x400 panel on purpose: the
+# panel crops the outer seats, and a prop the panel cannot show is a prop this
+# check could not count.
+VERIFY_PANEL = (1600, 900)
+
+# The fixture is only a way to reach an *empty* room: after `SessionEnd` every
+# character has departed and what is left is floor, wall and props, which is
+# the whole of what this tool models. Any fixture would do; this is the
+# shortest one that ends cleanly.
+VERIFY_FIXTURE = os.path.join("fixtures", "single-agent-simple.jsonl")
+VERIFY_AT = 60.0
+
+# Room saturation is clamped to 0.18 by the import transform and characters own
+# everything above it [I7], so a single pixel over this ceiling means somebody
+# is still on stage and the render time was too early. Leaning on I7 to assert
+# the room is empty is cheaper than modelling departures, and it double-checks
+# I7 on the real renderer's output as a side effect.
+VERIFY_EMPTY_MAX_SAT = 0.25
+
+# **A known disagreement, named rather than absorbed.** M6f measured that every
+# prop in this preview lands exactly one pixel lower than the scene draws it,
+# relative to the floor the two agree on:
+#
+#   `prop_origin` returns `top = y + bottom_row`, which puts the content box's
+#   bottom *pixel* on the row whose scene band is [y-1, y] — below the placement
+#   line. SpriteKit's anchor puts it on [y, y+1], standing *on* the line.
+#   The correction is `top = y + bottom_row + 1`.
+#
+# It is recorded and not applied, because the maintainer asked to learn that
+# the transcription is still wrong rather than have it quietly corrected. So the
+# check accepts a whole-picture prop offset of 0 rows (fixed) or -1 (today, the
+# scene's copy sitting one panel row *above* where this tool puts it), and
+# nothing else. Every other guard stays live around it: the offset must be the
+# same for every role, the prop ink must match exactly at it, and every pixel
+# the two pictures disagree on must fall inside a prop's own box — so a moved
+# floor, a phantom copy or a copy this tool has stopped drawing all still fail.
+# Fixing `prop_origin` does not turn this red; forgetting about it does not turn
+# it green either, because the offset is named on every run.
+ACCEPTED_PROP_ROW_OFFSETS = (0, -1)
+
+# **A second known disagreement, M6f, same shape: the depth bias is transcribed
+# with the wrong sign.**
+#
+#   The scene sorts by `zPosition = Character.Layer.rowDepth(y) + bias`, and
+#   `rowDepth` is `1000 - y`, so z runs *opposite* to y and a positive bias
+#   pulls a node **forward**. This tool sorts by `y + bias` descending, where a
+#   larger key paints first, so the same positive bias pushes the node
+#   **backward**. Within one row the paint order is therefore exactly reversed:
+#
+#       scene    back -> front:   chair, character, desk
+#       preview  back -> front:   desk,  character, chair
+#
+#   The correction is one character: sort on `y - bias`.
+#
+# Its visible consequence is the one thing `RoomLayout.deskPosition` says the
+# offset exists to produce — "at 32 px the only cue that a character is sitting
+# *at* a desk rather than beside one is whether the desk's near edge crosses
+# it". In the scene it crosses. In every picture this tool has ever written the
+# character sits in front of its desk instead, and the chair's backrest is
+# painted over the desk.
+#
+# Only the second half of that is checkable here, because the comparison runs on
+# an empty room: `chair` over `desk` shows up wherever their ink overlaps, which
+# is `mission_control` and `library` — the two themes whose desk is not the
+# narrow Office single. The character half is derivation plus a picture, not a
+# measurement, and this check does not cover it. So the accepted region is the
+# per-seat intersection of the `chair` and `desk` boxes and nothing wider: a
+# desk that moves, changes art, or stops being drawn escapes it immediately.
+ACCEPT_CHAIR_DESK_OVERLAP = True
+
+
+def spriteroom_binary():
+    """The built app, or None. `SPRITEROOM_BIN` overrides."""
+    override = os.environ.get("SPRITEROOM_BIN")
+    if override:
+        return override if os.path.exists(override) else None
+    for build in ("release", "debug"):
+        path = os.path.join(REPO, ".build", build, "spriteroom")
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def field_box(w, h, px):
+    """Bounding box of everything that is not the picture's own background.
+
+    The background is sampled at (0, 0) — this tool's `VOID`, the scene's clear
+    colour — so the caller must give a viewport big enough that the tile field
+    does not reach a corner. Returns None if it does, because a field touching
+    an edge may be cropped and a cropped field is not a datum.
+    """
+    bg = bytes(px[0:4])
+    row_bg = bg * w
+    minx, miny, maxx, maxy = w, h, -1, -1
+    for y in range(h):
+        row = px[y * w * 4:(y + 1) * w * 4]
+        if row == row_bg:
+            continue
+        if y < miny:
+            miny = y
+        maxy = y
+        for x in range(w):
+            if row[x * 4:x * 4 + 4] != bg:
+                if x < minx:
+                    minx = x
+                break
+        for x in range(w - 1, -1, -1):
+            if row[x * 4:x * 4 + 4] != bg:
+                if x > maxx:
+                    maxx = x
+                break
+    if maxx < 0:
+        return None
+    if minx == 0 or miny == 0 or maxx == w - 1 or maxy == h - 1:
+        return None
+    return (minx, miny, maxx, maxy)
+
+
+def field_origin(image):
+    """`(x0, y0)`: the panel pixel of scene (0, 0), recovered from the picture.
+
+    Panel x is `x0 + sx` and panel y is `y0 - sy`. Returns
+    `(origin, None)` or `(None, complaint)`.
+    """
+    w, h, px = image
+    box = field_box(w, h, px)
+    if box is None:
+        return None, ("the drawn tile field touches a panel edge, so the "
+                      "picture cannot be registered — render it larger")
+    want_w = len(DRAWN_COLUMNS) * TILE
+    want_h = len(DRAWN_ROWS) * TILE
+    got_w, got_h = box[2] - box[0] + 1, box[3] - box[1] + 1
+    if (got_w, got_h) != (want_w, want_h):
+        return None, ("the drawn tile field is %dx%d px where this layout paints "
+                      "%dx%d (columns %d..%d, rows %d..%d) — the drawn range has "
+                      "drifted"
+                      % (got_w, got_h, want_w, want_h, DRAWN_COLUMNS[0],
+                         DRAWN_COLUMNS[-1], DRAWN_ROWS[0], DRAWN_ROWS[-1]))
+    return (box[0] - DRAWN_COLUMNS[0] * TILE,
+            box[1] + (DRAWN_ROWS[-1] + 1) * TILE), None
+
+
+def max_saturation(image):
+    """Peak HSV saturation in the picture, ignoring fully transparent pixels."""
+    _w, _h, px = image
+    peak = 0.0
+    for i in range(0, len(px), 4):
+        if px[i + 3] == 0:
+            continue
+        r, g, b = px[i], px[i + 1], px[i + 2]
+        hi = max(r, g, b)
+        if hi == 0:
+            continue
+        s = (hi - min(r, g, b)) / float(hi)
+        if s > peak:
+            peak = s
+    return peak
+
+
+def scene_render(binary, theme, out_dir, fixture=VERIFY_FIXTURE, at=VERIFY_AT,
+                 panel=VERIFY_PANEL):
+    """One offscreen frame of the real scene. Returns `(image, complaint)`.
+
+    `--render`, never `--panel-render`: this must not put anything on the
+    user's screen, and it must not bind a port.
+    """
+    w, h = panel
+    cmd = [binary, os.path.join(REPO, fixture), "--render", out_dir,
+           "--theme", theme, "--at", "%g" % at, "--size", "%dx%d" % (w, h)]
+    try:
+        run = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True,
+                             timeout=300)
+    except OSError as exc:
+        return None, "could not run %s: %s" % (binary, exc)
+    except subprocess.TimeoutExpired:
+        return None, "%s --render timed out" % binary
+    if run.returncode != 0:
+        return None, ("%s --render exited %d: %s"
+                      % (binary, run.returncode,
+                         (run.stderr or run.stdout).strip().splitlines()[-1:]))
+    written = sorted(glob.glob(os.path.join(out_dir, "*.png")))
+    if not written:
+        return None, "%s --render wrote no PNG" % binary
+    return pnglite.load(written[-1]), None
+
+
+def _classify(scene, preview, room, offset, box):
+    """Every pixel where the two pictures disagree, sorted into three kinds.
+
+    `room` is this tool's own picture with no props at all, so it says what bare
+    floor and wall look like at each pixel. That turns a raw difference into a
+    statement about props:
+
+      `preview_only`  this tool drew prop ink where the scene shows bare room —
+                      a phantom copy, which is exactly the M6e failure.
+      `scene_only`    the scene drew prop ink where this tool shows bare room —
+                      a copy this tool is missing, or one it has moved away from.
+      `moved`         both drew ink and it differs — a misplacement inside the
+                      overlap, which is the M6b failure.
+
+    Coordinates are the preview's. `offset` maps preview to scene.
+    """
+    dx, dy = offset
+    pw, ph, ppx = preview
+    sw, sh, spx = scene
+    _rw, _rh, rpx = room
+    out = {"preview_only": [], "scene_only": [], "moved": []}
+    x_from, y_from, x_to, y_to = box
+    for y in range(y_from, y_to + 1):
+        sy = y + dy
+        if sy < 0 or sy >= sh:
+            continue
+        base_p = y * pw * 4
+        base_s = sy * sw * 4
+        # Rows are equal far more often than not; comparing them whole first is
+        # what keeps a 1.4 megapixel diff cheap in pure Python.
+        span_p = ppx[base_p + x_from * 4:base_p + (x_to + 1) * 4]
+        sx_from, sx_to = x_from + dx, x_to + dx
+        if sx_from < 0 or sx_to >= sw:
+            continue
+        span_s = spx[base_s + sx_from * 4:base_s + (sx_to + 1) * 4]
+        if span_p == span_s:
+            continue
+        for x in range(x_from, x_to + 1):
+            i = base_p + x * 4
+            j = base_s + (x + dx) * 4
+            if ppx[i:i + 4] == spx[j:j + 4]:
+                continue
+            bare = rpx[i:i + 4]
+            preview_ink = ppx[i:i + 4] != bare
+            scene_ink = spx[j:j + 4] != bare
+            if preview_ink and scene_ink:
+                out["moved"].append((x, y))
+            elif preview_ink:
+                out["preview_only"].append((x, y))
+            else:
+                out["scene_only"].append((x, y))
+    return out
+
+
+def _mismatch_count(scene, preview, offset, points):
+    """How many of `points` (preview coordinates) disagree at `offset`."""
+    dx, dy = offset
+    pw, _ph, ppx = preview
+    sw, sh, spx = scene
+    bad = 0
+    for x, y in points:
+        sx, sy = x + dx, y + dy
+        if sx < 0 or sy < 0 or sx >= sw or sy >= sh:
+            bad += 1
+            continue
+        if ppx[(y * pw + x) * 4:(y * pw + x) * 4 + 4] != spx[(sy * sw + sx) * 4:(sy * sw + sx) * 4 + 4]:
+            bad += 1
+    return bad
+
+
+def _best_offset(scene, preview, points, around, window=6):
+    """The offset near `around` that matches `points` best, and its residual.
+
+    A diagnostic, not the check: it turns "7364 pixels differ" into "everything
+    is one row low", which is the difference between a number and a finding.
+    """
+    sample = points if len(points) <= 3000 else points[::max(1, len(points) // 3000)]
+    best = None
+    for oy in range(around[1] - window, around[1] + window + 1):
+        for ox in range(around[0] - window, around[0] + window + 1):
+            bad = _mismatch_count(scene, preview, (ox, oy), sample)
+            if best is None or bad < best[0]:
+                best = (bad, (ox, oy))
+    exact = _mismatch_count(scene, preview, best[1], points)
+    return best[1], exact
+
+
+def role_boxes(theme, roles=None):
+    """Panel rectangles of every prop copy this tool places, per role.
+
+    Preview panel coordinates, from `prop_layout()` and `prop_origin()` — the
+    same two functions that drew the picture, so this cannot describe a room
+    the picture did not draw.
+    """
+    canvas = theme["props"]["canvas"]
+    declared = theme["props"]["roles"]
+    to_screen, _origin = camera(*VERIFY_PANEL)
+    boxes = {}
+    for role_name, x, y, _bias in prop_layout():
+        if roles is not None and role_name not in roles:
+            continue
+        role = declared.get(role_name)
+        if role is None:
+            continue
+        left, top = prop_origin(role, canvas, x, y)
+        px, py = to_screen(left, top)
+        box = role["content_box"]
+        boxes.setdefault(role_name, []).append(
+            (px + box["x"], py + box["y"],
+             px + box["x"] + box["w"] - 1, py + box["y"] + box["h"] - 1))
+    return boxes
+
+
+def verify_theme(theme, name, binary, out_dir, scratch, fixture=VERIFY_FIXTURE,
+                 at=VERIFY_AT, panel=VERIFY_PANEL):
+    """Compare one theme's preview against the real scene. Returns a report dict."""
+    report = {"theme": name, "ok": False, "notes": [], "failures": []}
+
+    scene_dir = os.path.join(scratch, "scene-" + name)
+    os.makedirs(scene_dir, exist_ok=True)
+    scene, complaint = scene_render(binary, name, scene_dir, fixture, at, panel)
+    if complaint:
+        report["failures"].append(complaint)
+        return report
+
+    peak = max_saturation(scene)
+    if peak > VERIFY_EMPTY_MAX_SAT:
+        report["failures"].append(
+            "the scene render at t=%g is not an empty room: a pixel carries "
+            "saturation %.3f, over the %.2f the import transform allows any room "
+            "pixel, so a character is still on stage. Render later."
+            % (at, peak, VERIFY_EMPTY_MAX_SAT))
+        return report
+
+    scene_origin, complaint = field_origin(scene)
+    if complaint:
+        report["failures"].append("scene render: " + complaint)
+        return report
+
+    # Bare floor and wall: the same theme with every prop role removed. It is
+    # what makes a difference legible as "phantom prop" or "missing prop"
+    # instead of "1268 pixels".
+    bare_theme = dict(theme)
+    bare_theme["props"] = dict(theme["props"])
+    bare_theme["props"] = {"canvas": theme["props"]["canvas"], "roles": {}}
+    _how, room = render(bare_theme, name, 0, None, {}, [], panel=panel)
+
+    preview_origin, complaint = field_origin(room)
+    if complaint:
+        report["failures"].append("preview: " + complaint)
+        return report
+    # The recovery is validated where the answer is already known. `camera()`
+    # states this tool's own origin outright; if reading it back off the pixels
+    # disagrees, the recovery is wrong and nothing measured with it means
+    # anything — including the scene's.
+    _to_screen, declared_origin = camera(*panel)
+    if preview_origin != (int(declared_origin[0]), int(declared_origin[1])):
+        report["failures"].append(
+            "field registration is unsound: read %s off this tool's own picture "
+            "where camera() says %s"
+            % (preview_origin, (int(declared_origin[0]), int(declared_origin[1]))))
+        return report
+
+    offset = (scene_origin[0] - preview_origin[0], scene_origin[1] - preview_origin[1])
+    report["camera_offset"] = offset
+    report["notes"].append(
+        "camera differs by %+d,%+d px — the scene centres on the occupied span, "
+        "this tool on the room" % offset)
+
+    # Compare over the tile field and nothing else: it is the whole of what
+    # both pictures draw, and by construction of `offset` the scene's field
+    # lands on exactly this rectangle. Outside it both are their own void
+    # colour, which are different colours and mean nothing.
+    left = preview_origin[0] + DRAWN_COLUMNS[0] * TILE
+    top = preview_origin[1] - (DRAWN_ROWS[-1] + 1) * TILE
+    box = (left, top,
+           left + len(DRAWN_COLUMNS) * TILE - 1,
+           top + len(DRAWN_ROWS) * TILE - 1)
+
+    boxes_by_role = role_boxes(theme)
+    loop = max([len(role_frames(r)) for r in theme["props"]["roles"].values()] or [1])
+    best = None
+    for frame in range(loop):
+        _how, preview = render(theme, name, 0, None, {}, [], frame=frame, panel=panel)
+        diff = _classify(scene, preview, room, offset, box)
+        total = sum(len(v) for v in diff.values())
+        if best is None or total < best[0]:
+            best = (total, frame, preview, diff)
+        if total == 0:
+            break
+    total, frame, preview, diff = best
+    report["frame"] = frame
+    report["diff"] = {k: len(v) for k, v in diff.items()}
+    if loop > 1:
+        report["notes"].append("animated: matched frame %d of %d" % (frame, loop))
+
+    if total == 0:
+        report["ok"] = True
+        report["prop_offset"] = (0, 0)
+        return report
+
+    # Disagreement. Say what kind, and whether one translation explains it —
+    # which is the difference between "7364 pixels differ" and "the props are
+    # one row low".
+    def ink_in(rects, margin=0):
+        pts = []
+        for (x0, y0, x1, y1) in rects:
+            for y in range(max(box[1], y0 - margin), min(box[3], y1 + margin) + 1):
+                base = y * preview[0] * 4
+                for x in range(max(box[0], x0 - margin), min(box[2], x1 + margin) + 1):
+                    i = base + x * 4
+                    if preview[2][i:i + 4] != room[2][i:i + 4]:
+                        pts.append((x, y))
+        return pts
+
+    all_boxes = [r for rects in boxes_by_role.values() for r in rects]
+    all_ink = sorted(set(ink_in(all_boxes)))
+    shift, residual = _best_offset(scene, preview, all_ink, offset)
+    prop_offset = (shift[0] - offset[0], shift[1] - offset[1])
+    report["prop_offset"] = prop_offset
+    report["residual"] = residual
+
+    per_role = {}
+    for role_name, rects in sorted(boxes_by_role.items()):
+        pts = sorted(set(ink_in(rects)))
+        if not pts:
+            continue
+        rshift, rres = _best_offset(scene, preview, pts, offset)
+        per_role[role_name] = ((rshift[0] - offset[0], rshift[1] - offset[1]),
+                               rres, len(rects))
+    report["per_role"] = per_role
+
+    # Where the seat's chair and its own desk overlap. Paired by placement
+    # order, which is seat order in `prop_layout()`, so this is the same seat's
+    # two props and not two arbitrary rectangles.
+    overlaps = []
+    chairs, desks = boxes_by_role.get("chair", []), boxes_by_role.get("desk", [])
+    for c, d in zip(chairs, desks):
+        x0, y0 = max(c[0], d[0]), max(c[1], d[1])
+        x1, y1 = min(c[2], d[2]), min(c[3], d[3])
+        if x0 <= x1 and y0 <= y1:
+            overlaps.append((x0, y0, x1, y1))
+    in_overlap = set()
+    for (x0, y0, x1, y1) in overlaps:
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                in_overlap.add((x, y))
+    wrong = set(p for p in all_ink if _mismatch_count(scene, preview, shift, [p]))
+    unexplained = sorted(wrong - in_overlap)
+    report["absorbed"] = len(wrong) - len(unexplained)
+    report["unexplained"] = len(unexplained)
+
+    # Every pixel the two disagree on has to be inside a prop's own box, grown
+    # by the offset. Without this the shift measurement could be perfect while
+    # the floor, the wall or a prop the scene draws and this tool does not sat
+    # unexamined outside every box.
+    margin = max(1, abs(prop_offset[0]), abs(prop_offset[1]))
+    inside = set()
+    for (x0, y0, x1, y1) in all_boxes:
+        for y in range(y0 - margin, y1 + margin + 1):
+            for x in range(x0 - margin, x1 + margin + 1):
+                inside.add((x, y))
+    stray = {kind: [p for p in pts if p not in inside] for kind, pts in diff.items()}
+    n_stray = sum(len(v) for v in stray.values())
+    report["stray"] = n_stray
+
+    uniform = all(v[0] == prop_offset for v in per_role.values())
+    absorbed = report["absorbed"]
+    if (uniform and len(unexplained) == 0 and n_stray == 0 and prop_offset[0] == 0
+            and prop_offset[1] in ACCEPTED_PROP_ROW_OFFSETS
+            and (absorbed == 0 or ACCEPT_CHAIR_DESK_OVERLAP)):
+        report["ok"] = True
+        if prop_offset[1] != 0:
+            report["notes"].append(
+                "KNOWN DEFECT 1 of 2 — props agree only %d row off. `prop_origin` "
+                "returns `y + bottom_row` where a y-down blit needs "
+                "`y + bottom_row + 1`, so every prop in this picture stands one "
+                "pixel into the floor. Otherwise exact: %d copies over %d roles, "
+                "same art, same columns, nothing disagreeing outside a prop's box."
+                % (abs(prop_offset[1]), len(all_boxes), len(per_role)))
+        if absorbed:
+            report["notes"].append(
+                "KNOWN DEFECT 2 of 2 — %d pixels where this tool paints `chair` "
+                "over `desk` and the scene paints `desk` over `chair`. The depth "
+                "bias is transcribed with the wrong sign: sort on `y - bias`, not "
+                "`y + bias`. Confined to the %d seat overlaps, which is all an "
+                "empty room can show of it — the same inversion also puts every "
+                "seated character in front of its desk instead of at it."
+                % (absorbed, len(overlaps)))
+        return report
+
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, "%s-disagreement.png" % name)
+        marked = bytearray(preview[2])
+        for kind, colour in (("preview_only", (255, 64, 64, 255)),
+                             ("scene_only", (64, 255, 64, 255)),
+                             ("moved", (255, 220, 0, 255))):
+            for x, y in diff[kind]:
+                i = (y * preview[0] + x) * 4
+                marked[i:i + 4] = bytes(colour)
+        pnglite.save(path, preview[0], preview[1], marked)
+        report["diff_png"] = path
+
+    report["failures"].append(
+        "%s: %d pixels of the room disagree with the scene "
+        "(%d this tool drew over bare room — a copy the scene does not draw; "
+        "%d the scene drew over bare room — a copy this tool is missing or has "
+        "moved; %d drawn by both and different). %d of them fall outside every "
+        "prop box, which is floor, wall or a prop this tool knows nothing "
+        "about. Best single prop offset %+d,%+d leaves %d prop pixels wrong "
+        "outside the known chair/desk overlap; per role %s."
+        % (name, total, len(diff["preview_only"]), len(diff["scene_only"]),
+           len(diff["moved"]), n_stray, prop_offset[0], prop_offset[1],
+           len(unexplained),
+           ", ".join("%s x%d offset %+d,%+d residual %d"
+                     % (r, v[2], v[0][0], v[0][1], v[1])
+                     for r, v in sorted(per_role.items())) or "none"))
+    return report
+
+
+def verify(sets, names, out_dir, fixture=VERIFY_FIXTURE, at=VERIFY_AT,
+           binary=None, required=False):
+    """Run the comparison over every named theme. Returns an exit code.
+
+    A skip is not a pass and is never silent: with no built app, or no Metal
+    device, this says so in as many words and prints the themes it did not
+    check. `SPRITE_ROOM_REQUIRE_SCENE=1` turns that skip into a failure, which
+    is the same arrangement `SPRITE_ROOM_REQUIRE_ART` gives the art gate.
+    """
+    binary = binary or spriteroom_binary()
+    required = required or os.environ.get("SPRITE_ROOM_REQUIRE_SCENE") == "1"
+    if binary is None:
+        print("scene check: SKIPPED — no built app at .build/{debug,release}/"
+              "spriteroom, so the real scene cannot be rendered. %d theme(s) "
+              "unchecked: %s. Run `swift build`, or set SPRITE_ROOM_REQUIRE_SCENE=1 "
+              "to make this a failure." % (len(names), ", ".join(names)),
+              file=sys.stderr)
+        return 1 if required else 0
+
+    scratch = tempfile.mkdtemp(prefix="preview-verify-")
+    codes = []
+    try:
+        for name in names:
+            report = verify_theme(sets[name], name, binary, out_dir, scratch,
+                                  fixture=fixture, at=at)
+            for note in report["notes"]:
+                print("  %-16s %s" % (name, note))
+            if report["ok"]:
+                print("%-16s agrees with the scene" % name)
+            else:
+                codes.append(1)
+                for f in report["failures"]:
+                    print("%-16s DISAGREES: %s" % (name, f), file=sys.stderr)
+                if report.get("diff_png"):
+                    print("%-16s   marked-up diff: %s"
+                          % (name, os.path.relpath(report["diff_png"], REPO)),
+                          file=sys.stderr)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    return 1 if codes else 0
 
 
 def main(argv=None):
@@ -433,8 +1086,28 @@ def main(argv=None):
                          "animated prop is (or of --animated)")
     ap.add_argument("--frame", type=int, default=0,
                     help="draw this frame of the loop (default 0, which is `file`)")
+    ap.add_argument("--size", default="%dx%d" % (PANEL_W, PANEL_H),
+                    help="panel size WxH (default %dx%d, the real drop-down)"
+                         % (PANEL_W, PANEL_H))
+    ap.add_argument("--verify", action="store_true",
+                    help="compare this tool's room against the real scene, "
+                         "pixel for pixel, via `spriteroom --render`. Exits "
+                         "non-zero on any disagreement")
+    ap.add_argument("--fixture", default=VERIFY_FIXTURE,
+                    help="--verify: fixture to reach an empty room with")
+    ap.add_argument("--at", type=float, default=VERIFY_AT,
+                    help="--verify: fixture second to render the scene at; must "
+                         "be after every character has left")
     ap.add_argument("--manifest", default=MANIFEST)
     args = ap.parse_args(argv)
+
+    try:
+        size_w, size_h = (int(v) for v in args.size.lower().split("x", 1))
+        if size_w <= 0 or size_h <= 0:
+            raise ValueError
+    except ValueError:
+        print("error: --size wants WxH, e.g. 720x400", file=sys.stderr)
+        return 2
 
     with open(args.manifest) as f:
         m = json.load(f)
@@ -480,6 +1153,11 @@ def main(argv=None):
             print("error: no theme %r (have: %s)" % (name, ", ".join(sorted(sets))),
                   file=sys.stderr)
             return 2
+
+    if args.verify:
+        return verify(sets, names, args.out, fixture=args.fixture, at=args.at)
+
+    for name in names:
         # How many frames this theme actually has. A theme with no animated prop
         # has one, whatever --frames says, rather than silently writing six
         # copies of the same picture.
@@ -492,9 +1170,10 @@ def main(argv=None):
         for f in range(n_frames):
             suffix = "_f%02d" % f if (args.frames and loop > 1) else ""
             out = os.path.join(args.out, "%s%s.png" % (name, suffix))
-            how = render(sets[name], name, args.population, out, seated, variants,
-                         badge=badge, animated=args.animated,
-                         frame=f if args.frames else args.frame)
+            how, _image = render(sets[name], name, args.population, out, seated,
+                                 variants, badge=badge, animated=args.animated,
+                                 frame=f if args.frames else args.frame,
+                                 panel=(size_w, size_h))
             print("%-16s %-9s %s" % (name, how, os.path.relpath(out)))
     return 0
 
