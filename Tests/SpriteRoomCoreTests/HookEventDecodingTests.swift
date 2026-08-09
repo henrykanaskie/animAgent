@@ -9,8 +9,11 @@ import Testing
 /// app.
 @Suite struct HookEventDecodingTests {
 
+    /// "Every fixture" is all seventeen captures, not the eight the ingest layer
+    /// is signed off against — a payload that fails to decode is a fact about
+    /// the hook surface whichever file it was captured in.
     @Test func everyRealPayloadInEveryFixtureDecodes() throws {
-        for name in Fixtures.required {
+        for name in Fixtures.all {
             let entries = try Fixtures.entries(name)
             #expect(!entries.isEmpty, "\(name) parsed to nothing")
             for entry in entries where !entry.synthetic {

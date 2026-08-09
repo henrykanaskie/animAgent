@@ -742,9 +742,10 @@ import Testing
                 "an id was closed twice: \(closedIDs)")
     }
 
-    /// Present across every fixture, not just the one that named it.
+    /// Present across every fixture, not just the one that named it — and
+    /// "every fixture" means all seventeen, which is what `Fixtures.all` is for.
     @Test func noToolUseIDIsEverClosedTwice() async throws {
-        for name in Fixtures.required {
+        for name in Fixtures.all {
             let (_, deltas, _) = try await Fixtures.replay(name)
             var seen: Set<ToolUseID> = []
             for delta in deltas where delta.tag == "callClosed" || delta.tag == "callAbandoned" {
@@ -754,9 +755,9 @@ import Testing
         }
     }
 
-    /// Nothing closes that was never opened, either.
+    /// Nothing closes that was never opened, either. Also over all seventeen.
     @Test func everyCloseMatchesAnOpen() async throws {
-        for name in Fixtures.required {
+        for name in Fixtures.all {
             let (_, deltas, _) = try await Fixtures.replay(name)
             var open: Set<ToolUseID> = []
             for delta in deltas {
@@ -970,8 +971,15 @@ import Testing
             """)
     }
 
-    /// `killed-session` is the one fixture whose sweep does work, and it must
-    /// do exactly one thing.
+    /// `killed-session`'s sweep must do exactly one thing.
+    ///
+    /// It is **not** the only sweep in `fixtures/` that does work — this comment
+    /// used to say it was, and there are three: `concurrent-permission-gates`
+    /// and `denied-batch-cancel` end at a dialog nobody answered and hold an
+    /// orphan of their own. Their sweeps are asserted, derived rather than
+    /// named, in `everyFixtureReachesZeroOpenCallsAfterTheSweep`. What is
+    /// particular to this fixture is the count: it is the one capture whose
+    /// whole purpose is a single `PreToolUse` with no close of any kind. [I4]
     @Test func killedSessionSweepAbandonsExactlyOneCall() async throws {
         let reaper = Reaper(sessionIdleTimeout: 24 * 60 * 60)
         let (model, _, entries) = try await Fixtures.replay("killed-session", reaper: reaper)
@@ -981,25 +989,121 @@ import Testing
         #expect(swept.map(\.tag) == ["callAbandoned"])
     }
 
-    // MARK: every fixture
+    // MARK: every fixture — M6's three-orphan rule
 
-    /// `killed-session` is the only fixture whose stream leaves an orphan. Any
-    /// other one that does has a broken close path.
-    @Test func onlyKilledSessionLeavesAnOrphanAtEndOfStream() async throws {
-        for name in Fixtures.required {
-            let (model, _, _) = try await Fixtures.replay(name)
-            let open = await model.snapshot().totalOpenCalls
-            if name == "killed-session" {
-                #expect(open == 1, "killed-session should orphan exactly one call")
-            } else {
-                #expect(open == 0, "\(name) orphaned \(open) call(s)")
-            }
+    /// **Exactly three fixtures hold an orphan at end of stream, and they are
+    /// exactly the three with no `SessionEnd`.**
+    ///
+    /// M6's first exit criterion, and until this test it was asserted nowhere.
+    /// What stood here was `onlyKilledSessionLeavesAnOrphanAtEndOfStream`
+    /// iterating `Fixtures.required` — eight of the seventeen captures, holding
+    /// exactly one of the three. Its name and its comment were true within that
+    /// eight and false across `fixtures/`, so it was arranged such that it could
+    /// not produce the failure it named. `spriteroom-replay --all` prints these
+    /// counts and exits 0 whatever they are, so nothing else caught it either.
+    ///
+    /// **Both sides are derived and neither is a list of names**: the orphan set
+    /// by replaying, the `SessionEnd` set from the payloads. A capture added
+    /// tomorrow is scored by this rule on its next run rather than escaping it
+    /// until somebody remembers to add a name.
+    ///
+    /// The equality is the rule; the count is pinned too, because "exactly
+    /// three" is what M6 says. A new capture with no `SessionEnd` is a
+    /// legitimate thing to have and turns this red on purpose: M6's own
+    /// instruction is not to close a criterion by editing it, so the number
+    /// moves here and in `docs/05-MILESTONES.md` together, or not at all.
+    ///
+    /// The stepped and unstepped replays are required to agree, which says the
+    /// rule is a property of the captures and not of the harness's sweep
+    /// policy. They reach it by different routes: `parallel-denial` and
+    /// `denial-then-work` have their denied call reaped mid-stream when the
+    /// clock is walked and force-closed by `SessionEnd` when it is not.
+    @Test func exactlyTheFixturesWithNoSessionEndOrphanAtEndOfStream() async throws {
+        #expect(Fixtures.all.count == 17, """
+            fixtures/ holds \(Fixtures.all.count) captures, not the 17 M6 gates \
+            `spriteroom-replay --all` over: \(Fixtures.all)
+            """)
+
+        var orphaning: [String: Int] = [:]
+        var withoutSessionEnd: [String] = []
+
+        for name in Fixtures.all {
+            if try !Fixtures.reachesSessionEnd(name) { withoutSessionEnd.append(name) }
+
+            let (stepped, _, _) = try await Fixtures.replayAdvancingTheClock(name)
+            let open = await stepped.snapshot().totalOpenCalls
+            let (plain, _, _) = try await Fixtures.replay(name)
+            #expect(await plain.snapshot().totalOpenCalls == open, """
+                \(name): stepping the clock changed how many calls are open at \
+                end of stream, so the orphan set is an artefact of the sweep
+                """)
+            if open > 0 { orphaning[name] = open }
         }
+
+        #expect(orphaning.keys.sorted() == withoutSessionEnd, """
+            the orphans at end of stream are not the fixtures with no SessionEnd
+            orphaned:        \(orphaning.sorted { $0.key < $1.key })
+            no SessionEnd:   \(withoutSessionEnd)
+            A fixture that reaches SessionEnd and still orphans has a broken \
+            close path. One with no SessionEnd and no orphan means a capture \
+            stopped proving what it was taken for.
+            """)
+        #expect(orphaning.count == 3, """
+            M6 says exactly three fixtures legitimately orphan at end of stream; \
+            this run found \(orphaning.count): \(orphaning.keys.sorted()). \
+            Score the change against M6 rather than editing the criterion.
+            """)
+    }
+
+    /// **A fixture that reaches `SessionEnd` reaches zero without the sweep.**
+    ///
+    /// The other half of the same criterion, and the half that is about close
+    /// paths rather than about captures. `SessionEnd` force-closes everything in
+    /// its session [I4], so a fixture carrying one has no business leaving work
+    /// for the harness's closing sweep — if it does, an event-stream close path
+    /// is missing and the sweep is hiding it.
+    ///
+    /// Asserted twice over: nothing open when the stream runs out, *and* a
+    /// closing sweep that abandons nothing. The second is what "without the
+    /// sweep" actually means; the first alone would pass on a fixture whose
+    /// calls the mid-stream reaper had quietly taken.
+    ///
+    /// The stricter form of this — zero **without the reaper at all**, not one
+    /// `callAbandoned` anywhere — belongs to `tool-failure` alone and lives in
+    /// `toolFailureClosesEverythingWithoutTheReaper` and
+    /// `toolFailureNeedsNoReaperEvenWithTheClockAdvancing`. It cannot be
+    /// generalised: `parallel-denial` and `denial-then-work` hold an
+    /// interactively denied call that nothing in the stream ever names, and no
+    /// rule can invent a close for it.
+    @Test func everyFixtureThatReachesSessionEndReachesZeroWithoutTheSweep() async throws {
+        var checked: [String] = []
+
+        for name in Fixtures.all {
+            guard try Fixtures.reachesSessionEnd(name) else { continue }
+            checked.append(name)
+
+            let (model, _, entries) = try await Fixtures.replayAdvancingTheClock(name)
+            let open = await model.snapshot().totalOpenCalls
+            #expect(open == 0, "\(name) reaches SessionEnd and still left \(open) call(s) open")
+
+            let last = try #require(entries.last?.receivedAt)
+            let swept = await model.sweep(
+                at: last.addingTimeInterval(Reaper.longestDeadlineInterval + 1))
+            #expect(!swept.contains { $0.tag == "callAbandoned" }, """
+                \(name): the closing sweep had work to do — \(swept.map(\.tag)) — \
+                so a close path in the event stream is missing
+                """)
+        }
+
+        #expect(checked.count == 14, """
+            14 of the 17 captures reach a SessionEnd; this run found \
+            \(checked.count): \(checked)
+            """)
     }
 
     /// Every event routes to the sandbox `cwd` it was captured in.
     @Test func everyEventRoutesByCWD() async throws {
-        for name in Fixtures.required {
+        for name in Fixtures.all {
             let entries = try Fixtures.entries(name)
             let projects = Set(entries.compactMap { $0.event?.cwd })
             #expect(projects.count == 1, "\(name) spans \(projects.count) projects")

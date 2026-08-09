@@ -166,11 +166,31 @@ import Testing
 
     /// Belt and braces: the harness's own end-of-run sweep must leave nothing
     /// open in any fixture.
+    ///
+    /// **"Every fixture" is all seventeen.** It iterated `Fixtures.required` —
+    /// eight — while saying every, which is the same overclaim the orphan rule
+    /// carried: the three captures that actually need this sweep are
+    /// `killed-session`, `concurrent-permission-gates` and
+    /// `denied-batch-cancel`, and only the first was in the eight.
+    ///
+    /// The sweep is also required to abandon **exactly** the calls that were
+    /// open when the stream ran out — no fewer, which would be a call surviving
+    /// it, and no more, which would mean it invented one. That is where the
+    /// other two fixtures' sweeps are asserted;
+    /// `killedSessionSweepAbandonsExactlyOneCall` keeps the named claim for the
+    /// capture whose whole purpose is a single unclosed `PreToolUse`.
     @Test func everyFixtureReachesZeroOpenCallsAfterTheSweep() async throws {
-        for name in Fixtures.required {
+        for name in Fixtures.all {
             let (model, _, entries) = try await Fixtures.replay(name)
+            let orphans = await model.snapshot().totalOpenCalls
             let last = try #require(entries.last?.receivedAt)
-            await model.sweep(at: last.addingTimeInterval(Reaper.longestDeadlineInterval + 1))
+            let swept = await model.sweep(
+                at: last.addingTimeInterval(Reaper.longestDeadlineInterval + 1))
+            let abandoned = swept.filter { $0.tag == "callAbandoned" }.count
+            #expect(abandoned == orphans, """
+                \(name): \(orphans) call(s) open at end of stream, \(abandoned) \
+                abandoned by the sweep
+                """)
             #expect(await model.snapshot().totalOpenCalls == 0, "\(name) left calls open")
         }
     }

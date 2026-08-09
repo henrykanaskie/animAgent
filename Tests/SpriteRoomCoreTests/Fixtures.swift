@@ -38,8 +38,36 @@ enum Fixtures {
         "denial-then-work",
     ]
 
+    /// **Every capture in `fixtures/`, read off the directory rather than
+    /// listed here.**
+    ///
+    /// `required` is the eight the ingest layer is *signed off* against; it is
+    /// not the corpus. There are seventeen files, and M6 gates on
+    /// `spriteroom-replay --all` over all of them — so a rule stated over "every
+    /// fixture" has to be iterated over this list, not that one. Derived from
+    /// the directory on purpose: a capture added tomorrow joins every such rule
+    /// on its next run instead of escaping it until somebody remembers a name.
+    static let all: [String] = {
+        let contents = (try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: nil)) ?? []
+        return contents
+            .filter { $0.pathExtension == "jsonl" }
+            .map { $0.deletingPathExtension().lastPathComponent }
+            .sorted()
+    }()
+
     static func url(_ name: String) -> URL {
         directory.appending(path: "\(name).jsonl")
+    }
+
+    /// Whether the capture's stream contains a `SessionEnd`.
+    ///
+    /// The discriminator behind M6's three-orphan rule: a fixture that reaches
+    /// `SessionEnd` has every open call force-closed by it [I4], and one that
+    /// does not — a `kill -9`, a driver timing out at a dialog — legitimately
+    /// ends with a call nothing in the stream will ever close.
+    static func reachesSessionEnd(_ name: String) throws -> Bool {
+        try entries(name).contains { $0.event?.kind.name == "SessionEnd" }
     }
 
     static func entries(_ name: String) throws -> [HookLogEntry] {

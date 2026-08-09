@@ -551,7 +551,7 @@ import Testing
     /// subagent's marked calls could not be shortened by one even if a subagent
     /// gate existed.
     @Test func aPromptOnlyEverAnswersItsOwnAgentsGate() async throws {
-        for name in Fixtures.required {
+        for name in Fixtures.all {
             for candidate in try Fixtures.entries(name)
             where candidate.event?.kind == .userPromptSubmit {
                 #expect(candidate.event?.agentID == .mainThread,
@@ -670,8 +670,14 @@ import Testing
     /// own state, which is what makes all three of these true by construction
     /// rather than by three separate pieces of housekeeping somebody has to
     /// remember.
+    ///
+    /// **Over all seventeen captures.** It named `Fixtures.required` plus two
+    /// interactive files — one of which, `permission-prompt`, had already joined
+    /// the required set at ADR-001, so the list was a duplicate and a gap at
+    /// once: `concurrent-permission-gates`, the one capture that ends with two
+    /// gates outstanding, was in neither.
     @Test func nothingIsMarkedOnceEveryFixtureHasFinished() async throws {
-        for name in Fixtures.required + ["permission-prompt", "interactive-session"] {
+        for name in Fixtures.all {
             let (model, _, entries) = try await Fixtures.replay(name)
             let last = try #require(entries.last?.receivedAt)
             await model.sweep(at: last.addingTimeInterval(Reaper.longestDeadlineInterval + 1))

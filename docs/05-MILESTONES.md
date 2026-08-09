@@ -156,6 +156,24 @@ Do not close one of these by editing the criterion.
   denied call is closed by nothing at all. The rule that still holds is that a
   fixture which *reaches* `SessionEnd` must reach zero without the sweep, and
   `tool-failure` must reach zero without the reaper at all.
+  `exactlyTheFixturesWithNoSessionEndOrphanAtEndOfStream`,
+  `everyFixtureThatReachesSessionEndReachesZeroWithoutTheSweep`,
+  `everyFixtureReachesZeroOpenCallsAfterTheSweep`,
+  `toolFailureClosesEverythingWithoutTheReaper`,
+  `toolFailureNeedsNoReaperEvenWithTheClockAdvancing`.
+
+  **This criterion named no test until 2026-08-08 and was guarded by nothing.**
+  `spriteroom-replay --all` prints the orphan counts and exits 0 whatever they
+  are, and the suite's own orphan test iterated the eight fixtures in
+  `Fixtures.required` — which hold one of the three — under the name
+  "onlyKilledSessionLeavesAnOrphanAtEndOfStream". True within the eight, false
+  across the seventeen, and arranged so it could not produce the failure it
+  named. The first two tests above replace it over all seventeen, and both sides
+  of the rule are **derived** — the orphan set by replaying, the `SessionEnd` set
+  from the payloads — so a capture added tomorrow is scored by it rather than
+  escaping it until somebody remembers a name. The count of three is pinned as
+  well as the equality: a new capture with no `SessionEnd` turns them red on
+  purpose, and the number moves here and in the tests together, or not at all.
 - **The room is drawn at `1x` at every population.** `RoomCamera`'s
   `comfortablePopulation` is empty by default, so population no longer pulls the
   camera in, and a camera explicitly told to prefer a closer scale still gets it —
@@ -228,11 +246,12 @@ Do not close one of these by editing the criterion.
   sprite.
 - **Six themes in the manifest**, each binding every prop role the scene draws,
   each resolving a floor and a wall at the declared tile size, each carrying
-  `assignable`, and `themes.default` naming a theme that exists. No theme name and
-  no filename is hard-coded in the scene sources. `everyThemeBindsEveryRoleTheSceneDraws`,
+  `assignable`, and `themes.default` naming a theme that exists. No theme name is
+  hard-coded anywhere under `Sources/`, and no art filename in the one module that
+  loads a texture. `everyThemeBindsEveryRoleTheSceneDraws`,
   `everyThemeResolvesAFloorAndAWallOfTheDeclaredTileSize`,
   `theDeclaredDefaultNamesADeclaredTheme`,
-  `noThemeNameAndNoFilenameIsWrittenDownInTheSceneSources`.
+  `noThemeNameAndNoArtFilenameIsWrittenDownInSources`.
 - **`scripts/lint-palette.py` passes over `room` and over every theme
   separately, on the same thresholds, with no threshold weakened.** [I7] The
   verifier records the six-theme table, because the interesting number is the
@@ -296,19 +315,45 @@ Do not close one of these by editing the criterion.
   every character converged on the anchor and replayed a delivery from minutes
   earlier. A report now takes nobody out of the room, is not replayed at
   departure, and a reporter approaches on its own side of the anchor so a round
-  trip does not cross it twice. A leaver caught in the aisle exits through its own
-  station, and a longer walk never finishes sooner than a shorter one.
+  trip does not cross it twice. A leaver caught mid-report comes home up its own
+  column and goes out upstage, and a longer walk never finishes sooner than a
+  shorter one.
   `aReportInAnEarlierFrameDoesNotReplayItselfAtDeparture`,
   `aReportIsAWalkOnItsOwnAndTakesNobodyOutOfTheRoom`,
   `aReporterApproachesItsAnchorFromItsOwnSideAndTurnsToFaceIt`,
-  `aDeliveryStationStaysClaimedUntilTheReporterIsHomeAgain`,
-  `aLeaverCaughtInTheAisleGoesOutThroughItsOwnStation`,
+  `aLeaverCaughtMidReportComesHomeUpItsOwnColumnAndLeavesUpstage`,
   `aWalkTakesTimeInProportionToItsLengthAtEveryLength`.
 
   **Closed at M6d, by construction rather than by ordering.** The delivery
   position is now a pure function of the reporter's seat, so there are no shared
   slots to claim and nothing can be claimed out of order. `DeliveryStation`,
   `reportingSlots`, `claimStation` and `releaseStation` are deleted.
+
+  **Two of the tests named above were renamed and one was deleted, and this
+  bullet went on naming all three.** The deleted one was
+  "aDeliveryStationStaysClaimedUntilTheReporterIsHomeAgain", removed by the same
+  commit whose paragraph above says its subject is deleted — a criterion left
+  citing a function nobody can run, which is a criterion that cannot fail. What
+  it used to prove is now held by construction and is asserted where the
+  construction is: `aReporterApproachesItsAnchorFromItsOwnSideAndTurnsToFaceIt`
+  checks the delivery point is a pure function of `(anchorSeat, reporterSeat)`
+  and sits on the reporter's own delivery row, over every pairing of seats, so
+  there is no shared slot for a second reporter to take. `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`
+  and `noAdversarialPairingOfBeatsEverTouchesTwoPlates` cover the collision the
+  claim was there to rule out. The renames were mechanical: the leaver test
+  above, and `noThemeNameAndNoArtFilenameIsWrittenDownInSources` in the themes
+  bullet.
+
+  All three were found by an audit rather than by anything in this repository,
+  which is the same complaint ADR-002 §15 made about M6 having no milestone.
+  `everyTestTheMilestonesNameExists` now resolves every test name backticked in
+  this file against the `func`s in `Tests/` on every run, so the next rename is
+  a red test rather than a silent hole in a criterion.
+
+  It has no exemption list, because an exemption list is how a mechanical rule
+  turns back into a convention. **A name that no longer exists is written in
+  quotes rather than backticks** — the two above, and the one in the replay
+  criterion. Backticks are the claim; quotes are the history.
 - **Every badge in the tool→badge table has art on disk, and the four authored
   ones say they are authored and why.** `magnifier`, `terminal`, `globe` and
   `plug` exist in no pack we own; they are drawn in the pack's own bubble and
