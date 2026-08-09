@@ -129,14 +129,30 @@ public enum ThemeSelector {
     /// things. [§4]
     public static let defaultStationID = "default"
 
-    /// §4, total by construction:
+    /// §4 as amended by §14c, total by construction:
     ///
     /// ```
     /// station(agent) =
     ///     "main"                                          if agent_id is absent
     ///     "default"                                       if agent_type is absent or ""
-    ///     rendezvous(agent_type, theme.numberedStations)  otherwise
+    ///     roles[agent_type]                               if the theme names that exact type
+    ///     rendezvous(agent_type, theme.assignableStations) otherwise
+    ///     "default"                                       if the pool is empty
     /// ```
+    ///
+    /// **The two tiers are the whole of I1 here, and they are the same two the
+    /// wardrobe has** — see `costume(agentID:agentType:in:)`, whose doc argues
+    /// it at length. A station says what kind of worker sits at it, and whether
+    /// that is true depends entirely on how it was reached: through `roles` it
+    /// is a translation of the exact `agent_type` a session produced, which is
+    /// the licence the nameplate already runs on; through the hash it must claim
+    /// nothing, so the hash's range is a pool whose members are neutral by
+    /// contract.
+    ///
+    /// **Exact match, no folding**, for the same reason `cwd` is not normalised:
+    /// `agent_type` is the user's own string and this app does not invent
+    /// normalisations of those. A manifest that wants `Explore` and `explore` to
+    /// agree lists both.
     ///
     /// **Empty and absent `agent_type` take the same branch**, and that is a
     /// measurement rather than defensiveness: M0c observed `agent_type` arriving
@@ -149,12 +165,9 @@ public enum ThemeSelector {
     /// [§4]
     ///
     /// **The empty-pool case is not in §8 and is resolved here** — a theme that
-    /// declares no numbered stations seats every typed subagent at `default`,
+    /// declares no assignable stations seats every typed subagent at `default`,
     /// because `default` is already this function's answer for "we have nothing
-    /// that distinguishes this agent". No theme in the shipped manifest declares
-    /// any numbered station, so today this is the branch every subagent takes.
-    /// Recorded in the implementation report as a gap in the document rather
-    /// than fixed silently.
+    /// that distinguishes this agent".
     public static func station(
         agentID: String?, agentType: String?, in theme: Manifest.Theme
     ) -> String {
@@ -162,7 +175,8 @@ public enum ThemeSelector {
         // main thread is decided; this mirrors it and does not second-guess it.
         guard agentID != nil else { return mainStationID }
         guard let agentType, !agentType.isEmpty else { return defaultStationID }
-        return rendezvous(key: agentType, over: theme.numberedStationIDs) ?? defaultStationID
+        if let named = theme.stationRoles[agentType] { return named }
+        return rendezvous(key: agentType, over: theme.assignableStationIDs) ?? defaultStationID
     }
 
     // MARK: The costume

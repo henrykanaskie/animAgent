@@ -75,29 +75,33 @@ TILE = 32
 SEAT_CAPACITY = 7
 SEAT_SPACING_TILES = 3
 COLUMNS = SEAT_CAPACITY * SEAT_SPACING_TILES + 4      # 25
-ROWS = 6
+ROWS = 9
 WALL_ROWS = 2
-FLOOR_ROWS = ROWS - WALL_ROWS                          # 4
+FLOOR_ROWS = ROWS - WALL_ROWS                          # 7
 WIDTH = COLUMNS * TILE                                 # 800
-HEIGHT = ROWS * TILE                                   # 192
+HEIGHT = ROWS * TILE                                   # 288
 BASELINE_Y = TILE * 2                                  # 64
 AISLE_Y = BASELINE_Y - TILE                            # 32
-WALL_BASE_Y = FLOOR_ROWS * TILE                        # 128
-DRAWN_ROWS = range(-6, ROWS + 9)
+WALL_BASE_Y = FLOOR_ROWS * TILE                        # 224
+OVERSCAN_ROWS = 6
+DRAWN_ROWS = range(-OVERSCAN_ROWS, ROWS + OVERSCAN_ROWS)
 DRAWN_COLUMNS = range(-8, COLUMNS + 9)
 
-# The back row draws `board` at every even seat, so consecutive copies are
-# SEAT_SPACING_TILES apart. A board whose content is wider than that overlaps
-# its own neighbours and clips them, which is not a thing you can see in a
-# manifest — it is only visible once four copies are on screen. M6c hit it with
-# a 120px monitor wall. Every shipping board is 30-64 px.
+# The decoration bands draw one prop per seat pitch, so consecutive copies of
+# one role are two pitches apart and consecutive props of *any* role one pitch.
+# A board whose content is wider than a pitch overlaps its own neighbours and
+# clips them, which is not a thing you can see in a manifest — it is only
+# visible once four copies are on screen. M6c hit it with a 120px monitor wall.
+# Every shipping board is 30-64 px.
 BACK_ROW_PITCH = SEAT_SPACING_TILES * TILE                 # 96
 
-# RoomScene.swift: the back row sits one tile behind the seat line, and the
-# foreground row sits below the content band. The band needs badge and plate
-# metrics the scene measures from the manifest; this only needs the bottom, and
-# uses the same expression with the nameplate drop the font produces.
-BACK_ROW_Y = BASELINE_Y + TILE                         # 96
+# RoomLayout.swift: seats sit on two rows a character's height apart, chosen by
+# the parity of the seat's ring, and the two decoration bands stand upstage of
+# both — accents a tile behind the back row, backdrops against the wall.
+SEAT_ROW_DEPTH_TILES = 2
+BACK_SEAT_ROW_Y = BASELINE_Y + TILE * SEAT_ROW_DEPTH_TILES   # 128
+ACCENT_ROW_Y = BACK_SEAT_ROW_Y + TILE                        # 160
+BACKDROP_ROW_Y = WALL_BASE_Y                                 # 224
 PLATE_DROP_BELOW_FEET = 20
 CONTENT_BAND_BOTTOM = AISLE_Y - PLATE_DROP_BELOW_FEET  # 12
 
@@ -143,6 +147,21 @@ def seat_x(index):
     return seat_column(index) * TILE + TILE // 2
 
 
+def seat_ring(index):
+    wrapped = index % SEAT_CAPACITY
+    return (wrapped + 1) // 2
+
+
+def seat_y(index):
+    """Which of the two seat rows this seat is on: its ring's parity.
+
+    `RoomLayout.isBackRow(seat:)`. Ring parity along x is perfect alternation,
+    so this puts the occupied columns in a checkerboard without moving any of
+    them — which is why every clearance argument in the layout survives it.
+    """
+    return BACK_SEAT_ROW_Y if seat_ring(index) % 2 else BASELINE_Y
+
+
 def prop_layout():
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
@@ -172,12 +191,22 @@ def prop_layout():
     rule; the role is not.
     """
     placed = []
-    # Back row: board and plant alternating, one tile behind the seat line.
-    for seat in range(SEAT_CAPACITY):
-        x = seat_column(seat) * TILE + TILE // 2 + TILE * 1.5
-        if x >= WIDTH:
-            continue
-        placed.append(("board" if seat % 2 == 0 else "plant", x, BACK_ROW_Y, 0.0))
+    # Two decoration bands upstage of both seat rows, alternating along x:
+    # backdrops against the wall, accents a tile behind the back seat row.
+    # Alternating on x rather than on seat index is what stopped all four
+    # backdrops landing in the left half of the room and all three accents in
+    # the right — seats fill outward in pairs, so `seat % 2` is *which side*.
+    # The counts are unchanged by the reordering (board 4, plant 3), which is
+    # the constraint this placement was designed against: the motion budget is
+    # priced per copy. [ADR-002 §14b]
+    columns = sorted(
+        x for x in (seat_column(s) * TILE + TILE // 2 + TILE * 1.5
+                    for s in range(SEAT_CAPACITY))
+        if x < WIDTH)
+    for index, x in enumerate(columns):
+        backdrop = index % 2 == 0
+        placed.append(("board" if backdrop else "plant", x,
+                       BACKDROP_ROW_Y if backdrop else ACCENT_ROW_Y, 0.0))
     # No foreground row. `4e7b43d` removed it from the scene and replaced it
     # with a stronger rule than the one it lost: nothing decorative is drawn
     # nearer the camera than the seat row. This preview drew seven plants that
@@ -188,9 +217,9 @@ def prop_layout():
     # takes the row depth plus a half so it occludes the seated body — at 32 px
     # that overlap is the only cue the character is sitting *at* the desk.
     for seat in range(SEAT_CAPACITY):
-        placed.append(("chair", seat_x(seat), BASELINE_Y, -0.25))
+        placed.append(("chair", seat_x(seat), seat_y(seat), -0.25))
     for seat in range(SEAT_CAPACITY):
-        placed.append(("desk", seat_x(seat) + TILE * 0.875, BASELINE_Y, 0.5))
+        placed.append(("desk", seat_x(seat) + TILE * 0.875, seat_y(seat), 0.5))
     return placed
 
 
@@ -439,7 +468,8 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # its desk, which is what the biases in `prop_layout()` are for.
     for seat in range(population):
         variant = seed_variants[seat % len(seed_variants)]
-        drawn.append((BASELINE_Y, "char", (characters[variant], seat_x(seat))))
+        drawn.append((seat_y(seat), "char",
+                      (characters[variant], seat_x(seat), seat_y(seat))))
 
     # What was placed must match what `role_placements()` says is placed, because
     # the lint's motion budget multiplies a prop's own motion by that count and
@@ -490,9 +520,9 @@ def render(theme, name, population, out_path, characters, seed_variants,
             sx, sy = to_screen(left, top)
             blit(buf, panel_w, panel_h, px, w, h, sx, sy)
         else:
-            path, x = payload
+            path, x, row = payload
             w, h, px = load(path)
-            sx, sy = to_screen(x - w / 2.0, BASELINE_Y + h)
+            sx, sy = to_screen(x - w / 2.0, row + h)
             blit(buf, panel_w, panel_h, px, w, h, sx, sy)
 
     # Badges last, and above everything, which is where the scene puts them.
@@ -503,7 +533,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
     if badge is not None:
         bw, bh, bpx = load(badge["file"])
         for seat in range(population):
-            head_top = BASELINE_Y + CHAR_H - badge["head_top_px"]
+            head_top = seat_y(seat) + CHAR_H - badge["head_top_px"]
             sx, sy = to_screen(seat_x(seat) - bw / 2.0, head_top + bh)
             blit(buf, panel_w, panel_h, bpx, bw, bh, sx, sy)
 

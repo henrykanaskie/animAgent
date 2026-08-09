@@ -5069,7 +5069,226 @@
         "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_97.png",
         "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_98.png",
         "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_99.png"
-      ]
+      ],
+      "stations": {
+        "note": "A station is the workspace one agent sits at: the theme's own desk and chair, plus at most one floor-standing prop beside the seat. [ADR-002 SS4, SS7, SS14c]\n\nTwo tiers, exactly as `characters.costumes` has them, and the split is the whole of I1 here. `roles` is keyed on the EXACT agent_type string a session produced, so a station reached through it is the room repeating a name the user chose - the same licence the nameplate runs on - and it may therefore assert what kind of worker this is. `assignable` is the pool the hash draws from for an agent_type nobody anticipated; arbitrary user text licenses no claim about the work, so every member of it must carry `asserts: false` and says only `this is a different agent from that one`.\n\nDeclared ONCE, here under `room`, and inherited by every theme that does not declare its own: only one chair in either pack is a side view with its backrest on the left, so a station cannot be themed art anyway, and six identical copies of this block would be six places for it to drift. A theme that declares `props.stations` overrides the whole block for itself. `desk` and `chair` are omitted from every station below and inherited from the theme's own `props.roles`, so a station changes what stands BESIDE the seat and never what the theme's furniture looks like.\n\nGeometry, and both numbers are the layout's rather than taste. A prop is placed one tile to the character's left on the seat row, so its content box must be at most 32px wide: the desk occupies x+12..x+44 of a 96px seat pitch and the next seat's prop starts at x+48. A station desk must also be at most 44px tall, because it is drawn IN FRONT of the body and 44 is how far the shortest variant's head sits above its own feet.",
+        "sets": {
+          "main": {
+            "title": "the main desk",
+            "what": "the main thread's own seat. Reached only by the identity rule - agent_id absent IS the main agent - never by the hash, so it says which thread this is and nothing about what kind of work it does.",
+            "asserts": false,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_98.png",
+              "source_set": "Modern Office singles",
+              "single_index": 98,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "tall leafy pot plant, floor standing",
+              "content_box": {
+                "x": 0,
+                "y": 20,
+                "w": 32,
+                "h": 56
+              }
+            }
+          },
+          "default": {
+            "title": "an unmarked desk",
+            "what": "a subagent whose agent_type we were not told, or were told was empty. It carries no prop at all, because the honest picture for an agent we cannot name is the empty desk every seat already has. This is the question_mark of furniture. [I1]",
+            "asserts": false
+          },
+          "survey": {
+            "title": "the survey desk",
+            "what": "a packed rucksack standing at the desk: the agent that goes out, looks around and comes back. Reached only from `roles`, where the key is the exact agent_type the user's session produced.",
+            "asserts": true,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_331.png",
+              "source_set": "Modern Office singles",
+              "single_index": 331,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "hiking rucksack, packed, standing on the floor",
+              "content_box": {
+                "x": 4,
+                "y": 40,
+                "w": 26,
+                "h": 42
+              }
+            }
+          },
+          "screens": {
+            "title": "the screen desk",
+            "what": "two monitors on a floor stand: the agent that works at a machine. The commonest station in any real room, because general-purpose is the commonest agent_type in every captured session.",
+            "asserts": true,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_275.png",
+              "source_set": "Modern Office singles",
+              "single_index": 275,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "twin monitors on a floor pedestal, angled",
+              "content_box": {
+                "x": 0,
+                "y": 2,
+                "w": 32,
+                "h": 70
+              }
+            }
+          },
+          "drafting": {
+            "title": "the drafting desk",
+            "what": "a stack of paper reams: the agent whose output is a document. Plan writes a plan; the room says so with paper and nothing else.",
+            "asserts": true,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_155.png",
+              "source_set": "Modern Office singles",
+              "single_index": 155,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "stack of paper reams on the floor",
+              "content_box": {
+                "x": 0,
+                "y": 54,
+                "w": 32,
+                "h": 42
+              }
+            }
+          },
+          "machine": {
+            "title": "the machine desk",
+            "what": "a floor-standing copier: the agent that runs something and reads what comes out of it.",
+            "asserts": true,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_168.png",
+              "source_set": "Modern Office singles",
+              "single_index": 168,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "floor-standing office copier with an output tray",
+              "content_box": {
+                "x": 4,
+                "y": 32,
+                "w": 24,
+                "h": 44
+              }
+            }
+          },
+          "reference": {
+            "title": "the reference desk",
+            "what": "a filing cabinet: the agent whose job is to look things up.",
+            "asserts": true,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_204.png",
+              "source_set": "Modern Office singles",
+              "single_index": 204,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "two-drawer filing cabinet, floor standing",
+              "content_box": {
+                "x": 0,
+                "y": 40,
+                "w": 24,
+                "h": 48
+              }
+            }
+          },
+          "n01": {
+            "title": "a desk with a plant",
+            "what": "neutral. Says only `this is a different agent from that one`, which is exactly and only what an agent_type nobody anticipated licenses. [I1]",
+            "asserts": false,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_100.png",
+              "source_set": "Modern Office singles",
+              "single_index": 100,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "snake plant in a pot, floor standing",
+              "content_box": {
+                "x": 4,
+                "y": 24,
+                "w": 22,
+                "h": 52
+              }
+            }
+          },
+          "n02": {
+            "title": "a desk by the cooler",
+            "what": "neutral. See n01.",
+            "asserts": false,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_173.png",
+              "source_set": "Modern Office singles",
+              "single_index": 173,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "water cooler, bottle on a stand",
+              "content_box": {
+                "x": 2,
+                "y": 16,
+                "w": 26,
+                "h": 60
+              }
+            }
+          },
+          "n03": {
+            "title": "a desk with a case",
+            "what": "neutral. See n01.",
+            "asserts": false,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_147.png",
+              "source_set": "Modern Office singles",
+              "single_index": 147,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "briefcase, standing on the floor",
+              "content_box": {
+                "x": 0,
+                "y": 36,
+                "w": 30,
+                "h": 32
+              }
+            }
+          },
+          "n04": {
+            "title": "a desk by the locker",
+            "what": "neutral. See n01.",
+            "asserts": false,
+            "prop": {
+              "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_202.png",
+              "source_set": "Modern Office singles",
+              "single_index": 202,
+              "provenance": "pack",
+              "identified_by": "rendered from assets/processed/room/32x32/singles with scripts/contact-sheet.py --office and inspected at 3x and 6x; the pack ships no names for its singles",
+              "what": "tall single locker, floor standing",
+              "content_box": {
+                "x": 0,
+                "y": 8,
+                "w": 24,
+                "h": 76
+              }
+            }
+          }
+        },
+        "roles": {
+          "Explore": "survey",
+          "Plan": "drafting",
+          "claude": "screens",
+          "claude-code-guide": "reference",
+          "general-purpose": "screens",
+          "build-verifier": "machine",
+          "ingest-engineer": "screens",
+          "planner": "drafting",
+          "scene-engineer": "screens",
+          "test-engineer": "machine",
+          "ui-engineer": "screens"
+        },
+        "assignable": [
+          "n01",
+          "n02",
+          "n03",
+          "n04"
+        ]
+      }
     }
   },
   "badges": {

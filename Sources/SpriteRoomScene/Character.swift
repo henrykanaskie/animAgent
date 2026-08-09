@@ -16,21 +16,28 @@ import SpriteKit
 /// event arriving, which is what keeps a burst of short calls from stuttering.
 /// [I2/I3]
 ///
-/// **Nothing is held, and a costume is not a held thing.** The sprites have no
-/// per-frame hand anchors, so tool identity lives entirely in the badge and the
-/// body stays in its pose. There is no held-object layer here and there must not
-/// be one — the two folders that would fill it, `Books` and `Smartphones`, carry
-/// ink on one standing front-facing row each and this room is side-view seated.
+/// **Three things are held apart here and they are not variants of each other.**
 ///
-/// The costume layer below is a different thing and it is worth saying why in
-/// the same breath, because they were confused for three months. A held object
-/// is a prop that must be *placed* against a hand nobody drew an anchor for. A
-/// costume is the generator's own overlay sheet at the premade sheet's exact
-/// geometry: it registers frame for frame on every pose row including `sit`,
-/// with no offset, so there is nothing to place. It also answers a different
-/// question — a held object would say what the agent is *doing*, which the badge
-/// already says; a costume says what the agent *is*, which only `agent_type`
-/// knows and which nothing on screen said until now.
+/// - The **costume** is the generator's own overlay sheet at the premade sheet's
+///   exact geometry: it registers frame for frame on every pose row including
+///   `sit`, with no offset, so there is nothing to place. It says what the agent
+///   *is*, which only `agent_type` knows.
+/// - The **held object** says what the agent is *doing*, and it is a prop that
+///   has to be *placed*. This class used to carry a comment saying there must
+///   never be one, on the grounds that the sprites have no per-frame hand
+///   anchors. The premise is right about the download and the conclusion did not
+///   follow: on the one pose this room draws, **the hands do not move**, so
+///   there is a single anchor to measure rather than a per-frame table to
+///   invent. It is measured — `x 14...17, y 52...55` in the 32x64 canvas, the
+///   same box on every cast variant, every `sit` frame and both facings — and
+///   `HeldObject` carries the derivation and the numbers.
+/// - The **badge** still carries tool identity. The held object is a colour
+///   block inside an existing outline and cannot change the silhouette on this
+///   pose; it is deliberately not asked to do the badge's job.
+///
+/// The two `Books` and `Smartphones` folders remain unusable and the reason is
+/// unchanged: they carry ink on one standing front-facing row each, and this
+/// room is side-view seated.
 @MainActor
 public final class Character: SKNode {
 
@@ -57,6 +64,13 @@ public final class Character: SKNode {
         /// character, and nothing about the desk/body depth tie in `RoomScene`
         /// moves, because the character node's `zPosition` is unchanged.
         public static let costume: CGFloat = 1
+        /// The held object, **above every costume layer and still inside the
+        /// character's own node**. Above the costume because a thing in your
+        /// hands is in front of your clothes; inside the node because it is part
+        /// of the body's depth, so a character crossing the aisle carries it in
+        /// front of the seated row exactly as it carries its own torso. The gap
+        /// to `costume` is wide enough that a costume can never grow into it.
+        public static let held: CGFloat = 100
         public static let badge: CGFloat = 4000
         public static let badgeCount: CGFloat = 4001
         public static let nameplate: CGFloat = 5000
@@ -105,6 +119,9 @@ public final class Character: SKNode {
     /// in the same order and the same count. Indexed with the body's own frame
     /// index, so a costume cannot drift out of phase with the person wearing it.
     private var costumeFrames: [[SKTexture]?] = []
+    /// What is in the hands, or nothing. One node, created at spawn, never
+    /// added or removed — only its texture and its visibility change.
+    private let heldNode = SKSpriteNode()
     private let badgeNode = SKSpriteNode()
     private let badgeCountNode = SKSpriteNode()
     private let nameplateNode = SKSpriteNode()
@@ -188,6 +205,17 @@ public final class Character: SKNode {
             addChild(node)
         }
 
+        // The held object, over the costume and far under the badge band.
+        // `anchorPoint` is the centre so that facing left is one sign flip on
+        // both the position and the scale, rather than a second offset that
+        // could disagree with the first.
+        heldNode.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        heldNode.size = CGSize(
+            width: HeldObjectArt.canvasWidth, height: HeldObjectArt.canvasHeight)
+        heldNode.zPosition = Layer.held
+        heldNode.isHidden = true
+        addChild(heldNode)
+
         let headTopY = Double(canvas.height - store.headTop(variant: variant))
         let badgeAnchor = store.manifest.badges.anchor
         badgeNode.anchorPoint = CGPoint(x: badgeAnchor.x, y: badgeAnchor.y)
@@ -251,6 +279,10 @@ public final class Character: SKNode {
         let attentionTexture = selection.isAttention ? store.attentionTexture() : nil
         let sleepTexture = selection.isSleeping ? store.sleepTexture() : nil
         let toolTexture = selection.badge.flatMap(store.badgeTexture)
+        // The hands follow the badge, in the same call, at the same instant —
+        // and before the early return below, so a selection that puts no glyph
+        // in the slot still empties the hands.
+        refreshHeld()
         guard let texture = attentionTexture ?? sleepTexture ?? toolTexture else {
             badgeNode.isHidden = true
             badgeCountNode.isHidden = true
@@ -274,6 +306,102 @@ public final class Character: SKNode {
             badgeCountNode.isHidden = true
         }
     }
+
+    // MARK: Held object
+
+    /// Centre of the seated hand box, in this node's coordinates.
+    ///
+    /// **Derived from the measurement, not chosen.** The hands occupy
+    /// `x 14...17, y 52...55` of the 32x64 canvas with y counted **down** from
+    /// the top — the same box on all six cast variants, all three `sit` frames
+    /// and both facings (`HeldObject` records how that was found and
+    /// `HeldObjectArtTests.theSeatedHandBoxIsWhereTheArtSaysItIs` re-derives it
+    /// from the shipped PNGs). The body is anchored bottom-centre, so:
+    ///
+    /// - x: the box spans 14 to 18 in canvas x, whose centre is 16, and the
+    ///   anchor's x is 16. The offset is **0**, and it is 0 for both facings
+    ///   because the box straddles the canvas centre symmetrically — mirroring
+    ///   a symmetric box is a no-op.
+    /// - y: y-down 52...55 is y-up 8...12 measured from the feet, centre **10**.
+    nonisolated static let seatedHandCentre = CGPoint(x: 0, y: 10)
+
+    /// Where the object's own centre goes, relative to the hand centre, for a
+    /// character facing **right**. Mirrored in x for `left`.
+    ///
+    /// **Forward and up, by three pixels and two.** Forward because the hands
+    /// are at the near edge of the object rather than behind it — a person holds
+    /// a thing in front of themselves, and the room's seated character faces
+    /// right at its desk. Up because the hand box's own centre puts the object's
+    /// bottom third over the lap, where it read as resting on the knees instead
+    /// of being held. With this offset the object occupies canvas
+    /// `x 13...24, y 47...56`: its top edge is one pixel under the chin, its
+    /// left edge covers the hands, and its bottom clears the trousers.
+    ///
+    /// Both components are whole pixels, and the canvas is even in both axes, so
+    /// every edge of this node lands on a whole pixel at 1x, 2x and 3x. A
+    /// half-pixel here would shimmer at exactly the zooms I6 exists to
+    /// protect. [I6]
+    nonisolated static let heldOffset = CGPoint(x: 3, y: 2)
+
+    /// The object this character is holding, or `nil`.
+    ///
+    /// Two guards, and each one is an invariant rather than a preference:
+    ///
+    /// - **The body must be `working`.** [I2] A held object is a body-layer
+    ///   claim, so it lives and dies with the ambient loop: a character with no
+    ///   open call idles empty-handed, and an ADR-003 closing beat — whose whole
+    ///   definition is a badge over an *idle* body — puts nothing in the hands.
+    ///   That falls out of this guard rather than being a case handled beside
+    ///   it, which is the same structural argument `SceneDirector.body(for:
+    ///   badge:)` makes for the working-pose lookup.
+    /// - **The badge slot must actually be showing a tool.** `drawn.badge` is
+    ///   `nil` while `attention` or `sleep` owns the slot, so a call parked at a
+    ///   permission gate empties the hands as well as the badge. That is the
+    ///   stricter of the two readings available and it is the one ADR-003 §1
+    ///   argues for: a gated `Bash` **is not running**, so drawing the tool over
+    ///   it asserts work that is not happening. The body still animates, because
+    ///   I2 keys it on the open set alone and that is not this layer's to
+    ///   change; the hands do not add a second assertion on top. [I1]
+    ///
+    /// `questionMark` yields no object at all — see `HeldObject.init(badge:)`.
+    private var heldObject: HeldObject? {
+        guard currentState == .working else { return nil }
+        guard let badge = currentBadge.drawn.badge else { return nil }
+        return HeldObject(badge: badge)
+    }
+
+    /// Puts `heldObject` on screen. Called from the two places that can change
+    /// it — the body state machine and the badge — and from nowhere else, so
+    /// the hands cannot get out of step with either.
+    private func refreshHeld() {
+        guard let object = heldObject,
+              let texture = store.texture(
+                bitmap: HeldObjectArt.bitmap(object), key: object.textureKey) else {
+            heldNode.isHidden = true
+            heldNode.texture = nil
+            return
+        }
+        let mirror: CGFloat = currentFacing == .left ? -1 : 1
+        heldNode.texture = texture
+        heldNode.position = CGPoint(
+            x: (Self.seatedHandCentre.x + Self.heldOffset.x) * mirror,
+            y: Self.seatedHandCentre.y + Self.heldOffset.y)
+        heldNode.xScale = mirror
+        heldNode.isHidden = false
+    }
+
+    /// What is in the hands, for tests that check the picture rather than the
+    /// policy. `nil` when the hands are empty.
+    public var heldObjectForTesting: HeldObject? { heldNode.isHidden ? nil : heldObject }
+    /// The held node's rectangle in the parent's coordinates. Read by the test
+    /// that checks the object lands on the hands rather than beside them.
+    public var heldRect: CGRect {
+        CGRect(
+            x: position.x + heldNode.position.x - heldNode.size.width / 2,
+            y: position.y + heldNode.position.y - heldNode.size.height / 2,
+            width: heldNode.size.width, height: heldNode.size.height)
+    }
+    public var heldDepth: CGFloat { zPosition + heldNode.zPosition }
 
     public var badgeSelection: BadgeSelection { currentBadge }
     public var isBadgeVisible: Bool { !badgeNode.isHidden }
@@ -358,6 +486,11 @@ public final class Character: SKNode {
             node.texture = textures[0]
             node.isHidden = false
         }
+
+        // And the hands, for the same reason and in the same call: the object is
+        // a function of (body state, badge), and this is the only place the
+        // first of those changes.
+        refreshHeld()
     }
 
     // MARK: Choreography

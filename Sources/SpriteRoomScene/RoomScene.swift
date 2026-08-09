@@ -130,22 +130,47 @@ public final class RoomScene: SKScene {
             }
         }
 
-        // Furniture, behind the desk row and against the wall. Deterministic
-        // positions, one per seat pitch, so the room does not rearrange itself
-        // as agents come and go — and far enough back that at `3x`, which
-        // frames a single seat, none of it is in shot.
+        // Furniture upstage of the seats. Deterministic positions, one per seat
+        // pitch, so the room does not rearrange itself as agents come and go.
         //
-        // This is the composition fix, and it is deliberately thin. I7's
-        // standing instruction is that a background detail competes with the
-        // characters at exactly the zoom where they are hardest to read, so
-        // there are two kinds of object, they alternate, and both went through
-        // the same desaturating import pass as the floor.
-        let backRowY = layout.baselineY + Double(tile)
-        for seat in 0..<layout.seatCapacity {
-            let role = seat.isMultiple(of: 2) ? Self.backdropRole : Self.accentRole
-            let x = Double(layout.seatColumn(seat) * tile + tile / 2) + Double(tile) * 1.5
-            guard x < layout.width else { continue }
-            place(role: role, at: ScenePoint(x: x, y: backRowY))
+        // **Two bands, and the roles alternate along x rather than by seat
+        // index.** Both of those are corrections to one strip of decoration that
+        // sat on one row at `baselineY + 1` tile, and both were visible in the
+        // shipped panel:
+        //
+        // - *By seat index* meant by **side**. Seats fill outward in pairs, so
+        //   even seats are the entire left half of the room and odd seats the
+        //   entire right half — and a role chosen on `seat % 2` put all four
+        //   backdrops on the left and all three accents on the right. The room
+        //   read as two different rooms stitched at the centre line. Sorting the
+        //   positions and alternating along **x** gives the same four and three
+        //   — so the motion budget is unchanged, which is not an accident but
+        //   the constraint this placement was designed against [ADR-002 §14b] —
+        //   spread across the whole width.
+        // - *One row* is what the maintainer saw as "the wall furniture sits in
+        //   one strip". The backdrops now stand **against the wall**, which is
+        //   where a backdrop belongs and which is what puts something in the
+        //   band of the panel that was flat wall; the accents stand a tile
+        //   behind the back seat row. Alternating the two along x makes the
+        //   depth zigzag, so the upstage half of the room has a near edge and a
+        //   far edge rather than a single line.
+        //
+        // I7's standing instruction — a background detail competes with the
+        // characters at exactly the zoom where they are hardest to read — is
+        // still what keeps this thin: two kinds of object, seven of them, both
+        // through the same desaturating import pass as the floor, and every one
+        // of them upstage of both seat rows.
+        let backdropRowY = layout.wallBaseY
+        let accentRowY = layout.backSeatRowY + Double(tile)
+        let propColumns = (0..<layout.seatCapacity)
+            .map { Double(layout.seatColumn($0) * tile + tile / 2) + Double(tile) * 1.5 }
+            .filter { $0 < layout.width }
+            .sorted()
+        for (index, x) in propColumns.enumerated() {
+            let isBackdrop = index.isMultiple(of: 2)
+            place(
+                role: isBackdrop ? Self.backdropRole : Self.accentRole,
+                at: ScenePoint(x: x, y: isBackdrop ? backdropRowY : accentRowY))
         }
 
         // **There is no foreground row, and the rule that replaced it is

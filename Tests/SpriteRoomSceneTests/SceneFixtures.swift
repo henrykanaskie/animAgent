@@ -196,7 +196,33 @@ enum SceneArt {
     /// state the body plays, and a layer whose frame count disagrees not being
     /// drawn. One is `CostumeContractTests`, which opens every frame a declared
     /// costume names.
-    static let expectedGatedTestCount = 49
+    /// 50 when the stations became real art: `StationContractTests
+    /// .everyDeclaredStationFrameIsOnDisk` opens every file the eleven declared
+    /// stations name, in every theme. The other five station contract checks are
+    /// **not** gated and must not become so — they ask what the manifest
+    /// declares, which is the half of this feature a fresh clone can still
+    /// check.
+    /// 58 with the held-object layer: eight tests in `HeldObjectTests` that
+    /// need the seated frames on disk. Seven are `HeldObjectSceneTests`, which
+    /// build a real `Character` — a `Character` with no art never enters a body
+    /// state at all, so every rule about what is in its hands would pass
+    /// vacuously without the pack. The eighth is
+    /// `HeldObjectArtTests.theSeatedHandBoxIsWhereTheArtSaysItIs`, which
+    /// re-derives the hand anchor from the shipped PNGs and is the measurement
+    /// the whole layer stands on. `HeldObjectPolicyTests` and the other four
+    /// `HeldObjectArtTests` are deliberately **not** gated: the badge-to-object
+    /// mapping and the authored bitmaps are this repository's own, so a fresh
+    /// clone can and should still check them.
+    /// 59 with the two-row seat lattice: `RoomSceneTests
+    /// .decorationIsSpreadAcrossTheRoomAndStandsAtTwoDepths` asks where the
+    /// room's decorative props were *placed*, and a prop with no art on disk is
+    /// never placed at all — so without the pack it would assert an empty list
+    /// and pass having checked nothing. The other new composition tests
+    /// (`theSeatsAlternateDepthAlongXWithoutMovingAnyColumn` and the two new
+    /// blocks in `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`) are
+    /// deliberately **not** gated: they are arithmetic over `RoomLayout`, which
+    /// a fresh clone can and should still check.
+    static let expectedGatedTestCount = 59
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

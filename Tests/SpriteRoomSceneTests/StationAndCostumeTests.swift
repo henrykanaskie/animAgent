@@ -55,59 +55,69 @@ struct StationSceneTests {
         }
     }
 
-    /// **The headline.** Two subagents whose `agent_type` differs, in one room,
-    /// in a theme that binds stations: the pixels at their two seats differ.
+    /// **The headline, and it now runs against the manifest that ships.**
     ///
-    /// And the control, in the same test and against the *shipped* manifest,
-    /// because a difference means nothing without knowing what the same looks
-    /// like: with no stations declared, the two seats are **pixel-identical**,
-    /// which is the room this change was asked to fix and the state every
-    /// existing assertion was happy with.
+    /// It used to run the other way up. The control was "with no stations
+    /// declared the two seats are pixel-identical", asserted against
+    /// `assets/manifest.json` itself, with the claim demonstrated only on a
+    /// hand-built fixture — a test that pins an empty spec and reads as
+    /// coverage, which is exactly the shape that let the station spend three
+    /// months resolved, stored and drawn by nothing. Inverted, not deleted, the
+    /// way `CostumeContractTests` was.
+    ///
+    /// Two claims, and the second is what makes the first mean anything:
+    ///
+    /// - `Explore` and `general-purpose` — the two `agent_type`s that actually
+    ///   occur in `fixtures/`, 23 and 165 times — draw **different** pixels at
+    ///   their seats.
+    /// - two `general-purpose` agents draw **identical** pixels at theirs, which
+    ///   is §4's rule ("same desk means same kind of worker") and is also the
+    ///   proof that this comparator can still report equality. A rasteriser that
+    ///   reported a difference everywhere would pass the first claim on its own.
     @Test(.enabled(if: SceneArt.isAvailable))
     func twoAgentsOfDifferentTypeDrawDifferentPixelsAtTheirSeats() throws {
         let shipped = try SceneFixtures.manifest()
         let themeID = try #require(shipped.themes.orderedIDs.first)
 
-        func seats(_ manifest: Manifest) throws -> (a: Bitmap, b: Bitmap, stations: [String?]) {
+        func seats(_ manifest: Manifest, _ types: [String])
+        throws -> (patches: [Bitmap], stations: [String?]) {
             let scene = RoomScene(manifest: manifest, themeID: themeID)
             scene.setViewport(CGSize(width: 720, height: 400))
             var director = SceneDirector(manifest: manifest, themeID: themeID)
-            let cast = Self.cast(3)
-            scene.apply(director.apply([
+            let cast = Self.cast(types.count + 1)
+            var deltas: [WorldDelta] = [
                 .agentAppeared(agent: cast[0], agentType: nil, lifecycle: .active),
-                .agentAppeared(agent: cast[1], agentType: "Explore", lifecycle: .spawning),
-                .agentAppeared(agent: cast[2], agentType: "security-reviewer",
-                               lifecycle: .spawning),
-            ]))
-            let seatA = try #require(director.seats[cast[1]])
-            let seatB = try #require(director.seats[cast[2]])
-            return (SeatRaster.render(scene, seat: seatA, manifest: manifest),
-                    SeatRaster.render(scene, seat: seatB, manifest: manifest),
-                    [director.station(cast[1]), director.station(cast[2])])
+            ]
+            for (index, type) in types.enumerated() {
+                deltas.append(.agentAppeared(
+                    agent: cast[index + 1], agentType: type, lifecycle: .spawning))
+            }
+            scene.apply(director.apply(deltas))
+            var patches: [Bitmap] = []
+            for index in types.indices {
+                let seat = try #require(director.seats[cast[index + 1]])
+                patches.append(SeatRaster.render(scene, seat: seat, manifest: manifest))
+            }
+            return (patches, types.indices.map { director.station(cast[$0 + 1]) })
         }
 
-        // The control. This is the room as shipped, and it is the bug.
-        let plain = try seats(shipped)
-        #expect(plain.a.opaqueCount > 0, "the control drew nothing at all at a seat")
-        #expect(SeatRaster.differences(plain.a, plain.b) == 0, Comment(rawValue:
-            "two agents of different agent_type already differ at their seats in the"
-            + " shipped manifest, so this test is no longer measuring what it was written"
-            + " to measure"))
-        #expect(plain.stations[0] == ThemeSelector.defaultStationID,
-                "the shipped themes declare no numbered stations, so both fall to `default`")
-        #expect(plain.stations[1] == ThemeSelector.defaultStationID)
+        let types = ["Explore", "general-purpose", "general-purpose"]
+        let drawn = try seats(shipped, types)
+        #expect(drawn.patches[0].opaqueCount > 0, "nothing at all was drawn at a seat")
 
-        // The claim.
-        let stationed = try seats(try ManifestFixtures.stationed(shipped))
-        #expect(stationed.stations[0] != stationed.stations[1], Comment(rawValue:
-            "`Explore` and `security-reviewer` hashed to the same station"
-            + " (\(stationed.stations[0] ?? "-")), so this compares two copies of one desk"))
-        let differing = SeatRaster.differences(stationed.a, stationed.b)
-        #expect(differing > 0, Comment(rawValue:
-            "two agents of different agent_type — \(stationed.stations[0] ?? "-") against"
-            + " \(stationed.stations[1] ?? "-") — drew the same \(stationed.a.width)×"
-            + "\(stationed.a.height) patch of room at their seats. The station resolved and"
-            + " reached nothing. [ADR-002 §4]"))
+        #expect(drawn.stations[0] != drawn.stations[1], Comment(rawValue:
+            "`Explore` and `general-purpose` both resolved to \(drawn.stations[0] ?? "-")"
+            + " in the shipped manifest, so this compares two copies of one station"))
+        #expect(SeatRaster.differences(drawn.patches[0], drawn.patches[1]) > 0, Comment(
+            rawValue: "`Explore` (\(drawn.stations[0] ?? "-")) and `general-purpose`"
+            + " (\(drawn.stations[1] ?? "-")) drew the same \(drawn.patches[0].width)×"
+            + "\(drawn.patches[0].height) patch of room at their seats. The station"
+            + " resolved and reached nothing. [ADR-002 §4]"))
+
+        // §4: identical agents get identical desks, deliberately.
+        #expect(drawn.stations[1] == drawn.stations[2])
+        #expect(SeatRaster.differences(drawn.patches[1], drawn.patches[2]) == 0,
+                "two agents of one agent_type were given different stations")
     }
 
     /// The other half of the same claim, and it is a different one: the pixels
@@ -279,6 +289,253 @@ struct StationSceneTests {
         }
         #expect(everDrewAStation,
                 "no fixture ever put a station on screen, so this swept nothing")
+    }
+}
+
+// MARK: - Station contract
+
+/// What a manifest carrying stations has to satisfy. Runs on a fresh clone —
+/// every assertion but the last asks what the manifest *declares*, never what is
+/// on disk.
+struct StationContractTests {
+
+    /// The shipped manifest declares stations, and every part of the resolution
+    /// reaches them.
+    ///
+    /// This asserted the **opposite** until the art landed: "the shipped
+    /// manifest declares no stations and that is a legal state". It was true,
+    /// and it read as coverage of a feature that was drawing nothing. Inverted
+    /// rather than deleted, exactly as the wardrobe's was, and it now fails in
+    /// both directions — an empty station table fails here, and a table the
+    /// resolver cannot reach fails on the last lines.
+    @Test func theShippedManifestDeclaresStationsTheResolverCanReach() throws {
+        let manifest = try SceneFixtures.manifest()
+        let themeID = try #require(manifest.themes.orderedIDs.first)
+        let theme = try #require(manifest.themes.theme(themeID))
+
+        #expect(!theme.orderedStationIDs.isEmpty, "the shipped manifest declares no stations")
+        #expect(!theme.stationRoles.isEmpty, "no agent_type resolves to a named station")
+        #expect(!theme.assignableStationIDs.isEmpty, "the hash has no pool to draw from")
+        #expect(theme.station(ThemeSelector.mainStationID) != nil, "`main` is unbound")
+        #expect(theme.station(ThemeSelector.defaultStationID) != nil, "`default` is unbound")
+
+        // The identity rules come first and are not overridable by a type.
+        #expect(ThemeSelector.station(agentID: nil, agentType: "Explore", in: theme)
+                == ThemeSelector.mainStationID)
+        for type: String? in [nil, ""] {
+            #expect(ThemeSelector.station(agentID: "a1", agentType: type, in: theme)
+                    == ThemeSelector.defaultStationID)
+        }
+
+        // Tier 1: an exact name is translated.
+        let recognised = try #require(theme.stationRoles.keys.sorted().first)
+        #expect(ThemeSelector.station(agentID: "a1", agentType: recognised, in: theme)
+                == theme.stationRoles[recognised])
+        // Tier 2: a name nobody anticipated still resolves, and to the pool.
+        let unknown = ThemeSelector.station(
+            agentID: "a2", agentType: "an-agent-type-nobody-anticipated", in: theme)
+        #expect(theme.assignableStationIDs.contains(unknown), Comment(rawValue:
+            "an unrecognised agent_type landed on \(unknown), which is not in the pool"))
+    }
+
+    /// **The agent types the asserting tier is keyed on are ones a real session
+    /// produces**, checked against `fixtures/` rather than against a list
+    /// somebody typed.
+    ///
+    /// This is the test the wardrobe does not have and should. `characters
+    /// .costumes.roles` is keyed almost entirely on **this repository's own
+    /// invented subagent names** — `test-engineer`, `scene-engineer`,
+    /// `art-director` — none of which any user outside this repo will ever run,
+    /// so its expressive half is addressed to an audience of one. The captured
+    /// sessions contain exactly three `agent_type` values: `general-purpose`,
+    /// `Explore`, and the empty string. The first two must be translated here or
+    /// the whole asserting tier is decoration.
+    ///
+    /// The empty string is deliberately **not** required to be in `roles`: it
+    /// takes the `default` branch before `roles` is consulted, because an agent
+    /// we cannot name may not be given a meaning. [I1]
+    @Test func everyAgentTypeTheFixturesContainIsTranslatedOrDeliberatelyNot() throws {
+        let manifest = try SceneFixtures.manifest()
+        let themeID = try #require(manifest.themes.orderedIDs.first)
+        let theme = try #require(manifest.themes.theme(themeID))
+        let observed = try Self.agentTypesInFixtures()
+        #expect(observed.contains(""), "the fixture sweep found no empty agent_type at all")
+        #expect(observed.count >= 3, "the fixture sweep found \(observed.count) agent types")
+
+        for type in observed.sorted() where !type.isEmpty {
+            #expect(theme.stationRoles[type] != nil, Comment(rawValue:
+                "`\(type)` occurs in fixtures/ and the station roles table does not name it,"
+                + " so the commonest agent in a real room gets a station that asserts"
+                + " nothing. [ADR-002 §14c]"))
+        }
+    }
+
+    /// **No station the hash can reach may assert.** The contract check that
+    /// binds over whatever the manifest declares, not over what it declares
+    /// today.
+    @Test func noAssertingStationIsInThePoolTheHashDrawsFrom() throws {
+        let manifest = try SceneFixtures.manifest()
+        let themeID = try #require(manifest.themes.orderedIDs.first)
+        let theme = try #require(manifest.themes.theme(themeID))
+        for id in theme.assignableStationIDs {
+            let station = try #require(theme.station(id))
+            #expect(!station.asserts, Comment(rawValue:
+                "station \(id) (\(station.title)) asserts and is assignable: a hash would be"
+                + " making a claim about an agent_type nobody anticipated [I1]"))
+        }
+        #expect(theme.stationRoles.values.contains { theme.station($0)?.asserts == true },
+                "no station in roles asserts, so the separation is vacuous")
+
+        // And nothing the hash can reach at any input escapes the pool.
+        var reached: Set<String> = []
+        for index in 0..<4000 {
+            let type = "an-agent-name-\(index)"
+            guard theme.stationRoles[type] == nil else { continue }
+            let id = ThemeSelector.station(agentID: "a1", agentType: type, in: theme)
+            reached.insert(id)
+            #expect(theme.station(id)?.asserts == false, Comment(rawValue:
+                "the hash put the unrecognised type \(type) at \(id), which asserts"))
+        }
+        #expect(reached == Set(theme.assignableStationIDs),
+                "the pool is not fully reachable: \(reached.sorted())")
+    }
+
+    /// Every theme binds the same stations, because the block is declared once
+    /// under `room` and inherited. A theme that lost them would seat its agents
+    /// at identical desks while the others did not — a difference the user would
+    /// read as a bug in the theme. [§14c]
+    @Test func everyThemeBindsTheSameStations() throws {
+        let manifest = try SceneFixtures.manifest()
+        let expected = manifest.room.orderedStationIDs
+        #expect(!expected.isEmpty)
+        for id in manifest.themes.orderedIDs {
+            let theme = try #require(manifest.themes.theme(id))
+            #expect(theme.orderedStationIDs == expected, "theme \(id) binds \(theme.orderedStationIDs)")
+            #expect(theme.assignableStationIDs == manifest.room.assignableStationIDs)
+            #expect(theme.stationRoles == manifest.room.stationRoles)
+            // And the desk and chair under a station are that theme's own, so a
+            // station never drags one room's furniture into another.
+            for stationID in expected {
+                let station = try #require(theme.station(stationID))
+                #expect(station.desk.file == theme.room.prop(RoomScene.surfaceRole)?.file,
+                        "theme \(id) station \(stationID) does not use the theme's own desk")
+                #expect(station.chair.file == theme.room.prop(RoomScene.seatRole)?.file)
+            }
+        }
+    }
+
+    /// **The station has to fit the seat it is drawn at**, and both numbers come
+    /// out of `RoomLayout` rather than out of taste. Measured from the declared
+    /// content boxes, so it runs without any art on disk.
+    ///
+    /// - A prop stands one tile to the character's left on a 96px seat pitch,
+    ///   between the neighbour's desk (which ends at `x−52`) and the character's
+    ///   own body. Over 32px wide and it collides with one or the other. A
+    ///   120px-wide prop was tried at M6c and could not be drawn at any canvas
+    ///   size; the canvas was never what was in the way.
+    /// - A station desk is drawn **in front of** the body, so anything taller
+    ///   than the shortest variant's head-above-feet hides a face.
+    @Test func everyStationFitsTheSeatItIsDrawnAt() throws {
+        let manifest = try SceneFixtures.manifest()
+        let layout = RoomLayout()
+        let pitch = layout.seatPosition(1).x - layout.seatPosition(0).x
+        #expect(pitch == 96, "the seat pitch moved; these limits are derived from it")
+
+        // The gap a prop has to live in, from the layout itself.
+        let propCentre = layout.stationPropPosition(0).x - layout.seatPosition(0).x
+        let deskCentre = layout.deskPosition(0).x - layout.seatPosition(0).x
+        let maximumPropWidth = 2 * (propCentre - (deskCentre - pitch))
+        #expect(maximumPropWidth >= 32)
+
+        let heads = manifest.characters.orderedVariantIDs
+            .compactMap { manifest.characters.variant($0)?.headTopPx }
+            .map { manifest.characters.canvas.height - $0 }
+        let shortestHead = try #require(heads.min())
+        #expect(shortestHead == 44, "the shortest head moved; the desk limit is derived from it")
+
+        // **What is checked is what a station DECLARES.** A station that does
+        // not override the desk inherits the theme's, and two of the six themes
+        // ship a desk that would fail both limits — `library`'s is 56×70 and
+        // `mission_control`'s 44×36, measured here rather than argued. That is a
+        // property of theme art chosen before stations existed, it is recorded
+        // in `notes.md` as a finding, and asserting it here would be this test
+        // failing for something no station did. What a station may not do is
+        // make it worse.
+        for id in manifest.themes.orderedIDs {
+            let theme = try #require(manifest.themes.theme(id))
+            let inheritedDesk = theme.room.prop(RoomScene.surfaceRole)?.file
+            for stationID in theme.orderedStationIDs {
+                let station = try #require(theme.station(stationID))
+                if station.desk.file != inheritedDesk {
+                    #expect(station.desk.contentBox.width <= 32, Comment(rawValue:
+                        "\(id)/\(stationID): the desk is \(station.desk.contentBox.width)px"
+                        + " wide and overlaps the next seat"))
+                    #expect(station.desk.contentBox.height <= shortestHead, Comment(rawValue:
+                        "\(id)/\(stationID): the desk is \(station.desk.contentBox.height)px"
+                        + " tall and is drawn in front of a head that starts"
+                        + " \(shortestHead)px up"))
+                }
+                guard let prop = station.prop else { continue }
+                #expect(Double(prop.contentBox.width) <= maximumPropWidth, Comment(rawValue:
+                    "\(id)/\(stationID): the prop is \(prop.contentBox.width)px wide against"
+                    + " \(Int(maximumPropWidth))px of clear floor beside the seat"))
+                // And it stands beside the body, never on it: the prop's box and
+                // the 32px character canvas may not share a column.
+                let propRight = layout.stationPropPosition(0).x
+                    + Double(prop.contentBox.width) / 2
+                #expect(propRight <= layout.seatPosition(0).x
+                        - Double(manifest.characters.canvas.width) / 2, Comment(rawValue:
+                    "\(id)/\(stationID): the prop reaches \(propRight - layout.seatPosition(0).x)"
+                    + "px from the seat centre and stands on the character"))
+            }
+        }
+    }
+
+    /// Every frame a declared station names is on disk — the check that would
+    /// catch a station pointing at art nobody imported.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func everyDeclaredStationFrameIsOnDisk() throws {
+        let manifest = try SceneFixtures.manifest()
+        for id in manifest.themes.orderedIDs {
+            let theme = try #require(manifest.themes.theme(id))
+            for stationID in theme.orderedStationIDs {
+                for path in try #require(theme.station(stationID)).declaredPaths {
+                    #expect(FileManager.default.fileExists(atPath: manifest.url(path).path),
+                            "\(id)/\(stationID) names \(path), which is not on disk")
+                }
+            }
+        }
+    }
+
+    /// Every `agent_type` value any captured session carried.
+    ///
+    /// Read out of `fixtures/` rather than written down, because a list written
+    /// down is a list that stops being true. `fixtures/` is tracked in git, so
+    /// this runs on a fresh clone with no art.
+    static func agentTypesInFixtures() throws -> Set<String> {
+        let directory = SceneFixtures.repositoryRoot.appending(path: "fixtures")
+        var found: Set<String> = []
+        for name in try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        where name.hasSuffix(".jsonl") {
+            let text = try String(contentsOf: directory.appending(path: name), encoding: .utf8)
+            for line in text.split(separator: "\n") {
+                guard let data = line.data(using: .utf8),
+                      let object = try? JSONSerialization.jsonObject(with: data) else { continue }
+                collectAgentTypes(object, into: &found)
+            }
+        }
+        return found
+    }
+
+    private static func collectAgentTypes(_ node: Any, into found: inout Set<String>) {
+        if let object = node as? [String: Any] {
+            for (key, value) in object {
+                if key == "agent_type", let type = value as? String { found.insert(type) }
+                collectAgentTypes(value, into: &found)
+            }
+        } else if let array = node as? [Any] {
+            for value in array { collectAgentTypes(value, into: &found) }
+        }
     }
 }
 

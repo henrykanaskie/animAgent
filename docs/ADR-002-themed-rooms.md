@@ -63,15 +63,28 @@ untouched and still integer [I6]; only the preference changed.
 That was right, and it makes this ADR load-bearing rather than decorative.
 Arithmetic, from `RoomLayout`'s own constants:
 
-- The room is `25 × 6` tiles = **800 × 192 px**. The panel frames **720 × 400**.
-- So at `1x` the panel shows nearly the full width and **more than twice the
-  room's nominal height**.
-- `wallRows` is 2, so the wall the room actually *has* is `wallBaseY = 128` up to
-  192 — **64 px**. Everything above that, out to the top of the panel, is
+- The room is `25 × 9` tiles = **800 × 288 px**. The panel frames **720 × 400**.
+- So at `1x` the panel shows nearly the full width and **appreciably more than
+  the room's nominal height**.
+- `wallRows` is 2, so the wall the room actually *has* is `wallBaseY = 224` up to
+  288 — **64 px**. Everything above that, out to the top of the panel, is
   `drawnRows`' painted extension: real tiles, so no void shows, and nothing on
   them.
 - M5 measured the content band at **132 px of a 400 px panel**. The other 268 px
-  is flat floor and flat wall.
+  was flat floor and flat wall.
+
+**These four numbers were `25 × 6`, `800 × 192`, `wallBaseY = 128` and "more
+than twice" until the composition change.** The room grew from 4 floor rows to
+7 — converting wall, which no pack we own can decorate, into floor that objects
+and a second row of seats can stand on. Recorded rather than silently corrected
+because the paragraph below still turns on the ratio, and the ratio moved: the
+panel no longer shows anywhere near twice the room's height, so "the room is
+shorter than its window" is a weaker claim than it was, not a false one.
+
+Measured after the change: **~250 px of 400 (63%)** carries characters or
+furniture, against 113 px (28%) before. Wall is down to 84 px (21%). The
+remaining ~32% is foreground reserve the report choreography needs and only a
+redesign of that beat could free.
 
 Two consequences the implementer must hold:
 
@@ -621,8 +634,8 @@ A **station** is itself `{ desk, chair, prop? }`, where `chair` must be
 
 Three named placement points, all theme-independent, all already derivable from
 `RoomLayout`: the **seat point** (`seatPosition` / `deskPosition`), the **wall
-line** (`wallBaseY = 128`), and the **foreground line** (strictly below the
-content band, as M5 placed it).
+line** (`wallBaseY = 224`, and 128 before the room grew to 9 tiles), and the
+**foreground line** (strictly below the content band, as M5 placed it).
 
 Inherited rules, none of them negotiable:
 
@@ -1031,6 +1044,95 @@ inside the fix for it: the census was cross-checked against `render()`, which
 transcribed the *same* dead layout, so the two agreed with each other and with
 nothing the scene draws. A transcription checked against a transcription is not
 a check.
+
+---
+
+## 14c. Amendment, 2026-08-09 — the stations that shipped
+
+§4 and §7 specified the station and left three things to whoever filled it in.
+All three had to be decided to put art on screen, so all three are settled here
+rather than in a commit message. Nothing below changes the selection function in
+§4 except by adding the tier §4 did not have.
+
+**A second tier, and it is the one §4 was missing.** §4's selection was
+`rendezvous(agent_type, numberedStations)` and nothing else, which means *every*
+station the room can show is reached by a hash. That is fine for a station that
+says nothing and wrong for one that says anything, and §5b item 1 is explicit
+that the station is where "relation to what the agent is actually doing" is
+supposed to be met — so a station that may not mean anything cannot meet it. The
+wardrobe had already solved this and the solution is copied verbatim:
+
+```
+station(agent) =
+    "main"                                   if agent_id is absent
+    "default"                                if agent_type is absent or ""
+    roles[agent_type]                        if the manifest names that exact string
+    rendezvous(agent_type, assignable)       otherwise
+    "default"                                if the pool is empty
+```
+
+`roles` is keyed on the **exact** `agent_type` a session produced, so a station
+reached through it is the room repeating a name the user chose — the licence the
+nameplate has always run on — and it may assert. `assignable` is the hash's
+range; arbitrary text licenses no claim, so every member of it carries
+`asserts: false` and says only *this is a different agent from that one*. It is
+`question_mark`'s answer, furnished. [I1]
+
+`assignable` also replaces §7's "the ids that are numbers" convention. A pool the
+hash may reach has to be **stated**, for the reason the wardrobe's is: the naming
+habit and the guarantee were the same fact, so renaming a station changed what
+the hash could say. The numeric convention survives only as the fallback for a
+manifest that predates the list.
+
+**Which agent types the asserting tier is keyed on, and the mistake it is
+avoiding.** `characters.costumes.roles` is keyed almost entirely on *this
+repository's own invented subagent names* — `test-engineer`, `scene-engineer`,
+`art-director`. No user outside this repo runs any of them, so the expressive
+half of the wardrobe is addressed to an audience of one. `fixtures/` contains
+exactly three `agent_type` values across all 17 captures: `general-purpose`
+(165), `Explore` (23) and the empty string (17). The station `roles` table names
+those first and this repo's own names second, and
+`StationContractTests.everyAgentTypeTheFixturesContainIsTranslatedOrDeliberatelyNot`
+reads `fixtures/` rather than a list, so the day a capture carries a fourth type
+the suite says so. The empty string is deliberately **not** in `roles`: it takes
+the `default` branch before `roles` is consulted, because an agent we cannot name
+may not be given a meaning.
+
+**Declared once, under `room.props.stations`, and inherited by every theme.** §7
+made stations a per-theme binding, on the reasonable assumption that a station
+would be themed art. It cannot be. Only one object in either pack — Modern Office
+single 104 — is a chair drawn side-on with its backrest on the left, which is
+what the pack's one-directional seated pose requires, so `chair` is not a
+variable in any theme; and `04-ART-DIRECTION.md` measured that the desk is 5.7×
+to 16.6× the chair's visible area but that every desk in the pack desaturates to
+the same pale slab. Six copies of one block would have been six places for it to
+drift. A theme that declares its own `props.stations` still overrides the whole
+block for itself, all-or-nothing, so §7's per-theme contract is intact and
+unused.
+
+**A station overrides the prop, not the furniture.** Every station that ships
+declares only `prop`; `desk` and `chair` fall back to the theme's own
+`props.roles`, per theme, at decode. That keeps a station from dragging the
+Office desk into the library, and it puts the whole of the separation in the one
+channel the art we own can actually separate. It is less than §7 allows and it is
+what §7 allows *and* the pack supports.
+
+**Two geometric limits, both derived and both now asserted by a test that needs
+no art on disk.** A station prop stands one tile to the character's left on a 96px
+seat pitch, between the neighbouring desk and the character's own 32px body, so
+its content box may be **at most 32px wide** — the same wall the 120px
+`control_room_screens` hit at M6c, where widening the canvas was never what was
+in the way. A station *desk* is drawn in front of the body, so it may be at most
+**44px tall**, which is how far the shortest cast variant's head sits above its
+own feet.
+
+**What this does not fix, stated so nobody reports it as new.** Two themes ship a
+`props.roles.desk` that would fail both limits — `library`'s is 56×70 and
+`mission_control`'s 44×36 — and `library`'s consequently draws over the face of
+whoever sits at it. That predates stations, it is drawn at every seat by
+`buildRoom()` whether anyone is sitting there or not, and it is theme art rather
+than station art. It is recorded in `notes.md` and in `04-ART-DIRECTION.md`
+rather than worked around here.
 
 ---
 

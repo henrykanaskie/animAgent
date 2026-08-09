@@ -799,8 +799,8 @@ struct RoomSceneTests {
     /// - **columns**, one per seat, a seat pitch apart. Every vertical move a
     ///   character makes is inside its own column: out of the chair, down to the
     ///   aisle, down to its delivery row, and back.
-    /// - **rows**, one tile apart: the seat row, the aisle, and one delivery row
-    ///   per ring. Every lateral move is inside one row.
+    /// - **rows**, at least one tile apart: the two seat rows, the aisle, and one
+    ///   delivery row per ring. Every lateral move is inside one row.
     ///
     /// Two plates can only meet if they share a horizontal strip *and* come
     /// within a plate width in x. The two numbers below are what make that
@@ -829,8 +829,14 @@ struct RoomSceneTests {
 
         // 2. Rows are further apart than a plate is tall, so two characters on
         //    different rows cannot share a horizontal strip at any x. The rows
-        //    are the seat row, the aisle, and one delivery row per ring.
-        var rows = [layout.baselineY, layout.aisleY]
+        //    are the **two** seat rows, the aisle, and one delivery row per ring.
+        //
+        //    The second seat row is the composition fix and it is checked here
+        //    rather than trusted: folding the seats into two depths is only free
+        //    because the fold is keyed on the ring, which leaves every column
+        //    exactly where it was — so this list gains a row and block 1 above
+        //    is untouched.
+        var rows = layout.seatRows + [layout.aisleY]
         rows += (1...layout.maximumRing).map { layout.deliveryRowY(ring: $0) }
         let sorted = rows.sorted()
         for (lower, upper) in zip(sorted, sorted.dropFirst()) {
@@ -877,6 +883,80 @@ struct RoomSceneTests {
                 #expect(!inside && gap >= widest, Comment(rawValue: why))
             }
         }
+
+        // 5. **The two crossings the second seat row adds**, which are the only
+        //    new positions in the room and are closed by block 1's number rather
+        //    than by anything of their own. A front-row character walking
+        //    upstage out of the room passes through the back row's line; a
+        //    back-row character walking down to the aisle or up from it passes
+        //    through the front row's. Both do it inside their own column, and a
+        //    column is a seat pitch from every seat because `seatColumn` is what
+        //    the fold does not touch.
+        for crossing in 0..<layout.seatCapacity {
+            let column = layout.seatPosition(crossing).x
+            for other in 0..<layout.seatCapacity where other != crossing {
+                let seat = layout.seatPosition(other)
+                guard seat.y != layout.seatPosition(crossing).y else { continue }
+                let why = "seat \(crossing) walks through seat \(other)'s row"
+                    + " with \(abs(column - seat.x)) px to spare"
+                #expect(abs(column - seat.x) >= widest, Comment(rawValue: why))
+            }
+        }
+    }
+
+    /// **The seats are on two rows, and which row is the parity of the ring.**
+    ///
+    /// The picture this exists for is the one the maintainer complained about:
+    /// every character on a single line across the middle of the panel, with
+    /// flat wall above and bare floor below. What makes the fold safe is that it
+    /// is a function of the ring and therefore leaves `seatColumn` alone —
+    /// asserted here as *both* halves, because "the seats moved" and "nothing
+    /// else moved" are different claims and only the pair is the fix.
+    @Test func theSeatsAlternateDepthAlongXWithoutMovingAnyColumn() {
+        let layout = RoomLayout()
+
+        // Both rows are actually used, and by the seats that fill first — a
+        // second row nobody reaches until the seventh agent is not composition.
+        #expect(layout.seatRows.count == 2)
+        #expect(layout.seatPosition(0).y == layout.baselineY, "the anchor is downstage")
+        #expect(layout.seatPosition(1).y == layout.backSeatRowY,
+                "the first subagent is still on the anchor's own row")
+
+        // In x order, the rows alternate: every occupied column differs in
+        // depth from both its neighbours. This is the whole composition claim.
+        let byColumn = (0..<layout.seatCapacity)
+            .map { layout.seatPosition($0) }
+            .sorted { $0.x < $1.x }
+        for (left, right) in zip(byColumn, byColumn.dropFirst()) {
+            #expect(left.y != right.y, Comment(rawValue:
+                "columns \(left.x) and \(right.x) are on the same row, so the"
+                + " seats read as a line again"))
+        }
+
+        // And nothing moved sideways. `RoomLayout` is free to change the
+        // *shape* of the room; it is not free to change the one number every
+        // clearance argument in it rests on.
+        let pitch = Double(layout.tile * layout.seatSpacingTiles)
+        var gaps: [Double] = []
+        for seat in 0..<layout.seatCapacity {
+            for other in (seat + 1)..<layout.seatCapacity {
+                gaps.append(abs(layout.seatPosition(seat).x - layout.seatPosition(other).x))
+            }
+        }
+        #expect(gaps.min() == pitch)
+        #expect(Double(SceneBitmaps.maximumNameplateWidth) <= pitch)
+
+        // The rows are a character's height apart, which is what makes them
+        // read as depth rather than as two characters standing on one another.
+        #expect(layout.backSeatRowY - layout.baselineY
+                == Double(layout.tile * layout.seatRowDepthTiles))
+        // The back row still has floor behind it. Every exit in this room walks
+        // upstage to `wallBaseY` and fades; a back row *at* the wall would give
+        // its occupants a zero-length departure.
+        #expect(layout.backSeatRowY < layout.wallBaseY,
+                "the back row has no floor behind it to walk out through")
+        #expect(layout.upstageExit(forSeat: 1).y - layout.seatPosition(1).y
+                >= Double(layout.tile * 2))
     }
 
     /// **Two same-side reporters at once, which is what the slots were for.**
@@ -1004,12 +1084,19 @@ struct RoomSceneTests {
         let band = scene.contentBand
         let layout = scene.layout
 
+        // **Every variant on every seat row.** Measured from `baselineY` alone
+        // this passed with the back row's badges a full two tiles above the top
+        // of the frame — the band's ceiling has to be the furthest-upstage row
+        // anyone sits on, not the nearest.
         for id in manifest.characters.orderedVariantIDs {
             let variant = manifest.characters.variant(id)!
-            let badgeTop = layout.baselineY
-                + Double(manifest.characters.canvas.height - variant.headTopPx + 1)
-                + Double(manifest.badges.canvas.height)
-            #expect(badgeTop <= band.top, "variant \(id) badge pokes out of the frame")
+            for row in layout.seatRows {
+                let badgeTop = row
+                    + Double(manifest.characters.canvas.height - variant.headTopPx + 1)
+                    + Double(manifest.badges.canvas.height)
+                #expect(badgeTop <= band.top, Comment(rawValue:
+                    "variant \(id) on row \(row) pokes its badge out of the frame"))
+            }
         }
         // The **tallest** plate, not a sample one: the plate grew a second row
         // at the wide default, and a band derived from `MAIN` alone would have
@@ -1019,7 +1106,7 @@ struct RoomSceneTests {
         // row — the nearest the camera any character can stand.
         #expect(layout.deliveryRowY(ring: layout.maximumRing) - 2 - plateHeight >= band.bottom)
         // Every row the choreography can stand a character on is inside it.
-        for row in [layout.baselineY, layout.aisleY]
+        for row in layout.seatRows + [layout.aisleY]
             + (1...layout.maximumRing).map({ layout.deliveryRowY(ring: $0) }) {
             #expect(row - 2 - plateHeight >= band.bottom, "a plate on row \(row) is cropped")
         }
@@ -1069,6 +1156,51 @@ struct RoomSceneTests {
             let y = scene.cameraY(band: band, sceneHeight: height)
             #expect(y - height / 2 <= band.bottom + 1e-9, "plate cropped at \(height)")
             #expect(y + height / 2 >= band.top - 1e-9, "badge cropped at \(height)")
+        }
+    }
+
+    /// **No scale on the ladder ever shows the void behind the room.** [I6]
+    ///
+    /// `drawnRows`/`drawnColumns` paint past the room's nominal bounds precisely
+    /// so this holds, and until now it was a comment. It became worth asserting
+    /// when the floor went from four rows to seven: the overscan was written
+    /// `rows + 8`, which is a *margin that grows with the room*, and a taller
+    /// room pushed the painted field past the top of the 1600×900 viewport
+    /// `scripts/preview-theme.py --verify` registers its picture in — failing
+    /// the whole scene-agreement check with nothing wrong with the room. A fixed
+    /// overscan fixes that and needs a check at the other end, which is this:
+    /// enough tiles are still painted to fill the panel at every rung.
+    @Test func noScaleOnTheLadderEverShowsTheVoidBehindTheRoom() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        let layout = scene.layout
+        let band = scene.contentBand
+        let tile = Double(layout.tile)
+        let fieldBottom = Double(layout.drawnRows.lowerBound) * tile
+        let fieldTop = Double(layout.drawnRows.upperBound + 1) * tile
+        let fieldLeft = Double(layout.drawnColumns.lowerBound) * tile
+        let fieldRight = Double(layout.drawnColumns.upperBound + 1) * tile
+
+        // The widest and the narrowest the camera's x ever gets: every seat
+        // occupied, and seat 0 alone (which is what an empty room frames).
+        let spans = [layout.occupiedSpan(seats: 0..<layout.seatCapacity),
+                     layout.occupiedSpan(seats: [0])]
+
+        for scale in RoomCamera(manifest: manifest).scales {
+            let height = 400.0 / Double(scale)
+            let width = 720.0 / Double(scale)
+            let y = scene.cameraY(band: band, sceneHeight: height).rounded()
+            #expect(y - height / 2 >= fieldBottom, Comment(rawValue:
+                "\(scale)x shows void below the floor"))
+            #expect(y + height / 2 <= fieldTop, Comment(rawValue:
+                "\(scale)x shows void above the wall"))
+            for span in spans {
+                let x = ((span.minX + span.maxX) / 2).rounded()
+                #expect(x - width / 2 >= fieldLeft, Comment(rawValue:
+                    "\(scale)x shows void off the left of the room"))
+                #expect(x + width / 2 <= fieldRight, Comment(rawValue:
+                    "\(scale)x shows void off the right of the room"))
+            }
         }
     }
 
@@ -1130,6 +1262,61 @@ struct RoomSceneTests {
                 let why = "\(theme ?? "room") drew a prop at y=\(node.position.y),"
                     + " in front of the seat row"
                 #expect(Double(node.position.y) >= scene.layout.baselineY, Comment(rawValue: why))
+            }
+        }
+    }
+
+    /// **The decoration is spread across the room and stands at two depths.**
+    ///
+    /// Both halves are corrections to a real picture, and neither is visible in
+    /// a manifest:
+    ///
+    /// - The role used to be picked on `seat % 2`, and seats fill *outward in
+    ///   pairs* — so `seat % 2` is not "alternating", it is **which side of the
+    ///   room**. Every backdrop stood in the left half and every accent in the
+    ///   right, and the shipped panel read as two rooms stitched at the centre.
+    /// - One row of decoration a tile behind the seats left the whole band of
+    ///   the panel above the characters as flat wall. The backdrops now stand
+    ///   against that wall.
+    ///
+    /// Counts are asserted too, because they are what the motion budget is
+    /// priced on: this rearrangement had to be free. [ADR-002 §14b]
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func decorationIsSpreadAcrossTheRoomAndStandsAtTwoDepths() throws {
+        let manifest = try SceneFixtures.manifest()
+        for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
+            let scene = RoomScene(manifest: manifest, themeID: theme)
+            let layout = scene.layout
+            let centre = layout.seatPosition(0).x
+            // Only the two decorative roles; the desks and chairs at every seat
+            // are placed by the seat, not by this band.
+            let seatRows = Set(layout.seatRows)
+            let decoration = scene.propNodesForTesting.filter {
+                !seatRows.contains(Double($0.position.y))
+            }
+            #expect(decoration.count == layout.seatCapacity, Comment(rawValue:
+                "\(theme ?? "room") drew \(decoration.count) decorative props"))
+
+            let depths = Set(decoration.map { Double($0.position.y) })
+            #expect(depths.count == 2, Comment(rawValue:
+                "\(theme ?? "room") stands all its decoration on \(depths)"))
+            for depth in depths {
+                #expect(depth > layout.backSeatRowY, Comment(rawValue:
+                    "\(theme ?? "room") put decoration on \(depth), level with"
+                    + " or in front of the back seat row"))
+            }
+            #expect(depths.contains(layout.wallBaseY),
+                    "nothing stands against the back wall")
+
+            // Neither depth is confined to one half of the room: the failure
+            // this replaces was every copy of one role on one side.
+            for depth in depths {
+                let xs = decoration
+                    .filter { Double($0.position.y) == depth }
+                    .map { Double($0.position.x) }
+                #expect(xs.contains { $0 < centre } && xs.contains { $0 > centre },
+                        Comment(rawValue:
+                            "\(theme ?? "room")'s \(depth) band is all on one side"))
             }
         }
     }

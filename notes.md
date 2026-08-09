@@ -3202,3 +3202,377 @@ test pins behaviour that was already correct. Only
 `aBrokenManifestDoesNotFailWithACountOfNothing` fails against the old code.
 This is the project's recurring trap in miniature -- a test that reads as
 coverage of a fix while covering something that was never broken.
+
+---
+
+## M6h -- the station map, filled in
+
+Task: `assets/manifest.json` had no `stations` key anywhere. The resolver, the
+storage and the draw path all existed and had been tested; a green test asserted
+"the shipped manifest declares no stations and that is legal". Eleven stations
+now ship, the room draws them, and that test is inverted.
+
+### What I found
+
+**The pack decides the shape of this feature, not the spec.** ADR-002 §7 makes a
+station `{desk, chair, prop?}` per theme. Two of those three cannot vary:
+
+- `chair` -- Modern Office single 104 is the only chair in either pack drawn
+  side-on with its backrest on the left, which is what the pack's
+  one-directional seated pose requires. Already recorded at M6; re-confirmed.
+- `desk` -- M6g concluded the desk is the variable, on the measurement that it
+  is 5.7x-16.6x the chair's visible ink. I rendered all 274 Office singles that
+  fit the 32px width limit, from `assets/processed/` rather than the raw sheet,
+  and every desk that fits comes out of the I7 transform as the same pale slab.
+  Tone is all that differs, and a tone difference on a horizontal slab under a
+  body reads as nothing at 1x. A station desk would also drag the Office slab
+  into the Reading Room, spending the theme identity the theme sets exist for.
+
+So every shipped station overrides **only** `prop`, and `desk`/`chair` fall back
+to the theme's own `props.roles` per theme at decode. Less than §7 allows; what
+§7 allows *and* the art supports.
+
+**The asserting tier had nowhere to live.** §4's selection was
+`rendezvous(agent_type, numberedStations)` and nothing else -- every station
+reachable only by a hash, which is fine for a station that says nothing and
+wrong for one that says anything, and §5b item 1 says the station is where
+"relation to what the agent is actually doing" gets met. Added the wardrobe's two
+tiers verbatim: `roles` keyed on the exact `agent_type` (may assert),
+`assignable` the hash's pool (`asserts: false`, enforced). `assignable` also
+replaces §7's "the ids that are numbers" convention -- a pool the hash may reach
+has to be stated, or renaming a station silently changes what the hash may say.
+ADR-002 §14c.
+
+**I did not repeat the wardrobe's keying mistake, and I checked it with a test
+rather than a promise.** `fixtures/` carries exactly three `agent_type` values in
+17 captures: `general-purpose` (165), `Explore` (23), `""` (17). The station
+`roles` table names those first and this repo's own invented agent names second,
+and `everyAgentTypeTheFixturesContainIsTranslatedOrDeliberatelyNot` reads
+`fixtures/` at test time, so a fourth type appearing in a capture turns the suite
+red. `""` is deliberately absent from `roles`: it takes the `default` branch
+before `roles` is consulted, because an agent we cannot name may not be given a
+meaning. The equivalent test does not exist for costumes and should.
+
+**The 32x44 limits are real and I re-derived both rather than trusting them.**
+32 wide: `stationPropPosition` is `seatX-32` on a 96px pitch and `deskPosition`
+is `seatX+28`, so the neighbouring desk ends at `seatX-52` and the body starts at
+`seatX-16`. 44 tall: `head_top_px` is 20 for variants 06 and 10 on a 64px canvas,
+so the shortest head starts 44px above its own feet, and a station desk is drawn
+in *front* of the body at `surfaceDepthBias +0.5`. Both are now asserted by
+`everyStationFitsTheSeatItIsDrawnAt`, which reads content boxes out of the
+manifest and therefore runs on a fresh clone with no art.
+
+**Two theme desks already break both limits.** `library`'s `props.roles.desk` is
+56x70 and `mission_control`'s is 44x36. The height one is visible: rendering
+`three-subagents` in `library` at 720x400 draws the desk over the *face* of every
+seated character. `buildRoom()` places it at every seat occupied or not, so it
+predates stations and no station makes it worse -- the geometry test says out
+loud that it checks what a station declares and not what it inherits. Fixing it
+is a theme-art change in `process-assets.py` and was out of scope.
+
+**Pool numbers, because M6g's rule is that a pool is checked before it is
+written down.** Over sixteen plausible unrecognised agent names, `n01`..`n04`
+uses 4 of 4 stations with 23.3% colliding pairs against the 25.0% an ideal hash
+gives. Four is enough because tier 1 takes the real traffic.
+
+### What changed
+
+- `assets/manifest.json`: `room.props.stations` = `{note, sets, roles,
+  assignable}`. 11 stations, 11 role entries, 4 assignable. Every prop is an
+  Office single already listed in `room.props.files`, so **nothing new was
+  imported and `process-assets.py` was not run**. Indices found with
+  `contact-sheet.py --office` at 3x and 6x; content boxes measured with
+  `build-manifest.py`'s own alpha>127 rule.
+- `Manifest.swift`: `Station` gains `id/title/what/asserts` and `declaredPaths`;
+  `Room` gains `stationRoles` and `assignableStationIDs`; the decoder gained a
+  `StationSpecs` stage so one declaration can be materialised against six
+  themes' own desks and chairs, plus tiered *and* legacy-flat shapes.
+- `ThemeSelector.station`: tier 1 before the hash.
+- Tests: `StationContractTests` (6 checks, 1 art-gated), the headline pixel test
+  inverted onto the shipped manifest with a same-type control, gated count 49->50.
+- `docs/ADR-002-themed-rooms.md` §14c; `docs/04-ART-DIRECTION.md` "Stations are
+  art -- M6h", and M6g marked superseded rather than deleted.
+
+### What I could not do
+
+**The manifest edit is not reproducible from the generator.** `build-manifest.py`
+emits `room.props.roles` from a four-entry `PROP_ROLES` table and knows nothing
+about stations, so a rerun deletes this block -- exactly as a rerun without
+`--costumes` deletes the wardrobe. `scripts/` was outside the declared scope and
+the standing instruction is not to run `process-assets.py` unasked, so I left it.
+**Someone has to add a `STATIONS` table to `process-assets.py` and an emitter to
+`build-manifest.py` before the next manifest rebuild, or this is lost silently.**
+
+**The lint scores the station props under `room`, not under the theme drawing
+them.** They are Office singles already in `room.props.files`, so all six
+per-theme contrast figures are byte-identical to before this change
+(`mission_control` still 0.427 against a 0.40 floor) and none of them accounts
+for a prop that is on screen in every theme. Small today because everything came
+off the same transform band; not small the first time a station carries themed
+art.
+
+**The desk slab itself is still identical at every seat.** What differs is the
+object standing at it. That is the honest maximum of the art we own, and it is
+the second time this feature has been bounded by the pack rather than by the
+code.
+
+### Verification
+
+`swift build --build-tests -Xswiftc -warnings-as-errors`, `swift test` (510
+tests) and `scripts/lint-palette.py` (all six themes "agrees with the scene")
+were run in a **detached worktree at HEAD carrying only this change**, because
+another agent was concurrently rewriting `RoomLayout` from 6 rows to 9 and the
+main tree's lint fails on their change with "the drawn tile field touches a panel
+edge". All three are green on this change alone. Renders: `spriteroom
+fixtures/three-subagents.jsonl --render --at 20 --theme {office,library,
+mission_control}` -- an `Explore` with a rucksack, `MAIN` with a plant, a
+`general-purpose` with twin monitors, at three visibly different stations.
+
+---
+
+## M7b — Held objects: the hand anchor turned out to be measurable
+
+The ask, repeated: "I want the people to actually be holding stuff. because I
+know that's possible." They were right, and the thing that made it possible is
+not the thing anyone was looking at.
+
+### What rows 15 and 9 are
+
+Re-measured rather than read off M6g's table, because the whole question turns
+on them. `Book_32x32_01.png` is 1792x1312 with ink on exactly one 32-px row,
+row 15, 12 frames. `Smartphone_32x32_1.png` is 768x384 with ink on exactly one,
+row 9, 8 frames. Fitted against premade 06 at every 64-px row offset:
+
+| layer | best offset | premade row | ink on transparency | pixels changed |
+|---|---|---|---:|---:|
+| `Book_01` | `dy = 0` | **7** (`phone_b`) | 0 | **104** of 2656 |
+| `Smartphone_1` | `dy = +128` | **6** (`phone_a`) | 0 | **24** of 592 |
+
+Every other offset puts 100-508 pixels on empty canvas and changes 20-25x as
+many, so the registration is not a judgement call. Rendered, rows 6 and 7 are a
+front-facing standing figure holding a phone, and the same figure holding an
+open book at chest height. **The premade already draws the object** -- cutting
+row 7 is what makes a character hold a book, and the `Books/` folder only
+repaints the cover. That is the 104.
+
+So route 1 (composite the generator layer) is exactly what M6g said it was:
+it pins the body to a front-facing standing row, and this room draws a
+side-view seated character at a chair and a desk. I did not adopt it.
+
+### What was actually blocking route 2, and why it stopped
+
+"No per-frame hand anchor exists" is true of the download and does not finish
+the argument, because the room draws **one** pose and on that pose the hands do
+not move. Over 36 frames -- six cast variants x three `sit` frames x both
+facings -- the skin below the shoulder line occupies `x 14...17` and ends on row
+`55`, every time. Centre in node coordinates: **(0, 10)**.
+
+Two things I got wrong first and the measurement corrected:
+
+- I asserted one identical box for all 36 and it failed on three. Some variants
+  show **forearm** skin above the hand, so the run starts at row 48 or 50. The
+  anchor is the four rows every frame agrees on; the arm is allowed to be there.
+- The skin sampler used `Dictionary.max(by:)` on the count alone, which is
+  **nondeterministic in Swift** when two colours tie -- the test failed on one
+  frame in about three runs of four and passed in the fourth. Ties are now
+  broken by brightness, which is also the right answer rather than merely a
+  stable one.
+
+### What shipped
+
+`Sources/SpriteRoomScene/HeldObject.swift` -- six objects, one per badge class
+that has one; `question_mark` gets **nothing**, which is the question-mark rule
+on the character layer [I1]. Art authored on the pack's 2x design grid in the
+palette all eleven `Books`/`Smartphones` files share, outline `(58,58,80)` =
+value 0.314 = the cast's own floor, so no held object can ever be the darkest
+pixel on screen. `Character` gains one node, refreshed from the two places that
+can change what is in the hands and from nowhere else.
+
+The rule: **hold while the body is `working` and the badge slot shows a tool.**
+The body half is I2 and it disposes of ADR-003's closing beat for free (a beat
+is a glyph over an *idle* body, so the guard returns first). The badge half
+means attention and dormancy empty the hands -- a gated `Bash` is not running,
+and the room should not assert it in a second, larger channel while the badge is
+correctly refusing to.
+
+### The honest verdict
+
+`fixtures/three-subagents` at 720x400, `1x`, against the identical render with
+the layer switched off: **0 pixels at t=6 s (nobody working), 90 at t=12 s (one
+agent), 186 at t=20 s (two).** Nothing else moved.
+
+At `1x` you can see that two characters are holding something and a third is
+not; you cannot name it. At `2x` it is a device, a book, a page. At `3x` all six
+separate. **A held object on this pose cannot change the silhouette** -- the
+seated torso is about 20x16 px and the hands are in the middle of it -- so this
+buys a ~90-px block of bright hue inside an existing outline, which is the
+costume channel on a different key. The badge is still what carries tool
+identity and I have not claimed otherwise anywhere.
+
+The first cut was 12x12 with a full one-cell border and it read as a **dark
+patch**, because the border is 2 px of the cast's own outline ink on a torso
+outlined in the same colour. 12x10 with the fill reaching the border is what
+made it read. That was found by rendering it and looking, not by arithmetic.
+
+### What I could not do
+
+- **`scripts/lint-palette.py` cannot see this layer.** It reads the manifest;
+  this art is drawn by the scene, like the nameplate and the `xN`. Putting it in
+  the manifest needs `process-assets.py` to cut it and `build-manifest.py` to
+  emit it, both outside the declared scope, and I was told not to run
+  `process-assets.py` unasked. The I7 numbers are checked by
+  `HeldObjectArtTests` instead, which runs on a fresh clone because the bitmaps
+  are ours. A reviewer reading only the lint output will not see them.
+- **2x and 3x are unreachable from the CLI.** `RoomCamera.comfortablePopulation`
+  is empty by the maintainer's own decision, so the app pins the camera to `1x`
+  at every population and `--size` cannot raise it. I6 is checked as the
+  property that actually matters -- every edge of the held node is a whole
+  pixel at 1x, 2x and 3x, asserted in a test -- plus a nearest upscale of the
+  real `1x` render, which is what an integer camera scale produces given that.
+- `assets/manifest.json` is **untouched**. The anchor is a measured placement
+  constant in `Sources/`, in the shape `RoomLayout.deskPosition`'s "seven
+  eighths of a tile" already uses.
+
+### Scope
+
+`Sources/SpriteRoomScene/{HeldObject.swift,Character.swift}`,
+`Tests/SpriteRoomSceneTests/{HeldObjectTests.swift,SceneFixtures.swift}`,
+`docs/04-ART-DIRECTION.md`. Nothing else. `SceneFixtures.expectedGatedTestCount`
+went 50 -> 59; **eight of those nine are mine** and the ninth arrived from
+concurrent station work in this tree that had not yet moved the constant.
+Whoever merges the two should re-derive it rather than trust the arithmetic.
+
+---
+
+## Composition: the room has depth now
+
+**The complaint.** A real 720x400 render: four characters in a 64-px band across
+the upper middle, flat grey above, a third of the panel of bare floor below, and
+the wall furniture in one strip. `RoomCamera.comfortablePopulation` had been
+emptied so the room draws wide at every population -- but that changed only the
+*zoom*. Nothing changed the *picture*, and the picture was a strip of characters
+floating in an empty rectangle.
+
+### What I found
+
+Measured on the shipped panel, before anything moved. `cameraY` was 93, so the
+frame was scene y `[-107, 293]`, and the content band was `[-92, 149]`:
+
+- **113 px of 400 -- 28% -- carried anything at all.** Everything else was flat
+  wall (165 px, 41%) or empty floor.
+- **The 41% of wall could not be filled, only converted.** A theme's wall tile is
+  an *authored flat*: the pack's own wall tiles carry vertical trim and seam
+  every 32 px when repeated across a 25-tile room, so `build-manifest.py` writes
+  a flat field instead. And no pack we own draws anything that hangs on a wall.
+  So there is no "put pictures on the wall" available at any price short of
+  authoring art.
+- **The decoration was on one side of the room, not alternating.** The role was
+  picked on `seat % 2` -- and seats fill *outward in pairs*, so `seat % 2` is
+  which **half of the room**, not which position in a row. All four backdrops
+  stood left of centre and all three accents right of it. That is visible in the
+  before shot as four drum kits on the left and three mic stands on the right,
+  and it is the largest single defect I found: the room read as two rooms
+  stitched at the centre line.
+- **Population 8 puts two characters on one spot.** `seatColumn` wraps mod
+  `seatCapacity`, so seat 7 is seat 0's column *and* seat 0's ring. Pre-existing,
+  untouched by this work, and visible in `pairs/*/eight-agents-*.png`: `MAIN` is
+  underneath `081`. Worth its own task.
+
+### What changed
+
+**1. Seats sit on two rows, keyed on the parity of the seat's ring.**
+`RoomLayout.isBackRow(seat:)`. This is the lattice read one column further, not
+a new rule: seats fill outward in pairs, so ring parity along x is *perfect
+alternation* -- columns in x order are seats 6, 4, 2, 0, 1, 3, 5, rings
+3, 2, 1, 0, 1, 2, 3 -- and sending odd rings upstage puts the occupied columns in
+a checkerboard **without moving a single column**.
+
+That is why it is free. Every clearance argument in `RoomLayout` rests on one
+number, *any two seats are at least a seat pitch apart in x*, and the fold does
+not touch x. It adds exactly two crossings -- a front-row character walking
+upstage out of the room across the back row's line, a back-row character walking
+to or from the aisle across the front row's -- and both happen inside the
+character's own column, which is a pitch from every seat. Block 5 of
+`theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` asserts it.
+
+**I re-derived the stagger refutation rather than trusting the brief, and it
+holds** -- for a reason worth stating precisely, because "stagger" and "second
+row" look alike. Two plates clear if they miss in x *or* in y. In y a plate is
+26 px and the grid step is 32, so the only offsets available are 0 or a whole
+row and everything strictly between lives in the 6 px of slack a row leaves over
+a plate, separating nothing. In x, halving the pitch to buy the packing a
+stagger is *for* gives 48 px against a 77 px plate, which overlaps. So a stagger
+either does nothing or is not a stagger. An offset of a whole row **is** a second
+row -- and it keeps the full 96 px pitch instead of trading it away.
+
+**2. The floor went from four rows to seven** (`rows` 6 -> 9), moving `wallBaseY`
+from 128 to 224. That converts the dead wall band into floor, which is something
+objects can stand on. The wall keeps a deliberate 84 px of the frame.
+
+**3. Decoration alternates along x and stands at two depths** -- backdrops
+against the wall at `wallBaseY`, accents a tile behind the back seat row. The
+counts are unchanged (board x4, plant x3, chair x7, desk x7), which was a design
+constraint and not luck: the motion budget is priced per copy [ADR-002 §14b], so
+this rearrangement had to be free. The lint confirms it -- `library` still 840
+px/s, 0.57 of the ceiling.
+
+**4. `drawnRows` overscan is now fixed at 6 rows each way** instead of `rows + 8`.
+That expression is a margin that *grows with the room*, and a nine-row room
+pushed the painted tile field past the top of the 1600x900 viewport
+`preview-theme.py --verify` registers its picture in -- which fails the whole
+scene-agreement check with nothing wrong with the room.
+`noScaleOnTheLadderEverShowsTheVoidBehindTheRoom` is the check at the other end.
+
+Result, same measurement: `cameraY` 108, frame `[-92, 308]`, **~250 px of 400 --
+63% -- carrying characters or furniture**, wall down to 84 px (21%), nothing
+confined to one half of the room, and zero wasted pixels below the content band
+(the frame's bottom edge now sits exactly on it; it used to sit 15 px under).
+
+### What I could not do
+
+- **32% of the panel is foreground reserve and I could not remove it.** The
+  frame's bottom edge is `contentBand.bottom`, the lowest pixel of a nameplate
+  on the **outermost delivery row**. Nothing is wasted there -- it is simply
+  empty whenever nobody is walking. Four ways out, all measured and all closed:
+  the camera is already clamped at `band.bottom + half` and one pixel more crops
+  a plate; making the band's bottom follow the deepest *occupied* ring buys 16 px
+  because the upward preference binds first, and costs a vertical camera jump on
+  every arrival that opens a ring; the three delivery rows are three because
+  three same-side reporters (seats 1, 3, 5) must not share one and a tile is the
+  grid; and nothing decorative may be drawn there because it is where every
+  arrival, departure and report walk happens. **The one fix that would work is
+  delivering upstage of the seat rows rather than downstage**, which frees the
+  whole foreground -- and that is a redesign of the choreography and its safety
+  proof, not a composition change.
+- **Population 1 is still a mostly empty room**, and I think that is honest
+  rather than a defect: one agent in a seven-desk office *is* mostly empty room,
+  and inventing occupants would be I1.
+- **`docs/ADR-002-themed-rooms.md` now carries two stale numbers** and I left it
+  alone: it is outside my declared scope and another agent was writing to it
+  while I worked. Line ~66 says "The room is `25 x 6` tiles = 800 x 192 px" (now
+  `25 x 9` = 800 x 288) and the bullet under it says "`wallBaseY = 128` up to
+  192 -- 64 px" (now 224 up to 288). Its §14b argument about `board` and the
+  motion budget is unaffected, because the counts did not move.
+- **2x and 3x cannot be reached from the CLI**, because
+  `comfortablePopulation` is empty by the maintainer's own decision and the app
+  pins the camera to `1x`. I6 is not at risk -- nothing here introduces a
+  fractional scale -- and the ladder is checked as arithmetic instead:
+  `noScaleOnTheLadderEverShowsTheVoidBehindTheRoom` walks all three rungs, and
+  `theCameraNeverCropsTheContentBandAtAnyScale` sweeps every scene height.
+- **I had to touch `scripts/preview-theme.py`**, which is outside the declared
+  scope. It is the transcription of `RoomLayout`/`RoomScene` that
+  `lint-palette.py --verify` compares the real scene against, so a layout change
+  that does not update it fails the palette gate by construction. Six themes are
+  back at "agrees with the scene".
+- **`SceneFixtures.expectedGatedTestCount` went 58 -> 59** for one new art-gated
+  test. The constant was moving under me from concurrent held-object and station
+  work; it is correct as of this run and whoever merges should re-derive it.
+
+### Scope
+
+`Sources/SpriteRoomScene/{RoomLayout.swift,RoomScene.swift}`,
+`Tests/SpriteRoomSceneTests/{RoomSceneTests.swift,SceneFixtures.swift}`,
+`scripts/preview-theme.py`, `docs/04-ART-DIRECTION.md`. `assets/manifest.json` is
+**untouched**. Evidence in `scratchpad/compose/`: `pairs/_ba.png` (before/after
+at populations 1, 4, 8), `themes/_sheet.png` (all six themes at population 6),
+`beat/_sheet.png` (a back-row report walk, six frames).

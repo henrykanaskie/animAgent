@@ -36,23 +36,64 @@ public struct RoomLayout: Sendable, Hashable {
         self.seatSpacingTiles = max(2, seatSpacingTiles)
         // Enough columns for every seat plus its desk plus a margin each side.
         self.columns = self.seatCapacity * self.seatSpacingTiles + 4
-        self.rows = 6
+        // **Seven floor rows, not four.** The room is drawn at `1x` whatever the
+        // population, so the panel is a 720×400 window on it and the only
+        // question composition can ask is what is inside that window. With four
+        // floor rows the wall began at y=128 and everything above the tallest
+        // badge — 36% of the panel — was flat wall with nothing on it, because a
+        // wall tile is an authored flat field (the pack's own wall tiles seam
+        // every 32 px when repeated) and no pack we own draws anything that
+        // hangs on one.
+        //
+        // Three more floor rows turn that dead band into *floor*, which is
+        // something objects can stand on: the back seat row, a mid-depth accent
+        // band, and the backdrops standing against the wall. The wall keeps a
+        // deliberate 84 px of the frame — enough to read as a wall, not enough
+        // to be the subject.
+        self.rows = 9
         self.wallRows = 2
     }
 
     /// Tiles are drawn past the room's nominal bounds so no zoom level ever
     /// shows the void behind the room. The *content* box the camera fits stays
     /// `width` × `height`; this is only what gets painted.
-    public var drawnRows: ClosedRange<Int> { -6...(rows + 8) }
+    ///
+    /// **Overscan, not a margin that grows with the room.** It used to be
+    /// `rows + 8`, which was six rows of overscan when the room was six rows
+    /// tall and nine when it became nine — and the field then reached past the
+    /// top of the 1600×900 viewport `scripts/preview-theme.py --verify` renders
+    /// into, where a field touching an edge cannot be registered and the whole
+    /// scene-agreement check fails with nothing wrong with the room. Six rows
+    /// each way covers the 720×400 panel with a hundred pixels to spare at
+    /// every scale on the ladder and stays inside that viewport.
+    public var overscanRows: Int { 6 }
+    public var drawnRows: ClosedRange<Int> {
+        (-overscanRows)...(rows - 1 + overscanRows)
+    }
     public var drawnColumns: ClosedRange<Int> { -8...(columns + 8) }
 
     public var width: Double { Double(columns * tile) }
     public var height: Double { Double(rows * tile) }
     public var floorRows: Int { rows - wallRows }
 
-    /// Y of the line characters stand on: the top of the second floor row, so
-    /// there is a clear tile of floor beneath for the nameplate.
+    /// Y of the **front** seat row: the top of the second floor row, so there is
+    /// a clear tile of floor beneath for the nameplate.
     public var baselineY: Double { Double(tile * 2) }
+
+    /// How far behind the front row the back row of seats sits.
+    ///
+    /// Two tiles is exactly one character's height, so the back row's feet land
+    /// on the front row's head line: the rows read as receding rather than as
+    /// two bands with a gap of nothing between them, and neither row is drawn
+    /// over the other because they are a whole seat pitch apart in x.
+    public var seatRowDepthTiles: Int { 2 }
+
+    /// Y of the **back** seat row.
+    public var backSeatRowY: Double { baselineY + Double(tile * seatRowDepthTiles) }
+
+    /// The furthest-upstage row a character can sit on. The camera's ceiling is
+    /// measured from this, not from `baselineY`.
+    public var topSeatRowY: Double { backSeatRowY }
 
     /// The walkway one tile in front of the desk row, nearer the camera.
     ///
@@ -142,9 +183,53 @@ public struct RoomLayout: Sendable, Hashable {
         return centre + sign * step * seatSpacingTiles
     }
 
+    /// **Which of the two rows a seat is on: its ring's parity.**
+    ///
+    /// This is not a new rule bolted onto the lattice — it is the lattice read
+    /// one column further. Seats fill outward in pairs, so consecutive rings are
+    /// consecutive columns on alternating sides, and *ring parity along x is
+    /// perfect alternation*: columns in x order are seats 6, 4, 2, 0, 1, 3, 5 —
+    /// rings 3, 2, 1, 0, 1, 2, 3. Sending odd rings upstage therefore puts the
+    /// rows in a checkerboard, every occupied column differing in depth from
+    /// both its neighbours.
+    ///
+    /// **Nothing the lattice proves has to be re-proved, and that is the whole
+    /// reason the row is keyed on the ring.** Every clearance argument in this
+    /// file rests on one number — *any two seats are at least a seat pitch apart
+    /// in x* — and folding the row does not touch x at all. `seatColumn` is
+    /// unchanged, so the minimum column gap is still one pitch, still 96 px
+    /// against a 77 px plate.
+    ///
+    /// What the fold *adds* is two new crossings, and both are closed by that
+    /// same number rather than by anything new:
+    ///
+    /// - A front-row character walking upstage out of the room crosses the back
+    ///   row's line. It does so **inside its own column**, and its own column is
+    ///   a pitch from every back-row seat, because it is a pitch from every seat.
+    /// - A back-row character walking down to the aisle, or up from it, crosses
+    ///   the front row's line. Same column, same pitch, same conclusion.
+    ///
+    /// A staggered *pitch* would have needed a genuinely new argument and does
+    /// not survive one: the offset has to clear a 77 px plate but has only the
+    /// 6 px of slack a 96 px pitch leaves over a 90 px pair of half-plates, so
+    /// it needs `s ≤ 6` or `s ≥ 58` and only the useless branch is reachable.
+    /// Depth is free where width is not, because two rows a character's height
+    /// apart cannot share a horizontal strip at any x.
+    public func isBackRow(seat index: Int) -> Bool {
+        !ring(ofSeat: index).isMultiple(of: 2)
+    }
+
+    /// Y of the row seat `index` sits on.
+    public func seatRowY(_ index: Int) -> Double {
+        isBackRow(seat: index) ? backSeatRowY : baselineY
+    }
+
+    /// Every row a seated character can be on, nearest the camera first.
+    public var seatRows: [Double] { [baselineY, backSeatRowY] }
+
     /// Where the character's feet go when seated at `index`.
     public func seatPosition(_ index: Int) -> ScenePoint {
-        ScenePoint(x: Double(seatColumn(index) * tile + tile / 2), y: baselineY)
+        ScenePoint(x: Double(seatColumn(index) * tile + tile / 2), y: seatRowY(index))
     }
 
     /// Bottom-**centre** of the desk for a seat. It sits just to the character's
@@ -157,7 +242,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// only cue that a character is sitting *at* a desk rather than beside one
     /// is whether the desk's near edge crosses it.
     public func deskPosition(_ index: Int) -> ScenePoint {
-        ScenePoint(x: seatPosition(index).x + Double(tile) * 0.875, y: baselineY)
+        ScenePoint(x: seatPosition(index).x + Double(tile) * 0.875, y: seatRowY(index))
     }
 
     /// Bottom-centre of a station's one optional adjacent prop: a tile to the
@@ -172,11 +257,12 @@ public struct RoomLayout: Sendable, Hashable {
     /// character walks down, because every column in this room is a seat's own
     /// and this is beside one, not on it.
     ///
-    /// It is on `baselineY`, so it is furniture on the seat row rather than
-    /// decoration in front of the characters — the rule that replaced M5's
-    /// foreground row, and it is not weakened by anything a theme can declare.
+    /// It is on its seat's **own** row, so it is furniture beside the character
+    /// rather than decoration in front of the characters — the rule that
+    /// replaced M5's foreground row, and it is not weakened by anything a theme
+    /// can declare.
     public func stationPropPosition(_ index: Int) -> ScenePoint {
-        ScenePoint(x: seatPosition(index).x - Double(tile), y: baselineY)
+        ScenePoint(x: seatPosition(index).x - Double(tile), y: seatRowY(index))
     }
 
     public var seatedFacing: Facing { .right }
@@ -386,13 +472,18 @@ public struct RoomLayout: Sendable, Hashable {
     /// The vertical strip the camera actually has to frame: from the bottom of
     /// the lowest nameplate to the top of the tallest badge.
     ///
-    /// **Not `height`.** The room's nominal box is `rows * tile` = 192 px, and
-    /// the camera used to fit that. At the panel's 720×400 the consequence was
-    /// that the strip where anything happens — about 132 px of it — sat in the
-    /// middle third with a flat band of wall above and a flat band of floor
-    /// below, and `3x` was unreachable at any population because 192×3 does not
-    /// fit in 400. Framing the strip instead puts one working agent at `3x`
-    /// filling the panel, which is the case a glance surface exists for.
+    /// **Not `height`.** The room's nominal box is `rows * tile` — 192 px when
+    /// this was written, 288 px now that the floor is seven rows deep — and the
+    /// camera used to fit it. At the panel's 720×400 the consequence was that
+    /// the strip where anything happens sat in the middle third with a flat band
+    /// of wall above and a flat band of floor below, and `3x` was unreachable at
+    /// any population because 192×3 does not fit in 400. Framing the strip
+    /// instead puts one working agent at `3x` filling the panel, which is the
+    /// case a glance surface exists for.
+    ///
+    /// The strip is no longer a thin one: seats sit on two rows, so it runs from
+    /// an outermost delivery row's plate to the **back** row's badge — 305 px of
+    /// the panel's 400 rather than 237. See `isBackRow(seat:)`.
     ///
     /// Both arguments are measured from the manifest by the caller rather than
     /// written down here, so a taller badge or a taller font changes the frame
@@ -408,7 +499,11 @@ public struct RoomLayout: Sendable, Hashable {
         // The lowest plate belongs to a character on the outermost delivery
         // row — the only place in the room a character can stand that is nearer
         // the camera than the aisle.
-        (deliveryRowY(ring: maximumRing) - plateDropBelowFeet, baselineY + badgeTopAboveFeet)
+        // The highest pixel belongs to a character on the **back** seat row —
+        // the furthest upstage anyone sits, and the row whose badge would be
+        // cropped by a band measured from `baselineY`.
+        (deliveryRowY(ring: maximumRing) - plateDropBelowFeet,
+         topSeatRowY + badgeTopAboveFeet)
     }
 
     /// Bounding box in x of the given seats plus their desks, padded by a

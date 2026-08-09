@@ -594,10 +594,13 @@ enum ThemeFixtures {
 
     /// A theme carrying `count` numbered stations plus `main` and `default`.
     ///
-    /// Synthetic, and deliberately so: **no theme in the shipped manifest
-    /// declares a station at all**, so a fixture built from the manifest would
-    /// exercise only the empty-pool branch and the rendezvous half of §4 would
-    /// go untested until the art catches up.
+    /// Synthetic, and still deliberately so now that the shipped manifest does
+    /// declare stations: this one carries **no `roles` table**, so it exercises
+    /// the rendezvous half of §4 on its own. Against the shipped manifest every
+    /// name in the corpus below would be answered by tier 1 and the hash would
+    /// go untested. It also carries the numeric ids §7 specified, which keeps
+    /// the pre-§14c fallback — "the pool is the ids that are digits" — exercised
+    /// by something.
     static func stationed(count: Int) -> Manifest.Theme {
         let box = Manifest.PropRole.Box(x: 0, y: 0, width: 8, height: 8)
         let role = Manifest.PropRole(file: "x", contentBox: box, animation: nil)

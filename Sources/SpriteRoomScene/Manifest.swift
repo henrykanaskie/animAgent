@@ -354,15 +354,46 @@ public struct Manifest: Sendable, Hashable {
     /// for. A theme whose chair does not satisfy that is not a theme; it is
     /// asking for art that does not exist. [04-ART-DIRECTION]
     ///
-    /// **Nothing in the shipped manifest declares one.** The decoding is here
-    /// because §8 items 4 and 6 are specified against it; the artifact that
-    /// shipped dresses a theme through `props.roles` instead. See the
-    /// implementation report.
+    /// **`desk` and `chair` are the theme's own unless the station overrides
+    /// them.** Every station the shipped manifest declares overrides neither, so
+    /// what a station changes is what stands *beside* the seat — which is the
+    /// only channel the art we own can actually separate. The pack's desks all
+    /// desaturate to the same pale slab, and it ships exactly one chair that is
+    /// a side view with its backrest on the left. [ADR-002 §14c]
+    ///
+    /// `asserts` is the same flag `Costume` carries and it means the same thing:
+    /// whether this station makes a claim about what kind of worker sits at it.
+    /// A station reached from `roles` may; one the hash can reach may not. [I1]
     public struct Station: Sendable, Hashable {
+        public let id: String
+        /// What a person would call it. Prose, never compared.
+        public let title: String
+        /// What the art is, and why it was chosen. Prose.
+        public let what: String
+        /// Whether this station claims something about the agent at it.
+        public let asserts: Bool
         public let desk: PropRole
         public let chair: PropRole
         /// Optional floor-standing item adjacent to the seat.
         public let prop: PropRole?
+
+        public init(
+            id: String = "", title: String = "", what: String = "",
+            asserts: Bool = false, desk: PropRole, chair: PropRole, prop: PropRole? = nil
+        ) {
+            self.id = id
+            self.title = title
+            self.what = what
+            self.asserts = asserts
+            self.desk = desk
+            self.chair = chair
+            self.prop = prop
+        }
+
+        /// Every path this station needs on disk.
+        public var declaredPaths: [String] {
+            desk.declaredPaths + chair.declaredPaths + (prop?.declaredPaths ?? [])
+        }
     }
 
     public struct Room: Sendable, Hashable {
@@ -408,21 +439,63 @@ public struct Manifest: Sendable, Hashable {
         /// [04-ART-DIRECTION, "The five themes"]
         public let propRoles: [String: PropRole]
         /// §7's station bindings, keyed by station id (`"main"`, `"default"`,
-        /// `"0"`, `"1"`, …). Empty in every theme the manifest ships.
+        /// and the named ones). Declared once under `room` and inherited by
+        /// every theme that does not declare its own. [§14c]
         public let stations: [String: Station]
+        /// Tier 1: `agent_type` → station id, keyed on the **exact** string a
+        /// session produced. A station reached this way is a translation of a
+        /// name we were given, so it is allowed to assert. Entries naming a
+        /// station the manifest does not declare are dropped at decode. [§14c]
+        public let stationRoles: [String: String]
+        /// Tier 2: the pool `rendezvous` draws from for an `agent_type` nobody
+        /// anticipated. Sorted, because the pool must not depend on dictionary
+        /// order — the tie-break in `rendezvous` is only half of that guarantee.
+        ///
+        /// **Nothing in it may assert.** Arbitrary user text licenses no claim
+        /// about the work, so a hashed station may say only *this is a different
+        /// agent from that one*. Enforced by
+        /// `StationContractTests.noAssertingStationIsInThePoolTheHashDrawsFrom`.
+        /// [I1]
+        public let assignableStationIDs: [String]
+
+        public init(
+            tile: Size, builderTiles: [String], declaredFloor: String?, declaredWall: String?,
+            propCanvas: Size, propFiles: [String], propsIdentified: Bool,
+            propRoles: [String: PropRole], stations: [String: Station],
+            stationRoles: [String: String] = [:], assignableStationIDs: [String]? = nil
+        ) {
+            self.tile = tile
+            self.builderTiles = builderTiles
+            self.declaredFloor = declaredFloor
+            self.declaredWall = declaredWall
+            self.propCanvas = propCanvas
+            self.propFiles = propFiles
+            self.propsIdentified = propsIdentified
+            self.propRoles = propRoles
+            self.stations = stations
+            self.stationRoles = stationRoles
+            // **The numeric convention is the fallback, not the rule.** §7
+            // numbered the subagent stations and the pool was "the ids that are
+            // digits"; §14c replaced that with a declared list, for the reason
+            // costumes already had one — a pool the hash may reach has to be
+            // stated, not inferred from a naming habit. A manifest or a test
+            // fixture that predates the list still gets the old convention, so
+            // the flat shape keeps working exactly as it did.
+            self.assignableStationIDs = assignableStationIDs
+                ?? stations.keys.filter { !$0.isEmpty && $0.allSatisfy(\.isNumber) }.sorted()
+        }
 
         public func prop(_ role: String) -> PropRole? { propRoles[role] }
 
         public func station(_ id: String) -> Station? { stations[id] }
 
-        /// The rendezvous pool `ThemeSelector.station(agentID:agentType:in:)`
-        /// draws from: the stations whose ids are numbers. `main` and `default`
-        /// are reached by the identity rules, never by the hash, so they are not
-        /// in the pool. Sorted, because the pool must not depend on dictionary
-        /// order — the tie-break in `rendezvous` is only half of that guarantee.
-        public var numberedStationIDs: [String] {
-            stations.keys.filter { !$0.isEmpty && $0.allSatisfy(\.isNumber) }.sorted()
-        }
+        /// Sorted station ids. Dictionary order is not stable and neither a test
+        /// nor a survey may depend on it.
+        public var orderedStationIDs: [String] { stations.keys.sorted() }
+
+        /// The old name for `assignableStationIDs`, kept because §7 and three
+        /// tests spell it this way and it still means the same set.
+        public var numberedStationIDs: [String] { assignableStationIDs }
     }
 
     /// One named set of role bindings. [ADR-002 §7, §14a]
@@ -448,6 +521,9 @@ public struct Manifest: Sendable, Hashable {
         public let room: Room
 
         public var numberedStationIDs: [String] { room.numberedStationIDs }
+        public var assignableStationIDs: [String] { room.assignableStationIDs }
+        public var stationRoles: [String: String] { room.stationRoles }
+        public var orderedStationIDs: [String] { room.orderedStationIDs }
 
         public func station(_ id: String) -> Station? { room.station(id) }
 
@@ -672,7 +748,8 @@ public struct Manifest: Sendable, Hashable {
             states: badgeStates)
 
         // Room
-        self.room = try Self.roomBindings(try Self.object(object, "room"), context: "room")
+        let roomDecode = try Self.roomBindings(try Self.object(object, "room"), context: "room")
+        self.room = roomDecode.room
         guard !self.room.builderTiles.isEmpty else {
             throw LoadError.malformed("room.builder.tiles is empty")
         }
@@ -686,7 +763,8 @@ public struct Manifest: Sendable, Hashable {
             guard let entry = raw as? [String: Any] else {
                 throw LoadError.malformed("themes.sets.\(id) is not an object")
             }
-            let bindings = try Self.roomBindings(entry, context: "themes.sets.\(id)")
+            let bindings = try Self.roomBindings(
+                entry, context: "themes.sets.\(id)", inheriting: roomDecode.declared).room
             guard !bindings.builderTiles.isEmpty else {
                 throw LoadError.malformed("themes.sets.\(id).builder.tiles is empty")
             }
@@ -805,8 +883,8 @@ public struct Manifest: Sendable, Hashable {
     /// One function for `room` and for every `themes.sets.<id>`, because they
     /// are one shape. Two decoders over one shape drift.
     private static func roomBindings(
-        _ roomObject: [String: Any], context: String
-    ) throws -> Room {
+        _ roomObject: [String: Any], context: String, inheriting inherited: StationSpecs? = nil
+    ) throws -> (room: Room, declared: StationSpecs) {
         let builder = try Self.object(roomObject, "builder")
         let props = (roomObject["props"] as? [String: Any]) ?? [:]
         let propCanvasObject = (props["canvas"] as? [String: Any]) ?? [:]
@@ -817,27 +895,118 @@ public struct Manifest: Sendable, Hashable {
             }
             propRoles[role] = box
         }
-        var stations: [String: Station] = [:]
-        for (id, raw) in (props["stations"] as? [String: Any]) ?? [:] {
-            guard let entry = raw as? [String: Any],
-                  let desk = Self.propRole(entry["desk"]),
-                  let chair = Self.propRole(entry["chair"]) else {
+        let declared = try Self.stationSpecs(props["stations"], context: context)
+        // **Inheritance is all-or-nothing, per theme.** A theme either states
+        // its own stations or takes the room's whole block — sets, roles and
+        // pool together. Merging the two would let a theme silently keep a role
+        // entry pointing at a station it had just replaced. [§14c]
+        let effective = declared.isEmpty ? (inherited ?? declared) : declared
+        let stations = effective.materialised(with: propRoles)
+        return (
+            Room(
+                tile: try Self.size(roomObject, "tile", in: context),
+                builderTiles: (builder["tiles"] as? [String]) ?? [],
+                declaredFloor: builder["floor"] as? String,
+                declaredWall: builder["wall"] as? String,
+                propCanvas: Size(
+                    width: (propCanvasObject["w"] as? Int) ?? 64,
+                    height: (propCanvasObject["h"] as? Int) ?? 96),
+                propFiles: (props["files"] as? [String]) ?? [],
+                propsIdentified: (props["identified"] as? Bool) ?? false,
+                propRoles: propRoles,
+                stations: stations,
+                stationRoles: effective.roles.filter { stations[$0.value] != nil },
+                assignableStationIDs: effective.declaredAssignable
+                    .map { $0.filter { stations[$0] != nil }.sorted() }),
+            declared)
+    }
+
+    /// `props.stations` as written, before a theme's own desk and chair have
+    /// been folded in. [ADR-002 §14c]
+    ///
+    /// It exists because the block is declared once and used six times: the
+    /// prop is the same object in every theme, and the desk and chair under it
+    /// are whatever that theme puts at a seat. Materialising per theme is what
+    /// keeps a station from dragging the Office desk into the library.
+    private struct StationSpecs {
+        struct Spec {
+            let title: String
+            let what: String
+            let asserts: Bool
+            let desk: PropRole?
+            let chair: PropRole?
+            let prop: PropRole?
+        }
+
+        var specs: [String: Spec] = [:]
+        var roles: [String: String] = [:]
+        /// `nil` when the manifest declared no `assignable` list, which is the
+        /// cue for `Room.init` to fall back to the numeric-id convention.
+        var declaredAssignable: [String]?
+
+        var isEmpty: Bool { specs.isEmpty }
+
+        /// A station whose desk or chair resolves to nothing is **dropped, not
+        /// faked**: the seat then keeps the theme-wide pair, which is the
+        /// picture the room drew before stations existed. [I1]
+        func materialised(with propRoles: [String: PropRole]) -> [String: Station] {
+            var out: [String: Station] = [:]
+            for (id, spec) in specs {
+                guard let desk = spec.desk ?? propRoles[surfaceRoleKey],
+                      let chair = spec.chair ?? propRoles[seatRoleKey] else { continue }
+                out[id] = Station(
+                    id: id, title: spec.title, what: spec.what, asserts: spec.asserts,
+                    desk: desk, chair: chair, prop: spec.prop)
+            }
+            return out
+        }
+    }
+
+    /// The two `props.roles` keys a station falls back to. Spelled here rather
+    /// than imported from `RoomScene`, because they are manifest keys and the
+    /// manifest decoder may not depend on the scene.
+    private static let surfaceRoleKey = "desk"
+    private static let seatRoleKey = "chair"
+
+    /// Decodes `props.stations` in either shape.
+    ///
+    /// The tiered shape — `{sets, roles, assignable}` — is what ships, and it is
+    /// `characters.costumes`' shape for the reason §14c gives. The flat shape —
+    /// a bare map of id → station — is what §7 originally specified and what
+    /// hand-built fixtures still write; it carries no tiers, so its pool is the
+    /// numeric-id convention and its `roles` table is empty.
+    private static func stationSpecs(
+        _ raw: Any?, context: String
+    ) throws -> StationSpecs {
+        guard let object = raw as? [String: Any] else { return StationSpecs() }
+        let tiered = object["sets"] as? [String: Any]
+        var out = StationSpecs()
+        for (id, entry) in tiered ?? object {
+            guard let entry = entry as? [String: Any] else {
+                throw LoadError.malformed("\(context).props.stations.\(id) is not an object")
+            }
+            let desk = Self.propRole(entry["desk"])
+            let chair = Self.propRole(entry["chair"])
+            // The flat shape has no fallback to inherit from, so it must carry
+            // both. Throwing here is what caught a malformed fixture before
+            // stations shipped and it keeps catching one.
+            if tiered == nil, desk == nil || chair == nil {
                 throw LoadError.malformed("\(context).props.stations.\(id)")
             }
-            stations[id] = Station(desk: desk, chair: chair, prop: Self.propRole(entry["prop"]))
+            out.specs[id] = StationSpecs.Spec(
+                title: (entry["title"] as? String) ?? id,
+                what: (entry["what"] as? String) ?? "",
+                asserts: (entry["asserts"] as? Bool) ?? false,
+                desk: desk, chair: chair, prop: Self.propRole(entry["prop"]))
         }
-        return Room(
-            tile: try Self.size(roomObject, "tile", in: context),
-            builderTiles: (builder["tiles"] as? [String]) ?? [],
-            declaredFloor: builder["floor"] as? String,
-            declaredWall: builder["wall"] as? String,
-            propCanvas: Size(
-                width: (propCanvasObject["w"] as? Int) ?? 64,
-                height: (propCanvasObject["h"] as? Int) ?? 96),
-            propFiles: (props["files"] as? [String]) ?? [],
-            propsIdentified: (props["identified"] as? Bool) ?? false,
-            propRoles: propRoles,
-            stations: stations)
+        for (agentType, value) in (object["roles"] as? [String: Any]) ?? [:] {
+            guard let stationID = value as? String, out.specs[stationID] != nil else { continue }
+            out.roles[agentType] = stationID
+        }
+        if let assignable = object["assignable"] as? [String] {
+            out.declaredAssignable = assignable.filter { out.specs[$0] != nil }.sorted()
+        }
+        return out
     }
 
     /// A `{file, content_box}` entry. `nil` for anything that is not one —

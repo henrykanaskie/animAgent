@@ -103,20 +103,37 @@ place a held object correctly across outfits and frames.
 > answer from a wrong premise is not the same as being right, and the difference
 > is what cost the product its third layer.
 
-Replaced by three independent layers that never fight each other:
+Replaced by independent layers that never fight each other:
 
 | Layer | Source | Carries |
 |---|---|---|
 | **Body** | Modern Interiors premade character sheets | what the agent is *doing* |
 | **Costume** | the character generator's outfit sheets, on the body's own frames | what the agent *is* — keyed on `agent_type`. Added at M6h; see "Costumes" below |
+| **Held object** | authored on the pack's grid, placed on a **measured** hand anchor | *which tool* is running, in the hands. Added at M7b; see "Held objects" below |
 | **Badge** | emote bubble, floating above the head | *which tool* is running |
 | **Room** | Modern Office tileset | the setting and the anchor desk |
 
-Nothing is held — **because no held art exists for the pose the room draws**,
-not because the art could not be placed. Delete every reference to a held prop.
-The costume layer is a *worn* one and is a different question: it registers on
-the seated row, it says what the agent is rather than what it is doing, and it
-is keyed on `agent_type` rather than on a badge class.
+> **"Nothing is held" was the rule from M0 to M7b and it is now wrong.** It
+> survived on two claims. The first — no held art exists — was refuted at M6g
+> and the refutation stands: the pack draws a held book and a held phone, on
+> rows 7 and 6, and `Character_Generator/{Books,Smartphones}` repaints them. The
+> second — the room cannot use them, because those two rows are front-facing
+> standing poses and this room is side-view seated — is **still true and is not
+> disturbed by anything below**.
+>
+> What was never checked is the step between them: *therefore no object can be
+> placed at all*. That rested on "the sprites have no per-frame hand anchors",
+> which is true of the download and does not finish the argument, because **on
+> the one pose this room draws the hands do not move**. There is nothing to
+> anchor per frame. The measurement is in "Held objects" below and it is one
+> box, `x 14…17, y 52…55`, identical on all six cast variants, all three `sit`
+> frames and both facings — 36 frames agreeing to the pixel. The rule outlived
+> its own premise by seven milestones, which is what a conclusion does when
+> nobody re-derives it after the reason changes.
+
+The costume layer is a *worn* one and is a different question again: it says
+what the agent is rather than what it is doing, and it is keyed on `agent_type`
+rather than on a badge class.
 
 The badge layer draws from **two** packs as of M5b. The frame — a 24×34 speech
 bubble — is Modern Interiors' own empty emote bubble; the glyph inside it is
@@ -725,6 +742,124 @@ large. That is forced: with six characters the room is 640 px wide, which only
 fits at `1x`, and `1x` makes the band a third of the panel's height. The only
 real fixes are a panel whose height tracks the scale (which would make the
 drop-down jump as agents come and go) or a fractional zoom (which I6 forbids).
+
+> **Two paragraphs above are out of date and the section below replaces them.**
+> The "row of plants in front of the walkway" was removed from the scene at
+> `4e7b43d` and the "decoration is placed outside the content band" argument went
+> with it — see `RoomScene.buildRoom` for the rule that replaced it. And the
+> residual's third sentence names two fixes it calls the only real ones; a third
+> one existed and is what the section below does. Everything above about the
+> **content band** itself still holds and is still what the camera fits.
+
+## Composition, again: the room has depth now
+
+The camera stopped pulling in on a small population: `1x` is the only scale a
+normal room uses, so the panel is a fixed 720×400 window on the room and the
+only question composition can ask is **what is inside that window**. Answering
+"the zoom" had left the answer to "the picture" untouched, and the picture was
+this: four characters in a 64 px band across the upper middle, a flat grey field
+above them, and a third of the panel of bare floor below. About 28% of the frame
+carried anything at all.
+
+Three faults, and they are separate:
+
+**1. Everyone was on one line.** Every seat stood on `baselineY`. Seats now sit
+on **two rows a character's height apart**, and which row is *the parity of the
+seat's ring*.
+
+That last clause is the whole of why it is free. Seats fill outward in pairs, so
+ring parity along x is perfect alternation — columns in x order are seats
+6, 4, 2, 0, 1, 3, 5, rings 3, 2, 1, 0, 1, 2, 3 — and sending odd rings upstage
+puts the occupied columns in a checkerboard **without moving a single column**.
+Every clearance argument in `RoomLayout` rests on one number, *any two seats are
+at least a seat pitch apart in x*, and the fold does not touch x at all. The two
+crossings it adds — a front-row character walking upstage out of the room across
+the back row's line, a back-row character walking down to the aisle across the
+front row's — both happen inside the character's own column, and a column is a
+pitch from every seat.
+
+**A stagger is not this, and does not survive its own arithmetic** — re-derived
+here rather than taken on trust, because the two ideas look alike. A stagger
+nudges alternate seats by some offset `s` and keeps the columns closer together.
+Two plates clear if they miss in x *or* miss in y. In y a plate is 26 px tall and
+the grid step is 32, so the only offsets available are 0 or a whole row, and
+everything strictly between is inside the 6 px of slack a row leaves over a
+plate — an `s` in that range separates nothing. In x, halving the pitch to buy
+the packing a stagger is for gives 48 px against a 77 px plate, which overlaps.
+So a stagger either does nothing or is not a stagger: `s` of a whole row **is** a
+second row, which is what this does, and it keeps the full 96 px pitch instead of
+trading it away.
+
+**Depth is free where width is not**, because two rows a character's height apart
+cannot share a horizontal strip at any x. This is the same lesson the lattice
+taught about the aisle.
+
+**2. The decoration was in one strip, on one side.** The role was picked on
+`seat % 2` — and seats fill outward *in pairs*, so `seat % 2` is not
+"alternating", it is **which half of the room**. All four backdrops stood left of
+centre and all three accents right of it; the room read as two rooms stitched at
+the centre line. The roles now alternate along **x**, which gives the same four
+and three — the counts are what the motion budget is priced on, so the
+rearrangement had to be free — spread across the whole width.
+
+They also stand at **two depths**: backdrops against the wall, accents a tile
+behind the back seat row, alternating, so the upstage half of the room has a near
+edge and a far edge instead of a single line.
+
+**3. The wall was a flat field with nothing on it, and nothing could go on it.**
+A theme's wall tile is an *authored flat* — the pack's own wall tiles carry
+vertical trim and seam every 32 px when repeated across a 25-tile room — and no
+pack we own draws anything that hangs on a wall. So the 36% of the panel above
+the tallest badge could not be filled; it could only be **converted**. The floor
+went from four rows to **seven**, which moves `wallBaseY` from 128 to 224 and
+turns that dead band into floor, which is something objects can stand on. The
+wall keeps a deliberate ~84 px of the frame: enough to read as a wall, not enough
+to be the subject.
+
+Measured on the 720×400 panel, `cameraY` clamped at 108 so the frame is
+`[-92, 308]`:
+
+| | before | after |
+|---|---:|---:|
+| `cameraY` | 93 | 108 |
+| frame | `[-107, 293]` | `[-92, 308]` |
+| frame carrying characters or furniture | 113 px (28%) | ≈250 px (63%) |
+| wall in frame | 165 px (41%) | 84 px (21%) |
+| …with nothing standing against it | all of it | none of it |
+| seat rows | 1 | 2 |
+| decoration depths | 1 | 2 |
+| decoration confined to one half of the room | yes | no |
+| foreground below the frame's own content band | 15 px wasted | 0 |
+
+The "carrying characters or furniture" row is the top of the tallest backdrop
+minus the bottom of the lowest seated plate, so it moves with the theme: 234 px
+for `office`'s 46 px chart board, 268 px for `broadcast`'s 80 px softbox.
+
+**What is left, and it is not small: 128 px — 32% of the panel — is foreground
+reserve.** The frame's bottom edge sits exactly on `contentBand.bottom`, which is
+the lowest pixel of a nameplate belonging to a character on the **outermost
+delivery row**. Nothing is wasted there; it is simply empty whenever nobody is
+walking, which is most of the time.
+
+It is forced by arithmetic and the arithmetic is worth writing down, because the
+obvious fixes do not work:
+
+- The camera cannot go higher. `cameraY` is already clamped at `band.bottom +
+  half`; one pixel more crops a plate.
+- Making the band's bottom follow the deepest *occupied* ring buys 16 px, because
+  the upward preference binds first — and it costs a vertical camera jump on
+  every arrival that opens a new ring.
+- There are three delivery rows because three same-side reporters (seats 1, 3, 5)
+  must not share one, they must be a tile apart for their plates to clear, and a
+  tile is the grid. None of the three is negotiable.
+- Nothing decorative may be drawn there. That is not timidity — it is where every
+  arrival, departure and report walk happens, and a prop in a corridor is a prop
+  a character walks through.
+
+The one fix that would work is a change to the report beat itself: deliver
+*upstage* of the seat rows rather than downstage, which would free the whole
+foreground. That is a redesign of the choreography and its safety proof, not a
+composition change, and it is not this one.
 
 ## Placeholders
 
@@ -1901,6 +2036,14 @@ row-7 book pose at `1x` in the real 720×400 panel read as six front-facing
 figures standing at side-view desks with a pale patch at chest height. It is the
 `sleep` row again — the name was right and the art is something else.
 
+> **Everything above still holds, and the sentence it was used to justify does
+> not.** This section refuses *these two layers*, correctly, and it was read for
+> seven milestones as refusing a held object altogether. It does not: the reason
+> given — no per-frame hand anchor — is a fact about 20 pose rows, and the room
+> draws one of them, on which the hands are still. See "Held objects: the hand
+> anchor is a measurement — M7b" below for the box, the 36 frames it was
+> measured over, and what a prop placed on it can and cannot do.
+
 Two more numbers that settle it:
 
 - **The premades already contain the book.** Compositing `Book_01` onto premade
@@ -1962,6 +2105,161 @@ reasons stated so the next person does not have to re-derive them:
    arriving on the character layer. The neutral subset — beanie, snapback,
    backpack, glasses — is four items, of which two have a silhouette worth
    having.
+
+## Held objects: the hand anchor is a measurement — M7b
+
+The maintainer asked, repeatedly, for the people to actually be holding things.
+M6g answered with the generator's layers, found they only cover two standing
+front-facing rows, and stopped. This section is what is on the other side of
+that stop.
+
+### Rows 15 and 9, named
+
+Both generator folders were re-measured rather than taken from the M6g table,
+because the whole question turns on them:
+
+| File | Sheet | 32-px rows with ink | Best fit onto a premade | Ink on transparency | Pixels changed |
+|---|---|---|---|---|---:|
+| `Books/32x32/Book_32x32_01.png` | 1792×1312 | **row 15 only**, 12 frames | `dy = 0` → **row 7** | 0 | **104** of 2656 |
+| `Smartphones/32x32/Smartphone_32x32_1.png` | 768×384 | **row 9 only**, 8 frames | `dy = +128` → **row 6** | 0 | **24** of 592 |
+
+"Best fit" is the row offset at which none of the layer's ink lands on
+transparency; the next-best offset for either file puts 100–508 pixels on empty
+canvas and changes 20–25× as many. So the registration is not a judgement.
+
+`CHAR_ROW_POSE` calls rows 6 and 7 `phone_a` and `phone_b`, and rendered they
+are a **front-facing standing figure holding a phone** and the **same figure
+holding an open book at chest height**. The important consequence is the one
+M6g already recorded and it is worth repeating in the sharpest form: **the
+premade already contains the object.** Cutting row 7 is what makes a character
+hold a book; the `Books/` folder only repaints the cover. That is why 104 pixels
+change and not 2656.
+
+Both rows are single-direction and front-facing, so **compositing either layer
+pins the body to a standing pose**, and the room draws a side-view seated
+character at a chair and a desk. Route 1 buys a held book at the price of the
+pose, the chair and the desk. That has not changed and this section does not
+adopt it.
+
+### The hands do not move, so there is one anchor
+
+The blocker on route 2 was "no per-frame hand anchor exists". True of the files,
+and it stops mattering once you notice the room draws exactly one pose:
+
+| | seated hand box, 32×64 canvas, y down |
+|---|---|
+| variants 06, 07, 09, 10, 17, 19 | `x 14…17`, `y 52…55` |
+| `sit` frames 0, 1, 2 | the same box |
+| facing `right` and facing `left` | the same box |
+
+Measured by taking each variant's own skin from the lower face and locating that
+colour below the shoulder line, over all **36** frames. The `sit` loop moves the
+head and the torso by 2 px on frame 2 and leaves the hands alone; the left
+frames are the right frames mirrored about a canvas whose centre the hand box
+straddles symmetrically, so the mirror is a no-op on the anchor.
+
+Two caveats, because the first version of the check asserted more than the art
+supports and failed on three frames:
+
+- Some variants show **forearm** skin above the hand, so the run starts at row
+  48 or 50 rather than 52. The anchor is taken from the four rows every frame
+  agrees on, `52…55`, and the arm is allowed to be there.
+- The bottom row is 55 and the columns are 14…17 on all 36. Those are the
+  invariants; the top is not one.
+
+In the node's own coordinates — bottom-centre anchor, y up — that box's centre
+is **(0, 10)**. `Character.seatedHandCentre` is that number and
+`HeldObjectArtTests.theSeatedHandBoxIsWhereTheArtSaysItIs` re-derives it from
+the shipped PNGs rather than pinning it against itself.
+
+### The art, and why it is authored
+
+Six objects, one per badge class that has one: `page`, `book`, `console`,
+`globe`, `clipboard`, `plug`. **`question_mark` gets nothing** — an unmapped
+tool gets no glyph because guessing one would be a claim the data did not make,
+and it gets no object for the same reason with a larger surface. [I1]
+
+Authored, on the M5c precedent and for the M5c reason: no further packs will be
+bought, and no pack draws a hand-sized prop for this pose. Three constraints,
+all measured off the pack rather than chosen:
+
+- **The pack's grid.** Every feature in the 32× art is a 2×2 block, because the
+  32× set is a 2× scale-up of a 16-px design. Each object is an ASCII design
+  grid doubled on the way out, exactly as `generate-art.py` draws the badges. A
+  test asserts the doubling rather than trusting the transcription.
+- **The pack's palette.** `(58,58,80)`, `(70,70,94)` and `(86,89,114)` are the
+  three structural inks **all eleven** files in `Books/` and `Smartphones/`
+  share; the page white, the book blue, the gold, the lit-phone cyan, the pale
+  casing and the orange are lifted from the same eleven files. A test pins the
+  set, so a seventh object cannot introduce an unmeasured hue.
+- **The pack's floor.** The outline is `(58,58,80)`, value **0.314**, the cast's
+  own darkest pixel to three decimals. Nothing here goes below it, so a held
+  object can never be the darkest thing on screen — I7's one non-negotiable
+  axis — and every object peaks above 0.60 so something in it separates from a
+  torso.
+
+**`scripts/lint-palette.py` cannot see this layer and that is not an oversight
+to fix by moving the art.** The lint reads `assets/manifest.json`; this layer is
+drawn by the scene, like the nameplate, the `×N` and the placeholder desk. The
+I7 numbers are therefore checked by `HeldObjectArtTests`, which runs on a fresh
+clone with no art at all because the bitmaps are ours. What that costs is stated
+plainly: a reviewer looking only at the lint output will not see these numbers.
+
+### The size was decided by looking, twice
+
+The first cut was a 12×12 canvas with a one-cell border all round. Rendered onto
+a seated character it read as a dark patch, not as a thing being held: the
+border is 2 px of the pack's darkest ink on every edge, the torso it lands on is
+about 20×16 px, and the torso's own outline is the same colour. Dropping to
+**12×10** and letting the fill reach the border is what made it read. The
+placement moved with it — forward 3 px and up 2 from the hand centre, so the
+object occupies canvas `x 13…24, y 47…56`: top edge a pixel under the chin, left
+edge over the hands, bottom clear of the trousers.
+
+### What it does not do
+
+**A held object on this pose cannot change the silhouette, and this document's
+own rule says silhouette is what carries identity at `1x`.** The seated body is
+a chibi — the head spans `x 2…29, y 20…45` and the entire torso under it is
+about 20×16 px — so the hands are in the middle of an existing outline. What the
+layer buys is a ~90-px block of bright, hue-separated colour inside that
+outline: the same channel a costume buys (M6h), at about the same size, on a
+different key.
+
+Measured on the shipped panel, `fixtures/three-subagents` at 720×400 with the
+camera at `1x`, against the identical render with the layer switched off:
+
+| t | agents working | pixels changed |
+|---:|---:|---:|
+| 6 s | 0 | **0** |
+| 12 s | 1 | 90 |
+| 20 s | 2 | 186 |
+
+Zero at 6 s is I2 holding: nobody had an open call, so nobody held anything. 90
+is one object; 186 is two. Nothing else in the frame moved.
+
+The honest verdict from the pictures: at `1x` you can see that two characters
+are holding *something* and a third is not, and you cannot name it. At `2x` it is
+a device, a book, a page. At `3x` all six separate. **The badge above the head is
+still the layer that carries tool identity** and this does not replace it.
+
+### The rule
+
+> A character holds an object exactly while its **body is `working`** and the
+> **badge slot is showing a tool glyph**. The object is that badge's class.
+
+Both halves are load-bearing:
+
+- The body condition is I2 on the character layer: no open call, no ambient
+  loop, empty hands. It also disposes of ADR-003's closing beat for free — a
+  beat is by definition a glyph over an *idle* body, so the guard returns before
+  the object is chosen, the same structural argument `SceneDirector.body(for:
+  badge:)` makes about the working-pose lookup.
+- The badge condition means `attention` and `sleep` empty the hands, because
+  both take the slot away from the tool. A call parked at a permission gate is
+  not running, and the room must not assert the work in a second, larger channel
+  while the badge is correctly refusing to. The body still animates, because I2
+  keys it on the open set alone and that is not this layer's to change.
 
 ## Costumes: the generator's outfit layer, keyed on `agent_type` — M6h
 
@@ -2171,6 +2469,13 @@ on the main thread.
 
 ## Stations are specified, selected, and drawn by nothing — M6g
 
+**Superseded 2026-08-09 by "Stations are art — M6h" below.** The scene draws
+them now and `assets/manifest.json` declares eleven. The section is kept whole
+because two of its measurements are still the reason the art is what it is — the
+desk/chair ink ratio, and the finding that a bigger pool is not a better one —
+and because the paragraph refusing to write a manifest nothing could render is
+the correct instinct recorded at the moment it was right.
+
 ADR-002 §4 and §7 give every theme a `props.stations.<id> = {desk, chair, prop?}`
 map, and `ThemeSelector.station(agentID:agentType:in:)` picks one per agent.
 Filling that map was scoped as a manifest-only change on the stated ground that
@@ -2267,6 +2572,82 @@ silhouette alone at `1x`, and it should be the *only* station that carries the
 optional `prop`, because that is one more piece of ink at exactly one seat. It
 must not be a *different kind* of furniture — a throne, a bigger chair — because
 that would assert seniority, which no datum says. Bigger desk, same room.
+
+## Stations are art — M6h
+
+Eleven stations, declared once at `room.props.stations` and inherited by all six
+themes. The mechanism, the two tiers and the two geometric limits are ADR-002
+§14c; this section is the art and the measurements behind it.
+
+**What varies is the prop, and M6g's own numbers are why.** M6g measured that the
+desk is 5.7×–16.6× the chair's visible area, and concluded the desk is the
+variable. Rendering the candidates says otherwise: every desk in the Modern
+Office pack that fits the 32×44 limit comes out of the I7 transform as the same
+pale slab, differing only in tone, and at `1x` a tone difference on a horizontal
+slab under a body reads as nothing. Two hundred and seventy-four of the 339
+singles were rendered from `assets/processed/` — the desaturated files, not the
+raw sheet, because the transform is most of what decides this — and looked at.
+Every station therefore overrides **only** `prop`; `desk` and `chair` are the
+theme's own, per theme.
+
+That also protects the theme. A station that carried its own desk would put an
+Office slab in the Reading Room, which spends the identity the theme sets exist
+to carry.
+
+| station | asserts | single | what stands at the seat | box |
+|---|---|---:|---|---|
+| `main` | no | 98 | tall leafy pot plant | 32×56 |
+| `default` | no | — | nothing; the empty desk the seat already has | — |
+| `survey` | **yes** | 331 | packed rucksack | 26×42 |
+| `screens` | **yes** | 275 | twin monitors on a floor pedestal | 32×70 |
+| `drafting` | **yes** | 155 | stack of paper reams | 32×42 |
+| `machine` | **yes** | 168 | floor-standing copier | 24×44 |
+| `reference` | **yes** | 204 | two-drawer filing cabinet | 24×48 |
+| `n01` | no | 100 | snake plant | 22×52 |
+| `n02` | no | 173 | water cooler | 26×60 |
+| `n03` | no | 147 | briefcase | 30×32 |
+| `n04` | no | 202 | tall single locker | 24×76 |
+
+Every index was found the way the standing rule asks: rendered with
+`contact-sheet.py --office`, inspected at 3× and 6×, and the content box measured
+off the shipped PNG with `build-manifest.py`'s own `content_box` rule. All eleven
+are already in `room.props.files`, so nothing new was imported and
+`process-assets.py` was not run.
+
+**The pool is checked against real names, which is M6g's rule applied to a
+different pool.** `roles` translates the five agent types a session actually
+produces, so the hash is only ever asked about a name nobody anticipated. Over a
+corpus of sixteen plausible unrecognised names, `n01`…`n04` uses **4 of 4**
+stations with **23.3%** colliding pairs against the 25.0% an ideal hash would
+give. A pool of four is enough because the tier above it takes the traffic.
+
+**`station.main` is not the widest desk, and M6g's recommendation is declined.**
+It cannot be: a station no longer varies the desk. It carries the largest prop
+instead — the tall leafy plant, 32×56, the biggest silhouette in the set — which
+is the same argument (read the anchor from the silhouette at `1x`) reached
+through the channel that still exists.
+
+**Two theme desks fail the station limits, and it is not new.** Measured off the
+manifest: `library`'s `props.roles.desk` is 56×70 and `mission_control`'s 44×36,
+against limits of 32 wide and 44 tall. The height one is visible — rendering
+`fixtures/three-subagents.jsonl` in `library` at 720×400 shows the desk drawn
+over the face of every seated character, because a desk takes the row's depth
+plus a half deliberately and 70px is well past the 44px at which the shortest
+variant's head starts. `buildRoom()` places it at every seat whether anyone is
+sitting there or not, so this predates stations entirely and no station makes it
+worse: `StationContractTests.everyStationFitsTheSeatItIsDrawnAt` checks what a
+station **declares**, and says in as many words why it does not check what a
+station inherits. Fixing it is a theme-art change — a different desk single for
+`library` in `process-assets.py` — and is not this one.
+
+**The lint sees the station props under `room`, not under the theme drawing
+them.** All eleven are Modern Office singles, which `room.props.files` already
+declares, so they are measured against `room`'s thresholds and the six per-theme
+contrast figures are byte-identical to before this change (`mission_control`
+still 0.427 against a 0.40 floor). That is a real gap: a station prop is on
+screen in every theme and is scored against none of them. It is small today
+because every one of them came off the same transform band the room did, and it
+stops being small the first time a station carries themed art.
 
 ## Scripts
 
