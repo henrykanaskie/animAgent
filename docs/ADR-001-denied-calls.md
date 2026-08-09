@@ -529,10 +529,13 @@ unobserved", which is no longer true.
   in M0c are lone calls in their own turns". Twelve now, and
   `concurrent-permission-gates` has two overlapping.
 - `Tests/SpriteRoomCoreTests/PermissionGateTests.swift` —
-  `everyCapturedPermissionRequestIsMainThread`. **Still green and still
-  truthful**: it reads only `permission-prompt.jsonl`, and nothing in the test
-  target enumerates `fixtures/`, so the seven new files cannot turn the suite
-  red. But the name now says more than the assertion does, and
+  `everyCapturedPermissionRequestIsMainThread`. **Was green and truthful when
+  this was written, and has since been replaced** — see the list below, which
+  records `aSubagentsGateIsAttributedToTheSubagent` taking its place. Left in the
+  past tense rather than deleted, because the reasoning is why the replacement
+  exists. It read only `permission-prompt.jsonl`, and nothing in the test target
+  enumerated `fixtures/`, so the seven new files could not turn the suite red.
+  But the name said more than the assertion did, and
   `subagent-permission.jsonl` is the file that would let it assert the useful
   thing instead — that a subagent's gate is attributed to the subagent.
 
