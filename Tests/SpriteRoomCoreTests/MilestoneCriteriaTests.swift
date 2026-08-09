@@ -215,3 +215,274 @@ import Testing
             """)
     }
 }
+
+/// **Every document that names a symbol has to be naming one.**
+///
+/// `MilestoneCriteriaTests` closes that failure for one document and one kind of
+/// identifier: a test name in `docs/05-MILESTONES.md`. The rest of `docs/` drifts
+/// the same way and had nothing reading it at all. `01-PRD.md`,
+/// `02-ARCHITECTURE.md`, `03-EVENT-MODEL.md`, `04-ART-DIRECTION.md` and the three
+/// ADRs cite code on almost every page — a type, a property, the test that pins a
+/// number — and a rename leaves every one of those citations reading exactly as it
+/// did while it was true. It found two on the run that introduced it, both of them
+/// a test that had been replaced by a better one.
+///
+/// ## The dot is the rule, and it is the whole answer to false positives
+///
+/// A backticked span is treated as a claim about this repository's code when it is
+/// **qualified** — `Type.member`, or `Type.Nested.member`, optionally with an
+/// argument-label list — and when the `Type` is one this repository declares.
+/// Everything else in backticks is left alone. That single rule disposes of the
+/// three ways a looser one goes wrong here, without an exemption list:
+///
+/// - **Names that are not ours.** These documents backtick `PostToolUse`,
+///   `WebFetch`, `SessionEnd`, `NSPanel`, `DispatchQueue`, `canJoinAllSpaces` and
+///   `ignoresMouseEvents` — hook events, tool names, AppKit. There is nothing to
+///   resolve them against and they are not drift. A bare identifier gives no way to
+///   tell them from ours, and this was measured rather than assumed: of the five
+///   bare three-word identifiers in `docs/` that do not resolve, **three** are
+///   AppKit or a key of `~/.claude.json`. So the bare form is not checkable outside
+///   `05-MILESTONES.md`, whose subject is tests, and this suite does not pretend
+///   otherwise. A qualified span whose head we do not declare — `NSPanel.canJoin…`
+///   — is skipped by the same mechanism, not by being listed.
+/// - **Paths.** `Manifest.swift` and `Cargo.toml` are `Type.member` shaped. A span
+///   whose last component is a file extension is a path and is skipped.
+/// - **Names a document mentions *because* they were removed.** This is the one
+///   that matters, because the removal is often the point of the sentence, and a
+///   rule that cannot tolerate it either fires forever or is switched off. The
+///   project already has the convention and `MilestoneCriteriaTests` states it:
+///   **backticks are the claim, quotes are the history.** A document recording a
+///   name it no longer has writes it in quotes. Both spans this check found were
+///   exactly that case — `04-ART-DIRECTION.md` on a costume assertion that has
+///   since flipped, `ADR-001-denied-calls.md` on a permission test that was
+///   replaced — and both were converted to quotes rather than exempted. The rule
+///   needs no list and the prose lost nothing: it still says what the old name was
+///   and why it is gone.
+///
+/// ## What "exists" means, deliberately generously
+///
+/// The set a component resolves against is every identifier declared anywhere in
+/// `Sources/` or `Tests/` — any `func`, `var`, `let`, `case`, or type. It is not
+/// scoped to the type the span names, so this cannot tell you a member moved from
+/// one type to another. That is on purpose: a check that fires only when a name
+/// exists **nowhere** is one whose failures are never arguable, and arguable
+/// failures are how a mechanical check turns back into a convention that somebody
+/// eventually silences. Scoping it properly needs a parser, and the failure it
+/// would add is not the one that has actually happened here three times.
+@Suite struct DocumentedSymbolTests {
+
+    static let documentsDirectory: URL = Fixtures.repositoryRoot.appending(path: "docs")
+
+    /// A span ending in one of these is a path, not a symbol.
+    static let fileExtensions: Set<String> = [
+        "md", "swift", "json", "jsonl", "py", "png", "toml", "txt", "sh", "yml",
+        "yaml", "html", "ase", "aseprite", "gif", "ttf", "otf",
+    ]
+
+    static let declarationKeywords = [
+        "func", "var", "let", "case", "struct", "class", "enum", "actor",
+        "protocol", "typealias", "extension",
+    ]
+
+    /// Keywords that introduce a *type* name. The head of a qualified span has to
+    /// be one of these for the span to be about our code at all.
+    static let typeKeywords = ["struct", "class", "enum", "actor", "protocol", "typealias", "extension"]
+
+    // MARK: Reading the sources
+
+    static func swiftFiles() throws -> [URL] {
+        var found: [URL] = []
+        for directory in ["Sources", "Tests"] {
+            let root = Fixtures.repositoryRoot.appending(path: directory)
+            guard let walk = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: nil) else { continue }
+            found += walk.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
+        }
+        return found
+    }
+
+    /// The identifier introduced by each `keyword` on a line, if any.
+    ///
+    /// The keyword has to stand alone — `letterbox` is not a `let`, and
+    /// `deskPosition` is not a `case`. Comment lines are skipped for the reason
+    /// `declaredFunctions` gives: a prose mention would enlarge the set the
+    /// cross-check resolves *against*, which is how a document could cite a symbol
+    /// that exists only in somebody's doc comment and still pass.
+    static func declarations(in text: String) -> Set<String> {
+        var found: Set<String> = []
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let code = line.drop { $0 == " " || $0 == "\t" }
+            if code.hasPrefix("//") || code.hasPrefix("*") || code.hasPrefix("/*") { continue }
+            for keyword in declarationKeywords {
+                var rest = Substring(line)
+                while let match = rest.range(of: keyword + " ") {
+                    let before = match.lowerBound == rest.startIndex
+                        ? nil : rest[rest.index(before: match.lowerBound)]
+                    rest = rest[match.upperBound...]
+                    if let before, before.isLetter || before.isNumber || before == "_" { continue }
+                    let name = rest.prefix { $0.isLetter || $0.isNumber || $0 == "_" }
+                    if let first = name.first, first.isLetter || first == "_" {
+                        found.insert(String(name))
+                    }
+                }
+            }
+        }
+        return found
+    }
+
+    static func declaredTypes(in text: String) -> Set<String> {
+        var found: Set<String> = []
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let code = line.drop { $0 == " " || $0 == "\t" }
+            if code.hasPrefix("//") || code.hasPrefix("*") || code.hasPrefix("/*") { continue }
+            for keyword in typeKeywords {
+                var rest = Substring(line)
+                while let match = rest.range(of: keyword + " ") {
+                    let before = match.lowerBound == rest.startIndex
+                        ? nil : rest[rest.index(before: match.lowerBound)]
+                    rest = rest[match.upperBound...]
+                    if let before, before.isLetter || before.isNumber || before == "_" { continue }
+                    let name = rest.prefix { $0.isLetter || $0.isNumber || $0 == "_" }
+                    if let first = name.first, first.isUppercase { found.insert(String(name)) }
+                }
+            }
+        }
+        return found
+    }
+
+    // MARK: Reading the documents
+
+    static func documents() throws -> [URL] {
+        try FileManager.default
+            .contentsOfDirectory(at: documentsDirectory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "md" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// The dotted components of a span, or `nil` when the span is not a qualified
+    /// symbol reference at all.
+    ///
+    /// Accepts `A.b`, `A.B.c` and `A.b(with:and:)`; rejects anything holding a
+    /// space, a slash, a digit-led component, or a lowercase head.
+    static func qualifiedComponents(of span: String) -> [String]? {
+        var core = span
+        if let open = core.firstIndex(of: "(") {
+            guard core.hasSuffix(")") else { return nil }
+            core = String(core[core.startIndex..<open])
+        }
+        let parts = core.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count >= 2 else { return nil }
+        for part in parts {
+            guard let first = part.first, first.isLetter,
+                  part.allSatisfy({ $0.isLetter || $0.isNumber }) else { return nil }
+        }
+        guard let head = parts.first?.first, head.isUppercase else { return nil }
+        return parts
+    }
+
+    // MARK: The cross-check
+
+    /// **Every symbol `docs/` qualifies by type exists.**
+    @Test func everySymbolTheDocumentsQualifyExists() throws {
+        var names: Set<String> = []
+        var types: Set<String> = []
+        for file in try Self.swiftFiles() {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            names.formUnion(Self.declarations(in: text))
+            types.formUnion(Self.declaredTypes(in: text))
+        }
+
+        var checked = 0
+        var offenders: [String] = []
+        var documents = 0
+        for document in try Self.documents() {
+            documents += 1
+            let text = try String(contentsOf: document, encoding: .utf8)
+            for (offset, line) in text.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated() {
+                for span in MilestoneCriteriaTests.codeSpans(in: String(line)) {
+                    guard let parts = Self.qualifiedComponents(of: span),
+                          let last = parts.last, !Self.fileExtensions.contains(last),
+                          let head = parts.first, types.contains(head)
+                    else { continue }
+                    checked += 1
+                    let unresolved = parts.dropFirst().filter { !names.contains($0) }
+                    guard !unresolved.isEmpty else { continue }
+                    offenders.append("""
+                          \(document.lastPathComponent):\(offset + 1)  \(span) \
+                        — \(unresolved.joined(separator: ", ")) is declared nowhere in \
+                        Sources/ or Tests/
+                        """)
+                }
+            }
+        }
+
+        // Both sides pinned, for the reason the milestone cross-check pins its
+        // own: a document reformatted out from under this scan, or a sources walk
+        // that stopped finding files, would leave nothing to check and nothing to
+        // fail — and would read in the log exactly like a clean run.
+        #expect(documents >= 8, "only \(documents) documents were read out of docs/")
+        #expect(names.count >= 500, "only \(names.count) declarations were read out of Sources/ and Tests/")
+        #expect(types.count >= 50, "only \(types.count) type names were read out of Sources/ and Tests/")
+        #expect(checked >= 30, """
+            only \(checked) qualified symbol references were read out of docs/ — \
+            the scan found nothing to check
+            """)
+
+        #expect(offenders.isEmpty, """
+            docs/ names \(offenders.count) qualified symbol(s) that do not exist:
+            \(offenders.joined(separator: "\n"))
+            Point the sentence at the symbol that replaced it. If the sentence is \
+            *about* the removal, write the old name in quotes rather than \
+            backticks — backticks are the claim, quotes are the history.
+            """)
+    }
+
+    /// **The spans this check skips are skipped for a stated reason, and the count
+    /// of them is not allowed to quietly become everything.**
+    ///
+    /// `everySymbolTheDocumentsQualifyExists` resolves only spans whose head is a
+    /// type we declare. That is the right rule and it is also the rule most able to
+    /// go vacuous without anyone noticing: rename `SceneDirector` and every
+    /// `SceneDirector.x` citation in the docs stops being *checked* rather than
+    /// starting to *fail*, which is the worse of the two outcomes and the silent
+    /// one. So the proportion is asserted. On the shipped docs 43 of 43 qualified
+    /// spans resolve their head, file paths aside.
+    @Test func almostEveryQualifiedSpanInTheDocumentsIsCheckable() throws {
+        var types: Set<String> = []
+        for file in try Self.swiftFiles() {
+            types.formUnion(Self.declaredTypes(in: try String(contentsOf: file, encoding: .utf8)))
+        }
+
+        var checkable = 0
+        var skipped: [String] = []
+        for document in try Self.documents() {
+            let text = try String(contentsOf: document, encoding: .utf8)
+            for (offset, line) in text.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated() {
+                for span in MilestoneCriteriaTests.codeSpans(in: String(line)) {
+                    guard let parts = Self.qualifiedComponents(of: span),
+                          let last = parts.last, !Self.fileExtensions.contains(last),
+                          let head = parts.first
+                    else { continue }
+                    if types.contains(head) {
+                        checkable += 1
+                    } else {
+                        skipped.append("  \(document.lastPathComponent):\(offset + 1)  \(span)")
+                    }
+                }
+            }
+        }
+
+        #expect(checkable + skipped.count >= 30)
+        #expect(skipped.count * 4 <= checkable, """
+            \(skipped.count) of \(checkable + skipped.count) qualified spans in docs/ \
+            name a head type this repository does not declare, so they are not \
+            cross-checked at all:
+            \(skipped.joined(separator: "\n"))
+            A handful of these is expected — `NSPanel.canJoinAllSpaces` is not ours \
+            to resolve. A jump in the count means one of our own types was renamed \
+            and every citation of it went quiet instead of going red.
+            """)
+    }
+}

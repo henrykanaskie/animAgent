@@ -529,7 +529,7 @@ unobserved", which is no longer true.
   in M0c are lone calls in their own turns". Twelve now, and
   `concurrent-permission-gates` has two overlapping.
 - `Tests/SpriteRoomCoreTests/PermissionGateTests.swift` —
-  `everyCapturedPermissionRequestIsMainThread`. **Was green and truthful when
+  "everyCapturedPermissionRequestIsMainThread". **Was green and truthful when
   this was written, and has since been replaced** — see the list below, which
   records `aSubagentsGateIsAttributedToTheSubagent` taking its place. Left in the
   past tense rather than deleted, because the reasoning is why the replacement
@@ -567,8 +567,8 @@ All three said some version of "risk 3 is unobserved". They now cite
   are lone calls in their own turns" is gone. Twelve now, two of them
   overlapping in `concurrent-permission-gates`, and the comment says which case
   remains unobserved: *one agent* holding two gates at once.
-- `PermissionGateTests.everyCapturedPermissionRequestIsMainThread` — replaced by
-  `aSubagentsGateIsAttributedToTheSubagent`, which asserts the useful thing the
+- `PermissionGateTests`' "everyCapturedPermissionRequestIsMainThread" — replaced
+  by `aSubagentsGateIsAttributedToTheSubagent`, which asserts the useful thing the
   old name implied: `permission-prompt`'s gates are still main-thread, and
   `subagent-permission`'s marks the subagent while leaving the parent's open
   `Agent` call unmarked.

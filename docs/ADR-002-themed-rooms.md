@@ -1128,7 +1128,8 @@ own feet.
 
 **What this does not fix, stated so nobody reports it as new.** Two themes ship a
 `props.roles.desk` that would fail both limits — `library`'s is 56×70 and
-`mission_control`'s 44×36 — and `library`'s consequently draws over the face of
+`mission_control`'s 44×36 *(both replaced at M7e; see §14d's closing note)* — and
+`library`'s consequently draws over the face of
 whoever sits at it. That predates stations, it is drawn at every seat by
 `buildRoom()` whether anyone is sitting there or not, and it is theme art rather
 than station art. It is recorded in `notes.md` and in `04-ART-DIRECTION.md`
@@ -1167,6 +1168,17 @@ Two consequences the implementer of a future theme should hold:
   next seat's station-prop lane by 8 px and `mission_control`'s 44 px one by
   2 px. Nothing is hidden by it; closing it is a manifest art change. The
   measured overhang is asserted, so a wider desk fails rather than ships.
+
+  > **Closed at M7e by the manifest art change this bullet names, and the
+  > bullet's own limit was wrong.** Both themes now bind a different single from
+  > the same set — `library` 5/8 at **32×44**, `mission_control` 19/126 at
+  > **40×36** — and both overhangs are **0**. The **32 px** figure §14c derives
+  > above is the *prop's* bound, not the desk's: a prop is centred at `seatX−32`
+  > against a body starting at `seatX−16`, while a desk is centred at `seatX+28`
+  > against a lane starting at `+48`, which makes the desk's bound **40 px**
+  > (`overhang = w/2 − 20`, the formula the assertion already used to report the
+  > 8 and the 2). The change is in `scripts/process-assets.py`'s theme table and
+  > regenerated; `docs/04-ART-DIRECTION.md` carries the art reasoning.
 
 ## 14e. Amendment, 2026-08-09 — seven seats, and the eighth agent
 

@@ -365,6 +365,29 @@ Do not close one of these by editing the criterion.
   turns back into a convention. **A name that no longer exists is written in
   quotes rather than backticks** — the two above, and the one in the replay
   criterion. Backticks are the claim; quotes are the history.
+
+  **Widened to the whole of `docs/` at M7e**, because this file was the only one
+  being read and the other seven drift the same way with nothing watching.
+  `everySymbolTheDocumentsQualifyExists` resolves every backticked
+  `Type.member` span in `docs/` whose head is a type this repository declares —
+  43 of them, across all eight documents — against every declaration in
+  `Sources/` and `Tests/`. It found three on the run that added it: two tests
+  that had been replaced by better ones and were still being cited as current
+  (`04-ART-DIRECTION.md` on a costume assertion, `ADR-001-denied-calls.md` on a
+  permission one), and one in `03-EVENT-MODEL.md` where a code span had been
+  **wrapped across a line break**, so the document rendered a name with a space
+  in the middle of it. All three are fixed; the two replaced names are now in
+  quotes, per the rule above, which is what makes the check need no exemptions.
+
+  **The dot is the rule and it is deliberate.** A bare identifier cannot be
+  resolved outside this file, and that was measured rather than assumed: of the
+  five bare three-word identifiers in `docs/` that resolve to nothing, three are
+  AppKit or a `~/.claude.json` key. `docs/` backticks `PostToolUse`, `WebFetch`
+  and `NSPanel` on almost every page and none of them is ours.
+  `almostEveryQualifiedSpanInTheDocumentsIsCheckable` guards the other end: if
+  one of our own types is renamed, every citation of it would stop being checked
+  rather than start failing, so the share of spans whose head does not resolve
+  is capped instead of being allowed to become everything.
 - **Every badge in the tool→badge table has art on disk, and the four authored
   ones say they are authored and why.** `magnifier`, `terminal`, `globe` and
   `plug` exist in no pack we own; they are drawn in the pack's own bubble and

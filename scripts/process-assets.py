@@ -198,8 +198,18 @@ THEMES = {
             # torso occupies. Seven of them made the desk row the loudest band
             # on screen and the characters the quietest thing in it. This one is
             # 0.745 with a mid-grey top, so the row recedes and the screens lead.
-            "desk":  (19, 127, "grey equipment table, side view, with a boxed unit and "
-                               "a pouch on the top"),
+            #
+            # **Narrowed from 127 to 126 at M7e, and they are the same table.**
+            # 127 is this object with a boxed unit and a pouch set on it, and the
+            # pouch is what pushed its box to 44px — 2px past the 40px a desk has
+            # before it reaches the next seat's station-prop lane. The two objects
+            # were the whole reason to prefer it and they do not survive the
+            # medium: rendered at 1x with five agents, 126 and 127 are the same
+            # picture, because both objects sit on the half of the top the seated
+            # body covers. So the overhang bought nothing and 126 costs nothing.
+            # Everything above about value still holds — 126 is 127's own table,
+            # not a different one, so the mid-grey top is unchanged.
+            "desk":  (19, 126, "grey equipment table, side view, bare top"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
             # Set 25's concentric target on a mast (single 15) was here first and
             # was cut after looking at it at 1x: a pale grey dish on a thin mast
@@ -240,7 +250,28 @@ THEMES = {
         "floor": (16, 0),       # wood plank, 0.733
         "wall": (6, 4),         # warm off-white, 0.878
         "roles": {
-            "desk":  (5, 26, "wooden desk with an open book and an inkwell on top"),
+            # **Narrowed from 26 to 8 at M7e.** 26 is the reading desk *with the
+            # set's own chair drawn behind it*, 56x70, and the chair is most of
+            # both numbers. It was the widest desk any theme binds and it
+            # overhung the next seat's station-prop lane by 8px; it also carried
+            # a second chair into a seat that already draws one, so every library
+            # seat had two.
+            #
+            # 8 is the same desk-and-open-book without the chair — 32x44, from the
+            # same set, same wood, same white book. Three near neighbours were
+            # rendered into the room at 1x before this was picked: 7 is 8 with the
+            # chair (32x54) and the narrow canvas makes the chair read as standing
+            # *on* the desk rather than behind it; 6 is the bare desk (32x36) and
+            # is quieter but stops saying "reading room" at the one object that
+            # was saying it; 25 is 26 without the chair and is still 56 wide.
+            #
+            # The height matters and 44 is not a coincidence — it is exactly the
+            # shortest cast variant's head clearance, so this desk is the last one
+            # `RoomScene.surfaceDepthBias` still draws in *front* of the body.
+            # Checked in the picture rather than in the arithmetic: the desk box
+            # starts at x+12 and the body ends at x+16, so the 4px they share is
+            # the near-edge cue the front case exists for, and no face is touched.
+            "desk":  (5, 8, "wooden school desk with an open book on the top"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
             "board": (5, 39, "green chalkboard on splayed legs"),
             "plant": (5, 57, "tall bookcase, full height, packed spines"),

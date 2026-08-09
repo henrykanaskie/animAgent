@@ -5758,15 +5758,15 @@
             "desk": {
               "file": "assets/processed/themes/library/32x32/singles/desk.png",
               "source_set": "Modern Interiors Theme Sorter set 5",
-              "single_index": 26,
+              "single_index": 8,
               "provenance": "pack",
               "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
-              "what": "wooden desk with an open book and an inkwell on top",
+              "what": "wooden school desk with an open book on the top",
               "content_box": {
-                "x": 4,
-                "y": 24,
-                "w": 56,
-                "h": 70
+                "x": 16,
+                "y": 34,
+                "w": 32,
+                "h": 44
               }
             },
             "plant": {
@@ -5866,14 +5866,14 @@
             "desk": {
               "file": "assets/processed/themes/mission_control/32x32/singles/desk.png",
               "source_set": "Modern Interiors Theme Sorter set 19",
-              "single_index": 127,
+              "single_index": 126,
               "provenance": "pack",
               "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
-              "what": "grey equipment table, side view, with a boxed unit and a pouch on the top",
+              "what": "grey equipment table, side view, bare top",
               "content_box": {
-                "x": 10,
+                "x": 12,
                 "y": 40,
-                "w": 44,
+                "w": 40,
                 "h": 36
               }
             },

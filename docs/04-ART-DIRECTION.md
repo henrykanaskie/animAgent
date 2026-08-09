@@ -1883,6 +1883,36 @@ lower it to the seated `working` loop and would reprice every candidate in the
 table below. That is a change to the lint and to the accepted prop set, and it is
 not one to make as a side effect of a change to the characters.
 
+### The pilot lamp does not inherit this ceiling — M7d
+
+The room's one non-prop moving thing is the **pilot lamp** [`ADR-004`], and it is
+priced separately rather than against 1461 px/s. It has to be: the number above
+is the "quieter than an idling character" argument, that argument is void, and
+the lamp is exactly the object that could not be built on a void argument —
+its whole justification is that it moves when an idle room does not.
+
+- **What it spends: 32 px/s, placed, for the whole room, at any population.**
+  One transition is 16 changed pixels (a 5×5 ink core contracting to 3×3 inside
+  a 9×9 plate) and there are two per beat, at one beat a second.
+  `LivenessLampTests.theLampCostsThirtyTwoChangedPixelsPerSecond` measures it off
+  the bitmaps rather than restating it.
+- **What it is compared against: a *working* character, not an idling one.** The
+  only requirement that matters is that the lamp can never mask the busy/idle
+  distinction. The quietest ambient phrase in `AmbientMotion` is `magnifier`'s
+  1000 ms bar — two position changes a second over the seated art's 2 px upper-
+  body lift, on the order of 1300 px/s. 32 px/s is 2.5% of that.
+- **Why small is sufficient here and is not sufficient for a prop.** The lamp
+  draws the same 32 px/s whether the room is empty or full, so it is a constant
+  added to both sides of the busy/idle comparison and cannot change that
+  comparison's sign at any population. A prop's motion is also constant, but a
+  prop is *in the room* and reads as part of the scene; the lamp is chrome pinned
+  to the frame, in the nameplate's two colours, in a corner no seat reaches.
+
+**This reprices nothing.** The lamp is not in the manifest, is not a prop, and is
+not counted by `scripts/lint-palette.py`'s motion check, which measures what a
+*theme* animates. 1461 px/s still governs props, still rests on the sentence
+above that is now false, and re-deriving it is still open.
+
 **The share is 1.0** — the room, in total, must move less than one character
 does. That is the literal time-axis reading of I7 and it is the maintainer's own
 sentence. The comparison is against *one* character rather than the population
@@ -2679,9 +2709,10 @@ value 0.741-0.817 across the six themes.
 
 **`assets/manifest.json` declares the wardrobe, and `scripts/build-manifest.py`
 emits it unconditionally.** It shipped behind a `--costumes` flag while
-`CostumeContractTests.theShippedManifestDeclaresNoWardrobeAndThatIsLegal` still
-asserted the opposite; that assertion has since flipped to
-`theShippedManifestDeclaresAWardrobeTheResolverCanReach`, and the flag with it.
+`CostumeContractTests` still asserted the opposite in a test then named
+"theShippedManifestDeclaresNoWardrobeAndThatIsLegal"; that assertion has since
+flipped to `CostumeContractTests.theShippedManifestDeclaresAWardrobeTheResolverCanReach`,
+and the flag with it.
 **The flag was the hazard, not the safeguard.** A rerun without it deleted a
 hand-verified section and exited 0, which is the same failure mode that once
 replaced a 1344-path manifest with a 148-path one. There is now no way to ask
@@ -2857,7 +2888,8 @@ through the channel that still exists.
 
 **Two theme desks fail the station limits, and it is not new.** Measured off the
 manifest: `library`'s `props.roles.desk` is 56×70 and `mission_control`'s 44×36,
-against limits of 32 wide and 44 tall. The height one was visible — rendering
+against limits of 32 wide and 44 tall. *(Both are now 32×44 and 40×36 — see the
+M7e note below, which also corrects the 32.)* The height one was visible — rendering
 `fixtures/three-subagents.jsonl` in `library` at 720×400 showed the desk drawn
 over the face of every seated character, because a desk takes the row's depth
 plus a half deliberately and 70px is well past the 44px at which the shortest
@@ -2892,6 +2924,42 @@ worse.
 > `assets/manifest.json`, which was out of scope; the measured overhang is
 > asserted, so a theme arriving with a desk wide enough to stand *on* the
 > neighbour fails instead of shipping.
+
+> **The width half is fixed now too — M7e — and the limit it was measured
+> against was the wrong number.** Both desks were replaced, in
+> `scripts/process-assets.py`'s theme table and regenerated, not hand-edited into
+> the manifest: `library` moves from set 5 single 26 to single **8** (56×70 →
+> **32×44**) and `mission_control` from set 19 single 127 to single **126**
+> (44×36 → **40×36**). Both overhangs are now **0**.
+>
+> **32 was never the desk's limit.** It is the *prop's*: a station prop is
+> centred at `seatX−32` and the body starts at `seatX−16`, so a prop over 32px
+> stands on the character. A desk is centred at `seatX+28` and the widest thing
+> the next seat's lane can hold begins at `+48`, which puts the desk's own bound
+> at **40px** — `overhang = w/2 − 20`, and that is exactly the formula the
+> assertion already used to report 8px and 2px. `mission_control`'s 40px desk
+> therefore clears the lane with nothing to spare, and `library`'s 32px one with
+> 4px of air.
+>
+> **The art was chosen at `1x`, not from the numbers.** `library`'s 26 was the
+> reading desk *with the set's own chair drawn behind it*, and the chair is most
+> of both dimensions — it also put a second chair at a seat that already draws
+> one. Single 8 is the same desk and the same open book without it. Single 7,
+> which keeps the chair at 32×54, was rendered and rejected: on the narrow canvas
+> the chair reads as standing *on* the desk. `mission_control`'s 126 is 127's own
+> table without the boxed unit and pouch set on it, and the two are the same
+> picture at `1x` with five agents in the room, because both objects sit on the
+> half of the top a seated body covers — so the 2px bought nothing. The ≤32
+> alternatives for that theme were rendered and are worse: the Office set's grey
+> desk variant vanishes into a grey floor, and hospital 141 is a white cabinet,
+> which is the "brightest thing in the theme" failure that cut the M6 workbench.
+>
+> One consequence to hold: `library`'s desk is now 44px tall, which is *exactly*
+> the shortest head clearance, so it is the last desk `surfaceDepthBias` still
+> draws in front of the body rather than behind it. Its box starts at `x+12` and
+> the body ends at `x+16`, so the 4px they share is the near-edge cue the front
+> case exists for, and no face is touched — checked in the picture, not in the
+> arithmetic.
 
 **The lint sees the station props under `room`, not under the theme drawing
 them.** All eleven are Modern Office singles, which `room.props.files` already
