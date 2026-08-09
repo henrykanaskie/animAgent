@@ -311,13 +311,24 @@ public final class RoomScene: SKScene {
     ///
     /// **This is the occlusion defect's fix and it is not a preference.** The
     /// argument for putting the desk in front assumes a desk shorter than the
-    /// person at it; `library` binds a 56×70 desk-with-an-open-book and
-    /// `mission_control` a 44×36, both chosen for `props.roles` before stations
-    /// existed and both drawn at *every* seat by `buildRoom` whether anyone is
-    /// sitting there or not. At 70 px the near-edge cue is not weakened, it is
-    /// moot: the desk covers the whole body including the face, and a room whose
-    /// characters have no faces cannot be read at all. Losing a depth cue costs
-    /// less than losing the character.
+    /// person at it. `library` bound a **56×70** desk-with-an-open-book and
+    /// `mission_control` a **44×36**, both chosen for `props.roles` before
+    /// stations existed and both drawn at *every* seat by `buildRoom` whether
+    /// anyone is sitting there or not. At 70 px the near-edge cue is not
+    /// weakened, it is moot: the desk covers the whole body including the face,
+    /// and a room whose characters have no faces cannot be read at all. Losing a
+    /// depth cue costs less than losing the character.
+    ///
+    /// **Those two numbers are history now, and the tense matters.** `1c0eeb3`
+    /// re-cut both: `library` is **32×44** and `mission_control` **40×36**, and
+    /// 44 is exactly `seatedHeadClearance`. So no desk any shipped theme binds
+    /// takes this branch — the room draws every one of them in front of the body
+    /// and the near-edge cue survives everywhere. That makes the rule a standing
+    /// guard against art nobody has bound yet rather than a description of what
+    /// the room does, which is a weaker claim than the paragraph above made and
+    /// is the true one. It is not dead code and must not be deleted as such:
+    /// deleting it restores the defect the moment a theme binds a tall desk, and
+    /// `everyStationFitsTheSeatItIsDrawnAt` is what would notice.
     nonisolated static let surfaceBehindBias: CGFloat = -0.5
 
     /// Which of the two a desk of this height gets. `headClearance` is how far
@@ -874,31 +885,84 @@ public final class RoomScene: SKScene {
     /// place: the band's floor and the camera's bias are both measured from it.
     private var seatedPlateDrop: Double { Double(SceneBitmaps.maximumNameplateHeight + 2) }
 
+    /// **The highest pixel the room's own dressing reaches**, measured off the
+    /// manifest's content boxes rather than assumed: every decoration point plus
+    /// the height of the prop that stands on it.
+    ///
+    /// It is theme-dependent by construction and the spread is large — the
+    /// `office` chart board tops out at 270 and `broadcast`'s softbox at 304 —
+    /// which is exactly why it is measured here instead of written down. The
+    /// floor is `wallBaseY`, so a manifest that binds no backdrop at all still
+    /// gets the wall line rather than a nonsense number.
+    var decorationTopY: Double {
+        var top = layout.wallBaseY
+        for placement in Self.decorationPlacements(layout: layout) {
+            guard let prop = store.room.prop(placement.role) else { continue }
+            top = max(top, placement.point.y + Double(prop.contentBox.height))
+        }
+        return top
+    }
+
     /// Where to point the camera vertically.
     ///
-    /// The band has to *fit*, but centring it wastes the difference on the
-    /// floor: the band's bottom is reserved for a character standing on the
-    /// walkway, and most of the time nobody is on it, so the foreground is a
-    /// flat field of floor while the wall above is cropped. So
-    /// the camera prefers to centre the **seat row's** own content and is then
-    /// clamped by however much slack the scale actually left — which is zero at
-    /// the tightest fitting scale, so the preference never costs a clipped
-    /// nameplate. Nothing about this depends on who is on screen, so the camera
-    /// does not jump when someone steps out of a chair.
+    /// The band has to *fit*, and once it does the only question left is where
+    /// to spend what the scale did not use. It is spent by **centring the strip
+    /// the room actually draws**: from the lowest pixel any character can put on
+    /// screen — `band.bottom`, the underside of a walkway character's plate — to
+    /// the top of the tallest backdrop standing on the wall line,
+    /// `decorationTopY`. The result is then clamped by the slack the scale
+    /// really left, which is zero at the tightest fitting scale, so the aim can
+    /// never cost a cropped nameplate or a cropped badge. Nothing about it
+    /// depends on who is on screen, so the camera does not jump when somebody
+    /// steps out of a chair.
     ///
-    /// **The preference is measured from the seated plate, not inferred from the
-    /// band.** It used to reconstruct the seated plate's bottom by subtracting
-    /// the band's own depth from the seat row, which is the same number only
-    /// while the band's bottom is exactly one plate below the walkway. The
-    /// delivery rows made that false, and the bias silently weakened by the depth
-    /// of the walkway — the frame drifted down over three tiles of empty floor
-    /// with no test able to see it, because the arithmetic still agreed with
-    /// itself. The rows are gone and the two are the same number again; the
-    /// measurement stays, because being right by coincidence is how it broke.
+    /// **The top term is new and it is the whole of this fix.** The aim used to
+    /// be the midpoint of the seated plate and `band.top` — the top of the
+    /// *badge slot*, which is not the top of anything the room draws: `office`'s
+    /// chart board stands 91 px above it and `broadcast`'s softbox 125 px. So
+    /// the camera aimed at a line with nothing on it, and every pixel of surplus
+    /// it declined to spend upward went underneath the room instead. On the
+    /// shipped 720×400 panel at `1x` that was **131 px of bare floor below the
+    /// lowest nameplate — a third of the frame** — of which 90 px was not even
+    /// floor the room owns, but `drawnRows` overscan: tiles painted solely so
+    /// that no void shows. A frame whose bottom quarter is overscan is the tell
+    /// that its aim point is wrong.
+    ///
+    /// It also decided how much wall you saw **by accident of theme**, since the
+    /// aim was a constant and the backdrops are not: the same frame that left
+    /// `office`'s 46 px board 36 px of headroom left `broadcast`'s 80 px softbox
+    /// **2 px**, and `library`'s 72 px board 10. Measuring the thing the camera
+    /// is trying to clear is what makes that uniform.
+    ///
+    /// **It is a no-op wherever the band is what binds, so `2x` is
+    /// pixel-identical either way.** A `2x` view of this panel has 100 px of
+    /// half-height against a band whose top is 178 px above its bottom, so
+    /// `highest` lands below any aim this expression can produce and the clamp
+    /// decides alone. The frame moves only at `1x`, which is the only place the
+    /// slack being redistributed exists. That is what makes "the room must not
+    /// look emptier at `2x`" true by construction rather than by measurement,
+    /// and `theCloseViewIsUnmovedByWhereTheCameraPrefersToAim` pins it.
+    ///
+    /// The old aim's own history is worth keeping, because it is the same
+    /// mistake one step earlier: it once reconstructed the seated plate's bottom
+    /// by subtracting the band's depth from the seat row, which is the same
+    /// number only while the band's bottom is exactly one plate below the
+    /// walkway. The delivery rows made that false and the frame drifted down
+    /// over three tiles of empty floor with no test able to see it, because the
+    /// arithmetic still agreed with itself. Both times the repair was to measure
+    /// the thing rather than to infer it from a neighbour.
+    ///
+    /// **What this does not fix, stated rather than implied.** At `1x` the panel
+    /// is taller than the room: 400 px against a drawn picture that is 269 px
+    /// deep in `office` and 303 in `broadcast`. Aiming redistributes that
+    /// surplus; it cannot remove it, and the residual is ~66 px of wall above
+    /// the boards and ~97 px of floor below the seated plates. Only a shorter
+    /// panel or a taller room removes it, and `notes.md` records why neither was
+    /// done here — chiefly that the panel's floor is twice the content band, so
+    /// the whole 44 px it could give back buys 22 px of foreground.
     func cameraY(band: (bottom: Double, top: Double), sceneHeight: Double) -> Double {
         let half = sceneHeight / 2
-        let seatedPlateBottom = layout.baselineY - seatedPlateDrop
-        let preferred = (seatedPlateBottom + band.top) / 2
+        let preferred = (band.bottom + max(band.top, decorationTopY)) / 2
         let lowest = band.top - half        // any lower and the badge is cropped
         let highest = band.bottom + half    // any higher and the plate is cropped
         guard lowest <= highest else { return (band.bottom + band.top) / 2 }

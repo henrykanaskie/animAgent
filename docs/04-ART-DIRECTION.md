@@ -952,6 +952,39 @@ The one fix that would work is a change to the report beat itself: deliver
 foreground. That is a redesign of the choreography and its safety proof, not a
 composition change, and it is not this one.
 
+> **The first bullet was false, and it is what let the foreground grow back.**
+> `cameraY` was never at its clamp — it was at its *preference*, and the
+> preference was the midpoint of the seated plate and `band.top`. `band.top` is
+> the top of the badge slot, which is not the top of anything the room draws:
+> `office`'s chart board stands 91 px above it and `broadcast`'s softbox 125.
+> So the camera aimed at an empty line and every pixel it declined to spend
+> upward went under the room instead. The clamp was 65 px further up the whole
+> time.
+>
+> That did not matter while the band was 300 px, because there was nothing to
+> spend. M6f took the band to 170 (178 once the plate grew a task row) and the
+> surplus reappeared **below** the room — 131 px of bare floor under the lowest
+> nameplate at `1x`, a third of the panel, of which 90 px was not floor the room
+> owns but `drawnRows` overscan. `RoomScene.cameraY` now centres the strip the
+> room actually draws, from `contentBand.bottom` to a measured `decorationTopY`,
+> and `theFrameAtTheWideScaleHoldsTheTallestBackdropInEveryTheme` fails if the
+> slack goes back under the room.
+>
+> The measured table below is superseded for the `cameraY`, `frame` and `wall in
+> frame` rows. On the same 720×400 panel at `1x`, `office`: `cameraY` **136**,
+> frame `[-64, 336]`, wall in frame **112 px (28%)**, floor below the lowest
+> seated plate **97 px (24%)** where it was 127. Per theme the wall band varies,
+> because the aim now varies with the backdrop rather than being a constant that
+> happened to suit `office`: under the old aim `broadcast`'s 80 px softbox had
+> **2 px** of headroom to the frame's top edge and `library`'s board 10 px.
+>
+> **This redistributes the surplus; it does not remove it, and nothing in this
+> section does.** At `1x` the panel is simply taller than the room — 400 px
+> against a drawn picture 269 px deep in `office` — so ~130 px is matte whatever
+> the camera does. The two levers that would remove it are a shorter panel and a
+> taller room, and both were measured and declined; see `notes.md`, "The lower
+> third at 1x".
+
 ## Seven seats, and what the room says about the eighth agent
 
 The room has **seven seats and cannot honestly have more.** Until this was

@@ -5386,3 +5386,301 @@ both are named because they change behaviour:
   script on `currentFacing.seated`, and half the cast would take its chair with
   its back to its own desk. The old lateral leg home did this by accident, for
   whichever half happened to walk the right way.
+
+---
+
+# The nameplate says what the agent was sent to do — M7e's display half
+
+`agentTasked` has been in the model since `8c9e889` and `SceneDirector` answered
+it with `case .agentTasked: break` and a comment saying the shortening belonged
+there. This is that comment cashed.
+
+## The hierarchy, and what it cost
+
+Three facts want a 63 px plate: the task, the `agent_type` and the `agent_id`
+discriminator. The plate now carries all three, on three rows:
+
+| row | field | glyphs |
+|---|---|---|
+| accent band | **the task**, shortened | 10 |
+| plate | `agent_type` | 10 |
+| plate | discriminator | 3 |
+
+**The task took the band from the type, and the corpus is the argument.** Nine of
+the ten real `Agent` dispatches in `fixtures/` are `general-purpose`: the type is
+where a room's agents *agree* and the task is where they differ, so the loud
+element was being spent on the field with no information in it. The four-agent
+`four-subagents` frame is the picture of the old failure — four identical
+`GENERAL-P…` bands — and of the fix, four distinct ones.
+
+**Nothing was dropped.** The type is demoted rather than deleted because it is
+the *only* place `agent_type` appears in the room: the accent hue is assigned
+per character by round-robin, not per type, so a plate without the type line
+deletes the fact instead of moving it. The discriminator stays for the reason it
+has always been there and for a second one this change created — see the
+collapse below.
+
+**What it cost is 8 px of height**, 21 → 29, for agents that have a task.
+Checked against every bound that reads it rather than assumed:
+`minimumSeatSpacingTiles` still returns 3 (the margin it borrows from the row
+axis shrinks 11 → 3, which *loosens* the width constraint); the plate still
+clears the 32 px row pitch, by 3 px; the content band goes 170 → 178 against the
+200 a `2x` view of the panel has. `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt`
+still passes in both directions, so `44e82f0`'s "`2x` up to three agents" is
+unchanged. **Width is untouched at 63 px**, deliberately — see below.
+
+## The shortening
+
+`SceneDirector.taskLine(_:)`. Cut at everything that is not a letter, a digit or
+a hyphen; drop `taskStopWords` (articles, coordinators, prepositions — nothing
+that could carry content); join; clip to ten glyphs **mid-word**; and end in `…`
+unless every word of the description survived intact.
+
+- **The `…` rule is total.** It means *there is more in the description than is
+  drawn*, with no exceptions. That covers the case the eye cannot catch: a clip
+  landing on a word boundary. `Touch file s1` shortening to a bare `TOUCH FILE`
+  would be the room asserting somebody was sent to touch *a file*.
+- **Mid-word is on purpose.** Whole-word clipping is tidier and loses the object:
+  `Move the badge beside the head` gives `MOVE…` at a word boundary and
+  `MOVE BADG…` mid-word, and *badge* is the half the maintainer named. The type
+  line has cut mid-word since M5 (`GENERAL-P…`).
+- Quantifiers (`all`, `any`, `each`) are **not** stop words: *read all logs* is
+  not *read logs*. Where the rule would have to guess it keeps the word and lets
+  the ellipsis do the work — the same instinct as the standing refusal to
+  abbreviate `agent_type`.
+
+All ten real descriptions, pinned in
+`NameplateTests.everyRealDispatchInTheCorpusShortensToSomethingReadable`:
+
+```
+Touch file s1                            TOUCH FIL…
+Touch file s2                            TOUCH FIL…
+Read one.txt sleep                       READ ONE…
+Read two.txt sleep                       READ TWO…
+Read three.txt sleep                     READ THRE…
+Read four.txt sleep                      READ FOUR…
+Touch a file via bash                    TOUCH FIL…
+Read alpha.txt and sleep                 READ ALPH…
+Read beta/gamma and sleep                READ BETA…
+Read delta/epsilon, sleep, reread alpha  READ DELT…
+```
+
+## What a person cannot tell any more, stated plainly
+
+- **`Touch file s1` and `Touch file s2` collapse onto one headline.** Ten glyphs
+  is two short words and the disambiguating token is the third. Those two
+  characters are separated by the discriminator row and by nothing else, which
+  is the second reason it survived. Recorded as a test
+  (`twoNearlyIdenticalDispatchesShareAHeadlineAndNotAPlate`) so it fails if the
+  rule ever changes, rather than being rediscovered.
+- **`REWORK RE…`** is what `Rework the report beat` gets. Honest, and poor.
+- **The type is one row smaller in the visual hierarchy.** It is the same ten
+  glyphs, the same face, off the saturated field.
+- At `1x` with four or more agents the discriminating glyphs of a task line are
+  at its *tail* — `READ ALPH…` against `READ BETA…` agree for five glyphs. The
+  headline separates them; a glance may still need a second one.
+
+## The eleventh glyph, reported rather than taken
+
+A task limit of 11 would put the plate at 69 px and give `MOVE BADGE…` and
+`TOUCH FILE…` instead of `MOVE BADG…` and `TOUCH FIL…` — a real improvement on
+the line this feature exists for. **69 px still buys the same three-tile pitch**
+(`minimumSeatSpacingTiles(plateWidth: 69, plateHeight: 29, tile: 32) == 3`), so
+the room does not widen. It is not taken here because it moves
+`maximumNameplateWidth`, which is the term the camera weighs when it decides who
+gets `2x`, and that arithmetic was tuned in the commit immediately before this
+one. It is the maintainer's call with its own evidence, not a side effect of
+this one.
+
+## Retroactive, and flicker-free
+
+`agentTasked` arrives one event behind the `SubagentStart` that drew the
+character — the very next event in three of the four captures that dispatch
+subagents. New intent `SpriteIntent.setNameplate(agent:nameplate:)`, emitted only
+when the plate actually changed and never for an agent that spawned in the same
+batch (the memory is seeded from the spawn's own plate). `Character.setNameplate`
+already existed and the plate node is anchored at its top edge, so the added row
+grows downward and nothing already on screen moves. `agentAppeared` arriving a
+second time with an `agent_type` we did not have the first time now shows too —
+that was previously a change the room made and never drew.
+
+**The main agent has no task and cannot be given one.** `nameplate(for:)` returns
+on the `.mainThread` branch before it can reach one; asserted against a delta
+that should never exist, because *the model will not emit it* is not the same
+guarantee as *the plate could not draw it*. Its plate is unchanged: `MAIN`, one
+row, 11 px.
+
+## Gates
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. `swift test`
+**634** green (617 + 17 new). `python3 scripts/lint-palette.py` passed, six
+themes agreeing with the scene. `spriteroom-replay --all` — 17 fixtures, zero
+open calls after the sweep.
+
+Frames: `three-subagents` at `2x` (three agents: `READ ALPH…`/`EXPLORE`/`D0F`,
+`READ BETA…`, and `MAIN` with no task row) and at `1x` (four agents), and
+`four-subagents` at `1x` (five agents, four three-row plates, no overlap).
+
+## Scope
+
+`Sources/SpriteRoomScene/{SceneDirector,SceneBitmaps}.swift`,
+`Tests/SpriteRoomSceneTests/{NameplateTests,SceneDirectorTests}.swift`,
+`docs/03-EVENT-MODEL.md`, this file.
+
+**One line outside it, and it is unavoidable.** `RoomScene.apply(_:)` switches
+exhaustively over `SpriteIntent`, so a new case does not compile until that
+switch handles it, and there is no other route from a delta to a character's
+plate. The addition is one `case` of one statement —
+`characters[agent]?.setNameplate(nameplate)` — at the top of the intent switch,
+touching nothing the composition lane is editing in that file. Flagged rather
+than done quietly.
+
+---
+
+# M6i — The lower third at 1x
+
+The room's content band went 300 px → 170 (→ 178 once the plate grew a task
+row), the panel stayed 720×400, and at `1x` — which is what four or more agents
+get — the bottom of the frame came back empty. Measured on `office`, six agents:
+**127 px of bare floor below the lowest nameplate, 32% of the panel.**
+
+## Where the emptiness came from
+
+Not the report choreography, which is what `ADR-002 §0` and
+`04-ART-DIRECTION.md` both said the foreground reserve was. That reserve is one
+walkway plus one plate — 55 px. The other ~75 px was the camera's aim point:
+
+    preferred = (seatedPlateBottom + band.top) / 2
+
+`band.top` is the top of the **badge slot**, and the badge slot is not the top of
+anything the room draws. Measured off the manifest's content boxes, the tallest
+backdrop stands this far above it:
+
+| theme | board h | backdrop top | above `band.top` (179) | headroom under the old aim |
+|---|---:|---:|---:|---:|
+| office | 46 | 270 | 91 | 36 px |
+| briefing | 54 | 278 | 99 | 28 px |
+| stage | 62 | 286 | 107 | 20 px |
+| mission_control | 64 | 288 | 109 | 18 px |
+| library | 72 | 296 | 117 | 10 px |
+| broadcast | 80 | 304 | 125 | **2 px** |
+
+So the camera was aiming at an empty line, and every pixel of surplus it
+declined to spend upward went underneath the room instead — 90 px of the 127
+being not floor the room owns but `drawnRows` overscan, tiles painted only so
+that no void shows. The last column is the second half of the same defect: with
+a constant aim, how much wall you see is an accident of which theme you are in,
+and `broadcast`'s softbox was 2 px from the frame's top edge.
+
+`04-ART-DIRECTION.md` asserted "the camera cannot go higher, `cameraY` is
+already clamped at `band.bottom + half`". It was not clamped; it was at its
+preference, 65 px below the clamp, and had been since M6f shrank the band.
+
+## What was done
+
+`RoomScene.cameraY` centres the strip the room actually draws:
+
+    preferred = (band.bottom + max(band.top, decorationTopY)) / 2
+
+`decorationTopY` is measured, not written down: every point
+`RoomScene.decorationPlacements` returns, plus the content-box height of the
+prop that stands on it, floored at `wallBaseY` so a theme binding no backdrop
+still gets a real number.
+
+Before/after, `--size 720x400 --theme office`, empty pixels above the tallest
+backdrop / below the lowest nameplate:
+
+| pop | scale | before | after |
+|---:|---|---|---|
+| 1 | 2x | 10 / 100 | **10 / 100 — identical** |
+| 3 | 2x | 6 / 100 | **6 / 100 — identical** |
+| 4 | 1x | 36 / 135 (33.8%) | 66 / 105 (26.2%) |
+| 6 | 1x | 36 / 127 (31.8%) | 66 / 97 (24.2%) |
+| 9 | 1x | 29 / 127 (31.8%) | 59 / 97 (24.2%) |
+
+**`2x` is unchanged by construction, not by luck.** A `2x` view of this panel
+has 100 px of half-height against a 178 px band, so `highest = band.bottom +
+half` lands below any aim this expression can produce and the clamp decides
+alone. `theCloseViewIsUnmovedByWhereTheCameraPrefersToAim` pins that — and it
+passes under *both* aims, which is the point: it is not a test of this change,
+it is the guard that stops a future one reaching `2x` unnoticed.
+
+`theFrameAtTheWideScaleHoldsTheTallestBackdropInEveryTheme` is the one that was
+seen red — seven rooms, seven failures, `broadcast` reporting its 2 px by name.
+
+## What this does not fix, and the two things that would
+
+Aiming **redistributes** the surplus; it cannot remove it. At `1x` the panel is
+taller than the room: 400 px against a drawn picture 269 px deep in `office`,
+303 in `broadcast`. ~130 px is matte whatever the camera does.
+
+**Shorten the panel — measured and declined.** `largestFittingScale` reaches
+`2x` only while `2 × contentBand ≤ panelHeight`, so the floor is **356 px**
+(178 × 2), not the 340 the brief estimated from the pre-task-row band of 170.
+That leaves 44 px to give back — and the aim splits its surplus, so half of
+every pixel removed comes off the top: **the entire available shortening buys
+22 px of foreground.** Rendered at 720×340 and 720×360 to check the arithmetic
+against the picture, and it is not worth a cross-module change. It is also a
+change that would be unsafe to make this week: the band is 178 because the
+nameplate lane landed a third plate row in the same tree, and a panel chosen
+from today's band would be four pixels from silently killing `2x` for every
+population if that plate moves again.
+
+**Grow the room — measured and declined.** The M6 precedent (floor 4 rows → 7)
+is the right shape of fix and it does not repeat. Rendered at 10 and 11 rows:
+the bottom gutter falls to 81 px and 65 px, and an equally large band of bare
+floor opens between the accent row and the wall line — 60 px and 92 px. Moving
+the accent row to the midpoint to close it strands the plants in the middle of
+an empty field, which is worse than either. The slack is conserved; ten rows
+just move it from under the room to inside it. It also lengthens every upstage
+exit by 32–64 px, which is a choreography change hiding inside a composition
+one.
+
+**A foreground row — declined without measuring, and this is the reason.** It
+was removed at `4e7b43d` and the rule that replaced it is stronger: nothing
+decorative is drawn nearer the camera than the seat row. The geometry backs it
+rather than taste — the frame's empty region is *below* `aisleY`, so anything
+standing there sorts in front of a walkway character, and `propColumnX` is 48 px
+from a seat centre against a plate that reaches 35 px, so a prop of any usual
+width would occlude a reporter's own nameplate at the exact moment it is
+delivering. Occlusion is the constraint the maintainer named, and this fails it.
+
+## Also in this change
+
+Two stale prose dimensions, invisible to `DocumentedSymbolTests` because they
+are numbers in comments rather than backticked identifiers.
+`RoomScene.surfaceBehindBias` and `everyStationFitsTheSeatItIsDrawnAt` both said
+`library`'s desk is 56×70 and `mission_control`'s 44×36; `1c0eeb3` re-cut them to
+**32×44** and **40×36**. Corrected in the past tense rather than overwritten,
+because the consequence is worth seeing: 44 is exactly `seatedHeadClearance`, so
+**no desk any shipped theme binds now takes the behind-the-body branch at all**.
+That makes `surfaceBehindBias` a standing guard against art nobody has bound
+rather than a description of what the room does — a weaker claim than the
+comment made, and the true one. It is not dead code; deleting it restores the
+defect the moment a theme binds a tall desk.
+
+`everyStationFitsTheSeatItIsDrawnAt`'s overhang bound goes **8 → 0**. The
+overhang is `w/2 − 20`, so the widest shipped desk (`mission_control`, 40 px)
+lands at exactly 0 and every other at −4. A bound of 8 carried 8 px of slack over
+the worst shipped case, which is enough to absorb a full regression back to the
+56 px desk without saying so. Zero is also the meaningful number rather than a
+tightening for its own sake: it is where a desk's right edge meets the lane the
+neighbour's station prop stands in.
+
+## Gates
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. `swift test`
+green. `python3 scripts/lint-palette.py` passed, six themes agreeing with the
+scene. `spriteroom-replay` over all 17 fixtures — zero open calls after the
+sweep, exit 0.
+
+Evidence: populations 1, 3, 4, 6 and 9 at 720×400, before and after, built by
+filtering `eval/many.jsonl` down to a fixed live subagent set (real events, only
+dropped — nothing synthesised, nothing added to `fixtures/`).
+
+## Scope
+
+`Sources/SpriteRoomScene/{RoomScene,RoomLayout}.swift`,
+`Tests/SpriteRoomSceneTests/{RoomSceneTests,StationAndCostumeTests}.swift`,
+`docs/04-ART-DIRECTION.md`, `docs/ADR-002-themed-rooms.md`, this file.
+`NotchGeometry.PanelSize.room` is untouched — see the declined lever above.

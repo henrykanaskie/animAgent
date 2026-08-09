@@ -86,6 +86,26 @@ furniture, against 113 px (28%) before. Wall is down to 84 px (21%). The
 remaining ~32% is foreground reserve the report choreography needs and only a
 redesign of that beat could free.
 
+> **Amended: the last sentence named the wrong cause and it cost a third of the
+> panel.** The ~32% below the room was never the report choreography's — that
+> reserve is one walkway plus one plate, 55 px. The rest was the camera's aim
+> point, which was the midpoint of the seated plate and `contentBand.top`; the
+> band's top is the badge slot, so the camera was aiming at a line 91–125 px
+> below the tallest thing the room draws and dumping the whole surplus
+> underneath it. `RoomScene.cameraY` now centres `contentBand.bottom` to a
+> measured `decorationTopY`, and at `1x` the floor below the lowest seated plate
+> is **97 px (24%)** where it was 127, with the wall band up to ~112 px (28%).
+> `2x` is byte-identical, because there the clamp decides and the aim is never
+> reached.
+>
+> The residual is real and is arithmetic rather than a choice: 400 px of panel
+> against a picture 269 px deep in `office`. §12 item 3 asked for a screenshot
+> showing the 268 px the band does not occupy is no longer flat — it is dressed
+> at the top and matte at the bottom, and the only remaining levers are a
+> shorter panel and a taller room. Both were measured at M6i and declined; the
+> panel's floor is twice the content band (356 px of the 400), so the entire 44
+> px it could give back buys 22 px of foreground.
+
 Two consequences the implementer must hold:
 
 **The dressing is now the product, not the polish.** Before `004b587` a busy

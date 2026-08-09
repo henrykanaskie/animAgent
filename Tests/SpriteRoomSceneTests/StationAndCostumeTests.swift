@@ -524,8 +524,17 @@ struct StationContractTests {
         // that does not override the desk inherits the theme's, and the theme's
         // is drawn by `buildRoom` at every seat whether anybody is sitting there
         // or not — so the limits have to bind what the room *draws*, not what
-        // the station *says*. Two themes bind a desk that would fail both:
-        // `library`'s is 56×70 and `mission_control`'s 44×36.
+        // the station *says*. Two themes bound a desk that failed both:
+        // `library`'s was 56×70 and `mission_control`'s 44×36.
+        //
+        // **Both were re-cut at `1c0eeb3` and the sentence above is history.**
+        // `library` is now **32×44** and `mission_control` **40×36**, so every
+        // desk the room draws is inside both limits and the height branch below
+        // is never taken by shipped art. The check stays because it binds what a
+        // theme *could* bind, and it is the reason the numbers here are quoted
+        // in the past tense — a prose dimension is not a backticked identifier,
+        // so `DocumentedSymbolTests` cannot see it go stale and this comment had
+        // to be corrected by hand.
         //
         // The height limit is now enforced by the scene instead of asserted
         // against art nobody may edit here: `RoomScene.surfaceDepthBias` puts a
@@ -561,13 +570,24 @@ struct StationContractTests {
 
         // **The width limit is not enforceable from here and is bounded
         // instead.** A desk is centred on `deskPosition`, so its right edge
-        // reaches `28 + w/2` from its seat and the next seat's station prop
-        // starts at `+48`: a 56px desk overhangs that lane by 8px and a 44px one
-        // by 2px, which is the whole of what those two themes cost and it hides
-        // nothing. Fixing it means choosing different art in
-        // `assets/manifest.json`. What must not happen is a theme arriving with
-        // a desk wide enough to stand *on* the neighbour, so the measured
-        // overhang is the assertion.
+        // reaches `28 + w/2` from its seat while the next seat's station prop
+        // lane starts at `+48` — which makes the overhang exactly `w/2 − 20`,
+        // and therefore a statement about the desk's width alone.
+        //
+        // **The bound is 0, and it used to be 8.** 8 was the 56px `library`
+        // desk's overhang, and once `1c0eeb3` re-cut that desk to 32 the bound
+        // carried 8px of slack over every desk the room draws: the widest is
+        // `mission_control`'s 40, which lands at **exactly 0**, and every other
+        // theme's 32 lands at −4. A limit with slack over the worst shipped case
+        // absorbs the first regression instead of reporting it — art could go
+        // back to overhanging by 8 and nothing would say so. Tightened to the
+        // measurement, so the next widening fails here.
+        //
+        // Zero is the right number rather than a coincidence: it is where a
+        // desk's right edge meets the lane the neighbour's station prop stands
+        // in, so `> 0` is a desk standing *on* the neighbour and `≤ 0` is not.
+        // A theme that wants a wider desk is choosing different art in
+        // `assets/manifest.json`, which is where the fix belongs.
         // The next seat's prop lane at the 32px limit asserted just above.
         let propLaneLeft = layout.stationPropPosition(1).x
             - Double(manifest.characters.canvas.width) / 2
@@ -575,7 +595,7 @@ struct StationContractTests {
             guard let desk = room.prop(RoomScene.surfaceRole) else { continue }
             let overhang = layout.deskPosition(0).x
                 + Double(desk.contentBox.width) / 2 - propLaneLeft
-            #expect(overhang <= 8, Comment(rawValue:
+            #expect(overhang <= 0, Comment(rawValue:
                 "\(id): a \(desk.contentBox.width)px desk overhangs the next seat's prop"
                 + " lane by \(overhang)px"))
         }

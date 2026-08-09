@@ -1310,9 +1310,8 @@ struct RoomSceneTests {
         }
     }
 
-    /// Once there is slack, the frame is biased upwards — the band's bottom is
-    /// reserved for a character in the aisle, and most of the time nobody is
-    /// there.
+    /// Once there is slack, the frame is biased upwards — towards the wall the
+    /// backdrops stand against, rather than down into floor nobody stands on.
     @Test func spareVerticalRoomGoesToTheWallRatherThanTheForeground() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest)
@@ -1320,6 +1319,83 @@ struct RoomSceneTests {
         let tight = scene.cameraY(band: band, sceneHeight: band.top - band.bottom)
         let loose = scene.cameraY(band: band, sceneHeight: 400)
         #expect(loose > tight)
+    }
+
+    /// **The camera aims at something the room draws.** [`RoomScene.cameraY`]
+    ///
+    /// The aim used to be the midpoint of the seated plate and `band.top` — the
+    /// top of the *badge slot*, which is not the top of anything: `office`'s
+    /// board stands 91 px above it and `broadcast`'s softbox 125. So the surplus
+    /// the camera declined to spend upward went underneath the room instead, and
+    /// at `1x` on the shipped panel that was 131 px of bare floor below the
+    /// lowest nameplate — a third of the frame, most of it `drawnRows` overscan.
+    ///
+    /// This is the assertion that would have caught it, and it is written over
+    /// **every theme** because the old aim was a constant while the backdrops
+    /// are not: the same frame that left `office`'s board 36 px of headroom left
+    /// `broadcast`'s softbox 2 px. A per-theme check is what turns "it looks all
+    /// right in the default room" into a claim about the six that ship.
+    @Test func theFrameAtTheWideScaleHoldsTheTallestBackdropInEveryTheme() throws {
+        let manifest = try SceneFixtures.manifest()
+        for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
+            let scene = RoomScene(manifest: manifest, themeID: theme)
+            let name = theme ?? "manifest.room"
+            let band = scene.contentBand
+            let decorationTop = scene.decorationTopY
+            // The wall line is the floor of the measurement — a theme that binds
+            // no backdrop still gets a real number rather than nonsense.
+            #expect(decorationTop >= scene.layout.wallBaseY, Comment(rawValue:
+                "\(name): decorationTopY fell below the wall line"))
+
+            // `1x` on the shipped panel, which is what four or more agents get.
+            let height = 400.0
+            let y = scene.cameraY(band: band, sceneHeight: height)
+            let frame = (bottom: y - height / 2, top: y + height / 2)
+
+            // Nothing the room stands on the wall line is cropped...
+            #expect(frame.top >= decorationTop, Comment(rawValue:
+                "\(name): the backdrop reaches \(decorationTop) and the frame stops"
+                + " at \(frame.top)"))
+            // ...and the surplus is *split*, not dumped under the room. Half of
+            // it, to the pixel, because the aim is the drawn strip's midpoint —
+            // written as the comparison rather than the equality so a future aim
+            // that biases deliberately still passes if it stays honest.
+            let above = frame.top - decorationTop
+            let below = band.bottom - frame.bottom
+            #expect(below <= above + 1, Comment(rawValue:
+                "\(name): \(below)px of frame below the lowest plate against"
+                + " \(above)px above the tallest backdrop — the slack is going"
+                + " under the room again"))
+            // The band still fits, which is the thing the aim may never cost.
+            #expect(frame.bottom <= band.bottom + 1e-9)
+            #expect(frame.top >= band.top - 1e-9)
+        }
+    }
+
+    /// **The close view is decided by the clamp, not by the aim**, so no change
+    /// to where the camera prefers to point can make a small room emptier.
+    /// [`RoomScene.cameraY`]
+    ///
+    /// At `2x` the panel gives 200 px of scene height against a content band
+    /// that is deeper than 200 − (band's own depth): `band.bottom + half` lands
+    /// below any aim the preference can produce, so the clamp is what returns.
+    /// Pinned as an equality against `highest` rather than as "the picture did
+    /// not change", because the latter is only checkable by rendering and this
+    /// is checkable by arithmetic — and because if the band ever shrinks far
+    /// enough for the aim to become reachable at `2x`, this fails and says so
+    /// instead of quietly moving the close view.
+    @Test func theCloseViewIsUnmovedByWhereTheCameraPrefersToAim() throws {
+        let manifest = try SceneFixtures.manifest()
+        for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
+            let scene = RoomScene(manifest: manifest, themeID: theme)
+            let band = scene.contentBand
+            let height = 400.0 / 2      // `2x` of the shipped panel
+            let y = scene.cameraY(band: band, sceneHeight: height)
+            #expect(y == band.bottom + height / 2, Comment(rawValue:
+                "\(theme ?? "manifest.room"): 2x is no longer clamp-decided — the"
+                + " band is \(band.top - band.bottom) px against \(height) px of"
+                + " frame, and the aim has become reachable"))
+        }
     }
 
     // MARK: Props [M5]

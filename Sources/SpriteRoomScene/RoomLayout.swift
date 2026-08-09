@@ -95,9 +95,15 @@ public struct RoomLayout: Sendable, Hashable {
         //
         // Three more floor rows turn that dead band into *floor*, which is
         // something objects can stand on: the back seat row, a mid-depth accent
-        // band, and the backdrops standing against the wall. The wall keeps a
-        // deliberate 84 px of the frame — enough to read as a wall, not enough
-        // to be the subject.
+        // band, and the backdrops standing against the wall.
+        //
+        // **The wall's share of the frame is not this file's number and the
+        // comment used to imply it was.** It said the wall keeps a deliberate
+        // 84 px, which was a measurement of where the camera happened to be
+        // aiming, not a property of nine rows: `wallBaseY` fixes where the wall
+        // *starts*, and how much of it lands in frame is `RoomScene.cameraY`'s
+        // to decide. It is ~112 px in `office` since the aim started accounting
+        // for the backdrops, and it varies by theme, because the backdrops do.
         self.rows = 9
         self.wallRows = 2
     }
