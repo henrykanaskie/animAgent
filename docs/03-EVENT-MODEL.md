@@ -32,9 +32,10 @@ named here at all is that until M6h it resolved and **reached nothing**:
 `Manifest.Station` had no caller, the id never left `SceneDirector`, and a
 manifest with six visually wild stations in every theme rendered byte-identical
 to one with none. It is drawn now, and the assertion that would have caught its
-absence is `StationSceneTests.twoAgentsOfDifferentTypeDrawDifferentPixelsAtTheir
-Seats` — the maintainer's own question, mechanised: *can you tell one agent from
-another by looking at the room?*
+absence is
+`StationSceneTests.twoAgentsOfDifferentTypeDrawDifferentPixelsAtTheirSeats` —
+the maintainer's own question, mechanised: *can you tell one agent from another
+by looking at the room?*
 
 Two subagents of the same `agent_type` are different characters; identity is
 `agent_id`, never the type. Do not merge them into one avatar.
@@ -348,6 +349,32 @@ would be stale and the turn boundary would not be.
 
 Everything else decodes to `.unhandled` and is counted, not dropped silently.
 A rising `.unhandled` count is how we notice the hook surface has grown.
+
+### The one request on this port that is not a hook — M7d
+
+`ListenerHeartbeat` POSTs to `127.0.0.1:<bound>/_liveness` once a second. It is
+the app asking itself whether it is still answering, and it is the **only**
+source of the pilot lamp. See `docs/ADR-004-liveness-lamp.md`.
+
+It is recognised on the **request target**, in `HTTPRequest.parse`, which is the
+first token of the first line — so a probe is identified before anything else on
+the connection has been looked at, and the cost on the hot path is one token
+comparison on a string the parser had already built. [I5] Measured:
+`LivenessTests.aRunningHeartbeatDoesNotCostTheSessionLatency` puts the listener's
+p99 at 0.164 ms over 2000 requests with the heartbeat running beside it, against
+a 5 ms budget.
+
+**It is not an event and it never becomes one.** `handle` returns before
+`HookEventDecoder` is reached, so a probe cannot create a session, an agent, or
+tool state, and it does not appear in `unhandled` — which would otherwise be the
+worst outcome, since that counter exists to notice the hook surface growing and
+a steady drip of our own traffic is exactly what would blind it. It is counted on
+its own axis, `IngestCounters.probes`, and is deliberately outside `requests` and
+`malformed` for the same reason.
+
+A hook POST goes to `/hook` and can never be mistaken for one: the match is on
+the whole target, not a prefix
+(`LivenessTests.onlyTheExactProbeTargetCounts`).
 
 "Everything else" is not hypothetical. 2.1.224 defines at least fourteen further
 event names we do not consume, including `UserPromptExpansion`, `StopFailure`,

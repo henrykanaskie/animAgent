@@ -93,10 +93,16 @@ struct LoopbackClient {
     }
 
     /// Every response we send is bodiless, so this is the whole thing.
+    ///
+    /// `path` is a parameter because the listener now decides one thing off the
+    /// request target — whether the request is `ListenerHeartbeat`'s self-probe
+    /// — and a client that could only ever post to `/hook` cannot test the
+    /// other branch.
     func responseText(
-        body: Data, expecting responseBytes: Int, closeAfter: Bool = false
+        body: Data, expecting responseBytes: Int,
+        path: String = "/hook", closeAfter: Bool = false
     ) throws -> String {
-        try sendAll(requestBytes(body: body, closeAfter: closeAfter))
+        try sendAll(requestBytes(body: body, path: path, closeAfter: closeAfter))
         return String(decoding: try readExactly(responseBytes), as: UTF8.self)
     }
 }

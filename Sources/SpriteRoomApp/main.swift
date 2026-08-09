@@ -85,6 +85,10 @@ struct Options {
     var probe: ProbeKind?
     var cycles = 20
     var countdown: Double = 0
+    /// Bind a real ephemeral listener, run the real heartbeat against it,
+    /// render the pilot lamp offscreen, then **kill the listener** and keep
+    /// rendering. See `renderLivenessDemo`.
+    var livenessDemoDirectory: URL?
 }
 
 func usage() -> String {
@@ -107,6 +111,10 @@ func usage() -> String {
       --window           M2's plain resizable window instead
       --speed N          replay pace, multiples of real time (default 1)
       --render DIR       render offscreen PNGs into DIR instead of opening anything
+      --liveness-demo DIR  bind an ephemeral listener, render the pilot lamp
+                         offscreen, kill the listener, keep rendering. The
+                         evidence that the lamp is tied to the listener.
+                         --for S sets the run length; the listener dies halfway
       --theme ID         room to draw with --render/--window; 'list' names them.
                          Default: the theme the app derives from the fixture's cwd
       --at T[,T...]      fixture seconds to render at (with --render)
@@ -197,6 +205,12 @@ func parse(_ arguments: [String]) -> Options? {
         case "--theme":
             guard let value = next() else { print("--theme needs a theme id, or 'list'"); return nil }
             options.themeID = value
+        case "--liveness-demo":
+            guard let value = next() else {
+                print("--liveness-demo needs a directory"); return nil
+            }
+            options.livenessDemoDirectory = URL(fileURLWithPath: value)
+            options.host = .offscreen
         case "--force-panel-render":
             options.forcePanelRender = true
         case "--window-render":
@@ -443,6 +457,109 @@ func replay(
         }
         try? await Task.sleep(for: .milliseconds(8))
     }
+}
+
+// MARK: - The pilot lamp, end to end
+
+/// **The evidence that the lamp is tied to the listener and not to a clock.**
+///
+/// It binds a *real* ephemeral listener, starts the *real* `ListenerHeartbeat`
+/// against it, and renders the real `RoomScene` through the real `SKRenderer`
+/// on wall time. Halfway through it calls `stopListenerOnly()` — the listener
+/// dies, the heartbeat keeps beating against a port nothing is on, every round
+/// trip fails, and the lamp goes dark on its own.
+///
+/// Nothing about the dark half is simulated. The harness does not touch the
+/// heartbeat, the `Liveness`, or the lamp; it kills a socket and keeps drawing.
+/// That is the difference between demonstrating a signal and demonstrating a
+/// variable, and it is the reason this exists as a mode rather than as two
+/// hand-set states passed on the command line.
+///
+/// **Port 0.** Never the user's 8787: this must not bind, disturb or be
+/// mistaken for the app they have running.
+///
+/// The room is empty for the whole run, on purpose — an empty room is the exact
+/// picture the maintainer could not tell from a broken app, so it is the
+/// picture the frames have to be of.
+@MainActor
+func renderLivenessDemo(options: Options, root: URL) async throws -> Int {
+    guard let directory = options.livenessDemoDirectory else { return 2 }
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+    let manifest = try Manifest.load(root: root)
+    let viewport = CGSize(width: options.width, height: options.height)
+    let host = RoomHost(manifest: manifest, viewport: viewport)
+    let renderer = try OffscreenRenderer(
+        scene: host.scene, width: options.width, height: options.height)
+
+    let driver: LiveDriver
+    do {
+        driver = try LiveDriver(port: 0)
+    } catch {
+        print("could not create the listener: \(error)")
+        return 1
+    }
+    let bound: UInt16
+    do {
+        bound = try await driver.start()
+    } catch {
+        print("could not bind an ephemeral port: \(error)")
+        return 1
+    }
+    print("liveness demo: listener on 127.0.0.1:\(bound), heartbeat every "
+        + "\(ListenerHeartbeat.interval)s")
+
+    // One frame every 125 ms — the wink's own length, so no wink can fall
+    // between two samples. A rig that could miss the thing it is measuring is
+    // ADR-003 §12 item 1's complaint, answered before it is made.
+    let step = LivenessLamp.winkDuration
+    let duration = options.duration > 0 ? options.duration : 6.0
+    let killAt = duration / 2
+
+    let started = Date()
+    var killed = false
+    var frame = 0
+    var written: [String] = []
+    var timeline: [(t: Double, phase: String, beats: Int)] = []
+
+    while true {
+        let now = Date()
+        let elapsed = now.timeIntervalSince(started)
+        if elapsed >= duration { break }
+        if !killed, elapsed >= killAt {
+            driver.stopListenerOnly()
+            killed = true
+            print(String(format: "  t=%5.2f  listener stopped", elapsed))
+        }
+
+        host.consume(driver.drain(), at: now, liveness: driver.liveness)
+        host.scene.advance(to: elapsed)
+        renderer.update(atTime: elapsed)
+
+        let phase = host.lampPhase?.rawValue ?? "none"
+        let beats = driver.liveness?.beats ?? 0
+        timeline.append((elapsed, phase, beats))
+        let name = String(format: "liveness-%02d-t%05.2f-%@.png", frame, elapsed, phase)
+        if renderer.write(to: directory.appending(path: name)) {
+            written.append(name)
+        }
+        frame += 1
+
+        let target = started.addingTimeInterval(Double(frame) * step)
+        let sleep = target.timeIntervalSince(Date())
+        if sleep > 0 { try? await Task.sleep(for: .seconds(sleep)) }
+    }
+    driver.stop()
+
+    print("  t      lamp   beats")
+    for row in timeline {
+        print(String(format: "  %5.2f  %-5@ %5d", row.t, row.phase as NSString, row.beats))
+    }
+    let counters = driver.counters
+    print("wrote \(written.count) frame(s) into \(directory.path)")
+    print("  self-probes answered=\(counters.probes) "
+        + "hook requests=\(counters.requests) malformed=\(counters.malformed)")
+    return 0
 }
 
 // MARK: - Offscreen
@@ -914,7 +1031,10 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
             let now = Date()
             // Every frame, empty batch or not: the roster ages on this call and
             // a project that has gone quiet produces no deltas to ride in on.
-            host.consume(deltas, at: now)
+            // The pilot lamp needs the same treatment for the same reason —
+            // its wink ends by the clock passing an instant, and an idle app is
+            // exactly the case where no delta will ever arrive to end it.
+            host.consume(deltas, at: now, liveness: driver.liveness)
 
             let elapsed = now.timeIntervalSince(started)
             while let mark = marks.first, mark <= elapsed {
@@ -952,6 +1072,8 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
         print("live finished after \(String(format: "%.1f", Date().timeIntervalSince(started)))s")
         print("  requests=\(counters.requests) decoded=\(counters.decoded) "
             + "malformed=\(counters.malformed) dropped=\(counters.dropped)")
+        print("  self-probes answered=\(counters.probes) "
+            + "beats=\(driver.liveness?.beats ?? 0)")
         print("  agents left=\(snapshot.agents.count) open calls=\(snapshot.totalOpenCalls) "
             + "abandoned=\(await driver.abandoned())")
         let unhandled = await driver.unhandled().sorted { $0.key < $1.key }
@@ -1277,7 +1399,7 @@ if options.themeID == "list" {
 
 let fixtureURL = options.fixture ?? defaultFixture(root: root)
 var entries: [HookLogEntry] = []
-if options.probe == nil && !options.live {
+if options.probe == nil && !options.live && options.livenessDemoDirectory == nil {
     do {
         entries = try HookLog.load(contentsOf: fixtureURL)
     } catch {
@@ -1289,6 +1411,9 @@ if options.probe == nil && !options.live {
 switch options.host {
 case .offscreen:
     do {
+        if options.livenessDemoDirectory != nil {
+            exit(Int32(try await renderLivenessDemo(options: options, root: root)))
+        }
         exit(Int32(try await renderOffscreen(options: options, root: root, entries: entries)))
     } catch {
         print("offscreen render failed: \(error)")

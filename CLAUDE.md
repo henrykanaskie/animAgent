@@ -32,6 +32,22 @@ represent something truthfully, show nothing.
 at least one open tool call. Inside one, it runs an ambient loop for as long as
 the call lasts. Never fill dead air with invented activity.
 
+**This governs the body of a character.** Two slots are governed separately and
+may carry a fact the body does not, each ratified by its own ADR and each
+already shipped:
+
+- the **badge slot**, which may hold an attention or sleep state, or a bounded
+  beat after a call closes — provided the body is truthful for every frame of it
+  [ADR-003];
+- the **pilot lamp**, which is not a character, traces to a measured fact about
+  this process, and **says nothing about any agent** [ADR-004].
+
+Both carve-outs are narrow on purpose, and the second is void if its third
+condition is dropped: a lamp that beat on real hook traffic would be an
+activity-keyed motion channel competing with the cast, which is the thing I2
+exists to prevent. Nothing here licenses a character animating without an open
+call.
+
 **I3 — State is keyed by `tool_use_id`, not by agent.** Tool calls run in
 parallel; one agent can hold several at once. Agent state is a *set* of open
 calls. Any model that stores one current tool per agent is wrong and will

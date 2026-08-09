@@ -115,7 +115,7 @@ public final class HookListener: Sendable {
             var keepAlive = true
             while let parsed = HTTPRequest.parse(pending) {
                 pending = parsed.remainder
-                handle(body: parsed.request.body)
+                handle(parsed.request)
                 responses.append(HookListener.acceptedResponse)
                 if !parsed.request.keepAlive {
                     keepAlive = false
@@ -146,8 +146,20 @@ public final class HookListener: Sendable {
 
     /// The entire hot path. Decode, enqueue, count. Anything more expensive
     /// than this belongs downstream of the queue.
-    private func handle(body: Data) {
-        guard let event = HookEventDecoder.decode(body) else {
+    ///
+    /// **The probe leaves before any of that happens.** A request to
+    /// `ListenerHeartbeat.path` is the app asking itself whether it is still
+    /// answering; it is not a hook, it carries no event, and the one thing it
+    /// must not do is reach the world. It is counted on its own axis and
+    /// returns — never decoded, never enqueued, so it can neither create a
+    /// session nor inflate the malformed count that exists to notice a real
+    /// problem. [I1]
+    private func handle(_ request: HTTPRequest) {
+        guard !request.isProbe else {
+            stats.recordProbe()
+            return
+        }
+        guard let event = HookEventDecoder.decode(request.body) else {
             stats.record(decoded: false, dropped: false)
             return
         }
@@ -167,6 +179,22 @@ public final class HookListener: Sendable {
 struct HTTPRequest {
     let body: Data
     let keepAlive: Bool
+    /// The request target was `ListenerHeartbeat.path`, so this is the app
+    /// probing itself rather than a session posting a hook.
+    ///
+    /// Read off the **request line**, which is the first thing on the
+    /// connection, so recognising a probe costs one token comparison on a
+    /// string the parser had already built. It is not a header and not a body
+    /// sentinel: a header would mean walking the whole head before knowing, and
+    /// a body sentinel would mean decoding JSON for a request that carries
+    /// none. [I5]
+    let isProbe: Bool
+
+    init(body: Data, keepAlive: Bool, isProbe: Bool = false) {
+        self.body = body
+        self.keepAlive = keepAlive
+        self.isProbe = isProbe
+    }
 
     struct Parsed {
         let request: HTTPRequest
@@ -211,9 +239,16 @@ struct HTTPRequest {
                 remainder: Data(buffer[headerEnd.upperBound...]))
         }
 
+        let lines = headerText.split(separator: "\r\n")
+        // `METHOD target VERSION`. A request line that is not that shape names
+        // no target, so it is not a probe — which is the safe answer, because
+        // the alternative is a hook request being silently swallowed.
+        let target = lines.first?.split(separator: " ").dropFirst().first
+        let isProbe = target.map { $0 == ListenerHeartbeat.path } ?? false
+
         var contentLength = 0
         var keepAlive = true
-        for line in headerText.split(separator: "\r\n").dropFirst() {
+        for line in lines.dropFirst() {
             guard let colon = line.firstIndex(of: ":") else { continue }
             let name = line[line.startIndex..<colon].trimmingCharacters(in: .whitespaces).lowercased()
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
@@ -250,7 +285,9 @@ struct HTTPRequest {
         }
         let bodyEnd = buffer.index(bodyStart, offsetBy: contentLength)
         return Parsed(
-            request: HTTPRequest(body: Data(buffer[bodyStart..<bodyEnd]), keepAlive: keepAlive),
+            request: HTTPRequest(
+                body: Data(buffer[bodyStart..<bodyEnd]),
+                keepAlive: keepAlive, isProbe: isProbe),
             remainder: Data(buffer[bodyEnd...]))
     }
 }

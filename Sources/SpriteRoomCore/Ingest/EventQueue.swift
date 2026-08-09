@@ -50,6 +50,17 @@ public struct IngestCounters: Sendable, Hashable {
     public var malformed = 0
     /// Queue was full. Should be zero; if it is not, the drain is too slow.
     public var dropped = 0
+    /// Self-probes answered. `ListenerHeartbeat` posts one a second and the
+    /// room's pilot lamp is lit by them.
+    ///
+    /// **On its own axis, and deliberately outside `requests`.** Every other
+    /// counter here describes the hook stream, and a probe is not part of it —
+    /// folded into `requests` it would add one a second forever and make the
+    /// number useless for the thing it exists for, and folded into `malformed`
+    /// (which is where an undeclared probe would land, since it carries no
+    /// decodable body) it would bury the counter that notices a real decoding
+    /// problem under a steady drip of our own traffic.
+    public var probes = 0
 
     public init() {}
 }
@@ -65,6 +76,11 @@ public final class IngestStats: Sendable {
     public init() {}
 
     public var counters: IngestCounters { state.withLock { $0 } }
+
+    /// A self-probe was answered. One increment, no decode, no enqueue.
+    public func recordProbe() {
+        state.withLock { $0.probes += 1 }
+    }
 
     public func record(decoded: Bool, dropped: Bool) {
         state.withLock { counters in

@@ -26,6 +26,10 @@ final class LiveDriver {
     private var drainTask: Task<Void, Never>?
     private var sweepTask: Task<Void, Never>?
 
+    /// The thing that proves the listener is up by using it. Built only once a
+    /// port is actually bound, because there is nothing to post to before that.
+    private var heartbeat: ListenerHeartbeat?
+
     private(set) var boundPort: UInt16?
 
     /// How often the reaper runs. Far finer than the shortest deadline in the
@@ -42,9 +46,25 @@ final class LiveDriver {
 
     var counters: IngestCounters { listener.stats.counters }
 
+    /// What this process has proved about its own listener, as of now.
+    ///
+    /// `nil` before `start()` has bound a port: nothing has been proved, and a
+    /// zeroed `Liveness` would be the weaker claim "we checked and nothing
+    /// answered" rather than the true one "we have not checked". The panel
+    /// draws no lamp at all for `nil`. [I1]
+    var liveness: Liveness? { heartbeat?.liveness }
+
     func start() async throws -> UInt16 {
         let bound = try await listener.start()
         boundPort = bound
+
+        // Only now, and against the port that was actually bound rather than
+        // the one that was asked for — `--port 0` asks for an ephemeral one, so
+        // those are different numbers and probing the requested one would probe
+        // nothing.
+        let heartbeat = ListenerHeartbeat(port: bound)
+        self.heartbeat = heartbeat
+        heartbeat.start()
 
         drainTask = Task { [queue, model] in
             for await event in queue.events {
@@ -67,9 +87,27 @@ final class LiveDriver {
     }
 
     func stop() {
+        // Before the listener, so the last thing the heartbeat can observe is a
+        // listener that was still answering. Stopping it afterwards would let
+        // one failed round trip be recorded on the way out, which is true but
+        // pointless noise on a run that is ending on purpose.
+        heartbeat?.stop()
+        heartbeat = nil
         drainTask?.cancel()
         sweepTask?.cancel()
         queue.finish()
+        listener.stop()
+    }
+
+    /// Stops **only** the listener, leaving the heartbeat beating against a
+    /// port nothing is on.
+    ///
+    /// It exists for one caller: `--liveness-demo`, which has to show that the
+    /// lamp goes dark for a real reason. A harness that faked the dark state by
+    /// stopping the heartbeat would be demonstrating that a variable can be
+    /// left alone, not that the signal is tied to the listener. This kills the
+    /// listener and lets the probe fail on its own.
+    func stopListenerOnly() {
         listener.stop()
     }
 

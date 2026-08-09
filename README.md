@@ -251,6 +251,20 @@ The menu bar item is the only control surface: it picks which project's room is
 displayed, it carries **Room ▸**, it toggles the hooks, opens the credit link,
 and quits.
 
+**The pilot lamp** is the small square in the bottom-left corner, and it is the
+one thing on screen that is about the app rather than about your agents. Movement
+in the room means an open tool call and nothing else, so an idle room is a
+perfectly still room — which used to be indistinguishable from a room whose
+listener had died. The lamp closes that: it holds a bright core while a request
+POSTed to this app's own hook port has completed in the last two seconds, and
+contracts that core for an eighth of a second on each one. **Any ink in the lamp
+means the listener is answering; an empty lamp means it is not**, and a lamp that
+has stopped contracting means the panel itself has stopped drawing. It is driven
+by a real loopback round trip once a second, not by a timer, so it goes dark for
+a reason — `docs/ADR-004-liveness-lamp.md` has the argument and the frames. In
+`--live` only: a fixture replay has no listener and therefore draws no lamp at
+all, because there is nothing true to say.
+
 **Room ▸** is ADR-002's user-facing half: a submenu of the manifest's six themes
 — `office`, `briefing`, `broadcast`, `library`, `mission_control`, `stage` — with
 a tick against the one this project is wearing. A theme is a **per-project**
@@ -270,6 +284,7 @@ Other hosts and harnesses, all real flags on `spriteroom`:
 | `--render DIR --at 6,12,20` | offscreen PNGs at those fixture seconds; opens nothing |
 | `--theme ID` | which room `--render` and `--window` draw. `--theme list` names them. Without it, the theme the app itself derives from the fixture's `cwd` — not the manifest default |
 | `--size WxH` | viewport for `--render` (default 960x540) |
+| `--liveness-demo DIR --for S` | bind a **real** ephemeral listener, run the real heartbeat, render the pilot lamp offscreen, kill the listener halfway, keep rendering. The evidence that the lamp is tied to the listener and not to a clock — see `docs/ADR-004-liveness-lamp.md` §7 |
 | `--speed N` | replay pace, multiples of real time |
 | `--window-render DIR` | open the window, capture the live `SKView` at `--at`, quit |
 | `--panel-render DIR` | reveal the **real** panel on your screen and capture its live `SKView` at `--at`, quit. Refuses without `--force-panel-render` |

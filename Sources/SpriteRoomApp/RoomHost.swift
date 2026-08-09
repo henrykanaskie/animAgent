@@ -135,6 +135,9 @@ final class RoomHost {
     }
 
     var unmappedTools: [String: Int] { binding.unmappedTools }
+    /// What the pilot lamp is drawing, or `nil` when this run has no listener
+    /// and therefore no lamp. Read by the capture harness only.
+    var lampPhase: LivenessLamp.Phase? { binding.lampPhase }
     /// The scene currently presented. Read by the capture harness only.
     var scene: RoomScene { binding.scene }
     var entries: [ProjectRegistry.Entry] { registry.entries }
@@ -148,7 +151,12 @@ final class RoomHost {
     /// the menu at population 0 for the life of the process. Ageing is driven
     /// by what the deltas already said plus this number, and never by asking
     /// the model anything.
-    func consume(_ deltas: [WorldDelta], at now: Date) {
+    /// - Parameter liveness: what this process has proved about its own
+    ///   listener, or `nil` when it has no listener at all. Drives the pilot
+    ///   lamp and nothing else. It is a parameter rather than something this
+    ///   type reads, for the reason `now` is: the room is downstream of
+    ///   everything and asks nothing upstream. [architecture]
+    func consume(_ deltas: [WorldDelta], at now: Date, liveness: Liveness? = nil) {
         var rosterChanged = registry.absorb(deltas, at: now)
 
         // First project seen wins the screen. A user who has never chosen gets
@@ -165,6 +173,12 @@ final class RoomHost {
         if let selected {
             binding.apply(deltas.filter { $0.projectKey == selected }, at: now)
         }
+        // **Outside the selection, deliberately.** The lamp is about this
+        // process, not about the project on screen, so it is drawn on a panel
+        // showing nothing at all — which is the case that most needs it, since
+        // a room with no project selected is the emptiest picture this app can
+        // draw and the one that looks most like a crash.
+        binding.showLiveness(liveness, at: now)
         // The selection is pinned: whatever the user is looking at is never
         // dropped out from under them. It can still be marked ended.
         if registry.sweep(at: now, pinning: selected) {

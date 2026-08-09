@@ -378,6 +378,65 @@ public enum SceneBitmaps {
         return bitmap
     }
 
+    /// The pilot lamp's plate, 9 px square.
+    ///
+    /// Sized against the room's own lettering rather than picked: the dormancy
+    /// tab is 9×11 and is the smallest thing this room draws that a person is
+    /// expected to notice, so the lamp is that, square. Anything smaller would
+    /// be asserting a legibility nothing in this room has ever demonstrated at
+    /// `1x`.
+    public static let pilotLampSize = 9
+
+    /// **The room's pilot lamp: is this app still receiving?**
+    ///
+    /// See `LivenessLamp` for what it means and what drives it. This is only
+    /// the picture, and there are exactly three of them, separated by
+    /// **extent** rather than by hue or value:
+    ///
+    /// | phase | core | says |
+    /// |---|---|---|
+    /// | `lit` | 5×5 | a hook posted to this app landed within the last `hold` |
+    /// | `wink` | 3×3 | …and one landed within the last 125 ms — this is the pulse |
+    /// | `dark` | none | nothing has landed for `hold`; the listener is not answering |
+    ///
+    /// **Extent, because extent is what survives `1x`.** That is the dormancy
+    /// tab's finding re-used rather than re-derived: "extent is what *there is
+    /// something there* is read from at a glance; value is what it is read from
+    /// once you have already looked". A lamp that pulsed by changing brightness
+    /// would be asking a viewer to resolve two greys in a 9 px square on a
+    /// 720×400 panel, which nothing in this project has ever shown a person can
+    /// do.
+    ///
+    /// **The wink contracts rather than extinguishes, and that is the whole
+    /// reason there are three pictures instead of two.** If the pulse were an
+    /// off-frame, then "no ink in the lamp" would mean *either* the pulse *or*
+    /// a dead listener, and a glance landing inside a 125 ms wink would read as
+    /// "broken" — the exact confusion this feature exists to remove, moved from
+    /// the room into the indicator. With a contraction the rule is total and
+    /// has no exceptions to remember:
+    ///
+    /// > **Any ink inside the lamp means a request landed within the last
+    /// > `hold`. No ink means none did.**
+    ///
+    /// **It introduces no colour the room does not already draw.** [I7] The
+    /// plate and the ink are the nameplate's own two values, so the lamp cannot
+    /// own a more saturated pixel than the room already permits, cannot own a
+    /// darker one than every nameplate already does, and needs no new entry in
+    /// any palette argument. It is chrome about the app, drawn in the room's
+    /// lettering family, which is the same family the overflow plate is in and
+    /// for the same reason: it is a caption on the picture, not a thing in it.
+    public static func pilotLamp(core: Int) -> Bitmap {
+        let size = pilotLampSize
+        var bitmap = Bitmap(width: size, height: size)
+        bitmap.fill(x: 0, y: 0, w: size, h: size, nameplatePlate)
+        let width = max(0, min(core, size - 2))
+        if width > 0 {
+            let origin = (size - width) / 2
+            bitmap.fill(x: origin, y: origin, w: width, h: width, nameplateInk)
+        }
+        return bitmap
+    }
+
     /// A desk, drawn as an obvious placeholder.
     ///
     /// Modern Office ships 339 object singles named by index only, and the

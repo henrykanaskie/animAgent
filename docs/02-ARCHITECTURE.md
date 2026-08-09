@@ -27,6 +27,24 @@ NotchPanel          AppKit. reveal, retract, geometry
 One direction only. Nothing downstream ever calls back upstream. The scene
 cannot ask the model a question; it receives deltas and renders them.
 
+**One thing travels beside that flow rather than in it.**
+
+```
+ListenerHeartbeat ──POST /_liveness──▶ Listener ──202──▶ Liveness
+                                                            │
+                                                            ▼
+                                        LivenessLamp (a 9 px plate in the frame)
+```
+
+`ListenerHeartbeat` (`Ingest/Liveness`) posts to the listener's own bound port
+once a second and counts the `202`s. The probe is recognised on its request
+target and returns before the decoder, so it never reaches `EventQueue`,
+`WorldModel` or a `WorldDelta` — it cannot create a session or an agent, and the
+room's contents are exactly what they would be without it. The resulting
+`Liveness` is handed to `RoomHost.consume` as a parameter beside `now`, in the
+same shape and for the same reason: the room is downstream of everything and asks
+nothing upstream. See `docs/ADR-004-liveness-lamp.md`.
+
 ## Modules
 
 ### `SpriteRoomCore` — no AppKit, no SpriteKit
@@ -106,6 +124,11 @@ the same way `Reaper` is handed `now` by `WorldModel.sweep(at:)`.
 ## Concurrency
 
 - Listener runs on its own `DispatchQueue`.
+- `ListenerHeartbeat` runs on a second one, at `.utility` rather than the
+  listener's `.userInitiated`: it must never be the reason a hook response is
+  late, so it asks for less of the machine than the thing it is probing. Its one
+  blocking call — a loopback connect / POST / read with a 250 ms socket timeout —
+  is on that queue and nowhere near a cooperative pool thread.
 - `WorldModel` is an actor; all mutation is serialized there.
 - Deltas cross to `@MainActor` in batches, once per frame, not per event. A
   burst of forty events in one millisecond produces one frame's work.
