@@ -119,7 +119,7 @@ the exact conditions under which anything may move outside a tool call, and the
 conditions are severe. Each is checked, and each is checkable:
 
 1. **Not a character.** A 9 px square of chrome pinned to the frame, in the
-   nameplate's plate and ink, in a corner no seat, station, aisle or delivery row
+   nameplate's plate and ink, in a corner no seat, station or walkway
    reaches. It has no body state, no pose, no nameplate, no badge anchor and no
    costume, and it is not in `RoomScene`'s node graph for the room — it hangs off
    the camera.

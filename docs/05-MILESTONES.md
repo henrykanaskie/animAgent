@@ -198,6 +198,18 @@ Do not close one of these by editing the criterion.
   untouched and integer, nothing prefers a closer rung, and
   `aCameraCanStillPreferACloserScaleIfItIsToldTo` proves the mechanism survives.
   Recorded as a spend, not a defect.
+
+  **Reversed at M6f — `2x` is reachable again, and the decision is now a
+  decision.** Two terms came out of the band in one pass: the report beat stopped
+  walking to the anchor, which freed the 96 px of delivery row the lattice had
+  spent, and the badge slot moved from above the head to beside it, which freed
+  34. The band is **170 px** against the 200 a `2x` frame has. Height no longer
+  settles it at any population; **width does, and it says three** — a `2x` frame
+  holds three seat columns and a seven-agent room spans 736 px.
+  `comfortablePopulation` stays empty, but it stays empty as a *choice* now
+  rather than as arithmetic nobody could overrule, and the choice has a cost
+  either way: preferring `2x` under four agents means the camera changes scale
+  when the fourth arrives. `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt`.
 - **A nameplate leads with the part that distinguishes it.** Two rows: a solid
   accent band on top and a dark row beneath it. No plate exceeds the seat pitch,
   no two plates ever intersect, and a truncated type still says it was truncated
@@ -246,7 +258,19 @@ Do not close one of these by editing the criterion.
   because the sweep paired seats two rings apart instead of one. Fixed by
   arrivals coming upstage from the character's own ring's delivery row — which
   keeps M5's "visible from its first frame" rather than trading it.
-  `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`,
+
+  **Strengthened at M6f, and the delivery rows are gone with it.** The lattice
+  above has two halves — own column *or* own delivery row — and the second half
+  was the expensive one: it existed only because a report was a walk *to the
+  anchor*, and a lateral corridor has to be given floor nobody else stands on,
+  one row per ring, 96 px of the content band. The report now happens in the
+  reporter's own column, one row downstage of its chair, so the lattice is the
+  first half alone: **no character ever moves sideways**, and two characters'
+  separation in x is a constant of `seatColumn` rather than something the
+  choreography can spend. The worst synthetic case is unchanged at **+6.0 px**,
+  which is the row axis; the column axis went from 25 px of clearance to the same
+  25 px, permanently.
+  `theRoomHasNoLateralMovementLeftToSeparate`,
   `noAdversarialPairingOfBeatsEverTouchesTwoPlates`,
   `everySeatWalksInFromInsideTheFrame`.
 
@@ -325,13 +349,14 @@ Do not close one of these by editing the criterion.
   departure that followed it, and `reported` was never cleared, so at `SessionEnd`
   every character converged on the anchor and replayed a delivery from minutes
   earlier. A report now takes nobody out of the room, is not replayed at
-  departure, and a reporter approaches on its own side of the anchor so a round
-  trip does not cross it twice. A leaver caught mid-report comes home up its own
-  column and goes out upstage, and a longer walk never finishes sooner than a
-  shorter one.
+  departure, and a reporter delivers standing in its own column so a round trip
+  crosses nobody at all — it used to approach on its own side of the anchor,
+  which was the same concern one step weaker. A leaver caught mid-report comes
+  home up its own column and goes out upstage, and a longer walk never finishes
+  sooner than a shorter one.
   `aReportInAnEarlierFrameDoesNotReplayItselfAtDeparture`,
   `aReportIsAWalkOnItsOwnAndTakesNobodyOutOfTheRoom`,
-  `aReporterApproachesItsAnchorFromItsOwnSideAndTurnsToFaceIt`,
+  `aReporterDeliversInItsOwnColumnAndTurnsToFaceItsAnchor`,
   `aLeaverCaughtMidReportComesHomeUpItsOwnColumnAndLeavesUpstage`,
   `aWalkTakesTimeInProportionToItsLengthAtEveryLength`.
 
@@ -346,10 +371,10 @@ Do not close one of these by editing the criterion.
   commit whose paragraph above says its subject is deleted — a criterion left
   citing a function nobody can run, which is a criterion that cannot fail. What
   it used to prove is now held by construction and is asserted where the
-  construction is: `aReporterApproachesItsAnchorFromItsOwnSideAndTurnsToFaceIt`
+  construction is: `aReporterDeliversInItsOwnColumnAndTurnsToFaceItsAnchor`
   checks the delivery point is a pure function of `(anchorSeat, reporterSeat)`
-  and sits on the reporter's own delivery row, over every pairing of seats, so
-  there is no shared slot for a second reporter to take. `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`
+  and sits in the reporter's own column, over every pairing of seats, so there is
+  no shared slot for a second reporter to take. `theRoomHasNoLateralMovementLeftToSeparate`
   and `noAdversarialPairingOfBeatsEverTouchesTwoPlates` cover the collision the
   claim was there to rule out. The renames were mechanical: the leaver test
   above, and `noThemeNameAndNoArtFilenameIsWrittenDownInSources` in the themes

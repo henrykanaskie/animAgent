@@ -55,7 +55,7 @@ struct NameplateTests {
         let fitted = font.fit("security-reviewer", limit: SceneBitmaps.nameplateTypeGlyphLimit)
         #expect(fitted.count == SceneBitmaps.nameplateTypeGlyphLimit)
         #expect(fitted.hasSuffix("…"))
-        #expect(fitted.hasPrefix("SECURITY-R"))
+        #expect(fitted.hasPrefix("SECURITY-"))
     }
 
     /// The headline is still short of the longest type, so the truncation has to
@@ -63,14 +63,34 @@ struct NameplateTests {
     /// type.
     @Test func aTruncatedTypeStillSaysItWasTruncated() {
         #expect(font.fit("general-purpose", limit: SceneBitmaps.nameplateTypeGlyphLimit)
-                == "GENERAL-PU…")
-        // The type has gained a glyph at every step and lost none: 8 on M5's
-        // single line, 10 when the rows split and the discriminator led, 11 now
-        // that the type leads.
-        #expect(SceneBitmaps.nameplateTypeGlyphLimit > 10)
+                == "GENERAL-P…")
     }
 
-    /// **Eleven glyphs separate the types that exist, and the tag catches the
+    /// **The glyph limit is whatever fits a plate the seat pitch can be built
+    /// from, and this is that relation rather than the number.**
+    ///
+    /// The limit went 8 → 10 → 11 while the 96 px pitch was a given and the
+    /// plate was fitted to it. It is 10 now because the causality was turned
+    /// round: the plate is the widest thing a character owns, so it sets the
+    /// pitch, and a pitch is a whole number of 32 px tiles. Everything in
+    /// 65…95 px therefore buys exactly what 95 buys, and only ≤ 64 buys
+    /// anything at all.
+    ///
+    /// Asserted as *the plate clears a two-tile pitch* rather than as
+    /// `limit == 10`, so that a wider font, a change of tracking or a change of
+    /// padding fails here instead of silently spending the tile.
+    @Test func theHeadlineIsAsLongAsATwoTilePitchCanCarry() {
+        let tile = RoomLayout().tile
+        #expect(SceneBitmaps.maximumNameplateWidth <= 2 * tile,
+                "the plate is \(SceneBitmaps.maximumNameplateWidth) px and no longer fits two tiles")
+        // And it is the *largest* such plate: one more glyph would not fit, so
+        // no width is being left on the table for nothing.
+        let oneMore = SceneBitmaps.maximumNameplateWidth + font.glyphWidth + font.tracking
+        #expect(oneMore > 2 * tile,
+                "a glyph is going spare: \(oneMore) px would still fit two tiles")
+    }
+
+    /// **Ten glyphs separate the types that exist, and the tag catches the
     /// ones it cannot.**
     ///
     /// Truncation is lossy and no glyph count fixes that: two types sharing a
@@ -133,37 +153,49 @@ struct NameplateTests {
     /// down because they look like they should.** Ring parity puts adjacent
     /// columns on different rows, so no two *seated* plates share a horizontal
     /// strip at all. But a back-row character walking down its own column to the
-    /// aisle passes through the front row's line, one pitch from a front-row
-    /// seat; and two reporters of one ring stand a pitch apart on the same
-    /// delivery row. Both are same-row pairs at exactly one pitch, so the pitch
-    /// is still the bound. See `RoomLayout.isBackRow(seat:)` and
-    /// `RoomSceneTests.theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`.
+    /// walkway passes through the front row's line, one pitch from a front-row
+    /// seat; and two reporters in adjacent columns stand a pitch apart on the
+    /// walkway. Both are same-row pairs at exactly one pitch, so the pitch is
+    /// still the bound. See `RoomLayout.isBackRow(seat:)` and
+    /// `RoomSceneTests.theRoomHasNoLateralMovementLeftToSeparate`.
+    ///
+    /// **What this asserts is non-occlusion, not comfort.** It used to demand
+    /// 24 px of daylight between two neighbouring plates, which was a crowding
+    /// judgement wearing an invariant's clothes — the maintainer's own direction
+    /// is that sprites and desks may sit close together as long as they do not
+    /// cover anything up. The bound kept is the margin the *other* axis already
+    /// has, `tile − plateHeight`, so the room clears by the same amount both
+    /// ways; `RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:tile:)`
+    /// is that relation, and narrowing the plate is now a way to narrow the room.
     @Test func theWidestPlateLeavesAVisibleGapInsideTheSeatSpacing() {
         let layout = RoomLayout()
         let pitch = layout.seatSpacingTiles * layout.tile
         let widest = SceneBitmaps.maximumNameplateWidth
+        let margin = layout.tile - SceneBitmaps.maximumNameplateHeight
         #expect(widest <= pitch)
-        #expect(pitch - widest >= 24, "only \(pitch - widest) px between neighbours")
+        #expect(pitch - widest >= margin,
+                "only \(pitch - widest) px between neighbours, against \(margin) across the rows")
     }
 
-    /// Two subagents can stop within a second of each other and both walk to the
-    /// anchor. They no longer share a line — each delivers on the row that
-    /// belongs to its own ring — so what has to clear the plate is the **row
-    /// pitch**, and it has to clear it in the other axis: a tile taller than the
+    /// Two subagents can stop within a second of each other and both step out to
+    /// report. They stand on one row — the walkway — a seat pitch apart, so the
+    /// pitch is what clears them across. What the **row** pitch has to clear is
+    /// the other axis: a walkway character's plate against the seat row above it,
+    /// and a front-row character's against the back row's. A tile taller than the
     /// tallest plate is what makes two rows unable to share a horizontal strip.
     @Test func theRowPitchClearsTheTallestPlateSoTwoRowsNeverShareAStrip() {
         let layout = RoomLayout()
         #expect(Double(layout.tile) > Double(SceneBitmaps.maximumNameplateHeight))
-        #expect(layout.deliveryRowY(ring: 1) - layout.deliveryRowY(ring: 2)
-                == Double(layout.tile))
+        #expect(layout.baselineY - layout.aisleY == Double(layout.tile))
+        #expect(layout.backSeatRowY - layout.baselineY >= Double(layout.tile))
     }
 
     /// **Height is the axis the two-row plate spends, and it is bounded.**
-    /// A seated character stands one tile above an aisle character. A plate
-    /// taller than that tile would put a seated plate and an aisle plate in the
-    /// same horizontal strip, at which point `noTwoNameplatesEverIntersect`
-    /// would be resting on x-separation alone — and during the report beat the
-    /// reporter stands 48 px from the anchor, less than two half-plates.
+    /// A seated character stands one tile above a character on the walkway. A
+    /// plate taller than that tile would put a seated plate and a walkway plate
+    /// in the same horizontal strip, at which point `noTwoNameplatesEverIntersect`
+    /// would be resting on x-separation alone — which is a seat pitch, and the
+    /// pitch is only one plate wide plus a margin.
     @Test func thePlateIsShorterThanTheGapBetweenTheAisleAndTheSeatRow() {
         let layout = RoomLayout()
         let drop = layout.baselineY - layout.aisleY

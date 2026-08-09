@@ -65,7 +65,7 @@ struct ToolBadgeTests {
         for name in names.sorted() where name.hasSuffix(".jsonl") {
             for entry in try HookLog.load(contentsOf: directory.appending(path: name)) {
                 switch entry.event?.kind {
-                case let .preToolUse(_, toolName):
+                case let .preToolUse(_, toolName, _):
                     tools.insert(toolName)
                 case let .postToolUse(_, toolName, _), let .postToolUseFailure(_, toolName, _):
                     if let toolName { tools.insert(toolName) }

@@ -1,7 +1,11 @@
 import Foundation
 import SpriteKit
 
-/// One agent on screen: a body, a badge above the head, and a nameplate.
+/// One agent on screen: a body, a badge **beside** the head, and a nameplate.
+///
+/// **Beside, not above, and the reason is 34 px of height.** See
+/// `badgeSlotTopAboveFeet`. The slot kept its size, its art, its precedence and
+/// its meaning; only where it is drawn changed.
 ///
 /// **Time is a parameter, not a reading.** The animation and the choreography
 /// are both driven by `advance(to:)` rather than by `SKAction`, for the same
@@ -126,6 +130,14 @@ public final class Character: SKNode {
     private let badgeCountNode = SKSpriteNode()
     private let nameplateNode = SKSpriteNode()
 
+    /// The badge slot's **top** edge, above the feet. Every picture the slot can
+    /// hold hangs from this line — see `placeBadgePicture(width:height:)`.
+    private var badgeSlotTopY: Double = 0
+    /// The badge slot's **near** edge: the side facing the head. Every picture
+    /// the slot can hold is aligned to this line, so a small one is beside the
+    /// head rather than adrift in the middle of a 24 px box.
+    private var badgeSlotLeftX: Double = 0
+
     // MARK: Animation
 
     private var frames: [SKTexture] = []
@@ -225,28 +237,35 @@ public final class Character: SKNode {
         heldNode.isHidden = true
         addChild(heldNode)
 
-        let headTopY = Double(canvas.height - store.headTop(variant: variant))
-        let badgeAnchor = store.manifest.badges.anchor
-        badgeNode.anchorPoint = CGPoint(x: badgeAnchor.x, y: badgeAnchor.y)
-        badgeNode.size = CGSize(
-            width: store.manifest.badges.canvas.width,
-            height: store.manifest.badges.canvas.height)
-        badgeNode.position = CGPoint(x: 0, y: headTopY + 1)
+        badgeSlotTopY = Character.badgeSlotTopAboveFeet(
+            canvasHeight: canvas.height, headTopPx: store.headTop(variant: variant))
+        badgeSlotLeftX = Double(canvas.width) / 2
+        badgeNode.anchorPoint = CGPoint(
+            x: store.manifest.badges.anchor.x, y: store.manifest.badges.anchor.y)
         badgeNode.zPosition = Layer.badge
         badgeNode.isHidden = true
         addChild(badgeNode)
+        placeBadgePicture(
+            width: Double(store.manifest.badges.canvas.width),
+            height: Double(store.manifest.badges.canvas.height))
 
+        // The `×N` keeps the corner of the slot it has always had — the
+        // bottom-right, 3 px inside the bubble's right edge and 2 px above its
+        // bottom — so the chip's relationship to the glyph it annotates is
+        // untouched by the move. It rides the slot, not the head.
         badgeCountNode.anchorPoint = CGPoint(x: 0, y: 0)
         badgeCountNode.position = CGPoint(
-            x: Double(store.manifest.badges.canvas.width) / 2 - 3,
-            y: headTopY + 3)
+            x: badgeSlotLeftX + Double(store.manifest.badges.canvas.width) - 3,
+            y: badgeSlotTopY - Double(store.manifest.badges.canvas.height) + 2)
         badgeCountNode.zPosition = Layer.badgeCount
         badgeCountNode.isHidden = true
         addChild(badgeCountNode)
 
-        // Under the feet. The badge owns the space above the head — the emote
-        // bubble's tail points down at it by design — so the nameplate goes
-        // below, on the floor, where nothing competes with it.
+        // Under the feet, where nothing competes with it — the badge is beside
+        // the head rather than over it, so the space above the head is now
+        // room, but the plate stays on the floor: it is the wider of the two
+        // pictures and the aisle below is the only place a 63 px box fits
+        // without meeting a neighbour's.
         nameplateNode.anchorPoint = CGPoint(x: 0.5, y: 1.0)
         nameplateNode.position = CGPoint(x: 0, y: -2)
         nameplateNode.zPosition = Layer.nameplate
@@ -270,12 +289,76 @@ public final class Character: SKNode {
         nameplateNode.size = CGSize(width: bitmap.width, height: bitmap.height)
     }
 
+    // MARK: Badge geometry
+
+    /// **The highest pixel the badge slot can put on screen, above the feet.**
+    ///
+    /// This is the one number the camera's content band takes from a character,
+    /// and it is `headTop + 1` — the badge slot's **top** edge now sits one
+    /// pixel above the head, where its *bottom* edge used to. That is the whole
+    /// of the move from above-the-head to beside-the-head, stated as arithmetic:
+    ///
+    /// | | above the head | beside the head |
+    /// |---|---:|---:|
+    /// | slot bottom | `headTop + 1` = 51 | `headTop + 1 − 34` = 17 |
+    /// | slot top | `headTop + 1 + 34` = **85** | `headTop + 1` = **51** |
+    ///
+    /// with `headTop = canvasHeight − headTopPx` = 50 for the highest head in
+    /// the cast (variant `19`, `head_top_px` 14), and 34 the badge canvas.
+    ///
+    /// **34 px is what the move is for.** A 720×400 panel at `2x` frames 200
+    /// scene pixels of height, and 108 of them were this number plus the
+    /// nameplate — the one term no rearrangement of the floor can touch, which
+    /// is why clustering the seats was refuted rather than tried again
+    /// [`RoomLayout.isBackRow(seat:)`]. It is also 34 px of *empty air* at `1x`:
+    /// nothing but the badge is ever drawn there, so the room was reserving a
+    /// character's height above every head to hold a bubble.
+    ///
+    /// Ask this rather than recomputing it. `RoomScene.contentBand` takes the
+    /// **minimum** `head_top_px` over the cast, because the smallest one is the
+    /// highest head and therefore the highest slot.
+    public nonisolated static func badgeSlotTopAboveFeet(
+        canvasHeight: Int, headTopPx: Int
+    ) -> Double {
+        Double(canvasHeight - headTopPx + 1)
+    }
+
+    /// Puts a picture of `width` × `height` in the badge slot.
+    ///
+    /// **Hung from the slot's top edge and aligned to its near edge**, which is
+    /// what makes the slot a *place* rather than a pair of coordinates that each
+    /// picture computes for itself. The slot holds two sizes — the 24×34 bubble
+    /// and the 9×11 dormancy tab — and they must land in the same corner, or the
+    /// tab drifts to the bottom of a box whose top is where the eye is looking.
+    ///
+    /// - **Top, not bottom.** The head is the landmark and it is at the top of
+    ///   the slot. Bottom-aligning the tab would drop it 23 px, beside the
+    ///   character's lap and over its desk.
+    /// - **Near edge, not centred.** The tab is 9 px wide in a 24 px slot;
+    ///   centring it puts 7 px of nothing between it and the head it is about.
+    ///   The bubble is the slot's full width, so for the bubble the two rules
+    ///   agree and only the tab can tell them apart.
+    ///
+    /// The node's own anchor comes from the manifest (bottom-centre, because the
+    /// bubble's tail is there) and is respected rather than assumed, so a
+    /// re-anchored badge sheet moves the picture instead of silently offsetting
+    /// it.
+    private func placeBadgePicture(width: Double, height: Double) {
+        badgeNode.size = CGSize(width: width, height: height)
+        let anchor = store.manifest.badges.anchor
+        badgeNode.position = CGPoint(
+            x: badgeSlotLeftX + width * anchor.x,
+            y: badgeSlotTopY - height + height * anchor.y)
+    }
+
     // MARK: Badge
 
     /// The badge layer. **attention > sleep > tool** — see
     /// `BadgeSelection.isAttention` and `.isSleeping` for why, and why the `×N`
     /// goes with either of the first two. The *precedence* is unchanged by this
-    /// method; what changed is what the middle rank draws.
+    /// method, and it is unchanged by the slot moving beside the head: what the
+    /// slot means and when it appears are settled doctrine, and this file only
+    /// decides where the pixels land.
     ///
     /// **Two pictures, and the split is the point.** A white speech bubble in
     /// this slot means a tool call — open, just closed inside an ADR-003 beat, or
@@ -318,7 +401,11 @@ public final class Character: SKNode {
         // shape family — so at `1x` the room's loudest signal fired for
         // *finished* exactly as it fired for *working*. `SceneBitmaps.dormancyTab`
         // carries the measurement and the argument. The tab goes in the same
-        // anchor, at the tab's own size rather than the badge canvas's.
+        // slot, at the tab's own size rather than the badge canvas's, and
+        // `placeBadgePicture` is what keeps 9x11 and 24x34 in the same corner of
+        // it — the corner beside the head. **The distinction is still extent and
+        // not brightness**: the tab covers 99 px of a slot the bubble fills with
+        // 816, and moving the slot changed neither number.
         if selection.isSleeping {
             badgeCountNode.isHidden = true
             let bitmap = SceneBitmaps.dormancyTab()
@@ -327,16 +414,17 @@ public final class Character: SKNode {
                 return
             }
             badgeNode.texture = tab
-            badgeNode.size = CGSize(width: bitmap.width, height: bitmap.height)
+            placeBadgePicture(width: Double(bitmap.width), height: Double(bitmap.height))
             badgeNode.isHidden = false
             return
         }
         // Back to the badge canvas, because the tab above resized the node and a
         // bubble drawn at 9x11 would be the fractional resample I6 exists to
-        // prevent.
-        badgeNode.size = CGSize(
-            width: store.manifest.badges.canvas.width,
-            height: store.manifest.badges.canvas.height)
+        // prevent. Re-placed rather than only re-sized: the slot is anchored at
+        // its top-near corner, so a size change is a position change.
+        placeBadgePicture(
+            width: Double(store.manifest.badges.canvas.width),
+            height: Double(store.manifest.badges.canvas.height))
         guard let texture = attentionTexture ?? toolTexture else {
             badgeNode.isHidden = true
             badgeCountNode.isHidden = true
@@ -517,6 +605,26 @@ public final class Character: SKNode {
             y: position.y + nameplateNode.position.y - nameplateNode.size.height,
             width: nameplateNode.size.width,
             height: nameplateNode.size.height)
+    }
+
+    /// The badge slot's rectangle in the parent's coordinates — whatever
+    /// picture is in it, at that picture's own size. Read by the tests that
+    /// check the slot clears the head, the body and the neighbours.
+    public var badgeRect: CGRect {
+        CGRect(
+            x: position.x + badgeNode.position.x
+                - badgeNode.size.width * badgeNode.anchorPoint.x,
+            y: position.y + badgeNode.position.y
+                - badgeNode.size.height * badgeNode.anchorPoint.y,
+            width: badgeNode.size.width, height: badgeNode.size.height)
+    }
+
+    /// The `×N` chip's rectangle in the parent's coordinates.
+    public var badgeCountRect: CGRect {
+        CGRect(
+            x: position.x + badgeCountNode.position.x,
+            y: position.y + badgeCountNode.position.y,
+            width: badgeCountNode.size.width, height: badgeCountNode.size.height)
     }
 
     /// The body's rectangle in the parent's coordinates.

@@ -516,13 +516,21 @@ re-measure when you close something.
 
 What is honestly still open:
 
-- **The camera is `1x` only, and two of three rungs are now unreachable.**
-  `comfortablePopulation` is empty by default, so population never pulls the
-  camera in — the wide room, decided and kept. The lattice then grew the content
-  band from 145 to 241 px, which puts `2x` at 482 px against a 400 px panel;
-  `3x` was already dead before that. The ladder is untouched and integer and
-  `aCameraCanStillPreferACloserScaleIfItIsToldTo` proves the mechanism survives.
-  Recorded as a spend, not a defect.
+- **The camera is `1x` only — and since M6f that is a choice rather than
+  arithmetic.** `comfortablePopulation` is empty by default, so population never
+  pulls the camera in — the wide room, decided and kept. The lattice then grew
+  the content band from 145 to 241 px and the delivery rows took it to 300, which
+  put `2x` at 600 px against a 400 px panel. M6f took 96 px back (the report beat
+  stopped walking to the anchor) and the badge slot moving beside the head took
+  another 34: the band is **170 px** and `2x` fits, with `3x` still out at 133.
+  What holds the camera down now is **width** — a `2x` frame holds three seat
+  columns and seven agents span 736 px — so a closer rung is available to a room
+  of one to three agents and nothing else. Whether to take it is open: it buys
+  legible costumes and stations at the cost of a camera that changes scale when
+  the fourth agent arrives. The ladder is untouched and integer,
+  `aCameraCanStillPreferACloserScaleIfItIsToldTo` proves the mechanism survives,
+  and `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt` pins the arithmetic in
+  both directions.
 
   *The foreground row is no longer open.* It was removed, and the rule that
   replaced it is stronger than the one the wide camera retired: **nothing
@@ -530,10 +538,14 @@ What is honestly still open:
   zoom; this one is about depth, so no camera policy can retire it.
 
   *Seat pitch and delivery slots are no longer open either.* The room is a
-  lattice — every character is confined to its own seat's column or its own
-  ring's delivery row — so the worst synthetic overlap went from −26 px to
-  +6 px, and delivery position is a pure function of the reporter's seat, so
-  there are no slots left to claim out of order. `claimStation`,
+  lattice — every character is confined to its own seat's column — so the worst
+  synthetic overlap went from −26 px to +6 px, and delivery position is a pure
+  function of the reporter's seat, so there are no slots left to claim out of
+  order. The lattice had a second half at M6d, *or its own ring's delivery row*,
+  and that half is gone: a reporter delivers standing in its own column, one row
+  downstage of its chair, so no route in the room moves sideways and the three
+  rows the report walk reserved went back to the camera — 96 px of content
+  band. `claimStation`,
   `releaseStation` and `reportingSlots` no longer exist; this file described them
   for a day after they were deleted.
 - **`mission_control` has the thinnest palette margin in the set.** It was the

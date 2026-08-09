@@ -21,6 +21,14 @@ public actor WorldModel {
         /// Who launched this agent, once the `Agent` call's `PostToolUse` told
         /// us. `nil` until then, and `nil` forever if we never see it.
         var parent: AgentID?
+        /// What this agent was dispatched to do — the launching `Agent` call's
+        /// `tool_input.description`, learned from the same `PostToolUse` and at
+        /// the same instant as `parent`.
+        ///
+        /// `nil` for the main thread permanently: it has no dispatching call,
+        /// and its absence is what *makes* it the main thread. `nil` too for a
+        /// subagent whose dispatch this app never saw. Both say nothing. [I1]
+        var task: String?
         /// Raised by `Notification`, cleared by this agent's next consumed
         /// event. Orthogonal to `openCalls` — see `clearsAttention(_:)`.
         var attention: AttentionKind?
@@ -41,6 +49,19 @@ public actor WorldModel {
         var permissionGate: Set<ToolUseID>?
     }
 
+    /// One dispatching `PostToolUse`'s news about a child: who launched it and
+    /// what it was launched to do.
+    ///
+    /// The two are **one record** rather than two dictionaries because they are
+    /// one payload's facts, learned in the same instant from the same event.
+    /// That also makes the task's reaping the parent link's reaping, which was
+    /// already settled: whatever removes the pending link removes the pending
+    /// task, and there is no second thing to remember to clear. [I4]
+    private struct PendingLink {
+        var parent: AgentID
+        var task: String?
+    }
+
     private struct SessionState {
         var lastEventAt: Date
         /// `SessionStart` decoration. Never a precondition.
@@ -50,7 +71,13 @@ public actor WorldModel {
         /// arrives *first*, so this is the rare direction — but the app can
         /// attach mid-session and see the `PostToolUse` without the
         /// `SubagentStart` that preceded it.
-        var pendingParents: [AgentID: AgentID] = [:]
+        ///
+        /// Bounded by the session: it is a field of `SessionState`, so
+        /// `SessionEnd` and the 30-minute idle sweep both remove it whole. An
+        /// entry for a child that never appears lives exactly as long as the
+        /// session that named it, which is the bound this model already
+        /// accepts everywhere else. [I4]
+        var pendingParents: [AgentID: PendingLink] = [:]
     }
 
     private struct ProjectState {
@@ -325,18 +352,27 @@ public actor WorldModel {
         case .subagentStart:
             ensureAgent(ref, agentType: event.agentType, lifecycle: .spawning, into: &deltas)
 
-        case let .preToolUse(toolUseID, toolName):
+        case let .preToolUse(toolUseID, toolName, task):
             ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
-            open(toolUseID: toolUseID, toolName: toolName, ref: ref, at: now, into: &deltas)
+            open(
+                toolUseID: toolUseID, toolName: toolName, task: task,
+                ref: ref, at: now, into: &deltas)
 
         case let .postToolUse(toolUseID, _, spawnedAgentID):
             ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
-            close(toolUseID, ref: ref, outcome: .succeeded, into: &deltas)
+            // The closed call is read, not discarded: an `Agent` dispatch
+            // carried its child's task on `tool_input.description`, and this is
+            // the instant both halves of that payload's news are in hand — the
+            // call still holding the description, and the response naming the
+            // child it belongs to.
+            let closed = close(toolUseID, ref: ref, outcome: .succeeded, into: &deltas)
             // The parent→child link, and the only place it exists. The child's
             // `SubagentStart` has almost always arrived already, so this is
             // applied retroactively to a character that is on screen.
             if let spawnedAgentID {
-                link(child: .subagent(spawnedAgentID), to: ref, into: &deltas)
+                link(
+                    child: .subagent(spawnedAgentID), to: ref,
+                    task: closed?.dispatchedTask, into: &deltas)
             }
 
         case let .postToolUseFailure(toolUseID, _, _):
@@ -516,6 +552,7 @@ public actor WorldModel {
                         agentType: agentState.agentType,
                         lifecycle: agentState.lifecycle,
                         parent: agentState.parent,
+                        task: agentState.task,
                         openCalls: agentState.openCalls.values.sorted(),
                         attention: agentState.attention))
                 }
@@ -564,10 +601,16 @@ public actor WorldModel {
         let pending = projects[ref.project]!.sessions[ref.session]!
             .pendingParents.removeValue(forKey: ref.agent)
         projects[ref.project]!.sessions[ref.session]!.agents[ref.agent] =
-            AgentState(agentType: agentType, lifecycle: lifecycle, parent: pending)
+            AgentState(
+                agentType: agentType, lifecycle: lifecycle,
+                parent: pending?.parent, task: pending?.task)
         deltas.append(.agentAppeared(agent: ref, agentType: agentType, lifecycle: lifecycle))
         if let pending {
-            deltas.append(.agentLinked(agent: ref, parent: pending))
+            deltas.append(.agentLinked(agent: ref, parent: pending.parent))
+            // Behind the link, in the order the one payload said them.
+            if let task = pending.task {
+                deltas.append(.agentTasked(agent: ref, task: task))
+            }
         }
     }
 
@@ -580,21 +623,53 @@ public actor WorldModel {
     /// millisecond later. If the child does not exist yet (the app attached
     /// mid-session and missed its `SubagentStart`) the link waits for it rather
     /// than conjuring a character out of an id. [I1]
-    private func link(child: AgentID, to parent: AgentRef, into deltas: inout [WorldDelta]) {
+    ///
+    /// **`task` rides here because it is the same news.** It is the launching
+    /// `Agent` call's `tool_input.description`, taken off the `OpenCall` this
+    /// same `PostToolUse` just closed, and this is the first moment anything
+    /// knows which `agent_id` it describes. It is `nil` far more often than not
+    /// — a `SendMessage` resume returns an `agentId` and carries no
+    /// `description`, and a dispatch whose call was reaped before its close
+    /// took the description with it — and `nil` means say nothing. [I1]
+    ///
+    /// The two facts are recorded independently, not as a pair: a child already
+    /// linked by one event may be told its task by another, and neither is
+    /// allowed to restate itself.
+    private func link(
+        child: AgentID, to parent: AgentRef, task: String?, into deltas: inout [WorldDelta]
+    ) {
         guard child != parent.agent else { return }
         guard projects[parent.project]?.sessions[parent.session] != nil else { return }
         let childRef = AgentRef(project: parent.project, session: parent.session, agent: child)
 
         guard projects[parent.project]!.sessions[parent.session]!.agents[child] != nil else {
-            projects[parent.project]!.sessions[parent.session]!.pendingParents[child] = parent.agent
+            // Not there yet — the app attached mid-session and missed the
+            // child's `SubagentStart`. Both halves wait together, and
+            // `ensureAgent` plays them out when the character arrives.
+            var pending = projects[parent.project]!.sessions[parent.session]!
+                .pendingParents[child] ?? PendingLink(parent: parent.agent)
+            // The parent keeps the behaviour it has always had — the most
+            // recent writer — and the task takes the first one that said
+            // anything, which is what makes its eventual delta at-most-once
+            // regardless of how many dispatches named this child before it
+            // appeared. A later `nil` is silence, not a retraction, so it may
+            // not erase a task we hold.
+            pending.parent = parent.agent
+            if pending.task == nil { pending.task = task }
+            projects[parent.project]!.sessions[parent.session]!.pendingParents[child] = pending
             return
         }
         // Emitted at most once. A repeated `PostToolUse` for the same dispatch
         // is the same fact, not a second one.
-        guard projects[parent.project]!.sessions[parent.session]!
-            .agents[child]!.parent == nil else { return }
-        projects[parent.project]!.sessions[parent.session]!.agents[child]!.parent = parent.agent
-        deltas.append(.agentLinked(agent: childRef, parent: parent.agent))
+        if projects[parent.project]!.sessions[parent.session]!.agents[child]!.parent == nil {
+            projects[parent.project]!.sessions[parent.session]!.agents[child]!.parent = parent.agent
+            deltas.append(.agentLinked(agent: childRef, parent: parent.agent))
+        }
+        if let task,
+           projects[parent.project]!.sessions[parent.session]!.agents[child]!.task == nil {
+            projects[parent.project]!.sessions[parent.session]!.agents[child]!.task = task
+            deltas.append(.agentTasked(agent: childRef, task: task))
+        }
     }
 
     /// Raises or clears the attention badge, emitting a delta only on a real
@@ -828,7 +903,7 @@ public actor WorldModel {
     }
 
     private func open(
-        toolUseID: ToolUseID, toolName: String, ref: AgentRef, at now: Date,
+        toolUseID: ToolUseID, toolName: String, task: String?, ref: AgentRef, at now: Date,
         into deltas: inout [WorldDelta]
     ) {
         guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else { return }
@@ -841,7 +916,11 @@ public actor WorldModel {
             toolUseID: toolUseID,
             toolName: toolName,
             startedAt: now,
-            deadline: reaper.deadline(forTool: toolName, startedAt: now))
+            deadline: reaper.deadline(forTool: toolName, startedAt: now),
+            // Held on the call, not in a table beside it: the call is already
+            // keyed by `tool_use_id` and already reaped by every path, so this
+            // adds no open state of its own. [I3/I4]
+            dispatchedTask: task)
         projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
             .openCalls[toolUseID] = call
         if projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.lifecycle == .spawning {
@@ -854,13 +933,22 @@ public actor WorldModel {
     /// paths already closed — both happen for the same `tool_use_id` in
     /// `fixtures/tool-failure.jsonl`. A second `.callClosed` would drive the
     /// scene's open-call count negative.
+    ///
+    /// Returns the call it removed, so a caller that needs something the call
+    /// was carrying does not have to read it out of the model first and hope
+    /// the two agree. Exactly one caller does: the `Agent` dispatch's
+    /// `PostToolUse`, which wants the `dispatchedTask` off the very call it is
+    /// closing. `nil` therefore means "there was no such open call", which is
+    /// the already-closed case and is a no-op for everyone.
+    @discardableResult
     private func close(
         _ toolUseID: ToolUseID, ref: AgentRef, outcome: CallOutcome,
         into deltas: inout [WorldDelta]
-    ) {
-        guard let call = removeCall(toolUseID, ref: ref) else { return }
+    ) -> OpenCall? {
+        guard let call = removeCall(toolUseID, ref: ref) else { return nil }
         deltas.append(.callClosed(
             agent: ref, toolUseID: toolUseID, toolName: call.toolName, outcome: outcome))
+        return call
     }
 
     private func abandon(

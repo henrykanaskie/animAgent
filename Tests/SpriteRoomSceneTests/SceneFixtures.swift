@@ -242,7 +242,17 @@ enum SceneArt {
     /// `SleepBadgeTests.theDormancyTabIsNotABubble` is **not** gated for the
     /// reason it exists: the tab is drawn rather than loaded, so it is there on a
     /// checkout with no art.
-    static let expectedGatedTestCount = 66
+    ///
+    /// 69 when the badge moved beside the head: three of `BadgeSlotTests`'s five
+    /// need the pack. Two build a real `Character` and read where the slot
+    /// landed, which is `nil`-bodied without frames on disk; the third derives
+    /// the cast's widest silhouette from the shipped PNGs, because the manifest
+    /// records one head-top number per variant and the slot has to clear every
+    /// frame of every state. The other two are arithmetic —
+    /// `theSlotTopIsOnePixelAboveTheHighestHeadInTheCast` reads the manifest and
+    /// `theSlotAndTheCountChipStayOutOfTheNeighbouringColumn` reads `RoomLayout`
+    /// — so a fresh clone still checks the number this change exists to produce.
+    static let expectedGatedTestCount = 69
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

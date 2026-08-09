@@ -4862,3 +4862,527 @@ the sweep.
 `Sources/SpriteRoomScene/{RoomLayout,RoomCamera,RoomScene}.swift`,
 `Tests/SpriteRoomSceneTests/RoomCameraTests.swift`, this file. Comments and tests
 only; no behaviour changed and no render moved a pixel.
+
+---
+
+# The badge moves beside the head, and the plate stops setting the pitch
+
+Follows directly from the previous entry's lever 2, which named this and did not
+do it: *"108 of the 200 px is badge and nameplate… moving it beside the head
+instead of above it is worth more than any arrangement of the floor, because it
+is the term the layout cannot touch."*
+
+## The number
+
+**`badgeTopAboveFeet` = 51, measured.** It was 85.
+
+`Character.badgeSlotTopAboveFeet(canvasHeight:headTopPx:)` is the derivation in
+one place: `64 − 14 + 1`, with 14 the smallest `head_top_px` in the cast
+(variant `19`) because the smallest is the highest head. The slot used to hang
+its *bottom* on that line with a 34 px canvas above it; it now hangs its *top*
+there, with the canvas below and to the side. The saving is exactly one badge
+canvas, 34 px, and it is all of it air — nothing else in the room is ever drawn
+above a character's head.
+
+Content band: **300 → 266** on today's floor. With the report-beat rework's 96 px
+of delivery rows gone it is `51 + 23 + 64 + 32` = **170**, against the 200 a `2x`
+view of a 720×400 panel has.
+
+**This is not plumbed yet and that is deliberate.** `RoomScene.contentBand` still
+computes `canvasHeight − headTop + 1 + badges.canvas.height`, so the camera goes
+on reserving 85. `RoomScene.swift` belongs to the concurrent report-beat change.
+The one-line plumb is:
+
+```swift
+let badgeTop = Character.badgeSlotTopAboveFeet(
+    canvasHeight: manifest.characters.canvas.height, headTopPx: headTop)
+```
+
+replacing the two lines that add the badge canvas. Nothing crops in the
+meantime — an over-large band frames more room, not less. `RoomCameraTests`'s
+three `2x`-does-not-fit tripwires still pass, because on their own arithmetic the
+band is unchanged until that line moves.
+
+## Which side, and why it is not mirrored
+
+Beside means horizontally, and horizontally the character has no slack: over the
+band the slot occupies (y-up 17…51) **every** sit/idle/walk/deliver frame of
+every variant reaches canvas column 31, i.e. `+15` from the body's own centre. So
+a slot that covers no pixel of anybody must start at `+16`, flush with the body
+canvas's edge, and the clearance is exactly zero. `theSlotClearsEveryPixelThe
+CastCanDrawAndOnlyJust` asserts both halves — clear, and not one pixel more than
+clear, because air here is seat pitch spent on nothing.
+
+**Screen-right, fixed, never mirrored with the facing.** Seated-left is a
+standing state, not a transient: a reporter seated left of the anchor walks home
+leftwards and sits that way. Mirroring was rejected on a measurement rather than
+a taste — the overlap of the slot with the station's own furniture, over the six
+shipped themes, taking each prop's declared `content_box` at its anchored
+position:
+
+| theme | desk (right) | plant (left) |
+|---|---:|---:|
+| briefing | 20.6% | 100.0% |
+| broadcast | 20.6% | 91.2% |
+| library | 79.4% | 100.0% |
+| mission_control | 55.9% | 100.0% |
+| office | 20.6% | 55.9% |
+| stage | 20.6% | 87.5% |
+| **mean** | **36.3%** | **89.1%** |
+
+The trailing side is where the tall prop stands — four of six themes swallow the
+slot whole. The leading side meets a desk, and only `library`'s 44 px
+desk-with-an-open-book and `mission_control`'s 36 px console meet much of it.
+Two further reasons, neither decisive alone: a badge that changes sides when a
+character turns round is a move in the slot caused by nothing the slot is about;
+and one offset for the whole room is one place for the eye to learn.
+
+**What got worse.** The slot is no longer in empty air, so it now draws over
+furniture — 36% of a desk's box on average, 79% of `library`'s. It is a
+z-4000 overlay so it is never itself occluded, and it does not cover the desk's
+*near edge*, which is the one cue that a character is sitting **at** a desk
+rather than beside one. But `RoomScene`'s comment that "the nameplate and badge
+are in an overlay band far above this, so nothing a desk does can hide either" is
+now half true — the badge is in the desk's band and wins on depth rather than on
+altitude. That comment is in the concurrent change's file and is flagged, not
+edited.
+
+## The dormancy tab
+
+The slot is anchored at its **top-near** corner and every picture hangs from
+there, which is what keeps a 9×11 tab and a 24×34 bubble in the same place. Top,
+because the head is the landmark and bottom-aligning would drop the tab 23 px
+onto the character's lap; near-edge, because a 9 px tab centred in a 24 px slot
+puts 7 px of nothing between it and the head it is about.
+
+The distinction from a tool badge is still **extent, not brightness** — 99 px
+against 816, unchanged by the move, and the reason the old `Z` bubble could not
+be rescued by dimming (alpha cuts contrast and cannot cut extent). Re-asserted in
+the new position by `theDormancyTabSitsInTheSlotsHeadCornerAndStaysSmall`.
+
+## The nameplate: 71 × 21 → 63 × 21
+
+Measured off the rendered frames, not computed: the widest plate in a real
+seven-agent capture is a 71×21 box before and a 63×21 box after.
+
+The causality is what changed. Eleven glyphs was *"the largest number the 96 px
+seat pitch allows"* — the pitch was a given and the plate was fitted to it. But
+the plate is the widest thing a character owns (a body is 32 px, a desk 32–40),
+so it is the plate that sets the pitch; and a pitch is a whole number of 32 px
+tiles. **Everything in 65…95 px therefore buys exactly what 95 buys.** Only ≤ 64
+buys anything, and ten glyphs at `platePadX` 2 is 63.
+
+- `nameplateTypeGlyphLimit` 11 → 10: `GENERAL-P…` where it read `GENERAL-PU…`.
+  The character costs nothing that identifies: the types that truncate are
+  separated inside the first eight, and the ones that collide (`claude-code-*`)
+  collide at eleven too.
+- `platePadX` 3 → 2. The glyphs still never touch the border, which is the
+  property that matters at `1x`.
+- **The height is untouched at 21**, and the second pixel of vertical padding is
+  kept for the reason the horizontal one was dropped: `plateFootY` is the only
+  thing between the tag's glyphs and the bottom border, so there the second pixel
+  *is* the air. `plateDropBelowFeet` stays 23.
+
+**63 does not by itself buy a 64 px pitch, and the plate is no longer why.** Two
+things still block it, both named in `theSlotAndTheCountChipStayOutOfThe
+NeighbouringColumn`:
+
+1. a station's own furniture spans 92 px of the pitch (`stationPropPosition`);
+2. the beside-the-head slot reaches `+40`, and its `×N` chip `+52`, against the
+   `64 − 63/2 = 32.5` a 64 px pitch would leave before a back-row neighbour's
+   plate — and a neighbour's plate is z-5000, so it would draw **over** the
+   badge.
+
+The binding neighbour is not the obvious one. Ring parity puts adjacent columns
+on different rows, so the nearest *body* is 64 px away vertically and can never
+share a strip with the slot. What can is that neighbour's nameplate, which hangs
+below its feet and comes straight back down into the band the slot now occupies.
+
+## Evidence
+
+`…/scratchpad/badge-beside/`. `before/` and `after/` are the same real capture
+(`observe/baseline/capture.jsonl`) rendered at 720×400 from HEAD and from
+HEAD + this change alone, at t=40/52/60/66 (working badges, `×N`), t=145
+(six dormancy tabs) and t=211 (attention). `before_2x.png` / `after_2x.png` are a
+nearest-neighbour ×2 of the same 360×200 scene window, so they are exactly the
+pixels a `2x` camera would produce. `after-library/`, `after-mission_control/`,
+`after-office/` are the tall-desk themes. `alt-left/` is the rejected mirrored
+side. `final/` is the combined tree with the narrower plate.
+
+## Gates
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean.
+`python3 scripts/lint-palette.py` passed, all six themes agreeing with the scene.
+`swift test` — every badge, nameplate and camera test green, including the five
+new `BadgeSlotTests`. The suite as a whole is **not** green in the shared tree:
+four failures belong to the concurrent `agentTasked`/report-beat change and were
+reproduced with this change backed out (`…/scratchpad/badge-beside/attribution/`)
+— `AgentTaskTests`, `MilestoneCriteriaTests.everyTestTheMilestonesNameExists`,
+`ProjectRegistryTests.reconstructionRebuildsExactlyTheLiveRoster` and
+`WorldModelReplayTests` on `three-subagents`.
+
+## Scope
+
+`Sources/SpriteRoomScene/{Character,SceneBitmaps}.swift`,
+`Tests/SpriteRoomSceneTests/{BadgeSlotTests(new),NameplateTests,SceneFixtures}.swift`,
+this file. `ToolBadge.swift` is untouched — the slot's meaning and precedence did
+not change, only where it is drawn.
+
+# What a subagent was dispatched to do — the Core half
+
+The nameplate should say what an agent is *for*, in one or two words. This is
+the model half of that: capture the fact, carry it to the child, hand the scene
+a delta. Nothing is drawn.
+
+## The fact is real, and it was already being decoded and thrown away
+
+Re-derived against `fixtures/` rather than taken on trust:
+
+- The `Agent` tool's `PreToolUse` carries **`tool_input.description`** — a real
+  3–5 word task summary written at dispatch, alongside `tool_input.subagent_type`.
+  **Ten dispatches across four captures**, every one of them carrying one:
+  `Touch file s1`, `Touch file s2` (`concurrent-permission-gates`);
+  `Read one.txt sleep` … `Read four.txt sleep` (`four-subagents`);
+  `Touch a file via bash` (`subagent-permission`); `Read alpha.txt and sleep`,
+  `Read beta/gamma and sleep`, `Read delta/epsilon, sleep, reread alpha`
+  (`three-subagents`).
+- The link `tool_use_id → agent_id` is `tool_response.agentId` on the
+  **`PostToolUse`**, which is where `WorldModel.link(child:to:)` already lives.
+- `OpenCall` carried `toolUseID`, `toolName`, `startedAt`, `deadline` and the
+  description was decoded into nothing.
+
+So no fiction is required. The room repeats a string the payload gave it. [I1]
+
+## The one finding that changed the design
+
+**`description` is not the `Agent` tool's field.** Walked over every
+`PreToolUse` in the corpus: **37 of the 45 `Bash` calls carry one**, and so does
+the single `Monitor` call. On a `Bash` it describes a shell command — "Create
+the sandbox files" — not somebody's assignment. Reading `tool_input.description`
+unconditionally would therefore have put a shell comment on a nameplate as
+though an agent had been sent to do it.
+
+So the decode is gated on `tool_name == "Agent"`, which is a **correctness**
+rule first and an I5 rule second. It is not the same key as the parent link,
+which stays on `tool_response.agentId` because `SendMessage` returns one too —
+the two questions are different and only one of them has `Agent` as its answer.
+
+## Where the state lives, which is the whole [I4] answer
+
+The description belongs to the **dispatching `tool_use_id`**; the child's
+`agent_id` does not exist until the `PostToolUse`. The obvious implementation is
+a map `tool_use_id → description`, and that map is "a character that types
+forever" in a different shape: an `Agent` call abandoned by the reaper or
+force-closed at `SessionEnd` would leave an entry behind with nothing to remove
+it.
+
+**There is no map.** The string rides on the `OpenCall`, which is the model's
+only store keyed by `tool_use_id` and one that every path already empties —
+three close paths, the deadline sweep, `SubagentStop`, `SessionEnd`, the
+30-minute idle sweep, all through `WorldModel.removeCall`. It adds no open state
+at all. That is the argument the permission-gate mark already makes for living
+inside `AgentState` rather than beside it.
+
+`WorldModel.close` now returns the call it removed, so the `Agent` dispatch's
+`PostToolUse` reads the description off the very call it is closing rather than
+looking it up and hoping the two agree. The pending half rides in
+`SessionState.pendingParents`, now a `PendingLink { parent, task }` — one record
+because it is one payload's news, which makes the task's reaping the parent
+link's reaping, already settled.
+
+`anAbandonedDispatchLeavesNoTaskBehind` is the proof, built from real events:
+`three-subagents` replayed to its first `Agent` dispatch, the clock advanced 16
+minutes past that call's deadline, then the capture's own `PostToolUse` and
+`SubagentStart` delivered late. The child links and carries **no** task.
+
+## What the scene is handed
+
+```swift
+case agentTasked(agent: AgentRef, task: String)   // WorldDelta
+AgentSnapshot.task: String?                        // the standing value
+OpenCall.dispatchedTask: String?                   // interior, on the dispatch
+```
+
+Retroactive by construction, exactly like `agentLinked`: emitted immediately
+behind it, in the same batch, off the same event. At most once per agent.
+**Absent for the main thread, permanently** — it has no dispatching call, and
+that absence is what makes it the main thread. Absent for a dispatch we never
+saw, and for a `SendMessage` resume, whose `tool_input` has `summary`/`content`
+/`recipient` and no `description`. In all three the answer is to say nothing.
+
+**The string is carried whole.** `Move the badge beside the head` stays that;
+shortening it to `move badge` is a judgement about a plate's width and belongs
+where the width is known.
+
+## Evidence
+
+`spriteroom-replay fixtures/four-subagents.jsonl`:
+
+```
+[  3.805] agentLinked  3091d65a/ab69ae01f1e4353c6 parent=main
+[  3.805] agentTasked  3091d65a/ab69ae01f1e4353c6 task=Read one.txt sleep
+```
+
+`three-subagents`, dispatching `tool_use_id` → `agent_id`, task:
+
+```
+toolu_01QSg56NdKCtC53mnSGWu8eo -> a793beae9fa532d0f  Read alpha.txt and sleep
+toolu_01RHyGcFovFDdN9neaiV1g76 -> a3b448736697956e7  Read beta/gamma and sleep
+toolu_01LZSooKdLhFNQxLjHkWJHk7 -> a894ded5b0c4b18de  Read delta/epsilon, sleep, reread alpha
+```
+
+Twelve new tests in `Tests/SpriteRoomCoreTests/AgentTaskTests.swift`, all over
+real captures: every emitted task is verbatim from an `Agent` dispatch (10 of
+10); the main agent is never tasked, over all 17; no non-`Agent` `PreToolUse`
+has its description read; a resume links without inventing one; the character
+always appears before it learns its task; at most one per agent; the pending
+path when `SubagentStart` is missing; both force-close paths leave nothing
+behind. `aHugeToolInputIsNeverWalked` decodes a **5.5 MB** `tool_input` on a
+real `Bash` payload in **4.9 ms** with `task == nil`, because that branch is
+never entered. [I5 — decoding is on the request path, before the `202`.]
+
+## Gates
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean.
+`spriteroom-replay --all` — 17 fixtures, zero orphaned state, zero abandoned.
+`swift test`: every Core and App test green. Three failures remain and **none is
+this change** — `PlateProbeTemp.probe()`, `everyTestIsNamedLikeASentence`
+(failing on that same scratch file) and `everyTestTheMilestonesNameExists`
+(`docs/05-MILESTONES.md` names two `RoomSceneTests` functions that exist at
+`be95f0b` and have been renamed in another agent's uncommitted work).
+
+## Scope
+
+`Sources/SpriteRoomCore/{Ingest/HookEvent,Model/WorldDelta,Model/WorldModel}.swift`,
+`Tests/SpriteRoomCoreTests/{AgentTaskTests,Fixtures,WorldModelReplayTests,
+PermissionGateTests,HookEventDecodingTests}.swift`, `docs/03-EVENT-MODEL.md`.
+
+**Four files outside that lane, because a new `WorldDelta` case does not
+compile without them** — every switch over `WorldDelta` in this repository is
+exhaustive, none has a `default`:
+
+- `Sources/SpriteRoomApp/ProjectRegistry.swift` — stored and replayed properly
+  rather than stubbed, because a task learned while a project is off screen has
+  to survive the switch, for the same reason `agentLinked` does.
+- `Sources/SpriteRoomScene/SceneDirector.swift` — one `case .agentTasked: break`
+  with a comment naming the slot. **This file has other agents' uncommitted work
+  in it**; the addition is at the end of the delta switch and touches nothing
+  else.
+- `Tests/SpriteRoomAppTests/ProjectRegistryTests.swift`,
+  `Tests/SpriteRoomSceneTests/ToolBadgeTests.swift` — one line each, mechanical.
+
+---
+
+# M6f — the delivery rows are gone, and the argument that replaced them
+
+**Task.** Remove the need for a dedicated delivery row per ring — 96 px of the
+content band — without dropping the collision proof they were carrying.
+
+**Result.** Done. The band is **170 px** against the 200 a `2x` frame has, and a
+`2x` room now fits the shipped panel for one to three agents. 96 of the 130 px
+came from here; the other 34 came from the badge slot moving beside the head,
+which landed in the same working tree from another lane. `2x` is no longer
+unreachable and the three tripwires in `RoomCameraTests` have been inverted to
+say so.
+
+## The design
+
+A report used to be a walk **to the anchor**. That one lateral leg is what the
+whole floor plan was built around: because it crossed columns it needed floor
+nobody else was standing on, and one row was not enough — seats 1, 3 and 5 can
+be walking at once — so it took **one delivery row per ring**, three rows below
+the walkway, 96 px.
+
+The report is now: **stand up, step one row downstage onto the walkway — in the
+reporter's own column — turn to face the anchor, hand over, step back up into
+the chair.**
+
+## The new argument
+
+> **No character ever moves sideways.** Every leg of every route in this room is
+> vertical and inside the moving character's own seat column: arriving
+> (`entranceRoute`), stepping out to report (`deliveryRoute`), coming home
+> (`homeRoute`), leaving (`upstageExit`).
+
+Two plates meet only if they share a horizontal strip **and** come within a
+plate width in x. Nothing can change a character's x, so the second condition is
+decided once, by `seatColumn`, for every pairing at every instant — 96 px
+against a 63 px plate. There is no phase to reason about, no timing, no
+population, no pairing. The old proof needed four blocks and a centre-line rule;
+this needs one sentence, and it is *stronger*: the old one bounded how close two
+characters could get during a beat, this one says the distance is not a function
+of the beat at all.
+
+The single exception is two characters in one column, which the room produces
+exactly once — a seat is free the instant its occupant starts walking out, so a
+refill can begin while the leaver is still climbing. Both move upstage, so they
+are a convoy: same direction, same speed, the gap they start with is the gap
+they keep. That is the argument `entranceRoute` already rested on, unchanged.
+
+**One real defect fell out of shortening the routes**, and it is the reason
+`homeRoute` still takes a `fromY`. A zero-length walk costs `Character`'s 0.2 s
+floor, and a leaver spends those 0.2 s standing still in a column its
+replacement is already climbing. That was free while the walk-in started up to
+96 px below the seats; at 32 px it is 14 px of a 32 px convoy gap, and the sweep
+measured the two plates **8 px inside each other**. `homeRoute` now returns no
+legs at all for a character already in its chair.
+
+## What is lost, plainly
+
+**The reporter no longer arrives at the anchor's desk.** A report used to say
+*who* it was to by ending up next to them; it now says it only by which way the
+reporter turns. On one side of the room a reporter to the main agent and a
+reporter to a nested parent further in turn the same way and are told apart by
+nothing. That is a real loss of information about a real event, and it is
+recorded rather than dressed up. What is kept is the beat: the character
+genuinely stands up, steps to the front of the room, turns to the person it is
+reporting to and hands something over, and every frame of that traces to one
+`reportDelivered` [I1].
+
+**The alternative that would have kept the walk was weighed and rejected.** One
+shared delivery row plus a rule that at most one reporter is ever on it: 32 px
+rather than 96, which leaves the band at 202 — still over 200 — and it makes the
+guarantee depend on a scheduler rather than on the lattice, and it puts a lateral
+corridor back across the one row every arrival steps through, where no static
+argument can close it. Delivering upstage is worse than useless: the band's top
+is the badge of the furthest-upstage character, so a row behind the seats costs
+in the ceiling exactly what it saves in the floor.
+
+## Evidence
+
+`scratchpad/m6f/`.
+
+- `gaps.txt` — every pairing of every **drawn box** (body, plate, badge, and all
+  six cross-products) between every pair of characters on screen, at 60 Hz,
+  across twelve adversarial scripts in a **full seven-seat room**: all six
+  subagents reporting simultaneously; the outermost ring reporting; every
+  same-side adjacent-ring pair a frame apart; the whole cast leaving under a
+  report; a seat vacated and refilled under an outermost report; a seat refilled
+  while its own leaver is still in the column; a reporter departing mid-beat with
+  its seat refilled. **Worst over every pairing and every frame: +10.20 px.**
+  Never negative anywhere.
+- `worst/*.png` and `filmstrip-worst.png` — 24 consecutive frames at 0.12 s
+  through the worst case, rendered offscreen through the real `SKRenderer` at
+  720×400. The stream is `simultaneous.jsonl`: the real 21-agent capture from
+  `scratchpad/eval/many.jsonl` with the eight `SubagentStop` payloads re-stamped
+  to one instant — relabelled real events, not a fixture. `t138.00` is the frame
+  worth looking at: a full room, every subagent out of its chair on the walkway
+  at once, each in its own column, nothing touching anything.
+- `band.txt` — the band's terms, and what the pitch formula gives at five
+  candidate plate widths.
+
+## The seat pitch, as a formula [mid-task direction]
+
+The maintainer's direction mid-task was that the constraint is **occlusion, not
+breathing room**, and that the 96 px pitch is therefore negotiable if the plate
+narrows. Re-derived rather than inherited:
+
+Under the one-column rule two characters a pitch apart are always in *adjacent*
+columns, and adjacent columns are adjacent rings, so their seats are on different
+rows. The pairs that can genuinely share a horizontal strip are:
+
+| pair | needs a pitch of |
+|---|---|
+| two plates on one row — two reporters on the walkway | `W + m` |
+| a plate against a body across rows | `W/2 + 16 + m` |
+| a plate against a badge | `W/2 + 12 + m` |
+| a badge against a body | `28 + m` |
+| two bodies | `32 + m` |
+
+The first dominates every other for any `W ≥ 32`, and a two-line plate is never
+narrower than that. So:
+
+> **`seatSpacingTiles = max(2, ceil((W + m) / tile))`**, with `m = tile −
+> plateHeight` — the margin the row axis already leaves, so the room clears by
+> the same amount in both directions. Floored at two tiles because a seat is a
+> character and its desk whatever the plate does.
+
+`RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:tile:)`. At the plate
+as it stands, 63 × 21, it returns **3** — what the room already ships, so it
+costs nothing today. What it gives elsewhere:
+
+| plate | pitch | seven seats span | seats a `2x` frame holds |
+|---|---|---|---|
+| 71 × 26 | 96 | 736 | 3 |
+| 63 × 21 (today) | 96 | 736 | 3 |
+| 58 × 26 | 64 | 528 | 4 |
+| 53 × 21 | 64 | 528 | 4 |
+| 40 × 21 | 64 | 528 | 4 |
+
+The threshold is `W + tile − plateHeight ≤ 64`: **53 px at the plate's current
+21 px height**, 58 at 26. Reaching it takes the `2x` width capacity from three
+seats to four. **Seven is not reachable at any plate width** — seven columns plus
+`occupiedSpan`'s padding need a pitch of 33 px and a desk's content box is 32.
+
+**It is deliberately not wired to `RoomLayout.init`.** A pitch that followed the
+plate automatically would also move every desk, station prop and decoration
+column, and those clearances are argued from content boxes in the manifest rather
+than from `RoomLayout` — at a 64 px pitch a seat's furniture spans 92 px of it,
+and the two seat rows are what makes that survivable. Whoever narrows the plate
+has to re-derive them. `theSeatPitchIsTheNarrowestTheseNameplatesAllow` is the
+tripwire that says so, and it fails in both directions: too wide is width the
+room is spending for nothing, too narrow is two plates that can touch.
+
+**And `be95f0b`'s stagger refutation now generalises rather than depending on two
+constants.** A stagger needs `pitch ≥ 2W`; the pitch is one plate plus a margin,
+rounded up to a tile. So no plate width opens a stagger — re-derived over every
+width from 33 to 120 in `noStaggerCanInterleaveTheTwoSeatRowsAtAnyPlateWidth`.
+Below 33 the pitch is the *desk's* rather than the plate's and a stagger becomes
+arithmetically available; it would still buy nothing, because an interleave at
+offset `s` is just a room whose columns are `min(s, pitch − s)` apart, which is
+narrower than the narrowest spacing the formula allows.
+
+## The tripwires, inverted
+
+`be95f0b` added three tests written to fail once the band fit. It did.
+
+- `aCloserScaleDoesNotFitTheShippedPanel` → **`theBandFitsACloserScaleAndWidthDecidesWhoGetsIt`.**
+  It now asserts the band is **at or under** 200 and still over 133; that the
+  room's own share is 96 and cannot go lower; that a `2x` frame holds three seat
+  columns; and the scale per population — `2x` at 0…3 agents, `1x` at 4…7. It is
+  still a tripwire in both directions: a taller badge or a wider plate pushes a
+  population back down, a narrower plate pulls another up.
+- `aCloserFrameWouldHoldThreeSeatColumnsAcross` — **kept, and promoted.** It was
+  a footnote while height held every population to `1x`; it is now the whole
+  answer.
+- `noStaggerCanInterleaveTheTwoSeatRowsOnThisPitch` →
+  **`noStaggerCanInterleaveTheTwoSeatRowsAtAnyPlateWidth`**, as above.
+
+`RoomCamera.comfortablePopulation` is **untouched and still empty** — the
+maintainer asked to make that call after measuring. The comment above it no
+longer claims a closer scale is unreachable; it says the table is empty as a
+*decision* now, and names the cost of the other choice: a camera that changes
+scale when the fourth agent arrives.
+
+## Gates
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. `swift test`
+**617** green. `python3 scripts/lint-palette.py` passed, all six themes agreeing
+with the scene. `spriteroom-replay --all` — 17 fixtures, zero open calls after
+the sweep.
+
+## Scope
+
+`Sources/SpriteRoomScene/{RoomLayout,RoomScene,RoomCamera}.swift`,
+`Tests/SpriteRoomSceneTests/{RoomSceneTests,RoomCameraTests,NameplateTests}.swift`,
+`docs/{04-ART-DIRECTION,05-MILESTONES,ADR-002-themed-rooms,ADR-004-liveness-lamp}.md`,
+`README.md`, this file.
+
+`SceneDirector.swift` was in scope and needed no change: the beat's shape lives
+in `RoomLayout` and `RoomScene`, and `deliverReport(agent:anchorSeat:)` says the
+same thing it always did. Seat eviction and the `+N MORE` overflow are untouched
+and their tests pass unmodified.
+
+**Two things in `RoomScene` are integration seams rather than this task**, and
+both are named because they change behaviour:
+
+- `contentBand` now asks `Character.badgeSlotTopAboveFeet` instead of
+  recomputing the slot's arithmetic — the other lane's own doc comment asks for
+  exactly this, and without it their 34 px never reaches the camera and the band
+  stops at 204.
+- `deliverReport`'s `onFinished` re-asserts the director's last body state at the
+  seated facing. The beat turns the character towards its anchor and the walk
+  home is now purely vertical, so nothing turns it back; `Character` ends a
+  script on `currentFacing.seated`, and half the cast would take its chair with
+  its back to its own desk. The old lateral leg home did this by accident, for
+  whichever half happened to walk the right way.

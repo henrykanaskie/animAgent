@@ -60,7 +60,7 @@ import Testing
         for name in Fixtures.required {
             for entry in try Fixtures.entries(name) {
                 switch entry.event?.kind {
-                case let .preToolUse(_, tool): toolNames.insert(tool)
+                case let .preToolUse(_, tool, _): toolNames.insert(tool)
                 default: break
                 }
             }

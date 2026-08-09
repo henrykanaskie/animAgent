@@ -651,6 +651,16 @@ public struct SceneDirector: Sendable {
                 // scale from what is actually on screen cannot disagree with
                 // itself.
                 break
+
+            case .agentTasked:
+                // Not drawn yet. The model learns what a subagent was
+                // dispatched to do — the `Agent` call's own
+                // `tool_input.description`, carried whole — and this is the
+                // slot the nameplate will read it from. Shortening it to one
+                // or two words is a decision about a plate's width and belongs
+                // here rather than in the model; until that is built, the
+                // honest thing to do with the fact is nothing.
+                break
             }
         }
 

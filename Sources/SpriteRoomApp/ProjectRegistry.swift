@@ -115,6 +115,12 @@ struct ProjectRegistry: Sendable {
         /// reconstructs the link too — otherwise a character that was linked
         /// while off screen would report to the wrong anchor once shown.
         var parent: AgentID?
+        /// From `.agentTasked`: what this subagent was dispatched to do. Same
+        /// reason as `parent`, and it arrives the same way — retroactively,
+        /// once the dispatching call's `PostToolUse` names the child. A task
+        /// learned while this project was off screen must survive the switch,
+        /// or the plate comes back blank for an agent we do know about.
+        var task: String?
         /// From `.attentionChanged`. Same reason as `parent`: it is live state,
         /// so a switch back to this project must not lose it.
         var attention: AttentionKind?
@@ -166,6 +172,8 @@ struct ProjectRegistry: Sendable {
                 states[project]?.agents[agent] = state
             case let .agentLinked(agent, parent):
                 states[project]?.agents[agent]?.parent = parent
+            case let .agentTasked(agent, task):
+                states[project]?.agents[agent]?.task = task
             case let .agentDeparted(agent):
                 states[project]?.agents.removeValue(forKey: agent)
             case let .callOpened(agent, call):
@@ -281,6 +289,11 @@ struct ProjectRegistry: Sendable {
             if let parent = state.parent {
                 deltas.append(.agentLinked(agent: ref, parent: parent))
             }
+            // Behind the link, which is the order the one payload said them in
+            // and the order a live stream produces.
+            if let task = state.task {
+                deltas.append(.agentTasked(agent: ref, task: task))
+            }
             if let attention = state.attention {
                 deltas.append(.attentionChanged(agent: ref, attention: attention))
             }
@@ -345,6 +358,7 @@ extension WorldDelta {
         switch self {
         case let .agentAppeared(agent, _, _): return agent.project
         case let .agentLinked(agent, _): return agent.project
+        case let .agentTasked(agent, _): return agent.project
         case let .agentDeparted(agent): return agent.project
         case let .callOpened(agent, _): return agent.project
         case let .callClosed(agent, _, _, _): return agent.project

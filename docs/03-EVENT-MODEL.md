@@ -1144,6 +1144,80 @@ them were not visible in the M0 capture:
   occur. Nothing may assume either — which is exactly why a subagent's life is
   tracked by `agent_id` and never by its spawning call.
 
+### What a subagent was dispatched to do — M7e
+
+The same `PostToolUse` that carries the link carries a second fact about the
+child, and until M7e the model decoded it and threw it away.
+
+**The `Agent` tool's `PreToolUse` carries `tool_input.description`: a real 3–5
+word summary of the job, written at dispatch.** Ten of them are in `fixtures/` —
+`Touch file s1`, `Read three.txt sleep`, `Read delta/epsilon, sleep, reread
+alpha`, `Touch a file via bash` — alongside `tool_input.subagent_type`. So a
+character can say what it is *for* without anything being inferred: the room
+would be repeating a string the payload gave it. [I1]
+
+It reaches the child by the route the parent link already takes, because it is
+the same route:
+
+```
+PreToolUse   tool_name == "Agent"  →  OpenCall(tool_use_id).dispatchedTask
+PostToolUse  tool_response.agentId →  agentTasked(agent: child, task:)
+```
+
+- **The description belongs to the dispatching `tool_use_id`, not to an agent.**
+  The child's `agent_id` does not exist anywhere in the payload until the
+  `PostToolUse`. So the string is held against the call that carried it and
+  associated at link time — the same instant, the same event, the same join key
+  as `agentLinked`. [I3]
+- **It is retroactive by construction**, exactly as the link is: `SubagentStart`
+  fires *before* the `PostToolUse`, so a character appears and learns its task a
+  moment later. `agentTasked` is therefore its own delta rather than a field on
+  `agentAppeared`, and a task learned before its character exists waits in the
+  same pending record the parent link waits in.
+- **`agentTasked` is emitted at most once per agent** and is `nil` far more
+  often than not. Three ordinary absences: the **main thread**, which has no
+  dispatching `Agent` call and **must never be given a task** — its absence is
+  what makes it the main thread; a subagent whose dispatch this app never saw,
+  because it attached mid-session; and a `SendMessage` resume, whose
+  `tool_input` carries `summary`, `content` and `recipient` and no
+  `description` at all. In every one of them the rendering is to **say nothing**
+  — the same fallback an unlinked subagent takes when it anchors to the main
+  agent. [I1]
+- **The string is carried whole.** Shortening `Move the badge beside the head`
+  to `move badge` is a judgement about a plate's width, so it belongs to the
+  layer that knows the width. Doing it in the model would bury the real value
+  where nothing could test it.
+
+**Reading `tool_input` is restricted to `tool_name == "Agent"`, and that is a
+correctness rule before it is an optimisation.** `description` is not one tool's
+field: **37 of the corpus's 45 `Bash` calls carry one**, and so does its single
+`Monitor` call. On a `Bash` it describes a shell command, not an assignment, so
+letting it reach a nameplate would have the room assert that somebody was sent
+to do it. Only `Agent`'s `description` means *what this agent is tasked with*.
+
+That restriction is also what keeps the decode off the hot path. **The hook POST
+blocks the user's session** and `tool_input` is unbounded — a 5.5 MB `Edit`
+produces a 5.7 MB POST — so this is the only branch that opens a nested
+container inside it, on a tool that appears 10 times in the corpus's 83 calls.
+Every other `PreToolUse` never looks at `tool_input` at all. [I5]
+
+**It adds no open state, which is the whole of its answer to [I4].** The
+description lives on the `OpenCall` — the model's only store keyed by
+`tool_use_id`, and one every close path already empties: the three closes, the
+deadline sweep, `SubagentStop`, `SessionEnd` and the idle sweep, all through
+`WorldModel.removeCall`. A side table `tool_use_id → description` would have
+been new state with its own reaping obligation, and it is exactly the shape "a
+character that types forever" takes in a map. A dispatch abandoned by the reaper
+therefore loses its description with its call and the child is linked with no
+task, which is the fallback and not a bug. Pending links are held in
+`SessionState`, so `SessionEnd` and the 30-minute sweep take them too.
+
+**Nothing draws it yet.** `SceneDirector` receives `agentTasked` and does
+nothing with it; the nameplate still shows `agent_type` per the table under
+"Identity resolution". `ProjectRegistry` does store and replay it, because a
+task learned while a project was off screen must survive the switch — the same
+reason it replays `agentLinked` and `dormancyChanged`.
+
 ### `SubagentStop` is a turn boundary, not a death
 
 M4 recorded that "a subagent can come back". `fixtures/four-subagents.jsonl`

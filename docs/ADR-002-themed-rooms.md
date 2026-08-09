@@ -205,7 +205,7 @@ answer for something we do not recognise is a generic, not a guess.
 | Visual dimension | Driven by | Fallback when absent | Volatility — changes when |
 |---|---|---|---|
 | **Room theme** | The user's stored choice for this exact `cwd`. Absent ⇒ rendezvous hash of `cwd` over the assignable pool. | `defaultThemeId` from the manifest — the Office the room ships today. Also the fallback for an unknown stored theme id and for an unreadable preference file. | **Project.** The user picks, or the selected project changes. **Never with activity.** |
-| **Room geometry** (seat pitch, aisle, delivery slots, wall line, foreground line) | Theme-independent. Identical in every theme. | — | Never. |
+| **Room geometry** (seat pitch, walkway, wall line, foreground line) | Theme-independent. Identical in every theme. The seat pitch is derived from the nameplate, not from the theme — `RoomLayout.minimumSeatSpacingTiles`. | — | Never. |
 | **Seats occupied** | Population — agents that exist because a *consumed* event created them. | Seat 0 is always framed even when empty, so an off-screen report is still visible. Unchanged. | `agentAppeared` / `agentDeparted`. |
 | **Station** — desk, chair and at most one adjacent floor prop at one seat | `agent_id` **absent** ⇒ `station.main`. Present with non-empty `agent_type` ⇒ rendezvous hash of `agent_type` over the theme's numbered stations. | `station.default`, for a subagent whose `agent_type` is absent **or empty**. | **Agent.** Decided at spawn, never rewritten. §6 rule 2. |
 | **Backdrop props** (wall line) and **foreground props** | The theme. A fixed, ordered list. | The Office boards and plants. | Never. |

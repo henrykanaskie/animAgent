@@ -67,6 +67,11 @@ public struct RoomLayout: Sendable, Hashable {
     public let seatCapacity: Int
     /// Tiles between adjacent seats: one for the character, one for its desk,
     /// one of air.
+    ///
+    /// **The third tile is the nameplate's, not the air's**, and it is the only
+    /// one that is negotiable — see `minimumSeatSpacingTiles(plateWidth:
+    /// plateHeight:tile:)`, which is the pitch stated as a function of the plate
+    /// rather than as the constant 3.
     public let seatSpacingTiles: Int
     public let columns: Int
     public let rows: Int
@@ -95,6 +100,66 @@ public struct RoomLayout: Sendable, Hashable {
         // to be the subject.
         self.rows = 9
         self.wallRows = 2
+    }
+
+    /// **The seat pitch as a function of the nameplate, in tiles.**
+    ///
+    /// The pitch has never been a composition number. It is 96 px because the
+    /// widest plate the font can produce is 71 px, and two characters whose
+    /// plates overlap are two characters the room cannot tell apart — which is
+    /// an occlusion failure, not a crowding one. Bodies are 32 px of canvas over
+    /// perhaps 18 px of ink and a desk's content box is 32 px; none of them needs
+    /// anything like 96. So when the plate moves, this moves with it, and the
+    /// formula is here so that the pitch is derived rather than remembered.
+    ///
+    /// **What has to clear what.** Under the one-column rule
+    /// [`deliveryPosition(anchorSeat:reporterSeat:)`] two characters one pitch
+    /// apart are always in *adjacent* columns, and adjacent columns are adjacent
+    /// rings, so their **seats** are on different rows and 64 px apart in depth.
+    /// The pairs that can genuinely share a horizontal strip are:
+    ///
+    /// | pair | needs a pitch of |
+    /// |---|---|
+    /// | two plates on one row — two reporters on the walkway | `W + m` |
+    /// | a plate against a body across rows | `W/2 + 16 + m` |
+    /// | a plate against a badge | `W/2 + 12 + m` |
+    /// | a badge against a body | `28 + m` |
+    /// | two bodies | `32 + m` |
+    ///
+    /// The first dominates every other for any `W ≥ 32`, and a plate that holds
+    /// two lines of text is never narrower than that. So the whole table reduces
+    /// to **one plate plus a margin**, rounded up to a whole tile, and floored at
+    /// two tiles because a seat is a character and its desk whatever the plate
+    /// does.
+    ///
+    /// `m` is the margin, and it is taken from the axis that already has one
+    /// rather than chosen: rows are a tile apart and clear the tallest plate by
+    /// `tile − plateHeight` = 6 px, which is the bound
+    /// `noAdversarialPairingOfBeatsEverTouchesTwoPlates` pins. Using the same
+    /// number across means the room clears by the same amount in both axes.
+    ///
+    /// It returns **3** for every plate the room has yet had — 71 × 26 when this
+    /// was derived, 63 × 21 as the plate stands — so stating it costs nothing
+    /// today. The threshold worth knowing is where it returns **2**, a 64 px
+    /// pitch and a room a third narrower: `plateWidth + tile − plateHeight ≤ 64`.
+    /// At the plate's current 21 px height that is a width of **53 px or less**;
+    /// at 26 px it was 58. The height matters because the margin is borrowed
+    /// from the row axis, so a shorter plate buys width as well as height.
+    ///
+    /// **It is not wired to the default.** `RoomLayout()` still declares 3, and
+    /// `theSeatPitchIsTheNarrowestTheseNameplatesAllow` is the tripwire that
+    /// fails when the declared pitch and this formula disagree. Deriving the
+    /// default would reflow the desks, the station props and the decoration
+    /// columns the instant the plate moved, and those clearances are argued from
+    /// content boxes in the manifest rather than from this file — they have to be
+    /// re-derived by whoever narrows the plate, not silently inherited.
+    public static func minimumSeatSpacingTiles(
+        plateWidth: Int, plateHeight: Int, tile: Int
+    ) -> Int {
+        let tile = max(1, tile)
+        let margin = max(0, tile - max(0, plateHeight))
+        let needed = max(0, plateWidth) + margin
+        return max(2, (needed + tile - 1) / tile)
     }
 
     /// Tiles are drawn past the room's nominal bounds so no zoom level ever
@@ -140,11 +205,12 @@ public struct RoomLayout: Sendable, Hashable {
 
     /// The walkway one tile in front of the desk row, nearer the camera.
     ///
-    /// Entering and leaving move along this line rather than through the seats.
-    /// Without it an arriving character walks straight through whoever is
-    /// already sitting between it and its own desk.
-    ///
-    /// **The report walk is no longer on it** — see `deliveryRowY(ring:)`.
+    /// It is the front of the room and the only floor downstage of the seats:
+    /// every character reaches its chair from it, every character that leaves
+    /// mid-beat comes back through it, and a reporter steps out onto it to hand
+    /// its report over. What nobody does is *travel along* it — see
+    /// `deliveryPosition(anchorSeat:reporterSeat:)`, which is where the rule
+    /// that makes this safe is stated and proved.
     public var aisleY: Double { baselineY - Double(tile) }
 
     // MARK: The lattice [the aisle invariant]
@@ -153,63 +219,17 @@ public struct RoomLayout: Sendable, Hashable {
     /// 0; seats 1 and 2 are 1; 3 and 4 are 2; and so on, because seats fill
     /// outward in pairs.
     ///
-    /// This is the number the whole plate-clearance argument is built on: two
-    /// seats of the same ring are on **opposite sides** of the room, and two
-    /// seats of different rings are at least one pitch apart in x.
+    /// Two seats of the same ring are on **opposite sides** of the room, and two
+    /// seats of different rings are at least one pitch apart in x. Its parity is
+    /// what picks a seat's row — see `isBackRow(seat:)`.
+    ///
+    /// It used to pick one more thing: a reporter's own delivery row, one row of
+    /// floor per ring reserved in front of the walkway. Those rows are gone and
+    /// so is the ring's part in the clearance argument; see
+    /// `deliveryPosition(anchorSeat:reporterSeat:)`.
     public func ring(ofSeat index: Int) -> Int {
         let wrapped = ((index % seatCapacity) + seatCapacity) % seatCapacity
         return (wrapped + 1) / 2
-    }
-
-    /// The outermost ring the floor is drawn for.
-    public var maximumRing: Int { ring(ofSeat: seatCapacity - 1) }
-
-    /// **One delivery row per ring, in front of the aisle.**
-    ///
-    /// A reporter walks to its anchor along the row that belongs to its own
-    /// ring, and delivers standing on it. Physically it is what you actually do
-    /// when you walk over to someone: you go *round* the people between you and
-    /// them, which in a side-on room means in front of them. Geometrically it is
-    /// what makes the beat safe, and the argument is short enough to check:
-    ///
-    /// - Rows are one tile apart and a tile is taller than the tallest plate, so
-    ///   two characters on different rows can never share a horizontal strip
-    ///   however close they get in x.
-    /// - A row carries at most one seat per side — one ring is two seats, one
-    ///   each side — and the two sides deliver a seat pitch apart, which is
-    ///   wider than the widest plate.
-    /// - A reporter reaches its row by walking straight down **its own seat's
-    ///   column**, and its column meets a lower ring's row outside that row's
-    ///   corridor by at least a full seat pitch, because that corridor stops at
-    ///   that ring's own station and that station is at least a pitch further
-    ///   in.
-    ///
-    /// So no reporter's plate can meet any other plate at any phase of the beat,
-    /// for any population and any timing. That is the guarantee the seat pitch
-    /// alone could never give: half a pitch is 48 px against a 71 px plate, and
-    /// widening the pitch to fix it does not even work — two characters walking
-    /// the same line in opposite directions cross at zero separation whatever
-    /// the pitch is. `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`
-    /// holds the arithmetic.
-    ///
-    /// Ring 0 is the main agent's own seat and it is the *anchor*, never a
-    /// reporter, so it is folded onto row 1 rather than given a row nothing
-    /// stands on.
-    public func deliveryRowY(ring: Int) -> Double {
-        aisleY - Double(tile * max(1, min(ring, maximumRing)))
-    }
-
-    /// The delivery row a character seated at `index` uses.
-    public func deliveryRowY(forSeat index: Int) -> Double {
-        deliveryRowY(ring: ring(ofSeat: index))
-    }
-
-    /// The point on a reporter's own delivery row directly in front of its own
-    /// desk. It steps down to here from its station and comes back to here
-    /// before it steps up again, so every vertical move it makes is inside its
-    /// own column.
-    public func deliveryLaneEntry(forSeat index: Int) -> ScenePoint {
-        ScenePoint(x: seatPosition(index).x, y: deliveryRowY(forSeat: index))
     }
 
     /// Y where the wall meets the floor.
@@ -276,13 +296,17 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// - the front seat's occupant walking upstage out of the room passes
     ///   through the back seat above it;
-    /// - the back seat's occupant walking in from the aisle, or down to its
-    ///   delivery row and home again, passes through the front seat below it.
+    /// - the back seat's occupant walking down to the walkway to report, or up
+    ///   from it, passes through the front seat below it.
     ///
     /// Neither is a tight clearance to be widened. Sliding one row sideways is
-    /// the staggered pitch again — 48 px against 71 — and there is no offset
-    /// that clears both neighbours at once, so interleaving two rows on a 96 px
-    /// grid is not available at any offset.
+    /// the staggered pitch again: an offset `s` must clear a plate on **both**
+    /// sides, so `s ≥ W` and `pitch − s ≥ W`, which needs `pitch ≥ 2W`. At the
+    /// shipped 96 px pitch and 71 px plate there is no such `s`. **Both numbers
+    /// can move** — see `minimumSeatSpacingTiles(plateWidth:tile:)`, which is
+    /// what ties them together — but they move in lockstep, because the pitch is
+    /// derived from the plate: a pitch is one plate wide plus a margin, never
+    /// two. So there is no plate width at which a stagger opens up.
     ///
     /// **What that leaves is one seat per column**, so the room's occupied width
     /// is `(seats − 1) × 96` plus the padding `occupiedSpan` adds, and the only
@@ -392,80 +416,96 @@ public struct RoomLayout: Sendable, Hashable {
 
     public var seatedFacing: Facing { .right }
 
-    /// Where a reporting subagent walks to before it delivers: onto its own
-    /// delivery row, short of the anchor's seat.
-    ///
-    /// The gap is a tile and a half, not a quarter-tile, and the number is
-    /// load-bearing: at three quarters of a tile the reporter's 32px-wide body
-    /// stood squarely on top of the anchor's nameplate. That was legible only
-    /// because the plate is drawn in an overlay band; standing clear as well
-    /// means the anchor's identity is not merely on top of a body but
-    /// unobstructed by one, at the exact moment the room is dramatising a
-    /// report. [criterion 5]
+    /// Where a reporting subagent stands to deliver: out of its chair, one row
+    /// downstage onto the walkway, still in its own column.
     public var deliveryPosition: ScenePoint {
         deliveryPosition(anchorSeat: 0, reporterSeat: 2)
     }
 
-    /// How far short of the anchor a reporter stops, and the same distance is
-    /// the closest either side ever comes to the room's centre line.
-    public var deliveryGap: Double { Double(tile) * 1.5 }
-
-    /// **Which side of the anchor a reporter stands on: its own.**
+    /// **Which side of its anchor a reporter is on.**
     ///
-    /// It used to be the left, always. That was harmless while a report was the
-    /// front half of an exit — the reporter walked to the anchor and then off
-    /// the near edge, and never came back through the room. A report is now a
-    /// round trip, and a reporter seated to the *right* of its anchor would walk
-    /// past the anchor on the way in and past it again on the way home: two
-    /// crossings of the one seat every other character in the room is anchored
-    /// to, held for the length of a walk each time.
-    ///
-    /// Approaching from its own side removes both. It also halves the traverse —
-    /// a reporter now only ever crosses the aisle between its own desk and the
-    /// anchor's, never the far side of the room — and it is the more natural
-    /// read besides: you walk over to the person you report to, you do not walk
-    /// round them.
+    /// This used to choose where the reporter walked *to*: its own side of the
+    /// anchor rather than the far one, so that a round trip did not cross the
+    /// anchor's chair twice. Nobody walks to the anchor any more, so it no longer
+    /// chooses anything — it reads off where the reporter already sits, and its
+    /// one consumer is `deliveryFacing(side:)`. Seat 0 sits on the centre line
+    /// and is the anchor rather than a reporter, so the tie goes right and is
+    /// never reached. [see `deliveryPosition(anchorSeat:reporterSeat:)`]
     public func deliverySide(anchorSeat: Int, reporterSeat: Int) -> Facing {
         seatPosition(reporterSeat).x >= seatPosition(anchorSeat).x ? .right : .left
     }
 
-    /// Where a reporter seated at `reporterSeat` stands to hand its report to
-    /// the character at `anchorSeat`.
+    /// **Where a reporter stands to hand its report over: out of its chair, one
+    /// row downstage onto the walkway, in its own column. It never goes to the
+    /// anchor at all.**
     ///
-    /// **Depth, not width.** Subagents can stop within a second of each other,
-    /// and the delivery point used to be a row of slots stepping *sideways* away
-    /// from the anchor, claimed lowest-free. That had two faults, and they are
-    /// both closed here by the same change:
+    /// ## The rule this is an instance of
     ///
-    /// - *Lowest-free was not seat-ordered.* The farther of two same-side
-    ///   reporters could claim the nearer slot and then walk home **through** the
-    ///   nearer one's station. The slot is now a pure function of the reporter's
-    ///   own seat, so there is nothing left to claim and no order to get wrong.
-    /// - *Sideways slots share a row.* Two reporters a slot apart are 80 px
-    ///   apart at rest but pass within a plate width in transit, because one
-    ///   reporter's corridor runs through the other's slot. Stacking them in
-    ///   **depth** — one row per ring — makes their corridors different lines
-    ///   rather than different stretches of the same line, and lines a tile
-    ///   apart cannot share a plate's horizontal strip at all.
+    /// > **No character ever moves sideways.** Every leg of every route in this
+    /// > room is vertical and inside the moving character's own seat column:
+    /// > arriving (`entranceRoute`), stepping out to report (`deliveryRoute`),
+    /// > coming home (`homeRoute`), leaving (`upstageExit`).
     ///
-    /// `anchorSeat` is whose seat the reporter delivers to. It is 0 — the main
-    /// agent — unless `tool_response.agentId` linked the reporter to a different
-    /// parent that is still in the room. **A reporter never crosses the room's
-    /// centre line to reach a parent on the far side**: it stops a delivery gap
-    /// short of centre instead. That keeps every corridor inside its own half,
-    /// which is what lets the two seats of one ring share a row.
+    /// Two plates can meet only if they share a horizontal strip **and** come
+    /// within a plate width in x. Columns are one seat pitch apart — 96 px,
+    /// `seatSpacingTiles * tile`, and `seatColumn` is what nothing in the
+    /// choreography touches — and the widest plate is
+    /// `SceneBitmaps.maximumNameplateWidth` = 71 px. So the horizontal
+    /// separation between any two characters in this room is a **constant of the
+    /// lattice**: 96 px between neighbours, 25 px clear of the plate, at every
+    /// instant of every beat, for any population, any timing, any pairing. There
+    /// is no phase to reason about because x never changes.
+    ///
+    /// The single exception is two characters in **one** column, which the room
+    /// can produce exactly once: a seat is free the instant its occupant starts
+    /// walking out, so a refill can begin while the leaver is still in the
+    /// column. Both move upstage, so they are a convoy — same direction, same
+    /// speed, the gap they start with is the gap they keep — and that is the
+    /// argument `entranceRoute(forSeat:)` and `theWholeCastCanLeaveInOneFrame`
+    /// already rest on, unchanged.
+    ///
+    /// ## What this replaced, and why it is a better argument
+    ///
+    /// The reporter used to *walk to the anchor*, and the whole floor plan was
+    /// built round that one lateral leg. Because it crossed columns, it had to
+    /// be given floor nobody else was standing on, and one row was not enough:
+    /// three same-side reporters (seats 1, 3 and 5) can be walking at once, so
+    /// it took **one delivery row per ring** — three rows, 96 px of depth
+    /// reserved below the walkway. The proof then needed four separate parts:
+    /// rows a tile apart cannot share a strip; a row carries one seat per side;
+    /// the two sides stop a delivery gap short of centre; and a reporter's own
+    /// column meets a lower ring's corridor outside it by a full pitch.
+    ///
+    /// Every part of that was about keeping one lateral leg out of everyone's
+    /// way. Delete the leg and there is nothing left to separate — and the 96 px
+    /// goes back to the camera. `contentBand` falls from **300 px to 204**,
+    /// which is what a `2x` room is measured against.
+    ///
+    /// ## What it costs, plainly
+    ///
+    /// **The reporter no longer arrives at the anchor's desk.** A report used to
+    /// say *who* it was to by ending up next to them; it now says it only by
+    /// which way the reporter turns — `deliveryFacing(side:)` — so on the near
+    /// side of the room a reporter to the main agent and a reporter to a nested
+    /// parent further in turn the same way and are told apart by nothing. That
+    /// is a real loss of information and it is recorded rather than dressed up.
+    /// What is kept is the beat itself: the character genuinely stands up,
+    /// steps to the front of the room, turns to the person it is reporting to,
+    /// and hands something over — every frame of which traces to one real
+    /// `reportDelivered`. [I1]
+    ///
+    /// The alternative that would have kept the walk was to serialise it: one
+    /// shared row and a rule that at most one reporter is ever on it. That is
+    /// 32 px rather than 96 and still leaves the band at 236, it makes the
+    /// guarantee depend on a scheduler rather than on the lattice, and it puts a
+    /// lateral corridor back across the one row every arrival steps through. It
+    /// was weighed and rejected; the arithmetic is in `notes.md`.
+    ///
+    /// `anchorSeat` is whose seat the reporter delivers to — 0, the main agent,
+    /// unless `tool_response.agentId` linked it to a parent that is still in the
+    /// room. It reaches the facing and nothing else.
     public func deliveryPosition(anchorSeat: Int, reporterSeat: Int) -> ScenePoint {
-        let side = deliverySide(anchorSeat: anchorSeat, reporterSeat: reporterSeat)
-        let outward = side == .right ? 1.0 : -1.0
-        let centre = seatPosition(0).x
-        let atAnchor = seatPosition(anchorSeat).x + outward * deliveryGap
-        // The reporter's own half of the room, and the nearest it may come to
-        // the centre line without entering the other half's corridors.
-        let ownHalf = seatPosition(reporterSeat).x >= centre ? 1.0 : -1.0
-        let limit = centre + ownHalf * deliveryGap
-        return ScenePoint(
-            x: ownHalf > 0 ? max(atAnchor, limit) : min(atAnchor, limit),
-            y: deliveryRowY(forSeat: reporterSeat))
+        seatApproach(reporterSeat)
     }
 
     /// Which way the reporter faces to hand its report over: at the anchor.
@@ -483,34 +523,44 @@ public struct RoomLayout: Sendable, Hashable {
         ScenePoint(x: seatPosition(index).x, y: aisleY)
     }
 
-    /// **The report walk, as waypoints.** Down the reporter's own column to its
-    /// own delivery row, and only then sideways. The route is built here rather
-    /// than at the call site because its *shape* is the guarantee: a caller that
-    /// cut the corner from the desk straight to the anchor would drag the plate
-    /// diagonally through every row in between and the invariant would be gone
-    /// with nothing failing.
+    /// **The report walk, as waypoints.** One leg, straight down the reporter's
+    /// own column onto the walkway.
+    ///
+    /// It is still built here rather than at the call site, and still returned as
+    /// a list rather than a point, because the *shape* is the guarantee and the
+    /// shape is the thing a caller could get wrong. It used to be three legs —
+    /// down to the aisle, down to the ring's delivery row, then sideways to the
+    /// anchor — and the danger was a caller cutting the corner into a diagonal.
+    /// The danger now is a caller reintroducing the sideways leg at all.
     public func deliveryRoute(anchorSeat: Int, reporterSeat: Int) -> [ScenePoint] {
-        [seatApproach(reporterSeat),
-         deliveryLaneEntry(forSeat: reporterSeat),
-         deliveryPosition(anchorSeat: anchorSeat, reporterSeat: reporterSeat)]
+        [deliveryPosition(anchorSeat: anchorSeat, reporterSeat: reporterSeat)]
     }
 
-    /// The same route reversed: back along the delivery row to the reporter's
-    /// own column, then up it to the chair.
+    /// The same route reversed: **one leg, straight up the character's own
+    /// column, into its chair** — or no legs at all when it is already in it.
     ///
-    /// `fromY` trims the legs a character is already above, so a leaver caught
-    /// on the aisle does not walk *down* to a delivery row it never reached.
+    /// It used to be three waypoints and `fromY` trimmed the ones a character
+    /// was already above, because home could begin on a delivery row, on the
+    /// walkway or in the chair. One waypoint is enough now: wherever a character
+    /// is, it is in this column, so the segment from where it stands to its own
+    /// seat is vertical whatever `fromY` was.
+    ///
+    /// **What `fromY` still decides is whether there is a leg at all**, and that
+    /// turned out to be load-bearing rather than tidiness. A zero-length walk
+    /// still costs `Character.duration`'s 0.2 s floor, and a leaver spends those
+    /// 0.2 s standing still in a column that its replacement is already climbing
+    /// — a seat is free the instant its occupant starts walking out. The dwell
+    /// was free while the walk-in started up to 96 px below the seats; it is not
+    /// free now that it starts one tile below, because 0.2 s at 72 px/s is 14 px
+    /// of a 32 px convoy gap. `noAdversarialPairingOfBeatsEverTouchesTwoPlates`
+    /// measured the two plates 8 px *inside* each other before this guard.
     public func homeRoute(forSeat index: Int, fromY: Double = -.greatestFiniteMagnitude)
     -> [ScenePoint] {
-        var route: [ScenePoint] = []
-        if fromY < aisleY { route.append(deliveryLaneEntry(forSeat: index)) }
-        if fromY < baselineY { route.append(seatApproach(index)) }
-        route.append(seatPosition(index))
-        return route
+        fromY >= seatRowY(index) ? [] : [seatPosition(index)]
     }
 
     /// **The walk-in, as waypoints: straight up the character's own column,
-    /// from its own ring's delivery row into its chair.**
+    /// from the walkway into its chair.**
     ///
     /// It used to start one seat pitch *outward* in the aisle and walk sideways
     /// to its own station, and that was the last beat in the room the lattice
@@ -538,21 +588,17 @@ public struct RoomLayout: Sendable, Hashable {
     /// starts at a tile stays at a tile. It is the argument
     /// `theWholeCastCanLeaveInOneFrame` already rests on.
     ///
-    /// **Nothing new has to be proved about the rows it crosses.** The route is
-    /// a character ascending its own column from its own ring's delivery row,
-    /// which is the report walk's descent reversed — so block 4 of
-    /// `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` covers it
-    /// unchanged: a column clears every *other* ring's corridor by at least a
-    /// seat pitch, on exactly the rows at or behind that column's own row.
+    /// **Nothing new has to be proved about the rows it crosses.** The route is a
+    /// character ascending its own column, which is every other route in the room
+    /// — see `deliveryPosition(anchorSeat:reporterSeat:)`. It began on the
+    /// character's own ring's delivery row until those rows were removed and now
+    /// begins on the walkway, which is the same claim one row up.
     ///
     /// **It is still visible from its first frame**, which is what the outward
-    /// aisle start was for. `contentBand` runs from the outermost delivery row's
-    /// plate to the tallest badge, so every ring's delivery row is inside the
-    /// frame by construction — the walk-in now begins on the same floor the
-    /// report beat plays out on rather than at the edge of what the camera
-    /// happens to be framing.
+    /// aisle start was for. `contentBand` runs from a walkway character's plate
+    /// to the tallest badge, so the walkway is inside the frame by construction.
     public func entranceRoute(forSeat index: Int) -> [ScenePoint] {
-        [deliveryLaneEntry(forSeat: index), seatApproach(index), seatPosition(index)]
+        [seatApproach(index), seatPosition(index)]
     }
 
     // `edgePosition(forSeat:)` lived here and is gone with the lateral walk-in
@@ -607,18 +653,34 @@ public struct RoomLayout: Sendable, Hashable {
     /// case a glance surface exists for.
     ///
     /// The strip is no longer a thin one: seats sit on two rows, so it runs from
-    /// an outermost delivery row's plate to the **back** row's badge — measured
-    /// against the shipped manifest, **300 px** of the panel's 400 rather than
-    /// 236. See `isBackRow(seat:)`.
+    /// a walkway character's plate to the **back** row's badge. See
+    /// `isBackRow(seat:)`.
     ///
-    /// **Those 300 px are why the camera cannot leave `1x`**, and the split is
-    /// worth having in front of you before changing anything here: 85 px of
-    /// badge above the feet and 23 px of plate below them are the character and
-    /// come from the manifest; 64 px are the two seat rows; 32 px are the
-    /// walkway; and 96 px are the three delivery rows the report beat reserves.
-    /// A `2x` view of a 720×400 panel has 200. `RoomCamera.init` carries the
-    /// whole argument and `aCloserScaleDoesNotFitTheShippedPanel` keeps these
-    /// numbers honest.
+    /// **The split, measured against the shipped manifest**, because it is worth
+    /// having in front of you before changing anything here:
+    ///
+    /// | | px |
+    /// |---|---:|
+    /// | badge slot above the feet | 51 |
+    /// | nameplate below the feet | 23 |
+    /// | the two seat rows | 64 |
+    /// | the walkway | 32 |
+    /// | **content band** | **170** |
+    ///
+    /// A `2x` view of a 720×400 panel has 200 px of height, and 170 is inside it
+    /// with 30 to spare. **It was 300.** Two terms went, in the same pass and
+    /// from opposite sides of the boundary this file draws: 96 px of delivery
+    /// row, which was the layout's, and 34 px of badge, which was not. The
+    /// layout's own share is 96 now and cannot go lower — a room needs its seats
+    /// and it needs one row of floor in front of them for people to arrive on and
+    /// report from.
+    ///
+    /// The 96 was one delivery row per ring, floor below the walkway that existed
+    /// to keep one lateral corridor out of everyone's way; see
+    /// `deliveryPosition(anchorSeat:reporterSeat:)`. `RoomCamera.init` carries
+    /// what the camera does with the result and
+    /// `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt` keeps these numbers
+    /// honest. **Width is what holds the camera now**, not height.
     ///
     /// Both arguments are measured from the manifest by the caller rather than
     /// written down here, so a taller badge or a taller font changes the frame
@@ -631,14 +693,13 @@ public struct RoomLayout: Sendable, Hashable {
     public func contentBand(
         badgeTopAboveFeet: Double, plateDropBelowFeet: Double
     ) -> (bottom: Double, top: Double) {
-        // The lowest plate belongs to a character on the outermost delivery
-        // row — the only place in the room a character can stand that is nearer
-        // the camera than the aisle.
+        // The lowest plate belongs to a character on the walkway — the only row
+        // in the room nearer the camera than the seats, and the only place a
+        // character can be that is not a chair.
         // The highest pixel belongs to a character on the **back** seat row —
         // the furthest upstage anyone sits, and the row whose badge would be
         // cropped by a band measured from `baselineY`.
-        (deliveryRowY(ring: maximumRing) - plateDropBelowFeet,
-         topSeatRowY + badgeTopAboveFeet)
+        (aisleY - plateDropBelowFeet, topSeatRowY + badgeTopAboveFeet)
     }
 
     /// Bounding box in x of the given seats plus their desks, padded by a

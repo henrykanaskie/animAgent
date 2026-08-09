@@ -116,7 +116,28 @@ public struct HookEvent: Hashable, Sendable {
         /// character is a truthful thing to draw. [I2]
         case userPromptSubmit
         case subagentStart
-        case preToolUse(toolUseID: ToolUseID, toolName: String)
+        /// `task` is `tool_input.description` **and only from the `Agent`
+        /// dispatch tool**, where it is the 3–5 word summary of the job the
+        /// subagent was dispatched to do — `'Touch file s1'`,
+        /// `'Read three.txt sleep'`, `'Read delta/epsilon, sleep, reread alpha'`.
+        /// `nil` for every other tool and for an `Agent` call that carried no
+        /// description.
+        ///
+        /// **Restricted to `Agent` on purpose, and it is a correctness rule
+        /// rather than a shortcut.** `description` is not a field of one tool:
+        /// 37 of the 45 `Bash` calls in `fixtures/` carry one, and so does the
+        /// single `Monitor` call. On a `Bash` it describes a shell command, not
+        /// an agent's assignment, so capturing it here and letting it reach a
+        /// nameplate would be the room asserting something the payload does not
+        /// say. [I1] Only `Agent`'s `description` means *what this agent is
+        /// tasked with*.
+        ///
+        /// It is also what keeps the decode off the hot path. `tool_input` is
+        /// unbounded — a 5.5 MB `Edit` produces a 5.7 MB POST — and this is the
+        /// only branch that opens a nested container inside it, on a tool that
+        /// appears 10 times in 83 calls across the whole corpus. Every other
+        /// `PreToolUse` never looks at `tool_input` at all. [I5]
+        case preToolUse(toolUseID: ToolUseID, toolName: String, task: String?)
         /// `spawnedAgentID` is `tool_response.agentId` — present only on the
         /// `Agent` dispatch tool, where it maps this parent `tool_use_id` to
         /// the `agent_id` of the child it launched. There is no
@@ -194,6 +215,17 @@ extension HookEvent: Decodable {
     /// A payload whose `hook_event_name` is neither a string nor a number.
     public static let nonStringEventName = "<non-string hook_event_name>"
 
+    /// The subagent-dispatch tool. Its hook name is `Agent`, never `Task` —
+    /// `Task` is the model-facing name and does not appear in a payload.
+    ///
+    /// Used for **one** decision and no other: whether to read
+    /// `tool_input.description`. It is deliberately *not* how a parent→child
+    /// link is recognised — that stays keyed on `tool_response.agentId`,
+    /// because `SendMessage` returns one too. The two questions are different:
+    /// "which tool's input schema has a field meaning *the subagent's job*" has
+    /// exactly one answer, and it is this one.
+    public static let agentDispatchTool = "Agent"
+
     private enum CodingKeys: String, CodingKey {
         case sessionID = "session_id"
         case cwd
@@ -204,6 +236,7 @@ extension HookEvent: Decodable {
         case toolName = "tool_name"
         case toolUseID = "tool_use_id"
         case toolCalls = "tool_calls"
+        case toolInput = "tool_input"
         case toolResponse = "tool_response"
         case source
         case reason
@@ -224,6 +257,18 @@ extension HookEvent: Decodable {
         private enum CodingKeys: String, CodingKey {
             case agentID = "agentId"
         }
+    }
+
+    /// The only field of `tool_input` we read, and it is read for exactly one
+    /// tool.
+    ///
+    /// Same construction, and the same reason, as `ToolResponse` above:
+    /// `tool_input` is the tool's own arguments — arbitrary shape, arbitrary
+    /// size — so one key comes out and the rest stays private. A
+    /// `tool_input` that is not an object yields `nil` instead of failing the
+    /// whole event.
+    private struct AgentDispatch: Decodable {
+        let description: String?
     }
 
     private struct BatchEntry: Decodable {
@@ -290,7 +335,15 @@ extension HookEvent: Decodable {
 
         case "PreToolUse":
             if let toolUseID, let toolName {
-                self.kind = .preToolUse(toolUseID: toolUseID, toolName: toolName)
+                // The single gate on reading `tool_input` at all. Everything
+                // that is not a subagent dispatch skips the nested container
+                // entirely, however large the payload is. [I5/I1 — see the
+                // `task` doc on the case.]
+                let task = toolName == Self.agentDispatchTool
+                    ? (try? container.decodeIfPresent(
+                        AgentDispatch.self, forKey: .toolInput))??.description
+                    : nil
+                self.kind = .preToolUse(toolUseID: toolUseID, toolName: toolName, task: task)
             } else {
                 self.kind = .unhandled(name: name)
             }

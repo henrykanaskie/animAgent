@@ -99,12 +99,36 @@ public struct OpenCall: Sendable, Hashable, Comparable, CustomStringConvertible 
     public let startedAt: Date
     /// Wall-clock instant past which the reaper closes this call. [I4]
     public let deadline: Date
+    /// `tool_input.description` from an `Agent` dispatch: the 3–5 word summary
+    /// of the job the subagent this call launched was given. `nil` on every
+    /// other call, which is every call but ten in the whole corpus.
+    ///
+    /// **It lives here, and nowhere else, because this is the only store the
+    /// model keys by `tool_use_id`** — and a `tool_use_id` is what the
+    /// description belongs to, since the child's `agent_id` is not known until
+    /// the `PostToolUse`. A side table `toolUseID → description` would be new
+    /// open state with its own reaping obligation; on the `OpenCall` there is
+    /// nothing to reap, because every path that ends a call already removes the
+    /// whole struct — the three close paths, the deadline sweep, `SubagentStop`,
+    /// `SessionEnd` and the 30-minute idle sweep, all through
+    /// `WorldModel.removeCall`. That is the argument the permission-gate mark
+    /// makes for living inside `AgentState` rather than beside it. [I4]
+    ///
+    /// A dispatch whose call is closed before its `PostToolUse` arrives —
+    /// abandoned by the reaper, or force-closed at `SessionEnd` — therefore
+    /// loses its description with the call, and the child is linked with no
+    /// task. That is the intended outcome: the fallback is to say nothing. [I1]
+    public let dispatchedTask: String?
 
-    public init(toolUseID: ToolUseID, toolName: String, startedAt: Date, deadline: Date) {
+    public init(
+        toolUseID: ToolUseID, toolName: String, startedAt: Date, deadline: Date,
+        dispatchedTask: String? = nil
+    ) {
         self.toolUseID = toolUseID
         self.toolName = toolName
         self.startedAt = startedAt
         self.deadline = deadline
+        self.dispatchedTask = dispatchedTask
     }
 
     public var description: String { "\(toolName)(\(toolUseID))" }
@@ -144,6 +168,34 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// whose link we never saw anchors to the main agent, which is the
     /// documented fallback, not a guess. [I1]
     case agentLinked(agent: AgentRef, parent: AgentID)
+    /// **What this subagent was dispatched to do**, verbatim from the `Agent`
+    /// call's `tool_input.description` — `Touch file s1`,
+    /// `Read delta/epsilon, sleep, reread alpha`. A real string the payload
+    /// carried, repeated; nothing here is derived, summarised or guessed. [I1]
+    ///
+    /// **Retroactive by construction, exactly as `agentLinked` is, and for the
+    /// same reason.** The description belongs to the dispatching `tool_use_id`,
+    /// and the child's `agent_id` is not known until that call's `PostToolUse`
+    /// — which arrives *after* the child's `SubagentStart`. So the character is
+    /// already on screen when it learns its task, and if the child does not
+    /// exist yet the fact waits for it rather than conjuring one. It is emitted
+    /// in the same batch as `agentLinked`, immediately behind it: they are two
+    /// halves of one payload's news.
+    ///
+    /// **Emitted at most once per agent, and only when there is something to
+    /// say.** Its absence is not an error and has three ordinary causes: the
+    /// agent is the **main thread**, which has no dispatching `Agent` call and
+    /// therefore no task; the dispatch happened before this app attached; or
+    /// the link came from a `SendMessage` resume, whose `tool_input` carries no
+    /// `description` at all. In every one of them the honest rendering is to
+    /// say nothing — the same fallback an unlinked subagent takes when it
+    /// anchors to the main agent. [I1]
+    ///
+    /// **The string is carried whole.** Shortening `Move the badge beside the
+    /// head` to `move badge` is a display judgement about a nameplate's width
+    /// and it belongs to the layer that knows the width. Doing it here would
+    /// bury the real value where nothing could test it.
+    case agentTasked(agent: AgentRef, task: String)
     case agentDeparted(agent: AgentRef)
     case callOpened(agent: AgentRef, call: OpenCall)
     case callClosed(agent: AgentRef, toolUseID: ToolUseID, toolName: String, outcome: CallOutcome)
@@ -205,6 +257,8 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
             return "agentAppeared    \(agent) type=\(agentType ?? "-") \(lifecycle.rawValue)"
         case let .agentLinked(agent, parent):
             return "agentLinked      \(agent) parent=\(parent)"
+        case let .agentTasked(agent, task):
+            return "agentTasked      \(agent) task=\(task)"
         case let .agentDeparted(agent):
             return "agentDeparted    \(agent)"
         case let .callOpened(agent, call):
@@ -241,6 +295,15 @@ public struct AgentSnapshot: Sendable, Hashable {
     /// Who this agent reports to, when the `Agent` call that launched it told
     /// us. `nil` means unlinked — anchor to the main agent. [I1]
     public let parent: AgentID?
+    /// What this agent was dispatched to do, when the `Agent` call that
+    /// launched it carried a `description`. Learned at the same instant as
+    /// `parent` and from the same payload.
+    ///
+    /// `nil` is the ordinary state, not a gap to fill: the **main thread has no
+    /// dispatching call and must never be given one**, an agent whose dispatch
+    /// we never saw has nothing to repeat, and a `SendMessage` resume carries
+    /// no description. Say nothing. [I1]
+    public let task: String?
     /// Sorted by start time. A *set* of calls — never a single current tool.
     public let openCalls: [OpenCall]
     /// Raised by `Notification`, cleared by this agent's next consumed event.

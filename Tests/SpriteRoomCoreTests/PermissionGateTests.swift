@@ -237,7 +237,7 @@ import Testing
         // capture contains "a gate, then an approval, then a long-running
         // command". Only its address is changed.
         let longCallEntry = try #require(try Fixtures.firstEntry("killed-session") {
-            if case let .preToolUse(_, tool) = $0.kind { return tool == "Bash" }
+            if case let .preToolUse(_, tool, _) = $0.kind { return tool == "Bash" }
             return false
         })
         let longCall = try #require(Fixtures.rewriting(longCallEntry.payload, [
@@ -312,7 +312,7 @@ import Testing
         for candidate in entries where candidate.event?.kind.name != "SessionEnd" {
             guard let event = candidate.event else { continue }
             await model.ingest(event, at: candidate.receivedAt)
-            if case let .preToolUse(id, _) = event.kind, id == Self.deniedCall {
+            if case let .preToolUse(id, _, _) = event.kind, id == Self.deniedCall {
                 openedAt = candidate.receivedAt
             }
             if event.kind == .userPromptSubmit {
@@ -471,7 +471,7 @@ import Testing
             switch event.kind {
             case .userPromptSubmit:
                 prompts.append(candidate.receivedAt)
-            case let .preToolUse(id, _):
+            case let .preToolUse(id, _, _):
                 openedAt[id] = candidate.receivedAt
             case let .postToolUse(id, _, _), let .postToolUseFailure(id, _, _):
                 guard let start = openedAt.removeValue(forKey: id) else { break }
@@ -639,7 +639,7 @@ import Testing
             // Drop only this agent's gated `PreToolUse`, so its mark arms over
             // an empty open-call set — legal, documented, and the one shape the
             // abandon path cannot disarm.
-            if case let .preToolUse(_, tool) = event.kind,
+            if case let .preToolUse(_, tool, _) = event.kind,
                tool == "Bash", event.agentID == gated.agent { continue }
             await model.ingest(event, at: entry.receivedAt)
             if event.kind.name == "SubagentStop", event.agentID == gated.agent {

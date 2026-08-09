@@ -143,29 +143,37 @@ struct RoomCameraTests {
             contentWidth: 0, contentHeight: 0) == 3)
     }
 
-    // MARK: Why the allow-list is empty [see `RoomCamera.init`]
+    // MARK: What actually fits the shipped panel [see `RoomCamera.init`]
 
-    /// **The empty table is not only a preference; on this panel it is the only
-    /// answer that is true.**
+    /// **The band fits `2x` now, and width is what decides who gets it.**
     ///
-    /// `theRoomIsDrawnWideAtEveryPopulation` records the *decision* to stop
-    /// pulling the camera in. This records the *fact* that the decision has
-    /// nothing to overrule: at 720×400 — `NotchGeometry.PanelSize.room`, the
-    /// panel the app ships — no population fits a scale above the floor, so a
-    /// table naming `2` would be ignored by `largestFittingScale` anyway and the
-    /// room would go on drawing at `1x` with a comment claiming otherwise.
+    /// This test was `aCloserScaleDoesNotFitTheShippedPanel`, and it was written
+    /// to fail. It has: the two changes it was watching for both landed, and the
+    /// useful direction was the direction it fell in.
     ///
-    /// It is written as a test because the arithmetic is spread over three
-    /// files: the badge height and the head line come from the manifest, the
-    /// plate from `SceneBitmaps`, the rows and the delivery reserve from
-    /// `RoomLayout`. Any of them can move without anyone noticing this
-    /// conclusion moved with it.
+    /// | | px |
+    /// |---|---:|
+    /// | badge slot above the feet | 85 → **51** — the slot moved beside the head |
+    /// | nameplate below the feet | **23** |
+    /// | the two seat rows | **64** |
+    /// | the walkway | **32** |
+    /// | one delivery row per ring | 96 → **0** — the report stopped walking |
+    /// | **content band** | 300 → **170** |
     ///
-    /// **It is a tripwire, and failing is the useful direction.** A change that
-    /// makes a closer scale reachable — a shorter badge, a shallower room, a
-    /// panel with more height — fails here, and whoever made it is then holding
-    /// the one place that decides whether the camera should use it.
-    @Test func aCloserScaleDoesNotFitTheShippedPanel() throws {
+    /// A `2x` view of a 720×400 panel frames 200 px of height. 170 is inside it,
+    /// with 30 px to spare, and `3x` is still out of reach at 133. So height no
+    /// longer settles the question at every population — **width does**, and it
+    /// says three. `aCloserFrameWouldHoldThreeSeatColumnsAcross` is now the
+    /// binding constraint rather than a footnote, and the boundary is asserted
+    /// here as a scale per population rather than as one answer for all of them.
+    ///
+    /// **It is still a tripwire and it still fails in both directions.** A
+    /// taller badge, a deeper room or a wider plate pushes a population back down
+    /// to `1x`; a narrower plate pulls another one up. Either way whoever made
+    /// the change is holding the one place that decides whether the camera should
+    /// use it — and `comfortablePopulation` is still empty, so nothing here
+    /// changes what the app draws until someone decides that separately.
+    @Test func theBandFitsACloserScaleAndWidthDecidesWhoGetsIt() throws {
         let manifest = try SceneFixtures.manifest()
         let layout = RoomLayout()
         let camera = RoomCamera(manifest: manifest)
@@ -175,20 +183,35 @@ struct RoomCameraTests {
 
         // Exactly what `RoomScene.applyScale` feeds the camera.
         let headTop = manifest.characters.variants.values.map(\.headTopPx).min() ?? 0
-        let badgeTop = Double(manifest.characters.canvas.height - headTop + 1)
-            + Double(manifest.badges.canvas.height)
+        let badgeTop = Character.badgeSlotTopAboveFeet(
+            canvasHeight: manifest.characters.canvas.height, headTopPx: headTop)
         let plateDrop = Double(SceneBitmaps.maximumNameplateHeight + 2)
         let band = layout.contentBand(
             badgeTopAboveFeet: badgeTop, plateDropBelowFeet: plateDrop)
         let contentHeight = band.top - band.bottom
 
-        // Height settles it on its own, and does so at *every* population,
-        // because the band is deliberately not a function of who is on screen.
-        #expect(contentHeight > panel.height / 2, Comment(rawValue:
-            "the content band is \(contentHeight) px and 2x has"
-            + " \(panel.height / 2); if this now fits, revisit"
-            + " RoomCamera.comfortablePopulation"))
+        // **The decomposition, so a failure says which term moved.** The room's
+        // own share is the two seat rows and the walkway; everything else is the
+        // character's own art, out of the layout's hands.
+        let roomsShare = Double(layout.tile * layout.seatRowDepthTiles)
+            + (layout.baselineY - layout.aisleY)
+        #expect(contentHeight == roomsShare + badgeTop + plateDrop)
+        #expect(roomsShare == 96, Comment(rawValue:
+            "the room's own share of the band is \(roomsShare) px; it was 192 with"
+            + " a delivery row per ring and cannot go below 96 — a room needs its"
+            + " seats and one row of floor in front of them"))
 
+        // **Height: 2x fits, 3x does not.**
+        #expect(contentHeight <= panel.height / 2, Comment(rawValue:
+            "the content band is \(contentHeight) px and 2x has \(panel.height / 2)."
+            + " It stopped fitting: the terms are \(roomsShare) px of room,"
+            + " \(badgeTop) px of badge slot and \(plateDrop) px of plate"))
+        #expect(contentHeight > panel.height / 3, Comment(rawValue:
+            "3x now fits too, at \(contentHeight) px against \(panel.height / 3)"))
+
+        // **Width: three seat columns, and the boundary is where it says.**
+        let across = Self.populationsThatFitAcrossAtTwo(layout)
+        #expect(across == 3, "a 2x frame holds \(across) seat columns, not three")
         for population in 0...layout.seatCapacity {
             // Seat 0 is framed even when empty — `RoomScene.charactersBySeat`.
             let seats = Array(0...max(0, population - 1))
@@ -196,8 +219,28 @@ struct RoomCameraTests {
             let scale = camera.largestFittingScale(
                 viewportWidth: panel.width, viewportHeight: panel.height,
                 contentWidth: span.maxX - span.minX, contentHeight: contentHeight)
-            #expect(scale == 1, "population \(population) fits at \(scale)x")
+            #expect(scale == (population <= across ? 2 : 1),
+                    "population \(population) fits at \(scale)x")
         }
+
+        // And the camera still draws `1x` everywhere, because
+        // `comfortablePopulation` is empty and preferring a closer scale is a
+        // decision this test does not get to make. [`RoomCamera.init`]
+        #expect(camera.comfortablePopulation.isEmpty)
+        for population in 0...layout.seatCapacity {
+            #expect(camera.scale(forPopulation: population) == 1)
+        }
+    }
+
+    /// How many characters a `2x` frame can hold **across**, at the shipped
+    /// pitch. Used only to make the message above say something useful.
+    static func populationsThatFitAcrossAtTwo(_ layout: RoomLayout) -> Int {
+        var fits = 0
+        for population in 1...layout.seatCapacity {
+            let span = layout.occupiedSpan(seats: 0..<population)
+            if (span.maxX - span.minX) * 2 <= 720 { fits = population }
+        }
+        return fits
     }
 
     /// **How much room a `2x` frame has across, in seats.** Three.
@@ -205,6 +248,14 @@ struct RoomCameraTests {
     /// The half of the refutation that looks answerable by rearranging the
     /// seats, pinned so the answer is a number rather than an impression. Four
     /// columns need 448 px of the 360 a `2x` frame has, and seven need 736.
+    ///
+    /// **It was a footnote and it is now the whole answer.** Height used to hold
+    /// every population to `1x` at 300 px of band; the band is 170 and this is
+    /// what is left. It is also the one term a narrower plate can move: a 64 px
+    /// pitch would make it four rather than three
+    /// [`RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:tile:)`].
+    /// Seven is not reachable at any plate width — seven columns plus
+    /// `occupiedSpan`'s padding need a pitch of 33 px, and a desk is 32.
     @Test func aCloserFrameWouldHoldThreeSeatColumnsAcross() {
         let layout = RoomLayout()
         func widthAtTwo(_ seats: Int) -> Double {
@@ -219,17 +270,47 @@ struct RoomCameraTests {
     /// **And rearranging cannot answer even that half**, because a room narrower
     /// than one column per seat is a room with two seats in one column, and the
     /// only alternative — interleaving the two rows on a stagger — has no
-    /// solution on this pitch. See `RoomLayout.isBackRow(seat:)`.
+    /// solution at any pitch this room can have. See `RoomLayout.isBackRow(seat:)`.
     ///
-    /// A staggered row clears the columns on *both* sides of it only if the
-    /// pitch is at least two plates wide. It is 96 against 71.
-    @Test func noStaggerCanInterleaveTheTwoSeatRowsOnThisPitch() {
+    /// A staggered row clears the columns on *both* sides of it only if the pitch
+    /// is at least two plates wide. It is 96 against 71 today, and the reason
+    /// that is not a coincidence of two constants is
+    /// `RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:tile:)`: the
+    /// pitch is **one** plate plus a margin, rounded up to a tile. So the second
+    /// case below is the one that matters — the refutation is re-derived at every
+    /// plate width the font could produce, rather than at the one it produces
+    /// now, and it holds at all of them.
+    @Test func noStaggerCanInterleaveTheTwoSeatRowsAtAnyPlateWidth() {
         let layout = RoomLayout()
         let pitch = layout.tile * layout.seatSpacingTiles
         let plate = SceneBitmaps.maximumNameplateWidth
         #expect(pitch < 2 * plate, "a \(pitch) px pitch would fit two \(plate) px plates")
         #expect((1..<pitch).allSatisfy { min($0, pitch - $0) < plate },
                 "some offset clears a plate on both sides after all")
+
+        // Every plate width a two-line plate could plausibly be, against the
+        // pitch that width would buy. `pitch < 2 × plate` is what has no
+        // solution, and one tile of rounding-up is never a second plate.
+        //
+        // **33 px, not 0, and the boundary is real rather than a convenience.**
+        // Below it the pitch stops being the plate's and becomes the *desk's* —
+        // `minimumSeatSpacingTiles` floors at two tiles because a seat is a
+        // character and its desk whatever the plate does — and a 64 px pitch is
+        // two plates wide once a plate is 32. A stagger would then be
+        // arithmetically available, and it would buy nothing: an interleave at
+        // offset `s` is just a room whose columns are `min(s, pitch − s)` apart,
+        // which is narrower than the narrowest spacing this formula allows. The
+        // room would be built by narrowing the pitch, not by staggering it.
+        for width in 33...120 {
+            let tiles = RoomLayout.minimumSeatSpacingTiles(
+                plateWidth: width, plateHeight: SceneBitmaps.maximumNameplateHeight,
+                tile: layout.tile)
+            let candidate = tiles * layout.tile
+            #expect(candidate < 2 * width, Comment(rawValue:
+                "a \(width) px plate buys a \(candidate) px pitch, which is two"
+                + " plates wide — a stagger would open up, and"
+                + " RoomLayout.isBackRow's refutation would stop holding"))
+        }
     }
 
     /// The ladder comes from the manifest, so a manifest that changed it would

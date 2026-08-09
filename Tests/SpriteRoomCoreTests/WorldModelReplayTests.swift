@@ -285,7 +285,7 @@ import Testing
         var agentCallDurations: [TimeInterval] = []
         for entry in entries {
             switch entry.event?.kind {
-            case let .preToolUse(id, tool) where tool == "Agent":
+            case let .preToolUse(id, tool, _) where tool == "Agent":
                 openedAt[id] = entry.receivedAt
             case let .postToolUse(id, _, _):
                 if let start = openedAt[id] {
@@ -871,9 +871,16 @@ import Testing
         "three-subagents": [
             "agentAppeared", "populationChanged",
             "callOpened",
-            "agentAppeared", "populationChanged", "callClosed", "agentLinked",
-            "callOpened", "agentAppeared", "populationChanged", "callClosed", "agentLinked",
-            "callOpened", "agentAppeared", "populationChanged", "callClosed", "agentLinked",
+            // Each dispatch's close carries two facts about the child, in the
+            // order that one payload said them: who launched it, and what it
+            // was launched to do. `agentTasked` is the `Agent` call's own
+            // `tool_input.description`, and it is behind `agentLinked` because
+            // they are halves of the same news.
+            "agentAppeared", "populationChanged", "callClosed", "agentLinked", "agentTasked",
+            "callOpened",
+            "agentAppeared", "populationChanged", "callClosed", "agentLinked", "agentTasked",
+            "callOpened",
+            "agentAppeared", "populationChanged", "callClosed", "agentLinked", "agentTasked",
             "callOpened", "callClosed", "callOpened",
             "callOpened", "callClosed", "callOpened", "callClosed",
             "callClosed", "callOpened", "callOpened", "callClosed",

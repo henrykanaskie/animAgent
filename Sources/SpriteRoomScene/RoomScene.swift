@@ -22,6 +22,15 @@ public final class RoomScene: SKScene {
     /// so the camera frames a character's seat from the moment it starts
     /// walking in rather than snapping open when it arrives.
     private var seatOf: [AgentRef: Int] = [:]
+    /// The last body state `setBody` handed each character — the director's own
+    /// word on what the data says it is doing.
+    ///
+    /// Only the report beat reads it, and only to hand the body back at the end
+    /// of the beat facing the desk again. It is remembered rather than asked of
+    /// the character because `Character.restingState` is deliberately private:
+    /// the body is set from one place and this is that place's memory of it, not
+    /// a second opinion.
+    private var restingBody: [AgentRef: BodyState] = [:]
 
     /// The scale the director asked for, from population. The viewport can
     /// only ever push this *down* the ladder, never up. [I6]
@@ -575,7 +584,7 @@ public final class RoomScene: SKScene {
             // once — there is no code path that could redraw it, which is §6
             // rule 2 enforced by there being nothing to enforce.
             placeStation(station, for: agent, at: seat)
-            // **Straight up its own column, from its own ring's delivery row.**
+            // **Straight up its own column, from the walkway.**
             // See `RoomLayout.entranceRoute(forSeat:)`: the walk-in used to run
             // one seat pitch sideways along the aisle, which is the one row
             // every character steps through, and it started on the *next ring's
@@ -587,6 +596,7 @@ public final class RoomScene: SKScene {
             character.enter(along: layout.entranceRoute(forSeat: seat))
 
         case let .setBody(agent, state, facing):
+            restingBody[agent] = state
             characters[agent]?.setResting(state, facing: facing)
 
         case let .setBadge(agent, selection):
@@ -599,34 +609,48 @@ public final class RoomScene: SKScene {
                   // `SubagentStop` and so never reports — this is the guard that
                   // says so rather than a comment claiming it. [I1]
                   seat != anchorSeat else { break }
-            // Step out of the seat into the aisle, straight down the reporter's
-            // **own column** onto its **own ring's delivery row**, along that row
-            // to the anchor, hand over, and back the same way.
+            // Stand up, step one row downstage onto the walkway — **inside the
+            // reporter's own column** — turn to the anchor, hand over, and step
+            // back up into the chair.
             //
-            // **The transit used to be the room's one unguarded window.** A
-            // reporter walking the aisle passed every station between its desk
-            // and its anchor's, and a station is 96 px from the next while the
-            // widest plate is 71 — so it was within a plate width of *some*
-            // station for most of the walk, and if that station's occupant
-            // stepped into the aisle the two plates touched. Widening the seat
-            // pitch does not close that: two characters walking one line in
-            // opposite directions cross at zero separation whatever the pitch
-            // is, and six agents at five tiles do not fit the panel anyway [S4].
-            //
-            // Giving each ring its own row closes it structurally instead. See
-            // `RoomLayout.deliveryRowY(ring:)` for the three-line proof and
-            // `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem` for the
+            // **The transit used to be the room's one unguarded window**, and
+            // then its most expensive fixture. A reporter walking the aisle to
+            // its anchor passed every station in between, and a station is a
+            // pitch from the next while the widest plate is 71 — so it was
+            // within a plate width of *some* station for most of the walk. The
+            // fix was to give every ring a row of its own to walk along, three
+            // rows and 96 px of floor, which is what the content band could not
+            // afford. Deleting the sideways leg closes the same window for
+            // nothing: with no lateral movement anywhere in the room, two
+            // characters' separation in x is a constant of the lattice. See
+            // `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)` for the
+            // proof and `theRoomHasNoLateralMovementLeftToSeparate` for the
             // arithmetic that holds it.
             let side = layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: seat)
             character.reportAndReturn(
                 out: layout.deliveryRoute(anchorSeat: anchorSeat, reporterSeat: seat),
                 facing: layout.deliveryFacing(side: side),
                 home: layout.homeRoute(forSeat: seat),
-                onFinished: {})
+                // **Sit back down facing the desk.** The beat turns the
+                // character towards its anchor, and the walk home is now purely
+                // vertical, so nothing turns it back — `Character` ends a script
+                // on `currentFacing.seated`, and a reporter to the left of its
+                // anchor would take its chair with its back to its own desk.
+                // The old lateral leg home did this by accident, for whichever
+                // half of the cast happened to walk the right way. Re-asserting
+                // the director's own last word is the deliberate version, and it
+                // is the director's word rather than a constant so that this
+                // cannot disagree with `setBody`.
+                onFinished: { [weak self, weak character] in
+                    guard let self, let character else { return }
+                    character.setResting(
+                        self.restingBody[agent] ?? .idle, facing: self.layout.seatedFacing)
+                })
 
         case let .exitCharacter(agent, style):
             guard let character = characters.removeValue(forKey: agent) else { break }
             let seat = seatOf.removeValue(forKey: agent)
+            restingBody.removeValue(forKey: agent)
             // **Every exit is a walk up the character's own column and out
             // through the back of the room.** See
             // `RoomLayout.upstageExit(forSeat:)` for why: a lateral corridor
@@ -656,11 +680,13 @@ public final class RoomScene: SKScene {
                 }
             case .report, .walkOff:
                 // No seat, or a self-report: nothing to walk to, so it just
-                // leaves. A character caught **on a delivery row** — mid-report
-                // when the session ended — comes back up its own column first,
-                // because the only clear way off a delivery row is the column it
-                // came down; cutting the corner would drag its plate diagonally
-                // across every row in between.
+                // leaves. A character caught **on the walkway** — mid-report
+                // when the session ended — comes back up to its chair first, so
+                // its exit is the one continuous ascent of its own column that
+                // every other exit is. A leaver already *in* its chair gets no
+                // leg at all — `homeRoute` reads `fromY` for exactly that, and
+                // the 0.2 s a zero-length walk costs is 14 px of the gap a
+                // refill climbing the same column is relying on.
                 character.departOffScreen(
                     via: seat.map {
                         layout.homeRoute(
@@ -817,10 +843,16 @@ public final class RoomScene: SKScene {
     var contentBand: (bottom: Double, top: Double) {
         let manifest = store.manifest
         let headTop = manifest.characters.variants.values.map(\.headTopPx).min() ?? 0
-        // Character.init parks the badge at `canvasHeight - headTop + 1` above
-        // the feet, anchored at its own bottom.
-        let badgeTop = Double(manifest.characters.canvas.height - headTop + 1)
-            + Double(manifest.badges.canvas.height)
+        // **Asked of `Character`, not recomputed here.** It used to be
+        // `canvasHeight − headTop + 1` *plus the badge canvas*, which was the
+        // slot's arithmetic copied into the camera — true only while the slot
+        // hung above the head. The slot is beside the head now and its top edge
+        // is where its bottom edge was, so the copy would have gone on reserving
+        // 34 px of empty air over every character and the band would never have
+        // fallen. The minimum `head_top_px` over the cast is the highest head and
+        // therefore the highest slot.
+        let badgeTop = Character.badgeSlotTopAboveFeet(
+            canvasHeight: manifest.characters.canvas.height, headTopPx: headTop)
         // The tallest plate the font and the glyph limits can produce, hung
         // 2 px under the feet. Asked of `SceneBitmaps` rather than recomputed
         // here: this used to be `glyphHeight + 6 + 2`, a copy of the plate's
@@ -837,9 +869,9 @@ public final class RoomScene: SKScene {
     /// Where to point the camera vertically.
     ///
     /// The band has to *fit*, but centring it wastes the difference on the
-    /// floor: the band's bottom is reserved for a character on the outermost
-    /// delivery row, and most of the time nobody is on any of them, so the
-    /// foreground is a flat field of floor while the wall above is cropped. So
+    /// floor: the band's bottom is reserved for a character standing on the
+    /// walkway, and most of the time nobody is on it, so the foreground is a
+    /// flat field of floor while the wall above is cropped. So
     /// the camera prefers to centre the **seat row's** own content and is then
     /// clamped by however much slack the scale actually left — which is zero at
     /// the tightest fitting scale, so the preference never costs a clipped
@@ -849,10 +881,12 @@ public final class RoomScene: SKScene {
     /// **The preference is measured from the seated plate, not inferred from the
     /// band.** It used to reconstruct the seated plate's bottom by subtracting
     /// the band's own depth from the seat row, which is the same number only
-    /// while the band's bottom is exactly one plate below the aisle. The delivery
-    /// rows made that false, and the bias silently weakened by the depth of the
-    /// walkway — the frame drifted down over three tiles of empty floor with no
-    /// test able to see it, because the arithmetic still agreed with itself.
+    /// while the band's bottom is exactly one plate below the walkway. The
+    /// delivery rows made that false, and the bias silently weakened by the depth
+    /// of the walkway — the frame drifted down over three tiles of empty floor
+    /// with no test able to see it, because the arithmetic still agreed with
+    /// itself. The rows are gone and the two are the same number again; the
+    /// measurement stays, because being right by coincidence is how it broke.
     func cameraY(band: (bottom: Double, top: Double), sceneHeight: Double) -> Double {
         let half = sceneHeight / 2
         let seatedPlateBottom = layout.baselineY - seatedPlateDrop

@@ -171,6 +171,7 @@ extension WorldDelta {
         switch self {
         case .agentAppeared: return "agentAppeared"
         case .agentLinked: return "agentLinked"
+        case .agentTasked: return "agentTasked"
         case .agentDeparted: return "agentDeparted"
         case .callOpened: return "callOpened"
         case .callClosed: return "callClosed"
@@ -186,6 +187,7 @@ extension WorldDelta {
         switch self {
         case let .agentAppeared(agent, _, _): return agent
         case let .agentLinked(agent, _): return agent
+        case let .agentTasked(agent, _): return agent
         case let .agentDeparted(agent): return agent
         case let .callOpened(agent, _): return agent
         case let .callClosed(agent, _, _, _): return agent

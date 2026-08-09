@@ -77,19 +77,39 @@ public enum SceneBitmaps {
 
     /// Glyphs the headline gets.
     ///
-    /// **Eleven is not a taste; it is the largest number the seat pitch allows.**
-    /// A glyph is 5 px plus 1 px of tracking, so eleven is 65 px of text plus
-    /// 6 px of plate = **71 px**, against a 96 px seat pitch — a 25 px gap
-    /// between neighbouring plates. Twelve would be 77 px and a 19 px gap, which
-    /// is exactly the width the maintainer complained read as *nearly touching*.
+    /// **Ten, and the causality behind the number has been turned round.** It
+    /// was eleven, chosen as *the largest number the 96 px seat pitch allows*:
+    /// a glyph is 5 px plus 1 px of tracking, so eleven was 65 px of text plus
+    /// 6 px of plate = 71 px, and twelve would have been 77 px against a pitch
+    /// the plate was not allowed to argue with.
     ///
-    /// The type therefore gets more glyphs than it has ever had: 8 on the M5
-    /// single-line plate (`GENERAL…`), 10 on the two-row plate that put the
-    /// discriminator first (`GENERAL-P…`), 11 now (`GENERAL-PU…`). The ellipsis
-    /// stays because it is the honest fallback — see
+    /// The pitch is no longer the given. The plate is **the widest thing any
+    /// character owns** — a body is 32 px, a desk 32–40 — so it is the plate
+    /// that sets the pitch and not the other way round, and the pitch is
+    /// quantised to whole 32 px tiles. That makes **64 the only target worth
+    /// hitting**: a plate of 65 and a plate of 95 both buy the same three-tile
+    /// pitch, so the entire range 65…95 is width spent for nothing.
+    ///
+    /// Ten glyphs at `platePadX` 2 is `59 + 4 =` **63 px**, which clears 64 with
+    /// a pixel to spare. Eleven at the same padding is 69 and clears nothing.
+    /// The cost is one character of the type — `GENERAL-P…` where it read
+    /// `GENERAL-PU…` — and it is paid because that character has never been the
+    /// difference between two agents in this cast: the names that truncate at
+    /// all (`general-purpose`, `claude-code-guide`, `security-reviewer`) are
+    /// already separated inside the first eight, and the ones that collide
+    /// (`claude-code-*`) collide at eleven too.
+    ///
+    /// **This does not by itself buy a 64 px pitch**, and the plate is no longer
+    /// the reason it cannot: a station's own furniture spans 92 px of the pitch
+    /// [`RoomLayout.stationPropPosition`], and a beside-the-head badge with its
+    /// `×N` reaches 52 px from the seat centre against the 32.5 px a 64 px pitch
+    /// would leave [`Character.badgeSlotTopAboveFeet`]. What it does is take the
+    /// nameplate off that list.
+    ///
+    /// The ellipsis stays because it is the honest fallback — see
     /// `SceneDirector.nameplate(for:)` for why no abbreviation scheme replaced
     /// it.
-    public static let nameplateTypeGlyphLimit = 11
+    public static let nameplateTypeGlyphLimit = 10
 
     /// Glyphs the tag line gets, at 1×.
     ///
@@ -99,8 +119,16 @@ public enum SceneBitmaps {
     /// the headline's own budget, so the tag never decides the plate's width.
     public static let nameplateTagGlyphLimit = 5
 
-    /// 1 px border + 2 px of air on each side.
-    private static let platePadX = 3
+    /// 1 px border + 1 px of air on each side.
+    ///
+    /// **The second pixel of air was the cheapest 2 px in the room and it is
+    /// gone.** It bought nothing legibility owns: the glyphs still never touch
+    /// the border, which is the property that matters at `1x` — ink against a
+    /// frame merges into it. What it cost was width, and width is what decides
+    /// the seat pitch. The vertical padding is *not* cut for the same reason
+    /// read the other way: `plateFootY` is the only thing between the tag's
+    /// glyphs and the bottom border, so there the second pixel **is** the air.
+    private static let platePadX = 2
     /// Air above and below the tag row. One pixel, not two, because height is
     /// the axis under pressure: the plate has to stay shorter than the tile
     /// between the aisle and the seat row. See `maximumNameplateHeight`.
@@ -157,8 +185,8 @@ public enum SceneBitmaps {
     ///
     /// **The hierarchy is carried by position and field, not by size, and that
     /// is forced.** The type is arbitrary user text — `general-purpose`,
-    /// `claude-code-guide` — and the plate has 66 px of interior before it
-    /// starts eating the gap between two seats. 66 px at 2× is five glyphs:
+    /// `claude-code-guide` — and the plate has 61 px of interior before it
+    /// starts eating the gap between two seats. 61 px at 2× is five glyphs:
     /// `GENE…`, `SECU…`, `CLAU…`, which is not an identification and collapses
     /// `claude-code-guide` onto every other `claude-code-*`. So there is no
     /// horizontal magnification available to the line that most needs it.

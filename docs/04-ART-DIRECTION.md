@@ -231,8 +231,8 @@ Composed, not sourced:
 
   It said "from the room edge" until M6, and that was true of the aisle layout
   it was written for. The room is a lattice now: **every vertical move goes
-  upstage**, so a character walks in down its own seat's column from its ring's
-  delivery row, and out the same way. The edge is not involved, and the start
+  upstage**, so a character walks in up its own seat's column from the walkway,
+  and out the same way. The edge is not involved, and the start
   point is inside the frame by construction — which is how M5's "the walk-in is
   visible from its first frame" survived the change instead of being traded for
   it.
@@ -682,10 +682,19 @@ The type could not simply take the 2× the discriminator gave up.
 - **The two seat rows do not buy any width, though they look as if they should.**
   Ring parity puts adjacent columns on different rows, so no two *seated* plates
   share a horizontal strip at all. But a back-row character walking down its own
-  column to the aisle crosses the front row's line one pitch from a front-row
-  seat, and two reporters of one ring stand a pitch apart on the same delivery
-  row. Both are same-row pairs at exactly one pitch. The pitch is still the
+  column to the walkway crosses the front row's line one pitch from a front-row
+  seat, and two reporters in adjacent columns stand a pitch apart on the
+  walkway. Both are same-row pairs at exactly one pitch. The pitch is still the
   bound. [`RoomLayout.isBackRow`]
+
+  **And the pitch is the plate's number, not a composition one.** A body is 32 px
+  of canvas over about 18 px of ink and a desk's content box is 32 px; nothing in
+  the room needs 96 except two plates that must not overlap. So the pitch is now
+  stated as a function of the plate —
+  `RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:tile:)`, one plate
+  plus the margin the row axis already leaves, rounded up to a whole tile — and
+  narrowing the plate is a way to narrow the room. It returns the shipped 3 tiles
+  today; it returns 2 once `plateWidth + tile − plateHeight ≤ 64`.
 
   > **Stale figures, named rather than quietly corrected.** The plate width these
   > arguments quote is **77 px** in three places — the "stagger" paragraph and
@@ -791,13 +800,13 @@ job is a glance:
   in 400. The top rung of the I6 ladder was dead code in the product.
 
 The camera now fits a **content band**, derived from the manifest rather than
-written down: from the bottom of the lowest nameplate (a character standing in
-the aisle) to the top of the tallest badge. One agent working now fills the
+written down: from the bottom of the lowest nameplate (a character standing on
+the walkway) to the top of the tallest badge. One agent working now fills the
 panel at `3x`, which is the case a glance surface exists for.
 
 Two smaller calls in the same pass:
 
-- Vertical slack is biased *upwards*. The band's bottom is reserved for an aisle
+- Vertical slack is biased *upwards*. The band's bottom is reserved for a walkway
   character and most of the time nobody is there, so centring the band spends
   the difference on empty foreground floor. The bias is clamped by the slack the
   scale actually left, so it can never crop a plate or a badge.
@@ -913,23 +922,27 @@ The "carrying characters or furniture" row is the top of the tallest backdrop
 minus the bottom of the lowest seated plate, so it moves with the theme: 234 px
 for `office`'s 46 px chart board, 268 px for `broadcast`'s 80 px softbox.
 
-**What is left, and it is not small: 128 px — 32% of the panel — is foreground
-reserve.** The frame's bottom edge sits exactly on `contentBand.bottom`, which is
-the lowest pixel of a nameplate belonging to a character on the **outermost
-delivery row**. Nothing is wasted there; it is simply empty whenever nobody is
-walking, which is most of the time.
+**That foreground reserve was 128 px — 32% of the panel — and it is 32 px now.**
+The frame's bottom edge sits exactly on `contentBand.bottom`, which is the lowest
+pixel of a nameplate belonging to a character standing on the **walkway**.
+Nothing is wasted there; it is simply empty whenever nobody is out of a chair,
+which is most of the time.
 
-It is forced by arithmetic and the arithmetic is worth writing down, because the
-obvious fixes do not work:
+96 px of it was one delivery row per ring, and the paragraph that used to stand
+here said "none of the three is negotiable" — three same-side reporters (seats 1,
+3 and 5) must not share a row, and rows are a tile apart. That was true of the
+beat it was written for, and the beat changed: **a reporter no longer walks to
+its anchor.** It steps one row downstage of its own chair, in its own column,
+turns to face the anchor and hands over there. With no lateral leg anywhere in
+the room there is nothing to give a corridor to, and the three rows went with the
+walk. The content band fell from 300 px to 204. [`RoomLayout.deliveryPosition`]
+
+What is left is forced, and the arithmetic is worth writing down:
 
 - The camera cannot go higher. `cameraY` is already clamped at `band.bottom +
   half`; one pixel more crops a plate.
-- Making the band's bottom follow the deepest *occupied* ring buys 16 px, because
-  the upward preference binds first — and it costs a vertical camera jump on
-  every arrival that opens a new ring.
-- There are three delivery rows because three same-side reporters (seats 1, 3, 5)
-  must not share one, they must be a tile apart for their plates to clear, and a
-  tile is the grid. None of the three is negotiable.
+- The walkway itself cannot go. It is where every arrival starts, and the one row
+  of floor a room needs in front of its desks.
 - Nothing decorative may be drawn there. That is not timidity — it is where every
   arrival, departure and report walk happens, and a prop in a corridor is a prop
   a character walks through.
