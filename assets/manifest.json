@@ -1512,6 +1512,2993 @@
         "accent_hex": "#FF4DC4",
         "accent_provenance": "assigned"
       }
+    },
+    "costumes": {
+      "note": "Two tiers. `roles` is keyed on the exact agent_type string and may translate it \u2014 a test-engineer in a lab coat is the room repeating a name the user chose. `assignable` is the pool an unrecognised type is hashed over and nothing in it asserts, which is the question_mark rule on the character layer. [I1]",
+      "sets": {
+        "apron": {
+          "title": "studio apron",
+          "asserts": true,
+          "reads": "white shirt under a gold studio apron; block colour (220,195,152)",
+          "assertion": "this agent works in a studio. Translating `art` in `art-director`.",
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_09_32x32_02.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/apron/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/apron/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/apron/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/apron/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/apron/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/apron/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/apron/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/apron/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "field": {
+          "title": "field shirt",
+          "asserts": true,
+          "reads": "open plaid shirt over a white tee, the darkest costume in the set; block colour (158,115,110)",
+          "assertion": "this agent goes out and looks for things. Translating the word `Explore`.",
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_18_32x32_01.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/field/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/field/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/field/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/field/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/field/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/field/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/field/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/field/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/field/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/field/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/field/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/field/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/field/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/field/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/field/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/field/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/field/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/field/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/field/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/field/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/field/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/field/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/field/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/field/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/field/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/field/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/field/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/field/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/field/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "hivis": {
+          "title": "hi-vis work top",
+          "asserts": true,
+          "reads": "solid amber work top with white cuffs; block colour (241,170,50)",
+          "assertion": "this agent inspects what was built. Translating `build` and `verifier` in `build-verifier` into site hi-vis.",
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_16_32x32_01.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/hivis/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/hivis/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/hivis/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/hivis/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/hivis/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/hivis/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/hivis/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/hivis/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "lab": {
+          "title": "lab coat",
+          "asserts": true,
+          "reads": "long white coat over white trousers; block colour (225,220,225)",
+          "assertion": "this agent tests things. Translating the word `test` in `test-engineer` into a laboratory coat, which is the one mapping the maintainer named.",
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_08_32x32_01.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/lab/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/lab/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/lab/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/lab/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/lab/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/lab/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/lab/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/lab/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "n01": {
+          "title": "plain shirt",
+          "asserts": false,
+          "reads": "teal; block colour (61,131,125), value 0.563",
+          "assertion": null,
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_20_32x32_03.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n01/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n01/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n01/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n01/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n01/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n01/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/n01/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n01/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "n02": {
+          "title": "plain shirt",
+          "asserts": false,
+          "reads": "olive; block colour (112,143,105), value 0.618",
+          "assertion": null,
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_10_32x32_05.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n02/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n02/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n02/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n02/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n02/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n02/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/n02/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n02/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "n03": {
+          "title": "plain shirt",
+          "asserts": false,
+          "reads": "violet; block colour (121,111,158), value 0.670",
+          "assertion": null,
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_27_32x32_03.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n03/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n03/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n03/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n03/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n03/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n03/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/n03/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n03/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "n04": {
+          "title": "plain shirt",
+          "asserts": false,
+          "reads": "pale blue; block colour (112,161,178), value 0.699",
+          "assertion": null,
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_23_32x32_03.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n04/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n04/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n04/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n04/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n04/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n04/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/n04/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n04/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "n05": {
+          "title": "plain shirt",
+          "asserts": false,
+          "reads": "red; block colour (206,91,67), value 0.809",
+          "assertion": null,
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_01_32x32_04.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n05/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n05/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n05/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n05/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n05/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n05/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/n05/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n05/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "n06": {
+          "title": "plain shirt",
+          "asserts": false,
+          "reads": "pink; block colour (198,142,150), value 0.833",
+          "assertion": null,
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_21_32x32_04.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n06/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n06/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n06/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n06/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n06/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n06/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/n06/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/n06/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "office": {
+          "title": "plain office shirt",
+          "asserts": true,
+          "reads": "plain buttoned shirt, no role vocabulary at all; block colour (161,166,163)",
+          "assertion": "nothing beyond `no speciality`, which is what the name `general-purpose` says. It is deliberately the least dressed of the recognised six, and it is in `roles` rather than the pool because it is still a translation of a name the user wrote.",
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_12_32x32_03.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/office/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/office/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/office/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/office/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/office/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/office/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/office/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/office/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/office/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/office/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/office/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/office/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/office/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/office/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/office/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/office/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/office/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/office/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/office/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/office/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/office/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/office/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/office/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/office/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/office/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/office/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/office/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/office/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/office/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "overalls": {
+          "title": "engineer's dungarees",
+          "asserts": true,
+          "reads": "blue bib dungarees with a brass buckle; block colour (93,137,222)",
+          "assertion": "this agent is an engineer. Translating the word `engineer`, which is the whole of what `ingest-`, `scene-` and `ui-engineer` have in common. **Three types share this one costume on purpose** \u2014 same costume means same kind of worker, which is ADR-002 4's ratified reading of four identical desks. Manufacturing three costumes for three names that differ only in their prefix would be decoration pretending to be information.",
+          "layers": [
+            {
+              "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_19_32x32_01.png",
+              "states": {
+                "idle": {
+                  "source_pose": "idle",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/overalls/l0/idle_right_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_right_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_right_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_right_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_right_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/overalls/l0/idle_up_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_up_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_up_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_up_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_up_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/overalls/l0/idle_left_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_left_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_left_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_left_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_left_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/overalls/l0/idle_down_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_down_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_down_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_down_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_down_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/idle_down_05.png"
+                    ]
+                  }
+                },
+                "working": {
+                  "source_pose": "sit",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 3,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/overalls/l0/sit_right_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/sit_right_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/sit_right_02.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/overalls/l0/sit_left_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/sit_left_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/sit_left_02.png"
+                    ]
+                  }
+                },
+                "walk": {
+                  "source_pose": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "deliver": {
+                  "source_pose": "gift",
+                  "loop": false,
+                  "fps": 8,
+                  "frame_count": 10,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_05.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_06.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_07.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_08.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_right_09.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_05.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_06.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_07.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_08.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_up_09.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_05.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_06.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_07.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_08.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_left_09.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_05.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_06.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_07.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_08.png",
+                      "assets/processed/costumes/32x32/overalls/l0/gift_down_09.png"
+                    ]
+                  }
+                },
+                "spawn": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_05.png"
+                    ]
+                  }
+                },
+                "depart": {
+                  "composed_from": "walk",
+                  "loop": true,
+                  "fps": 8,
+                  "frame_count": 6,
+                  "frames": {
+                    "right": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_right_05.png"
+                    ],
+                    "up": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_up_05.png"
+                    ],
+                    "left": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_left_05.png"
+                    ],
+                    "down": [
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_00.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_01.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_02.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_03.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_04.png",
+                      "assets/processed/costumes/32x32/overalls/l0/walk_down_05.png"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "roles": {
+        "Explore": "field",
+        "art-director": "apron",
+        "build-verifier": "hivis",
+        "general-purpose": "office",
+        "ingest-engineer": "overalls",
+        "scene-engineer": "overalls",
+        "test-engineer": "lab",
+        "ui-engineer": "overalls"
+      },
+      "assignable": [
+        "n01",
+        "n02",
+        "n03",
+        "n04",
+        "n05",
+        "n06"
+      ]
     }
   },
   "room": {

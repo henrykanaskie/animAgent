@@ -375,7 +375,11 @@ struct CostumeTests {
     /// this app has always drawn.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aManifestWithNoWardrobeDressesNobody() throws {
-        let manifest = try SceneFixtures.manifest()
+        // The shipped manifest now carries a wardrobe, so the fallback needs a
+        // manifest that genuinely lacks one. Read off the shipped file this
+        // test was asserting the *absence of the feature*, which stops being a
+        // fallback check the moment the feature exists.
+        let manifest = try ManifestFixtures.undressed(try SceneFixtures.manifest())
         #expect(manifest.characters.costumes.isEmpty)
         var director = SceneDirector(manifest: manifest)
         let cast = Self.cast(3)
@@ -497,17 +501,43 @@ struct CostumeTests {
 // MARK: - Contract
 
 /// What a manifest carrying a wardrobe has to satisfy. Runs on a fresh clone —
-/// it asks what the manifest *declares*, and the shipped one declares nothing,
-/// which is a legal state and is asserted as one rather than skipped past.
+/// it asks what the manifest *declares*, never what is on disk.
 struct CostumeContractTests {
 
-    @Test func theShippedManifestDeclaresNoWardrobeAndThatIsLegal() throws {
+    /// The shipped manifest declares a wardrobe, and every part of the
+    /// resolution reaches it.
+    ///
+    /// This asserted the **opposite** until the wardrobe landed: "the shipped
+    /// manifest declares nothing, which is a legal state and is asserted as one
+    /// rather than skipped past". That was the right assertion to write while
+    /// the art did not exist, and it is exactly the shape that let the station
+    /// spend three months resolved, stored and drawn by nothing — a test
+    /// pinning an empty spec reads as coverage and is the absence of it.
+    ///
+    /// So it is inverted rather than deleted, and it now fails in **both**
+    /// directions: an empty wardrobe fails here, and a wardrobe the resolver
+    /// cannot reach fails on the last line.
+    @Test func theShippedManifestDeclaresAWardrobeTheResolverCanReach() throws {
         let manifest = try SceneFixtures.manifest()
         let costumes = manifest.characters.costumes
-        #expect(costumes.isEmpty)
-        #expect(costumes.roles.isEmpty)
-        #expect(costumes.assignableIDs.isEmpty)
-        #expect(ThemeSelector.costume(agentID: "a1", agentType: "Explore", in: costumes) == nil)
+
+        #expect(!costumes.isEmpty, "the shipped manifest declares no wardrobe")
+        #expect(!costumes.roles.isEmpty)
+        #expect(!costumes.assignableIDs.isEmpty)
+
+        // A recognised type wears what its name says; the main thread wears
+        // nothing, because it has no `agent_id` and therefore no type.
+        let recognised = try #require(costumes.roles.keys.sorted().first)
+        #expect(ThemeSelector.costume(
+            agentID: "a1", agentType: recognised, in: costumes) == costumes.roles[recognised])
+        #expect(ThemeSelector.costume(agentID: nil, agentType: nil, in: costumes) == nil)
+
+        // An unrecognised type still resolves — to the neutral pool, never to
+        // nothing, or the hash half of the two tiers is unreachable.
+        let unknown = ThemeSelector.costume(
+            agentID: "a2", agentType: "a-type-nobody-anticipated", in: costumes)
+        #expect(unknown != nil)
+        #expect(costumes.assignableIDs.contains(try #require(unknown)))
     }
 
     /// **No costume the hash can reach may assert**, over whatever the manifest
@@ -637,6 +667,22 @@ enum ManifestFixtures {
     ///
     /// - Parameter truncateWorkingTo: drops the first layer's `working` frames
     ///   to this many, to exercise the frame-count guard.
+    /// The shipped manifest with its **wardrobe removed**, decoded for real.
+    ///
+    /// Exists because the degradation test used to read the shipped manifest
+    /// directly and assert it declared nothing — which was true until the
+    /// wardrobe landed, and then the test was asserting the absence of the
+    /// feature rather than the presence of the fallback. A manifest that
+    /// predates costumes is still a real thing to load, so it is built by
+    /// stripping the key and decoding, not by hand.
+    static func undressed(_ manifest: Manifest) throws -> Manifest {
+        var object = try raw()
+        var characters = object["characters"] as? [String: Any] ?? [:]
+        characters.removeValue(forKey: "costumes")
+        object["characters"] = characters
+        return try load(object)
+    }
+
     static func dressed(_ manifest: Manifest, truncateWorkingTo: Int? = nil) throws -> Manifest {
         var object = try raw()
         guard var characters = object["characters"] as? [String: Any],
