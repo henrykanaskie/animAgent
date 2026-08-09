@@ -197,18 +197,21 @@ enum SceneArt {
     /// drawn. One is `CostumeContractTests`, which opens every frame a declared
     /// costume names.
     static let expectedGatedTestCount = 49
-}
 
-/// Always runs, in both modes, and never fails for the absence of art.
-///
-/// A gate alone would only relocate the dishonesty: a suite that goes green on
-/// a machine with no art has reported success having verified nothing about it.
-/// This prints which of the two runs actually happened.
-struct ArtAvailabilityTests {
-
-    @Test func theSuiteSaysOutLoudWhetherItCheckedTheArt() {
-        let survey = SceneArt.survey
-        let gated = SceneArt.gatedTestCount
+    /// The notice, as a pure function of what was surveyed, so the two branches
+    /// this machine cannot reach can still be rendered and asserted on.
+    ///
+    /// It was inline in `theSuiteSaysOutLoudWhetherItCheckedTheArt` until now,
+    /// which meant the text that exists to make a green run unambiguous was
+    /// itself unpinned: on a machine with art, the ABSENT and NO MANIFEST
+    /// branches were never evaluated by anything. Mirrors
+    /// `PanelFixtures.notice(survey:gated:required:)` idiom for idiom, because
+    /// the two gates are meant to read the same way.
+    ///
+    /// Rendering a branch is not the same as proving the skip it describes —
+    /// see `theAbsentNoticeSaysTheRunVerifiedNothing`, which is a text test and
+    /// says so.
+    static func notice(survey: Survey, gated: Int, required: Bool) -> String {
         let rule = String(repeating: "=", count: 78)
         var lines = [rule]
 
@@ -232,13 +235,13 @@ struct ArtAvailabilityTests {
             lines.append("  packs, not redistributable); only assets/manifest.json is tracked.")
             if let first = survey.missingPaths.first { lines.append("  First missing: \(first)") }
             // The notice has to know which mode it is in, exactly as
-            // `PanelWindowServer.notice(survey:gated:required:)` does — the two
+            // `PanelFixtures.notice(survey:gated:required:)` does — the two
             // gates mirror each other idiom for idiom. Printing "set this to
             // make it a failure" directly above the failure that variable has
             // just caused is the kind of line that teaches people to stop
             // reading the notice, and the notice is the whole mechanism by
             // which a green run is unambiguous.
-            if SceneArt.isRequired {
+            if required {
                 lines.append("  SPRITE_ROOM_REQUIRE_ART is SET, so this is a FAILURE below.")
             } else {
                 lines.append(
@@ -246,7 +249,43 @@ struct ArtAvailabilityTests {
             }
         }
         lines.append(rule)
-        print(lines.joined(separator: "\n"))
+        return lines.joined(separator: "\n")
+    }
+
+    /// Why a `SPRITE_ROOM_REQUIRE_ART=1` run failed, as a pure function, or
+    /// `nil` when it has no reason to.
+    ///
+    /// **The two unavailable states report separately, and that is the fix.**
+    /// They shared one message until now, so a broken `assets/manifest.json`
+    /// failed with "0 of 0 paths missing" — both counts are zero precisely
+    /// because nothing parsed to declare a path to look for. `manifest.json` is
+    /// tracked while the rest of `assets/` is gitignored, so the two states need
+    /// opposite instructions: buy and place the art, versus repair a checkout.
+    /// A reader given the missing-art sentence goes hunting for absent files
+    /// when the file that is wrong is the one in the repository.
+    static func requirementFailure(survey: Survey, required: Bool) -> String? {
+        guard required, !survey.isAvailable else { return nil }
+        if let error = survey.manifestError {
+            return "SPRITE_ROOM_REQUIRE_ART is set and assets/manifest.json could not be"
+                + " read, so no path was ever declared to look for: \(error)"
+        }
+        return "SPRITE_ROOM_REQUIRE_ART is set but the art is not on disk:"
+            + " \(survey.missingPaths.count) of \(survey.declaredPaths) paths missing,"
+            + " first \(survey.missingPaths.first ?? "unknown")"
+    }
+}
+
+/// Always runs, in both modes, and never fails for the absence of art.
+///
+/// A gate alone would only relocate the dishonesty: a suite that goes green on
+/// a machine with no art has reported success having verified nothing about it.
+/// This prints which of the two runs actually happened.
+struct ArtAvailabilityTests {
+
+    @Test func theSuiteSaysOutLoudWhetherItCheckedTheArt() {
+        let survey = SceneArt.survey
+        let gated = SceneArt.gatedTestCount
+        print(SceneArt.notice(survey: survey, gated: gated, required: SceneArt.isRequired))
 
         // Never a failure for absent art — that is the whole point. These two
         // are about the gate's own integrity.
@@ -259,10 +298,15 @@ struct ArtAvailabilityTests {
         // `Issue.record` rather than `#expect(survey.isAvailable)`: the latter
         // renders the whole survey into the failure, which on a machine with no
         // art means all 1052 missing paths in one unreadable line.
-        if SceneArt.isRequired && !survey.isAvailable {
-            let why = "SPRITE_ROOM_REQUIRE_ART is set but the art is not on disk:"
-                + " \(survey.missingPaths.count) of \(survey.declaredPaths) paths missing,"
-                + " first \(survey.missingPaths.first ?? survey.manifestError ?? "unknown")"
+        //
+        // **The two unavailable states are reported separately.** They used to
+        // share one message, so a broken `assets/manifest.json` — which is
+        // tracked, and so is a corrupt checkout rather than the expected
+        // missing-art state — failed with "0 of 0 paths missing": both counts
+        // are zero precisely because nothing could be parsed to declare a path.
+        // That sentence sends a reader looking for absent files when the file
+        // that is wrong is the one in the repository.
+        if let why = SceneArt.requirementFailure(survey: survey, required: SceneArt.isRequired) {
             Issue.record(Comment(rawValue: why))
         }
     }
