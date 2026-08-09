@@ -148,11 +148,17 @@ manifest carries enough for the scene to. Both are documented in full in
 `docs/04-ART-DIRECTION.md`, including a placement bug fixed in `preview-theme.py`
 at M6b that had every theme accepted against a wrong picture.
 
-> **`build-manifest.py` takes no arguments**, so typing `--help` regenerates the
-> manifest rather than printing usage. It is safe: with the packs absent it
-> refuses to write, exits 2, and leaves the tracked manifest untouched. An
-> earlier version did overwrite it with an empty shell and exit 0 — that is
-> fixed, and the guard is verified to fire.
+> **`build-manifest.py` takes no flag that changes what it emits.** Its only
+> argument is `--out`, which redirects the write — that is how "a clean rerun
+> reproduces the committed manifest byte for byte" is checked, by generating to a
+> temporary file and `cmp`ing. Two guards keep a bad rerun from destroying the
+> one art artefact that is tracked in git: with the packs absent it refuses to
+> write, exits 2, and leaves the manifest untouched; and it refuses the same way
+> if the manifest already on disk declares a section — the wardrobe, the
+> stations, the themes — that the run about to replace it does not. An earlier
+> version overwrote the manifest with an empty shell and exited 0, and a later
+> one deleted the wardrobe whenever `--costumes` was left off. Both are fixed and
+> both guards are verified to fire.
 
 ### 3. Build and check
 

@@ -714,25 +714,224 @@ COSTUMES = {
 # `Manifest` keys `roles` on the exact text the user wrote with no folding and
 # no trimming — the same rule `ThemeSelector` follows for `cwd`.
 #
-# The six names are this repo's own `.claude/agents/`; `Explore` and
-# `general-purpose` are the two non-empty `agent_type` values that actually
-# appear in `fixtures/`. A name not in this table gets a neutral costume, and
-# that is the whole of the second tier.
+# **Keyed first on the agent types a stranger's session actually produces.**
+# `Explore`, `Plan`, `general-purpose`, `claude`, `claude-code-guide` and
+# `statusline-setup` are Claude Code's own; the two non-empty values in
+# `fixtures/` are `Explore` and `general-purpose`. ADR-002 §14c is the finding
+# that forced this: the first version of the table was keyed almost entirely on
+# *this repository's invented subagent names*, so the expressive half of the
+# wardrobe was addressed to an audience of one. Those names are still here, at
+# the end of their costume's group, because they still run here — but they are
+# no longer what the table is for.
+#
+# The middle band is the conventional names a user picks by hand for the same
+# jobs (`tester`, `reviewer`, `developer`, `designer`). Each is a translation of
+# a word the user themself wrote, which is the only licence a costume asserts
+# under [I1]; a name nobody anticipated still gets a neutral costume from the
+# pool, and that is the whole of the second tier.
+#
+# Insertion order is the emitted order and is grouped by costume, so a reviewer
+# reads "which names wear the lab coat" in one glance rather than reassembling
+# it from an alphabetical list. `scripts/build-manifest.py` preserves it.
 COSTUME_ROLES = {
-    "art-director": "apron",
+    "Explore": "field",
+
+    "general-purpose": "office",
+    "Plan": "office",
+    "claude": "office",
+    "claude-code-guide": "office",
+    "statusline-setup": "office",
+
+    "test-engineer": "lab",
+    "tester": "lab",
+    "verifier": "lab",
+    "qa": "lab",
+
     "build-verifier": "hivis",
+    "reviewer": "hivis",
+    "code-reviewer": "hivis",
+    "security-reviewer": "hivis",
+
+    "engineer": "overalls",
+    "developer": "overalls",
     "ingest-engineer": "overalls",
     "scene-engineer": "overalls",
     "ui-engineer": "overalls",
-    "test-engineer": "lab",
-    "Explore": "field",
-    "general-purpose": "office",
+
+    "art-director": "apron",
+    "designer": "apron",
 }
 
 # The pool an unrecognised `agent_type` is hashed over. Every member must carry
 # `asserts: None` above; `CostumeContractTests.noAssertingCostumeIsInThePool`
 # fails the build if one does not.
 COSTUME_ASSIGNABLE = ("n01", "n02", "n03", "n04", "n05", "n06")
+
+# ---------------------------------------------------------------------------
+# Stations — the workspace one agent sits at [ADR-002 §4, §7, §14c]
+# ---------------------------------------------------------------------------
+
+# The same two-tier shape as the wardrobe above, and for the same reason: a
+# station reached from `STATION_ROLES` is the room repeating a name the user
+# wrote and may assert what kind of worker this is; one reached by the hash may
+# not, so every member of `STATION_ASSIGNABLE` carries `asserts: False`.
+#
+# `index` is a Modern Office single. The pack ships **no** names for its 339
+# singles — no filenames, no layer or slice names in its .ase, no tags — so a
+# role cannot be read off the disk and each of these was identified by rendering
+# `assets/processed/room/32x32/singles` with `scripts/contact-sheet.py --office`
+# and looking at it at 3x and 6x. The index is recorded so anyone can re-open the
+# same PNG and disagree. Nothing here needs cutting: these are the singles the
+# room pass already writes, so a station adds a *reading* of the download and not
+# a byte of it.
+#
+# `index: None` means the station carries no prop at all. That is `default`'s
+# whole content and it is deliberate — the honest picture of an agent we cannot
+# name is the empty desk every seat already has. [I1]
+#
+# `desk` and `chair` are absent from every entry on purpose. They fall back to
+# the theme's own `props.roles` at decode, so a station changes what stands
+# BESIDE the seat and never what the theme's furniture looks like. §14c.
+#
+# Insertion order is the emitted order: the two stations reached by the identity
+# rule first, then the asserting ones, then the neutral pool.
+STATIONS = {
+    "main": {
+        "title": "the main desk",
+        "index": 98,
+        "reads": "tall leafy pot plant, floor standing",
+        "asserts": False,
+        "what": "the main thread's own seat. Reached only by the identity rule - "
+                "agent_id absent IS the main agent - never by the hash, so it says "
+                "which thread this is and nothing about what kind of work it does.",
+    },
+    "default": {
+        "title": "an unmarked desk",
+        "index": None,
+        "reads": None,
+        "asserts": False,
+        "what": "a subagent whose agent_type we were not told, or were told was "
+                "empty. It carries no prop at all, because the honest picture for an "
+                "agent we cannot name is the empty desk every seat already has. This "
+                "is the question_mark of furniture. [I1]",
+    },
+    # -- asserting: reached only from STATION_ROLES ---------------------------
+    "survey": {
+        "title": "the survey desk",
+        "index": 331,
+        "reads": "hiking rucksack, packed, standing on the floor",
+        "asserts": True,
+        "what": "a packed rucksack standing at the desk: the agent that goes out, "
+                "looks around and comes back. Reached only from `roles`, where the "
+                "key is the exact agent_type the user's session produced.",
+    },
+    "screens": {
+        "title": "the screen desk",
+        "index": 275,
+        "reads": "twin monitors on a floor pedestal, angled",
+        "asserts": True,
+        "what": "two monitors on a floor stand: the agent that works at a machine. "
+                "The commonest station in any real room, because general-purpose is "
+                "the commonest agent_type in every captured session.",
+    },
+    "drafting": {
+        "title": "the drafting desk",
+        "index": 155,
+        "reads": "stack of paper reams on the floor",
+        "asserts": True,
+        "what": "a stack of paper reams: the agent whose output is a document. Plan "
+                "writes a plan; the room says so with paper and nothing else.",
+    },
+    "machine": {
+        "title": "the machine desk",
+        "index": 168,
+        "reads": "floor-standing office copier with an output tray",
+        "asserts": True,
+        "what": "a floor-standing copier: the agent that runs something and reads "
+                "what comes out of it.",
+    },
+    "reference": {
+        "title": "the reference desk",
+        "index": 204,
+        "reads": "two-drawer filing cabinet, floor standing",
+        "asserts": True,
+        "what": "a filing cabinet: the agent whose job is to look things up.",
+    },
+    # -- neutral: the pool the hash draws from --------------------------------
+    "n01": {
+        "title": "a desk with a plant",
+        "index": 100,
+        "reads": "snake plant in a pot, floor standing",
+        "asserts": False,
+        "what": "neutral. Says only `this is a different agent from that one`, which "
+                "is exactly and only what an agent_type nobody anticipated licenses. "
+                "[I1]",
+    },
+    "n02": {
+        "title": "a desk by the cooler",
+        "index": 173,
+        "reads": "water cooler, bottle on a stand",
+        "asserts": False,
+        "what": "neutral. See n01.",
+    },
+    "n03": {
+        "title": "a desk with a case",
+        "index": 147,
+        "reads": "briefcase, standing on the floor",
+        "asserts": False,
+        "what": "neutral. See n01.",
+    },
+    "n04": {
+        "title": "a desk by the locker",
+        "index": 202,
+        "reads": "tall single locker, floor standing",
+        "asserts": False,
+        "what": "neutral. See n01.",
+    },
+}
+
+# How every station prop above was identified, in one place because the answer
+# is the same for all of them and a per-entry copy would be ten places for it to
+# drift.
+STATION_IDENTIFIED_BY = ("rendered from assets/processed/room/32x32/singles with "
+                         "scripts/contact-sheet.py --office and inspected at 3x and "
+                         "6x; the pack ships no names for its singles")
+
+# `agent_type` -> station id. Exact match, never a prefix rule, same as
+# COSTUME_ROLES. Claude Code's own agent types first — those are the ones a
+# stranger's session produces, and `Explore` and `general-purpose` are the two
+# non-empty values in `fixtures/` — then this repository's own names.
+#
+# The empty string is deliberately **absent**: it takes the `default` branch
+# before `roles` is consulted, because an agent we cannot name may not be given
+# a meaning. [I1]
+STATION_ROLES = {
+    "Explore": "survey",
+    "Plan": "drafting",
+    "claude": "screens",
+    "claude-code-guide": "reference",
+    "general-purpose": "screens",
+
+    "build-verifier": "machine",
+    "ingest-engineer": "screens",
+    "planner": "drafting",
+    "scene-engineer": "screens",
+    "test-engineer": "machine",
+    "ui-engineer": "screens",
+}
+
+# The pool an unrecognised `agent_type` is hashed over. Stated rather than
+# inferred from "the ids that are numbers", because under that convention
+# renaming a station silently changed what the hash was allowed to say —
+# ADR-002 §14c. Every member must carry `asserts: False` above;
+# `scripts/build-manifest.py` refuses to write a manifest where one does not.
+STATION_ASSIGNABLE = ("n01", "n02", "n03", "n04")
+
+# A station prop stands one tile to the character's left on a 96px seat pitch,
+# between the neighbouring desk and the character's own 32px body, so its
+# measured content box may be at most this wide. Derived in ADR-002 §14c and
+# checked against the art at manifest time.
+STATION_PROP_MAX_W = 32
 
 # ---------------------------------------------------------------------------
 # Badge rectangles — MEASURED off UI_32x32.png by connected-component bounds

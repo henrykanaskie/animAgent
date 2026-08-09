@@ -232,13 +232,14 @@ def build_characters():
 def build_costumes():
     """`characters.costumes` — the wardrobe, from what `costumes()` actually cut.
 
-    **Off by default, and that is not timidity.** `CostumeContractTests.
-    theShippedManifestDeclaresNoWardrobeAndThatIsLegal` asserts that the
-    committed manifest declares none, and `Tests/` is not this task's to edit.
-    So the emitter is written, exercised and measured here, and `--costumes`
-    turns it on the moment the scene side is ready for the assertion to flip.
-    Writing it on by default would take a green 456-test gate red, which is a
-    worse way to hand over a wardrobe than a flag and a sentence.
+    **On, unconditionally.** It shipped behind a `--costumes` flag while
+    `CostumeContractTests.theShippedManifestDeclaresNoWardrobeAndThatIsLegal`
+    still asserted the committed manifest declared none. That assertion has
+    flipped — the suite now reads a wardrobe out of the shipped manifest — so
+    the flag had become a loaded gun: a rerun *without* it silently deleted a
+    hand-verified section, which is exactly the failure the no-regression check
+    in `main()` now refuses outright. There is no way to ask for a manifest
+    without the wardrobe, because nothing wants one.
 
     Structure comes straight from `Manifest.costumes(_:frameRate:)`:
     `sets.<id>.layers[]` back to front, each layer carrying its own `states`,
@@ -302,7 +303,11 @@ def build_costumes():
         }
     if not sets:
         return None
-    roles = {t: c for t, c in sorted(imp.COSTUME_ROLES.items()) if c in sets}
+    # Insertion order, not sorted: `COSTUME_ROLES` is grouped by costume so a
+    # reviewer can read "which names wear the lab coat" in one glance, and
+    # sorting here would throw that grouping away on the way to the artefact
+    # people actually read. Order is stable because the table is a literal.
+    roles = {t: c for t, c in imp.COSTUME_ROLES.items() if c in sets}
     assignable = [c for c in imp.COSTUME_ASSIGNABLE if c in sets]
     # The invariant `CostumeContractTests` checks, checked here too so a bad
     # manifest is never written rather than written and then failed.
@@ -378,7 +383,7 @@ def build_room():
             "content_box": box,
         }
 
-    return {
+    out = {
         "tile": {"w": 32, "h": 32},
         "anchor": {"px": [0, 0], "normalized": [0.0, 0.0], "note": "bottom-left of the tile"},
         "provenance": "pack",
@@ -404,6 +409,113 @@ def build_room():
             "roles": roles,
             "files": props,
         },
+    }
+    stations = build_stations(base)
+    if stations is not None:
+        out["props"]["stations"] = stations
+    return out
+
+
+def build_stations(base):
+    """`room.props.stations` — the workspace one agent sits at. [ADR-002 §14c]
+
+    Declared **once**, here under `room`, and inherited by every theme that does
+    not declare its own. Only one object in either pack is a chair drawn side-on
+    with its backrest on the left, which is what the pack's one-directional
+    seated pose requires, so a station cannot be themed art anyway; six copies of
+    this block would have been six places for it to drift.
+
+    Every prop is a Modern Office single the room pass has already cut, so this
+    reads the same PNGs `props.files` lists and measures each one's content box
+    off the shipped bytes rather than restating a number somebody transcribed.
+    The two-tier `roles`/`assignable` split is `characters.costumes`', verbatim.
+    """
+    imp = _importer()
+    table = getattr(imp, "STATIONS", {}) if imp else {}
+    if not table:
+        return None
+    max_w = getattr(imp, "STATION_PROP_MAX_W", 32)
+
+    sets, oversize = {}, []
+    for sid, spec in table.items():
+        entry = {"title": spec["title"], "what": spec["what"],
+                 "asserts": spec["asserts"]}
+        index = spec.get("index")
+        if index is not None:
+            path = os.path.join(base, "singles",
+                                "Modern_Office_Singles_%s_%d.png" % (SIZE, index))
+            if not os.path.exists(path):
+                continue
+            box = content_box(path)
+            if box is None:
+                continue
+            if box["w"] > max_w:
+                oversize.append("%s (single %d) is %dpx wide"
+                                % (sid, index, box["w"]))
+            entry["prop"] = {
+                "file": rel(path),
+                "source_set": "Modern Office singles",
+                "single_index": index,
+                "provenance": "pack",
+                "identified_by": imp.STATION_IDENTIFIED_BY,
+                "what": spec["reads"],
+                "content_box": box,
+            }
+        sets[sid] = entry
+    if not sets:
+        return None
+
+    # The geometry limit, checked against the art rather than asserted about it.
+    # A prop wider than the seat gap clips its neighbour at every seat, and the
+    # cheapest place to find that out is before the manifest claims otherwise.
+    if oversize:
+        print("error: station prop wider than the %dpx seat gap: %s"
+              % (max_w, "; ".join(oversize)), file=sys.stderr)
+        raise SystemExit(3)
+
+    roles = {t: s for t, s in getattr(imp, "STATION_ROLES", {}).items() if s in sets}
+    assignable = [s for s in getattr(imp, "STATION_ASSIGNABLE", ()) if s in sets]
+    # The I1 invariant `StationContractTests` checks, checked here too so a bad
+    # manifest is never written rather than written and then failed.
+    asserting = [s for s in assignable if sets[s]["asserts"]]
+    if asserting:
+        print("error: %s assert and are assignable; a hash would be making a "
+              "claim about an agent_type nobody anticipated [I1]"
+              % ", ".join(asserting), file=sys.stderr)
+        raise SystemExit(3)
+
+    return {
+        "note": "A station is the workspace one agent sits at: the theme's own desk "
+                "and chair, plus at most one floor-standing prop beside the seat. "
+                "[ADR-002 SS4, SS7, SS14c]\n\n"
+                "Two tiers, exactly as `characters.costumes` has them, and the split "
+                "is the whole of I1 here. `roles` is keyed on the EXACT agent_type "
+                "string a session produced, so a station reached through it is the "
+                "room repeating a name the user chose - the same licence the "
+                "nameplate runs on - and it may therefore assert what kind of worker "
+                "this is. `assignable` is the pool the hash draws from for an "
+                "agent_type nobody anticipated; arbitrary user text licenses no claim "
+                "about the work, so every member of it must carry `asserts: false` "
+                "and says only `this is a different agent from that one`.\n\n"
+                "Declared ONCE, here under `room`, and inherited by every theme that "
+                "does not declare its own: only one chair in either pack is a side "
+                "view with its backrest on the left, so a station cannot be themed "
+                "art anyway, and six identical copies of this block would be six "
+                "places for it to drift. A theme that declares `props.stations` "
+                "overrides the whole block for itself. `desk` and `chair` are omitted "
+                "from every station below and inherited from the theme's own "
+                "`props.roles`, so a station changes what stands BESIDE the seat and "
+                "never what the theme's furniture looks like.\n\n"
+                "Geometry, and both numbers are the layout's rather than taste. A "
+                "prop is placed one tile to the character's left on the seat row, so "
+                "its content box must be at most %dpx wide: the desk occupies "
+                "x+12..x+44 of a 96px seat pitch and the next seat's prop starts at "
+                "x+48. A station desk must also be at most 44px tall, because it is "
+                "drawn IN FRONT of the body and 44 is how far the shortest variant's "
+                "head sits above its own feet." % max_w,
+        "sets": sets,
+        "roles": roles,
+        "assignable": assignable,
     }
 
 
@@ -874,12 +986,62 @@ def build_badges():
     return result
 
 
+# Sections whose disappearance is data loss rather than a smaller manifest.
+# Checked against the file about to be overwritten, because every one of them is
+# populated from a table plus art on disk and either half going missing produces
+# a manifest that is *internally* consistent, exits 0, and quietly costs the
+# room a feature.
+#
+# This is not hypothetical. A rerun replaced a 1344-path manifest with a 148-path
+# one in this project's history and it took a `git checkout` to get back; a rerun
+# without the old `--costumes` flag deleted the wardrobe on exactly the same
+# terms. `assets/` is gitignored apart from this file, so the manifest is the one
+# art artefact a bad rerun can destroy for good.
+# Each entry points at the leaf that actually carries the art, never at a
+# wrapper around it. `costumes` and `stations` are both
+# `{note, sets, roles, assignable}`, so guarding the wrapper guards nothing that
+# can realistically be lost: a run that emitted the wrapper with `sets` empty --
+# the shape you get when one processed directory is missing and the tables are
+# still compiled in -- left a truthy dict behind and sailed past the check. The
+# section names below are what the error message prints, so they are also what a
+# reader is sent to look at.
+GUARDED_SECTIONS = (
+    ("characters", "variants"),
+    ("characters", "costumes", "sets"),
+    ("room", "props", "roles"),
+    ("room", "props", "stations", "sets"),
+    ("badges", "map"),
+    ("themes", "sets"),
+)
+
+
+def _dig(node, path):
+    for key in path:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    return node
+
+
+def sections_lost_against(path, manifest):
+    """Names of GUARDED_SECTIONS present in the file at `path` and absent here.
+
+    A malformed or missing file guards nothing — there is nothing to lose — and
+    an empty section counts as absent, since an empty wardrobe dresses no one.
+    """
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path) as f:
+            prior = json.load(f)
+    except (ValueError, OSError):
+        return []
+    return [".".join(sec) for sec in GUARDED_SECTIONS
+            if _dig(prior, sec) and not _dig(manifest, sec)]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--costumes", action="store_true",
-                    help="emit characters.costumes. Off by default: the shipped "
-                         "manifest declares no wardrobe and a scene test asserts "
-                         "that it does not.")
     ap.add_argument("--out", default=MANIFEST,
                     help="where to write (default: assets/manifest.json)")
     args = ap.parse_args(argv)
@@ -921,12 +1083,8 @@ def main(argv=None):
         section = fn()
         if section is not None:
             manifest[key] = section
-    if args.costumes:
-        wardrobe = build_costumes()
-        if wardrobe is None:
-            print("error: --costumes but nothing under %s"
-                  % rel(os.path.join(PROCESSED, "costumes", SIZE)), file=sys.stderr)
-            return 2
+    wardrobe = build_costumes()
+    if wardrobe is not None:
         manifest.setdefault("characters", {})["costumes"] = wardrobe
 
     # Last gate: re-stat every path the manifest mentions. An entry that has
@@ -981,6 +1139,18 @@ def main(argv=None):
         print("       %s is left untouched." % rel(args.out), file=sys.stderr)
         return 2
 
+    lost = sections_lost_against(args.out, manifest)
+    if lost:
+        print("error: refusing to write a manifest that drops a section the one "
+              "on disk already has:", file=sys.stderr)
+        for name in lost:
+            print("   %s" % name, file=sys.stderr)
+        print("       Whatever produced those entries is not running now — an "
+              "unpacked pack, a table, a flag. Fix that, not this file.",
+              file=sys.stderr)
+        print("       %s is left untouched." % rel(args.out), file=sys.stderr)
+        return 2
+
     with open(args.out, "w") as f:
         json.dump(manifest, f, indent=2, sort_keys=False)
         f.write("\n")
@@ -1000,6 +1170,11 @@ def main(argv=None):
         print("  %d costumes (%d recognised over %d agent types, %d assignable)"
               % (len(wardrobe["sets"]), len(set(wardrobe["roles"].values())),
                  len(wardrobe["roles"]), len(wardrobe["assignable"])))
+    stations = _dig(manifest, ("room", "props", "stations"))
+    if stations:
+        print("  %d stations (%d recognised over %d agent types, %d assignable)"
+              % (len(stations["sets"]), len(set(stations["roles"].values())),
+                 len(stations["roles"]), len(stations["assignable"])))
     return 0
 
 
