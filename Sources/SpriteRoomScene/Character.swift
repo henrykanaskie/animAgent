@@ -129,6 +129,15 @@ public final class Character: SKNode {
     // MARK: Animation
 
     private var frames: [SKTexture] = []
+    /// Which frame of `frames` each step of the loop draws. [`AmbientMotion`]
+    ///
+    /// The identity sequence for every state except `working`, and for a
+    /// `working` character whose badge class is `questionMark` or absent — so a
+    /// character walking, idling, delivering or running an unmapped tool plays
+    /// exactly the animation this app has always played. For the six mapped
+    /// classes it is the class's phrase over the seated art's two positions,
+    /// which is the whole of the motion channel.
+    private var frameSequence: [Int] = []
     private var framesPerSecond: Double = 8
     private var framesLoop = true
     private var stateStartedAt: TimeInterval = 0
@@ -283,6 +292,10 @@ public final class Character: SKNode {
         // and before the early return below, so a selection that puts no glyph
         // in the slot still empties the hands.
         refreshHeld()
+        // And so does the ambient phrase, for the same reason and in the same
+        // place: the motion is a function of (body state, badge class), and this
+        // is one of exactly two calls that can change either.
+        refreshAmbient()
         guard let texture = attentionTexture ?? sleepTexture ?? toolTexture else {
             badgeNode.isHidden = true
             badgeCountNode.isHidden = true
@@ -390,6 +403,49 @@ public final class Character: SKNode {
         heldNode.isHidden = false
     }
 
+    // MARK: Ambient motion
+
+    /// The badge class the ambient phrase is keyed on.
+    ///
+    /// **`currentBadge.badge`, not `currentBadge.drawn.badge`, and the
+    /// difference is decided rather than incidental.** `drawn.badge` is `nil`
+    /// while `attention` or `sleep` owns the slot, which is why the *hands* go
+    /// empty at a permission gate — an object is a second, larger assertion on
+    /// top of a glyph the badge layer is correctly refusing to draw.
+    ///
+    /// The body is not that layer. `SceneDirector.body(for:badge:)` already
+    /// reads the tool class straight through an attention override, on the
+    /// grounds that "the attention glyph is about the *badge*, and the body is
+    /// about the work", and I2 keys the body on the open-call set alone. A
+    /// character blocked at a gate is still holding those calls, so it is still
+    /// `working`, and the phrase it plays is the one its calls name. Reading
+    /// `drawn` here would silently change *how a working body moves* on a signal
+    /// that has nothing to do with the work — and it would put the body and the
+    /// working-pose lookup on two different keys.
+    private var ambientBadge: ToolBadge? { currentBadge.badge }
+
+    /// Recomputes the phrase without touching `stateStartedAt`.
+    ///
+    /// **The phase is deliberately not reset.** This class's contract is that a
+    /// looping animation is never restarted by an event arriving, which is what
+    /// keeps a burst of short calls from stuttering; a phrase swap is an event
+    /// arriving. Every phrase is on the same 125 ms grid, so a swap lands on a
+    /// step boundary and the body simply continues into the new schedule. [I2]
+    private func refreshAmbient() {
+        guard !frames.isEmpty else { return }
+        frameSequence = AmbientMotion.sequence(
+            for: ambientBadge, state: currentState ?? .idle, frameCount: frames.count)
+    }
+
+    /// The frame indices this character is playing, for tests that check the
+    /// motion rather than the policy.
+    var frameSequenceForTesting: [Int] { frameSequence }
+    /// Which frame of the current animation is on screen, for the same reason.
+    var frameIndexForTesting: Int? {
+        guard !frames.isEmpty, let texture = body.texture else { return nil }
+        return frames.firstIndex(of: texture)
+    }
+
     /// What is in the hands, for tests that check the picture rather than the
     /// policy. `nil` when the hands are empty.
     public var heldObjectForTesting: HeldObject? { heldNode.isHidden ? nil : heldObject }
@@ -460,10 +516,18 @@ public final class Character: SKNode {
         currentState = state
         currentFacing = resolved
         frames = textures
+        // The phrase, before the first texture is chosen, because the phrase is
+        // what chooses it. Every mapped phrase begins `settled`, so this is
+        // frame 0 in practice; taking it from the sequence rather than assuming
+        // 0 is what keeps the body and the costume on one index from the first
+        // frame rather than from the second.
+        frameSequence = AmbientMotion.sequence(
+            for: ambientBadge, state: state, frameCount: textures.count)
+        let firstIndex = frameSequence.first ?? 0
         framesPerSecond = max(1, store.frameRate(variant: agentVariant, state: state))
         framesLoop = store.loops(variant: agentVariant, state: state)
         stateStartedAt = start ?? now
-        body.texture = textures[0]
+        body.texture = textures[firstIndex]
 
         // The costume follows the body into the new state, in the same call, at
         // the same instant, with the same frame count. Nothing else in this
@@ -483,7 +547,7 @@ public final class Character: SKNode {
                 node.texture = nil
                 continue
             }
-            node.texture = textures[0]
+            node.texture = textures[firstIndex]
             node.isHidden = false
         }
 
@@ -673,7 +737,12 @@ public final class Character: SKNode {
                 stepIndex += 1
                 beginCurrentStep(at: finishedAt)
             case .play:
-                let length = Double(frames.count) / framesPerSecond
+                // The *sequence*'s length, not the frame array's. They are equal
+                // for every state a `.play` step can carry — only `working` has
+                // a phrase and `deliver` is the only state ever played this way
+                // — but reading the thing the clock below actually walks is what
+                // keeps the two from disagreeing if that ever stops being true.
+                let length = Double(max(frameSequence.count, 1)) / framesPerSecond
                 guard now - stateStartedAt >= length else { break stepping }
                 let finishedAt = stateStartedAt + length
                 stepIndex += 1
@@ -688,14 +757,18 @@ public final class Character: SKNode {
         // seated row.
         zPosition = Layer.rowDepth(Double(position.y))
 
-        guard !frames.isEmpty else { return }
+        guard !frames.isEmpty, !frameSequence.isEmpty else { return }
         let elapsed = max(0, now - stateStartedAt)
-        var index = Int(elapsed * framesPerSecond)
+        // The **step** on the manifest's 8 fps grid, which is what a phrase is
+        // written in. For every state but `working` the sequence is the identity
+        // and this is the frame index it always was.
+        var step = Int(elapsed * framesPerSecond)
         if framesLoop {
-            index %= frames.count
+            step %= frameSequence.count
         } else {
-            index = min(index, frames.count - 1)
+            step = min(step, frameSequence.count - 1)
         }
+        let index = min(frameSequence[step], frames.count - 1)
         body.texture = frames[index]
         // **The same index, not a second clock.** Every layer was loaded with
         // the body's own frame count in `apply(state:facing:)`, so this cannot

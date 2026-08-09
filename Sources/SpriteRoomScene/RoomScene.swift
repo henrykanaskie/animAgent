@@ -100,6 +100,30 @@ public final class RoomScene: SKScene {
     nonisolated static let backdropRole = "board"
     nonisolated static let accentRole = "plant"
 
+    /// **Where the two decoration bands stand**, as `(role, bottom-centre)`, in
+    /// the order `buildRoom` places them.
+    ///
+    /// A pure function of the layout, and the only copy of this arithmetic: the
+    /// overflow plate's clearance is asserted against *these* points rather than
+    /// against a transcription of them, and a transcription checked against a
+    /// transcription is not a check — `scripts/preview-theme.py` learned that at
+    /// M6e over a foreground row that no longer existed.
+    nonisolated static func decorationPlacements(layout: RoomLayout)
+    -> [(role: String, point: ScenePoint)] {
+        let backdropRowY = layout.wallBaseY
+        let accentRowY = layout.backSeatRowY + Double(layout.tile)
+        return (0..<layout.seatCapacity)
+            .map { layout.propColumnX(forSeat: $0) }
+            .filter { $0 < layout.width }
+            .sorted()
+            .enumerated()
+            .map { index, x in
+                let isBackdrop = index.isMultiple(of: 2)
+                return (isBackdrop ? backdropRole : accentRole,
+                        ScenePoint(x: x, y: isBackdrop ? backdropRowY : accentRowY))
+            }
+    }
+
     /// How many times the room has been built. **One, for the life of a scene.**
     ///
     /// §6 rule 1 is that the room does not change with activity, at all, and
@@ -160,17 +184,8 @@ public final class RoomScene: SKScene {
         // still what keeps this thin: two kinds of object, seven of them, both
         // through the same desaturating import pass as the floor, and every one
         // of them upstage of both seat rows.
-        let backdropRowY = layout.wallBaseY
-        let accentRowY = layout.backSeatRowY + Double(tile)
-        let propColumns = (0..<layout.seatCapacity)
-            .map { Double(layout.seatColumn($0) * tile + tile / 2) + Double(tile) * 1.5 }
-            .filter { $0 < layout.width }
-            .sorted()
-        for (index, x) in propColumns.enumerated() {
-            let isBackdrop = index.isMultiple(of: 2)
-            place(
-                role: isBackdrop ? Self.backdropRole : Self.accentRole,
-                at: ScenePoint(x: x, y: isBackdrop ? backdropRowY : accentRowY))
+        for placement in Self.decorationPlacements(layout: layout) {
+            place(role: placement.role, at: placement.point)
         }
 
         // **There is no foreground row, and the rule that replaced it is
@@ -209,7 +224,7 @@ public final class RoomScene: SKScene {
         // body so the character is on the chair rather than in front of it.
         for seat in 0..<layout.seatCapacity {
             guard let node = place(
-                role: Self.seatRole, at: layout.seatPosition(seat), depthBias: seatDepthBias),
+                role: Self.seatRole, at: layout.seatPosition(seat), depthBias: Self.seatDepthBias),
                   let path = store.room.prop(Self.seatRole)?.file else { continue }
             emptySeatFurniture[seat, default: []].append(
                 SeatFurniture(node: node, path: path))
@@ -232,10 +247,15 @@ public final class RoomScene: SKScene {
         // Aisle characters sit a whole row nearer the camera, so a character
         // walking past is always in front of the desks — which is why the
         // walkway exists.
+        // **The desk's depth is measured, not fixed.** See `surfaceDepthBias`:
+        // a desk taller than the shortest head goes behind the body instead of
+        // in front of it, because two shipped themes bind one that would
+        // otherwise cover every face in the room.
+        let surfaceBias = surfaceDepthBias(for: store.room.prop(Self.surfaceRole))
         for seat in 0..<layout.seatCapacity {
             let position = layout.deskPosition(seat)
             if let node = place(
-                role: Self.surfaceRole, at: position, depthBias: surfaceDepthBias),
+                role: Self.surfaceRole, at: position, depthBias: surfaceBias),
                let path = store.room.prop(Self.surfaceRole)?.file {
                 emptySeatFurniture[seat, default: []].append(
                     SeatFurniture(node: node, path: path))
@@ -252,7 +272,8 @@ public final class RoomScene: SKScene {
             node.anchorPoint = CGPoint(x: 0.5, y: 0)
             node.size = CGSize(width: bitmap.width, height: bitmap.height)
             node.position = CGPoint(x: position.x, y: position.y)
-            node.zPosition = Character.Layer.rowDepth(position.y) + surfaceDepthBias
+            // The placeholder is 26 px tall, so it is always the in-front case.
+            node.zPosition = Character.Layer.rowDepth(position.y) + Self.surfaceInFrontBias
             world.addChild(node)
             // The placeholder has no manifest path, and saying so is the point:
             // nothing in the manifest is called a desk here. It is still a piece
@@ -269,8 +290,50 @@ public final class RoomScene: SKScene {
     /// a station whose desk sorted differently from the theme's desk would
     /// change whether the near edge crosses the body, which is the one cue at
     /// 32 px that a character is sitting *at* a desk rather than beside one.
-    private let seatDepthBias: CGFloat = -0.25
-    private let surfaceDepthBias: CGFloat = 0.5
+    nonisolated static let seatDepthBias: CGFloat = -0.25
+
+    /// A desk short enough to sit at is drawn **in front of** the body: at 32 px
+    /// the only cue that a character is sitting *at* a desk rather than beside
+    /// one is whether the desk's near edge crosses it.
+    nonisolated static let surfaceInFrontBias: CGFloat = 0.5
+
+    /// A desk taller than the head line is drawn **behind** it instead — behind
+    /// the chair, too, so the three still sort in one consistent order.
+    ///
+    /// **This is the occlusion defect's fix and it is not a preference.** The
+    /// argument for putting the desk in front assumes a desk shorter than the
+    /// person at it; `library` binds a 56×70 desk-with-an-open-book and
+    /// `mission_control` a 44×36, both chosen for `props.roles` before stations
+    /// existed and both drawn at *every* seat by `buildRoom` whether anyone is
+    /// sitting there or not. At 70 px the near-edge cue is not weakened, it is
+    /// moot: the desk covers the whole body including the face, and a room whose
+    /// characters have no faces cannot be read at all. Losing a depth cue costs
+    /// less than losing the character.
+    nonisolated static let surfaceBehindBias: CGFloat = -0.5
+
+    /// Which of the two a desk of this height gets. `headClearance` is how far
+    /// above its own feet the shortest variant's head starts — 44 px on the
+    /// shipped cast — so anything at or under it can be drawn in front without
+    /// reaching a face.
+    nonisolated static func surfaceDepthBias(deskHeight: Int, headClearance: Int) -> CGFloat {
+        deskHeight <= headClearance ? surfaceInFrontBias : surfaceBehindBias
+    }
+
+    /// How far above its own feet the **shortest** variant's head starts, from
+    /// the manifest rather than from a constant. The shortest, because a limit
+    /// that only holds for the tall half of the cast is not a limit.
+    var seatedHeadClearance: Int {
+        let characters = store.manifest.characters
+        let heads = characters.variants.values.map { characters.canvas.height - $0.headTopPx }
+        return heads.min() ?? characters.canvas.height
+    }
+
+    /// The bias for one desk, measured off its own content box.
+    private func surfaceDepthBias(for prop: Manifest.PropRole?) -> CGFloat {
+        guard let prop else { return Self.surfaceInFrontBias }
+        return Self.surfaceDepthBias(
+            deskHeight: prop.contentBox.height, headClearance: seatedHeadClearance)
+    }
 
     /// The theme-wide desk and chair drawn at each seat at build time.
     ///
@@ -367,10 +430,11 @@ public final class RoomScene: SKScene {
             guard let node = place(prop: role, at: point, depthBias: depthBias) else { return }
             placed.append(SeatFurniture(node: node, path: role.file))
         }
-        draw(station.chair, at: layout.seatPosition(seat), depthBias: seatDepthBias)
-        draw(station.desk, at: layout.deskPosition(seat), depthBias: surfaceDepthBias)
+        draw(station.chair, at: layout.seatPosition(seat), depthBias: Self.seatDepthBias)
+        draw(station.desk, at: layout.deskPosition(seat),
+             depthBias: surfaceDepthBias(for: station.desk))
         if let prop = station.prop {
-            draw(prop, at: layout.stationPropPosition(seat), depthBias: seatDepthBias)
+            draw(prop, at: layout.stationPropPosition(seat), depthBias: Self.seatDepthBias)
         }
 
         stationFurniture[agent] = placed
@@ -611,7 +675,93 @@ public final class RoomScene: SKScene {
 
         case let .setScale(scale):
             preferredScale = scale
+
+        case let .setOverflow(count):
+            setOverflow(count)
         }
+    }
+
+    // MARK: The overflow plate
+
+    /// The plate that says how many agents the room has no seat for, or `nil`
+    /// while it has never had to say anything.
+    ///
+    /// **Not a prop.** It is deliberately outside `propNodes`, so §6 rule 1's
+    /// "zero prop-node rebuilds across an entire fixture replay" still means
+    /// what it says: the room's furniture never changes, and this is not
+    /// furniture — it is the room's caption on its own population, and it
+    /// changes exactly when that population crosses the seat count.
+    private var overflowNode: SKSpriteNode?
+    private var overflowCount = 0
+
+    /// How many agents the room is currently saying it cannot seat. Read-only.
+    public var overflowShown: Int { overflowCount }
+
+    /// The plate's box in scene coordinates, or `nil` when nothing is drawn.
+    /// Read by tests: "is the caption on screen" is the only property that
+    /// matters about it and it cannot be asked of a node's existence.
+    public func overflowPlateBoxForTesting() -> (x: Double, y: Double,
+                                                 width: Double, height: Double)? {
+        guard let node = overflowNode, !node.isHidden else { return nil }
+        return (Double(node.position.x - node.size.width / 2),
+                Double(node.position.y),
+                Double(node.size.width), Double(node.size.height))
+    }
+
+    private func setOverflow(_ count: Int) {
+        let wanted = max(0, count)
+        guard wanted != overflowCount else { return }
+        overflowCount = wanted
+        guard wanted > 0 else {
+            overflowNode?.isHidden = true
+            return
+        }
+        let bitmap = SceneBitmaps.overflowPlate(wanted)
+        guard let texture = store.texture(bitmap: bitmap, key: "overflow:\(wanted)") else {
+            overflowNode?.isHidden = true
+            return
+        }
+        let node: SKSpriteNode
+        if let existing = overflowNode {
+            node = existing
+        } else {
+            node = SKSpriteNode()
+            node.anchorPoint = CGPoint(x: 0.5, y: 0)
+            // The nameplate band. It is lettering about the cast, so it belongs
+            // where the cast's own lettering is: above every body and every
+            // prop, which is what makes it legible against whatever a theme
+            // stands behind it.
+            node.zPosition = Character.Layer.nameplate
+            world.addChild(node)
+            overflowNode = node
+        }
+        node.texture = texture
+        node.size = CGSize(width: bitmap.width, height: bitmap.height)
+        node.isHidden = false
+        positionOverflowPlate()
+    }
+
+    /// Puts the plate on its point, clamped into the camera's frame.
+    ///
+    /// The point — `RoomLayout.overflowPlatePosition` — is clear of every
+    /// theme's props and inside the 720×400 panel by construction, so on the
+    /// panel this app actually ships the clamp does nothing. It is here because
+    /// a caption that is off screen is the same silence it exists to break, and
+    /// `--render` and `--window` take a size from the command line.
+    private func positionOverflowPlate() {
+        guard let node = overflowNode, !node.isHidden else { return }
+        let point = layout.overflowPlatePosition
+        let half = CGPoint(x: size.width / 2, y: size.height / 2)
+        let minX = camera_.position.x - half.x, maxX = camera_.position.x + half.x
+        let minY = camera_.position.y - half.y, maxY = camera_.position.y + half.y
+        let width = node.size.width, height = node.size.height
+        let x = width >= maxX - minX
+            ? camera_.position.x
+            : min(max(CGFloat(point.x), minX + width / 2), maxX - width / 2)
+        let y = height >= maxY - minY
+            ? camera_.position.y - height / 2
+            : min(max(CGFloat(point.y), minY), maxY - height)
+        node.position = CGPoint(x: x.rounded(), y: y.rounded())
     }
 
     /// **There is nothing left to claim.** Where a reporter stands is a pure
@@ -740,6 +890,9 @@ public final class RoomScene: SKScene {
         camera_.position = CGPoint(
             x: (centreX).rounded(),
             y: cameraY(band: band, sceneHeight: sceneSize.height).rounded())
+        // The plate's clamp is measured against the frame, so it has to be
+        // re-applied whenever the frame moves.
+        positionOverflowPlate()
     }
 
     /// Seat 0 is always in the frame even when empty: the main agent's anchor

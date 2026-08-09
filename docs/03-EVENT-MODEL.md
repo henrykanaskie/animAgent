@@ -785,15 +785,90 @@ question mark, the question mark falls to the default pose, and the default pose
 is art we already own. Nothing above needs editing when a new tool ships, and
 nothing needs drawing.
 
-**What is on screen today is still indistinguishable from the old sentence, and
-that is a fact about the manifest rather than about the code.**
-`characters.poses.working` ships empty: `04-ART-DIRECTION.md` measured the pack's
-only candidate for a second seated pose at 96 differing pixels out of 288 000 for
-a four-agent room — the legs, which every desk covers — so no table was written.
-Every badge class therefore resolves to the same pose and every working character
-sits identically. The behaviour is decided by the lookup, not by the sentence:
-fill the table in the manifest and the room changes with no code change, which is
-also the moment this paragraph's first clause starts to be visible.
+**Every badge class still resolves to the same *pose*, and that is a fact about
+the manifest rather than about the code.** `characters.poses.working` ships
+empty: `04-ART-DIRECTION.md` measured the pack's only candidate for a second
+seated pose at 96 differing pixels out of 288 000 for a four-agent room — the
+legs, which every desk covers — so no table was written. The behaviour is decided
+by the lookup, not by the sentence: fill the table in the manifest and the room
+changes with no code change.
+
+**What is no longer true is that every working character sits identically.** The
+pose is the same; the *motion over it* is not. See "The ambient loop is keyed by
+badge class too — M7c" below.
+
+### The ambient loop is keyed by badge class too — M7c
+
+The pose answers *what shape a working character is in*. It has one answer,
+permanently, and the section above is why. The ambient loop answers a different
+question — *how that shape moves* — and it has six, because the seated art holds
+two positions and a schedule over two positions is something we can write.
+
+Measured off the six shipped premades rather than read off a row name: of the
+pack's 20 pose rows exactly two are seated, both are 3 frames per direction, and
+in **every** frame of both, **frames 0 and 1 are the same position** (0–32 px
+apart, an eye blink; literally identical on variant 10) while **frame 2 lifts the
+whole upper body 2 px** (530–770 px of a ~950–1160 px body). So there is one
+seated gesture in this pack: a two-position bob, `settled` and `raised`.
+
+`SpriteRoomScene/AmbientMotion.swift` gives each badge class a **phrase** over
+those two positions, on the manifest's own 8 fps grid and using no other rate:
+
+| class | phrase | period | raised |
+|---|---|---:|---:|
+| `terminal` | `S R` | 250 ms | 50% |
+| `document` | `S S S R` | 500 ms | 25% |
+| `plug` | `S R R R` | 500 ms | 75% |
+| `magnifier` | `S S S S S S R R` | 1000 ms | 25% |
+| `globe` | `S S S S R R R R` | 1000 ms | 50% |
+| `checklist` | `S S R R R R R R` | 1000 ms | 75% |
+| `question_mark` | — the shipped loop, `0 1 2` | 375 ms | 33% |
+
+Four rules, and each is one of this document's existing rules read on a new
+layer rather than a new rule:
+
+- **Keyed on the badge class, never on `tool_name`** — §5a, the same reason the
+  pose is. The mapping is total, so a tool name that appears tomorrow needs no
+  new art and no new phrase.
+- **`question_mark` gets no phrase**, and plays the shipped loop unchanged. An
+  unmapped tool — `Monitor`, permanently — moves the way a character has always
+  moved. Guessing a motion for it would be the question mark's own argument
+  abandoned on a larger surface than a glyph. [I1]
+- **An agent holding calls of two classes plays the lowest-ordinal one** — the
+  same value the badge already computed, so nothing new decides it, and because
+  the selection is order-independent the gait cannot flicker as parallel calls
+  interleave. [I3] The phase is not reset by the swap: every phrase is on the
+  same 125 ms grid, so a class change lands on a step boundary and the body
+  continues into the new schedule rather than restarting.
+- **Only a `working` body plays one.** [I2] `walk`, `idle`, `deliver`, `spawn`
+  and `depart` are untouched, and an ADR-003 closing beat cannot reach this
+  channel because its body is `idle` for every frame by definition.
+
+**A motion asserts exactly what the badge asserts and nothing more** — *this
+agent's lowest-ordinal open call is of this class* — because it is keyed on the
+same value. That the shapes are evocative (`terminal` buzzes, `magnifier` mostly
+sits still) is a bonus and is not a claim: the room is not asserting that
+anybody typed.
+
+**What it cannot do, and the number is the same one ADR-003 measured.** A motion
+is only as visible as the call is long, and there is no closing beat for the
+body — ADR-003 §2 makes the body idle for every frame of the badge's beat and
+`CLAUDE.md`'s I2 clause requires the body be truthful for every frame. Over the
+M7a capture, per class, calls lasting at least one phrase bar:
+
+| class | calls | total open s | median s | ≥250 ms |
+|---|---:|---:|---:|---:|
+| terminal | 18 | 102.75 | 0.054 | 3 |
+| plug | 4 | 100.06 | 25.016 | 4 |
+| globe | 8 | 13.19 | 1.764 | 8 |
+| document | 10 | 0.75 | 0.074 | **0** |
+| magnifier | 16 | 0.11 | 0.006 | **0** |
+| checklist | 5 | 0.07 | 0.010 | **0** |
+
+15 of 61 calls last long enough for the body to complete anything. So this
+channel separates `terminal`, `plug` and `globe` — the classes an agent
+*dwells* in — and a `Read` is as invisible in motion as it already was in
+pixels. That is I2 working, not a gap in it.
 
 ### One seated pose is all the pack has, and that is now closed — M6g
 

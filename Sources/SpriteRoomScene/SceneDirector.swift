@@ -56,6 +56,21 @@ public enum SpriteIntent: Sendable, Hashable {
     case exitCharacter(agent: AgentRef, style: ExitStyle)
     /// Integer render scale. [I6]
     case setScale(Int)
+    /// **How many agents exist that the room has no seat for.** `0` takes the
+    /// indicator down. Only ever emitted when it actually changed.
+    ///
+    /// The room has `RoomLayout.seatCapacity` seats and that number cannot be
+    /// raised — the arithmetic is in `seatCapacity`'s own documentation. Before
+    /// this intent existed the eighth agent was seated anyway, on top of the
+    /// first, and the room drew seven characters while eight were running: a
+    /// false population, which is fiction of exactly the kind I1 forbids, and
+    /// S5 — *a cold observer watching 15 s can say how many agents are
+    /// running* — failing at the first population past the seat count.
+    ///
+    /// **Not drawing them at all would be the same lie**, only with nothing on
+    /// screen to catch it. So the room shows the seats it has and says how many
+    /// more there are. Seven plus "+1" is still a count.
+    case setOverflow(Int)
 
     public enum ExitStyle: Sendable, Hashable {
         /// A character that reported **and departed in the same frame**.
@@ -275,6 +290,10 @@ public struct SceneDirector: Sendable {
     private var emittedBody: [AgentRef: BodyState] = [:]
     private var emittedBadge: [AgentRef: BadgeSelection] = [:]
     private var emittedScale: Int?
+    /// Seeded at zero rather than `nil` so a room that never overflows never
+    /// emits the intent at all — the same idiom as seeding `emittedBadge` with
+    /// `.none` at spawn.
+    private var emittedOverflow = 0
     private var occupiedSeats: Set<Int> = []
     private var assignedVariants: [AgentRef: String] = [:]
     /// Tool names that fell through the mapping table. Counted, never guessed
@@ -310,6 +329,24 @@ public struct SceneDirector: Sendable {
 
     public var population: Int { presentations.count }
     public var seats: [AgentRef: Int] { presentations.mapValues(\.seat) }
+
+    /// **Whether this agent has a seat, and therefore whether it is drawn.**
+    ///
+    /// A seat number past `layout.seatCapacity` is a place in the queue rather
+    /// than a place in the room: every position function in `RoomLayout` wraps,
+    /// so drawing on one would put two characters on one spot. The agent is
+    /// counted instead, by `overflowCount`, and takes the first seat that frees.
+    public func isSeated(_ agent: AgentRef) -> Bool {
+        presentations[agent].map { layout.isSeatable($0.seat) } ?? false
+    }
+
+    /// How many of this room's agents are actually drawn.
+    public var seatedPopulation: Int {
+        presentations.values.lazy.filter { self.layout.isSeatable($0.seat) }.count
+    }
+
+    /// How many are not. The number the room says out loud.
+    public var overflowCount: Int { population - seatedPopulation }
     public var currentScale: Int { emittedScale ?? camera.scale(forPopulation: population) }
 
     public func openCallCount(_ agent: AgentRef) -> Int {
@@ -547,9 +584,15 @@ public struct SceneDirector: Sendable {
                 assignedVariants.removeValue(forKey: agent)
                 emittedBody.removeValue(forKey: agent)
                 emittedBadge.removeValue(forKey: agent)
-                exited.append((
-                    agent,
-                    presentation.reportedThisBatch ? .report(anchorSeat: anchorSeat) : .walkOff))
+                // An agent that never had a seat was never spawned, so there is
+                // no node to walk off. It leaves the overflow count instead,
+                // which is the only thing that was ever showing it.
+                if layout.isSeatable(presentation.seat) {
+                    exited.append((
+                        agent,
+                        presentation.reportedThisBatch
+                            ? .report(anchorSeat: anchorSeat) : .walkOff))
+                }
                 touched.removeAll { $0 == agent }
                 appeared.removeAll { $0 == agent }
                 // The exit *is* the beat for this character. Emitting a round
@@ -566,10 +609,20 @@ public struct SceneDirector: Sendable {
             }
         }
 
+        // Seats that this batch freed go to whoever has been waiting longest.
+        // After the deltas rather than inside them, so a batch that departs
+        // three agents and appears one settles once instead of three times.
+        seatTheWaiting(appeared: &appeared, touched: &touched)
+
         var intents: [SpriteIntent] = []
 
         for agent in appeared {
-            guard let presentation = presentations[agent] else { continue }
+            // **An agent with no seat is counted, not drawn.** There is no
+            // eighth seat to put it in: every position function in `RoomLayout`
+            // wraps, so seat 7 is seat 0's column and seat 0's row. It is
+            // carried by `setOverflow` below until a seat frees.
+            guard let presentation = presentations[agent],
+                  layout.isSeatable(presentation.seat) else { continue }
             intents.append(.spawnCharacter(
                 agent: agent,
                 variant: presentation.variant,
@@ -580,7 +633,13 @@ public struct SceneDirector: Sendable {
         }
 
         for agent in touched {
-            guard let presentation = presentations[agent] else { continue }
+            // Nothing is emitted for an unseated agent, and the *memory* is left
+            // alone with it. That is what makes a promotion correct: the agent
+            // that walks in when a seat frees has never had a body or a badge
+            // set, so the first pass after its spawn emits whatever it is
+            // actually doing rather than suppressing it as unchanged.
+            guard let presentation = presentations[agent],
+                  layout.isSeatable(presentation.seat) else { continue }
             // The badge class is computed here already, so the pose is looked up
             // here already. **No new trigger, no new timer, no new state** —
             // §8 item 7 — which is also what makes §6 rule 3 true for free: the
@@ -617,13 +676,23 @@ public struct SceneDirector: Sendable {
         // it does so because the *data* said the calls ended — nothing here
         // reaches in and clears a badge on its own account. [I2/I3]
         for agent in reported {
-            guard let presentation = presentations[agent] else { continue }
+            guard let presentation = presentations[agent],
+                  layout.isSeatable(presentation.seat) else { continue }
             intents.append(.deliverReport(
                 agent: agent, anchorSeat: anchorSeat(for: presentation)))
         }
 
         for (agent, style) in exited {
             intents.append(.exitCharacter(agent: agent, style: style))
+        }
+
+        // Last, because everything above can move an agent between the two
+        // sides of it: an arrival that found no seat, a departure that freed
+        // one, and the promotion that followed.
+        let overflow = overflowCount
+        if emittedOverflow != overflow {
+            emittedOverflow = overflow
+            intents.append(.setOverflow(overflow))
         }
 
         let scale = camera.scale(forPopulation: population)
@@ -646,6 +715,13 @@ public struct SceneDirector: Sendable {
     /// The main agent always holds seat 0 — the anchor everything reports to.
     /// Subagents take the lowest free seat, so the room fills outward from the
     /// centre and a given arrival order always produces the same picture.
+    ///
+    /// **It still counts past `layout.seatCapacity`, and those numbers are a
+    /// queue rather than a room.** `layout.isSeatable(_:)` is the line: at or
+    /// past it the agent is not drawn — it is carried by `setOverflow` and takes
+    /// the first seat that frees. Keeping one unbounded, unique, monotonic
+    /// number per agent is what makes "who waits longest goes first" a
+    /// comparison rather than a second list to keep in step with this one.
     private mutating func claimSeat(for agent: AgentRef) -> Int {
         if agent.agent == .mainThread, !occupiedSeats.contains(0) {
             occupiedSeats.insert(0)
@@ -655,6 +731,44 @@ public struct SceneDirector: Sendable {
         while occupiedSeats.contains(seat) { seat += 1 }
         occupiedSeats.insert(seat)
         return seat
+    }
+
+    /// **Moves waiting agents into seats this batch freed, longest wait first.**
+    ///
+    /// Without it the overflow would be permanent: seats are released on
+    /// departure and reused by *new* arrivals, so an agent that found the room
+    /// full when it appeared would still be uncounted-and-undrawn after every
+    /// character on screen had left. A room of empty desks over a plate reading
+    /// "+3" is true and useless.
+    ///
+    /// Longest wait first is what the queue number already encodes — seats are
+    /// claimed lowest-free, so a smaller waiting number is an earlier arrival —
+    /// which is why there is no second list here and nothing to keep in step.
+    ///
+    /// **A promoted agent walks in.** That is the same `spawn` every character
+    /// gets and it claims nothing about when the agent started: the walk is the
+    /// room seating somebody it was already counting, driven by the departure
+    /// that freed the chair, which is a real event. The alternative — a
+    /// character that blinks into a seat — is a beat the room has no art for and
+    /// would read as a glitch. [I1]
+    private mutating func seatTheWaiting(
+        appeared: inout [AgentRef], touched: inout [AgentRef]
+    ) {
+        while let seat = (0..<layout.seatCapacity).first(where: { !occupiedSeats.contains($0) }),
+              let next = presentations
+                .filter({ !layout.isSeatable($0.value.seat) })
+                .min(by: { $0.value.seat < $1.value.seat })?.key,
+              let waiting = presentations[next]?.seat {
+            occupiedSeats.remove(waiting)
+            occupiedSeats.insert(seat)
+            presentations[next]?.seat = seat
+            // `note`, not `append`: an agent that appeared into the queue and
+            // was promoted inside the same batch is already on this list, and
+            // spawning it twice would put two intents on the stream for one
+            // character.
+            note(&appeared, next)
+            note(&touched, next)
+        }
     }
 
     /// The main agent always wears the first variant of the cast. Subagents

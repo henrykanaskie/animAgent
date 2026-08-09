@@ -745,6 +745,191 @@ struct SceneDirectorTests {
         #expect(zip(scales, scales.dropFirst()).allSatisfy { $0 != $1 }, "scale re-emitted")
     }
 
+    // MARK: Overflow — the room says what it cannot seat [I1, S5]
+
+    /// `count` agents appearing in one batch: the main thread and `count - 1`
+    /// subagents.
+    static func arrival(_ count: Int) -> [WorldDelta] {
+        (0..<count).map { index in
+            .agentAppeared(
+                agent: ref(index == 0
+                           ? .mainThread
+                           : .subagent(String(format: "a%016x", index))),
+                agentType: index == 0 ? nil : "general-purpose",
+                lifecycle: .active)
+        }
+    }
+
+    static func spawnedSeats(_ intents: [SpriteIntent]) -> [AgentRef: Int] {
+        var seats: [AgentRef: Int] = [:]
+        for intent in intents {
+            if case let .spawnCharacter(agent, _, _, seat, _, _) = intent { seats[agent] = seat }
+        }
+        return seats
+    }
+
+    static func overflows(_ intents: [SpriteIntent]) -> [Int] {
+        intents.compactMap { if case let .setOverflow(n) = $0 { n } else { nil } }
+    }
+
+    /// **The defect this exists for.** `RoomLayout.seatColumn` and `ring` both
+    /// wrap mod `seatCapacity`, so seat 7 is seat 0's column *and* — the two-row
+    /// fold keys on ring parity — seat 0's row. Before this, the eighth agent
+    /// was seated on top of the first and the room drew seven characters while
+    /// eight were running: a false population [I1] and S5 failing at the first
+    /// crowd past the seat count.
+    ///
+    /// It fails against the old director on the first assertion: eight spawns.
+    @Test func theEighthAgentIsCountedRatherThanDrawnOnTopOfTheFirst() {
+        var director = Self.director()
+        let intents = director.apply(Self.arrival(8))
+        let seats = Self.spawnedSeats(intents)
+
+        #expect(seats.count == 7, "the room has seven seats and drew \(seats.count) characters")
+        #expect(Set(seats.values).count == seats.count, "two characters share a seat")
+        #expect(seats.values.allSatisfy { director.layout.isSeatable($0) })
+        #expect(director.population == 8, "all eight agents are still known")
+        #expect(director.overflowCount == 1)
+        #expect(Self.overflows(intents) == [1], "the room never said what it could not seat")
+    }
+
+    /// The count is right at every population the room can be handed, and no
+    /// two drawn characters ever land on the same spot — position, not seat
+    /// index, because the index is what the wrap made a liar.
+    @Test func everyPopulationIsEitherDrawnOrCountedAndNeverBoth() {
+        let layout = RoomLayout()
+        for population in 1...16 {
+            var director = Self.director()
+            let intents = director.apply(Self.arrival(population))
+            let seats = Self.spawnedSeats(intents)
+            let drawn = min(population, layout.seatCapacity)
+
+            #expect(seats.count == drawn, "population \(population)")
+            #expect(director.overflowCount == population - drawn, "population \(population)")
+            #expect(director.seatedPopulation + director.overflowCount == population)
+
+            var spots: Set<ScenePoint> = []
+            for seat in seats.values { spots.insert(layout.seatPosition(seat)) }
+            #expect(spots.count == drawn, Comment(rawValue:
+                "population \(population): \(drawn) characters on \(spots.count) spots"))
+        }
+    }
+
+    /// A room that never fills never says anything, so nothing about the
+    /// ordinary picture moves. Over every fixture, `setOverflow` is silent.
+    @Test func aRoomThatNeverFillsNeverSaysAnything() async throws {
+        for name in ["single-agent-simple", "parallel-tools", "three-subagents",
+                     "four-subagents", "killed-session"] {
+            var director = Self.director()
+            var said: [Int] = []
+            for batch in try await SceneFixtures.batchedDeltas(name) {
+                said += Self.overflows(director.apply(batch))
+            }
+            #expect(said.isEmpty, "\(name) emitted \(said)")
+        }
+    }
+
+    /// **A seat that frees goes to whoever has waited longest, and they walk
+    /// in.** Without this the overflow would be permanent: seats are released on
+    /// departure and reused by *new* arrivals, so an agent that found the room
+    /// full would still be undrawn after everyone on screen had left — a room of
+    /// empty desks under a plate reading "+3", which is true and useless.
+    @Test func aFreedSeatGoesToWhoeverHasWaitedLongest() {
+        var director = Self.director()
+        let arrivals = Self.arrival(10)
+        _ = director.apply(arrivals)
+        #expect(director.overflowCount == 3)
+
+        // Whoever is waiting, in the order they arrived.
+        let waiting = arrivals.compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta,
+                  !director.isSeated(agent) else { return nil }
+            return agent
+        }
+        #expect(waiting.count == 3)
+
+        // Take a seated subagent out of the room.
+        let leaver = try! #require(arrivals.compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta,
+                  director.isSeated(agent), agent.agent != .mainThread else { return nil }
+            return agent
+        }.max { (director.seats[$0] ?? 0) < (director.seats[$1] ?? 0) })
+        let freed = try! #require(director.seats[leaver])
+
+        let intents = director.apply([.agentDeparted(agent: leaver)])
+        let spawned = Self.spawnedSeats(intents)
+
+        #expect(spawned == [waiting[0]: freed], "the longest wait did not take the seat")
+        #expect(director.isSeated(waiting[0]))
+        #expect(director.overflowCount == 2)
+        #expect(Self.overflows(intents) == [2])
+        #expect(director.population == 9)
+    }
+
+    /// An agent that was never drawn is never walked off, and one that was is.
+    /// A departing character the scene has no node for would be an exit intent
+    /// nothing could carry out.
+    @Test func nobodyWalksOutOfASeatTheyNeverHad() {
+        var director = Self.director()
+        let arrivals = Self.arrival(9)
+        _ = director.apply(arrivals)
+        let waiting = try! #require(arrivals.compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta,
+                  !director.isSeated(agent) else { return nil }
+            return agent
+        }.last)
+
+        let intents = director.apply([.agentDeparted(agent: waiting)])
+        #expect(!intents.contains { if case .exitCharacter = $0 { true } else { false } })
+        #expect(Self.overflows(intents) == [1])
+        #expect(director.population == 8)
+    }
+
+    /// The promoted character's body and badge are emitted **after** its spawn,
+    /// so it walks in doing what it is actually doing rather than idling until
+    /// its next event. Nothing is emitted for it while it is waiting, which is
+    /// what leaves the suppression memory clear for this.
+    @Test func aPromotedCharacterArrivesShowingTheWorkItWasAlreadyDoing() {
+        var director = Self.director()
+        let arrivals = Self.arrival(8)
+        _ = director.apply(arrivals)
+        let waiting = try! #require(arrivals.compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta,
+                  !director.isSeated(agent) else { return nil }
+            return agent
+        }.first)
+        let leaver = try! #require(arrivals.compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta,
+                  director.isSeated(agent), agent.agent != .mainThread else { return nil }
+            return agent
+        }.first)
+
+        // It opens a call while it has no seat: nothing at all is said about it.
+        let silent = director.apply([.callOpened(agent: waiting, call: Self.call("t", "Bash"))])
+        #expect(!silent.contains {
+            switch $0 {
+            case let .setBody(agent, _, _), let .setBadge(agent, _): agent == waiting
+            default: false
+            }
+        })
+
+        let intents = director.apply([.agentDeparted(agent: leaver)])
+        let spawnIndex = try! #require(intents.firstIndex {
+            if case let .spawnCharacter(agent, _, _, _, _, _) = $0 { agent == waiting } else { false }
+        })
+        let bodyIndex = try! #require(intents.firstIndex {
+            if case let .setBody(agent, state, _) = $0 { agent == waiting && state == .working }
+            else { false }
+        })
+        let badgeIndex = try! #require(intents.firstIndex {
+            if case let .setBadge(agent, selection) = $0 {
+                agent == waiting && selection.badge == .terminal
+            } else { false }
+        })
+        #expect(spawnIndex < bodyIndex)
+        #expect(spawnIndex < badgeIndex)
+    }
+
     // MARK: Determinism
 
     @Test func replayingTheSameFixtureTwiceProducesIdenticalIntents() async throws {

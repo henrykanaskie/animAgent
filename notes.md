@@ -3693,3 +3693,291 @@ not have yet, which is why I did not start it on the remaining budget.
 
 What must NOT happen: silently dropping the overflow agents. That is the same
 class of lie as drawing two on one spot, just harder to notice.
+
+---
+
+## M6i — the manifest is reproducible from its generator again
+
+Closes open-queue **#47**, and carries **#45** the rest of the way: the costume
+`roles` rekey that was sitting uncommitted in `assets/manifest.json` now exists
+in the generator, so it survives the next rerun.
+
+### What the rerun actually did before this
+
+Measured, not assumed. `build-manifest.py --costumes --out /tmp/…` against the
+manifest as it stood on disk produced a **250-line raw diff in exactly two
+places** and nowhere else:
+
+- `characters.costumes.roles` — 8 entries emitted against the 21 on disk, and
+  the 8 sorted alphabetically against a grouping the disk file had.
+- `room.props.stations` — **220 lines, gone entirely.** The generator had never
+  heard of it.
+
+Everything else — 3269 asset paths, six themes, the animated clock, every badge —
+already matched byte for byte. So the whole of the irreproducibility was those
+two hand-authored blocks, and the fix is two tables and an emitter rather than
+anything structural. Worth recording because it is the good news: the generator
+was not drifting, it was *incomplete*.
+
+And without `--costumes` the same run additionally deleted the wardrobe and
+exited 0. **The flag was the hazard.** A flag whose absence silently destroys a
+hand-verified section is not a safety measure, and the fact that it was
+introduced *as* one (the scene test then asserted the manifest had no wardrobe)
+is the interesting part: the safeguard outlived the condition it guarded, and
+nothing was watching for that.
+
+### What changed
+
+`scripts/process-assets.py` — `STATIONS` (11 entries: title, single index, what
+it reads as, `asserts`), `STATION_IDENTIFIED_BY`, `STATION_ROLES` (11),
+`STATION_ASSIGNABLE` (4), `STATION_PROP_MAX_W` (32, ADR-002 §14c's seat-gap
+limit). `COSTUME_ROLES` rewritten from 8 entries to the 21 now on disk, grouped
+by costume and led by the agent types a stranger's session produces.
+
+`scripts/build-manifest.py` — `build_stations()`, hung off `build_room()`'s
+`props`; measures each prop's `content_box` off the shipped PNG, checks the 32px
+limit against that measurement, and refuses to write an asserting station into
+the hash's pool exactly as `build_costumes()` already did for the wardrobe.
+`--costumes` deleted; the wardrobe is emitted unconditionally. `costumes.roles`
+emitted in insertion order rather than `sorted()`.
+
+Third change, and the one that matters most: **`sections_lost_against()`**.
+Before writing, the generator reads the manifest it is about to overwrite and
+refuses (exit 2, target untouched) if `characters.variants`,
+`characters.costumes`, `room.props.roles`, `room.props.stations`, `badges.map`
+or `themes.sets` is populated there and empty here. The existing empty-manifest
+guard only caught *no art at all*; the realistic failure is **one directory
+missing**, which yields a manifest that is internally consistent, plausible,
+smaller, and exits 0. That is precisely how a 1344-path manifest became a
+148-path one. Verified by parking `assets/processed/costumes/` and rerunning:
+exit 2, target byte-identical afterwards.
+
+### The bar
+
+**Byte-identical, first attempt, and re-verified three times.**
+`python3 scripts/build-manifest.py --out <tmp>` then `cmp` against the committed
+`assets/manifest.json`: **zero differing bytes**, `shasum` equal, 3269 asset
+paths. `assets/manifest.json` itself was never written by this change — it was
+backed up first, and it is still the file it was, uncommitted rekey and all.
+
+Two encoding details that would have made the diff enormous and meaningless had
+they been missed, recorded so the next person does not rediscover them:
+`json.dump(..., indent=2)` with `ensure_ascii` left at its default, so non-ASCII
+is `\uXXXX`-escaped; and the stations `note` on disk spells the ADR references
+`SS4, SS7, SS14c` in literal ASCII, **not** `§`. The `§` version would have been
+prettier and would not have been what is there.
+
+### Gate
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. `swift test`
+**529** passing. `python3 scripts/lint-palette.py` passes, unweakened, six themes
+"agrees with the scene". No Swift file touched — the manifest is unchanged, so
+there was nothing for the scene to react to.
+
+### What is still not fixed
+
+**Nothing enforces this.** The proof that a rerun reproduces the manifest is a
+`cmp` somebody ran, not a check anything runs. A test that regenerates into a
+temp file and compares would make it true mechanically, but it needs the art on
+disk and would therefore be gated the way `SceneArt.isAvailable` gates the pixel
+tests — worth doing, and outside this change's scope. Until then the guard in
+`sections_lost_against()` is the backstop: it cannot tell you the manifest is
+reproducible, only that a rerun did not silently amputate it.
+
+## M7c — the ambient loop is keyed by badge class
+
+**The finding this answered.** The room renders at `1x` in every configuration
+(`RoomCamera.comfortablePopulation` is empty by decision), and three consecutive
+detail features had all shipped at that zoom: costumes are a 0.00% closest-pair
+silhouette difference, held objects read as "holding *something*", and every desk
+desaturates to the same slab. Motion was the channel nobody had spent.
+
+### What the art turned out to support — measured first, designed second
+
+The premade sheet was cut fresh rather than read off the previous agent's
+`row_map.png`. 1792x1312 on a 32x64 canvas is **20 pose rows**; a character is
+bottom-aligned so the last canvas row is the floor, and **rows 4 and 5 are the
+only two whose every frame keeps its feet off it** (`maxY` 61 against 63 for the
+other eighteen). Row 5 is the cross-legged floor sit, which no event means. So
+the room has one seated row and there is no second one to find.
+
+The load-bearing measurement is inside that row. Over all six shipped variants,
+**frames 0 and 1 of `sit` are the same position** — 0 to 32 px apart, an eye
+blink, and literally identical on variant 10 — while **frame 2 lifts the whole
+upper body 2 px**, 530 to 770 px of a 950 to 1160 px body.
+
+> **The pack contains exactly one seated gesture: a two-position bob.** There are
+> not six seated loops to hand out, and any design that assumed otherwise was
+> going to have to invent frames.
+
+So the only free parameter is *when* the two positions play. A phrase is a
+schedule over frames the artist drew, on the manifest's own 8 fps grid, which is
+the same relationship `spawn` and `depart` already have to `walk`. Nothing is
+invented and no new rate is introduced.
+
+### What shipped
+
+`Sources/SpriteRoomScene/AmbientMotion.swift` — a phrase per badge class, laid
+out on a 3x2 grid of period {250, 500, 1000 ms} and duty {25, 50, 75%} so the six
+occupy six cells rather than six tastes. `question_mark` gets **no** phrase and
+plays the shipped loop, which is the question mark's own argument applied to a
+whole animation instead of a glyph. [I1] `Monitor` is permanently there.
+
+It is read in `Character` from `currentBadge.badge` — the tool class, *through* an
+attention override, matching `SceneDirector.body(for:badge:)` — and applied only
+while the body is `working`. So an ADR-003 closing beat cannot reach it (its body
+is `idle` by definition), a gated call keeps its gait while losing its hands, and
+I3 is answered by the badge's own lowest-ordinal rule: an agent holding two
+classes plays the lower one, whichever order the calls opened in, and the phase is
+not reset by the swap.
+
+**No new intent, no director change, no `RoomScene` change.** The badge already
+reaches `Character.apply(badge:)` and the body state already reaches
+`setResting`; the motion is a function of the two.
+
+### The honest verdict
+
+At `1x`, from the M7a live capture, three characters at their desks over 12
+consecutive frames — badges covered:
+
+| character | class | changed px per transition | pattern |
+|---|---|---:|---|
+| A69 | terminal | 530 | `S R S R S R S R S R S R` |
+| 430 | plug | 367 | `S R R R S R R R S R R R` |
+| 2D4 | globe | 341 | `S S S S R R R R S S S S` |
+
+**Yes for these three.** A69 changes position eight times a second's worth of
+frames; 2D4 changes twice in the same span. Against a held object's 90 static
+pixels and a costume's zero, the bob is the largest per-character change this
+room can make and the only temporal one. Every pair of phrases is formally
+separated within 375–875 ms of watching.
+
+**And a large no beside it.** A motion is only as long as its call, and unlike the
+badge the body may not have a closing beat. On the same 224 s capture:
+
+| class | calls | total open s | median s | calls ≥ 250 ms |
+|---|---:|---:|---:|---:|
+| terminal | 18 | 102.75 | 0.054 | 3 |
+| plug | 4 | 100.06 | 25.016 | 4 |
+| globe | 8 | 13.19 | 1.764 | 8 |
+| document | 10 | 0.75 | 0.074 | **0** |
+| magnifier | 16 | 0.11 | 0.006 | **0** |
+| checklist | 5 | 0.07 | 0.010 | **0** |
+
+15 of 61 calls last long enough for the body to complete one bar of the shortest
+phrase. **Three of the six phrases will essentially never be seen** — not subtly,
+not slowly, but not at all — and they are the same three ADR-003 found the badge
+blind to, blind for the same reason, and this time with no honest remedy. So the
+claim is "the classes an agent *dwells* in are now told apart by movement", and
+it is not "every agent has its own visible animation".
+
+Two weak spots recorded rather than discovered later: `terminal` alternates on
+every frame of the 8 fps grid, which is the fastest the art allows and may read
+as vibration rather than as work (`S S R R` is the free cell beside it); and
+`plug` against `globe` is the hardest pair for an eye, since both change position
+every 500 ms and differ only in duty.
+
+### What this did not need
+
+No ADR. I2 governs the ambient loop and this changes which loop, not whether
+there is one — the body is `working` exactly while the open set is non-empty, to
+the frame, and idles the instant it empties. I1 is satisfied because a phrase is
+keyed on the badge class, so it asserts precisely what the badge above the same
+head asserts and nothing further; the shapes being evocative is a bonus, not a
+claim.
+
+## #49 and #48 — the room counts what it cannot seat, and stops drawing over faces
+
+Both landed. Green: `swift build --build-tests -Xswiftc -warnings-as-errors`,
+`swift test` (550 tests, 50 suites — the count includes a concurrent agent's
+ambient-motion work that was in the tree at the same time), and
+`python3 scripts/lint-palette.py`, six themes all "agrees with the scene".
+
+### #49 — the truthful overflow indicator
+
+The two ruled-out routes were re-derived rather than trusted, and both hold:
+raising `seatCapacity` runs out of panel at `96 × 7 = 672` of 720, and the
+back-row lap flip really does falsify `isBackRow`'s own walk-out sentence,
+because seat 0's column then *contains* back-row seat 7.
+
+What shipped:
+
+- `RoomLayout.isSeatable(_:)` is the seat contract, stated once. Every position
+  function wraps, so it is the only line between "a seat" and "somebody else's
+  seat".
+- `SceneDirector` keeps handing out unbounded lowest-free seat numbers — past
+  seven they are **a queue position**, not a place. It spawns, bodies, badges and
+  reports only for seated agents, and it counts the rest.
+- `SpriteIntent.setOverflow(Int)` carries the count. Seeded at 0, so a room that
+  never fills never emits it: verified over `single-agent-simple`,
+  `parallel-tools`, `three-subagents`, `four-subagents` and `killed-session`.
+- `RoomScene` stands a plate at `RoomLayout.overflowPlatePosition` — a tile above
+  the wall line on seat 0's own decoration column, which is an *accent* column,
+  so the backdrops are a seat pitch away either side. It is the nameplate
+  construction with **no accent band**: `+N` at 2×, `MORE` at 1× beneath, in the
+  plate colour, so it cannot be read as somebody's identity.
+- A freed seat goes to whoever waited longest and they walk in. Without that the
+  overflow is permanent (seats are released on departure and reused by *new*
+  arrivals only), and you end up with seven empty desks under a "+3".
+
+**Counted by eye in the PNGs**, `scratchpad/pop/final/`, office, 720×400, t=30:
+pop 7 → 7 plates, no indicator. pop 8 → 7 plates + `+1`. pop 9 → 7 + `+2`.
+pop 13 → 7 + `+6`. The before shot, `scratchpad/pop/before8/`, is the defect: 8
+agents, 7 plates, MAIN buried under seat 7's.
+
+The scenarios are `scratchpad/pop/pop{7,8,9,13}.jsonl` from `make-pop.py` —
+clones of a real captured subagent from `fixtures/three-subagents.jsonl` with
+three fields rewritten, every line stamped `_synthetic`. Not fixtures.
+
+### #48 — the library desk
+
+Fixed in the **scene**, not in the manifest, because `assets/manifest.json` was
+out of scope this run (uncommitted costume-roles work in the tree).
+`RoomScene.surfaceDepthBias(deskHeight:headClearance:)` resolves a desk's depth
+from its own content box: at or under the shortest head (44 px) it is drawn in
+front of the body as always; above it, behind the body and behind the chair.
+
+The argument for "in front" was never unconditional — it is that at 32 px the
+near edge crossing the body is the only cue you are sitting *at* a desk. That
+assumes a desk shorter than the person. At 70 px the cue is not weakened, it is
+moot, because the desk covers the face. Losing a depth cue costs less than
+losing the character. Before/after crops at `scratchpad/pop/final/
+zoom-library-{BEFORE,AFTER}.png`.
+
+`StationContractTests.everyStationFitsTheSeatItIsDrawnAt` now walks **every desk
+any theme can put at a seat** — inherited, station-declared, `manifest.room`
+included — instead of only what a station overrides. That carve-out is exactly
+how the defect survived a milestone. Both new assertions were seen red first, by
+reverting `isSeatable` to `true` and `surfaceDepthBias` to a constant: the
+director tests fail at "8 == 7" and the station test at "70 <= 44", twelve times.
+
+`scripts/preview-theme.py` transcribes the same rule (`desk_depth_bias`,
+`SHORTEST_HEAD`). Checked for sensitivity by setting `SHORTEST_HEAD = 999` —
+`library` immediately drops off the "agrees with the scene" list, so the
+`--verify` tie is real and not a formality.
+
+### What is NOT fixed, and it is the width half of #48
+
+`library`'s desk is **56 px wide** and `mission_control`'s **44**, against a
+32 px limit. A desk is centred on `deskPosition`, so its right edge reaches
+`28 + w/2` from its seat while the next seat's station-prop lane starts at `+48`:
+the overhang is **8 px** for `library` and **2 px** for `mission_control`.
+Nothing is hidden by it — it is two furniture edges touching. Closing it means
+choosing a different `props.roles.desk` single in `assets/manifest.json`, which
+this change could not touch. The measured overhang is now *asserted*, so a theme
+arriving with a desk wide enough to stand on the neighbour fails instead of
+shipping.
+
+### Scope
+
+`Sources/SpriteRoomScene/{RoomLayout,RoomScene,SceneBitmaps,SceneDirector}.swift`,
+`Tests/SpriteRoomSceneTests/{SceneDirectorTests,RoomSceneTests,StationAndCostumeTests}.swift`,
+`scripts/preview-theme.py`, `docs/{01-PRD,04-ART-DIRECTION,05-MILESTONES,ADR-002-themed-rooms}.md`,
+and this file. `assets/manifest.json`, `scripts/process-assets.py` and
+`scripts/build-manifest.py` are **untouched**.
+
+### One thing to watch
+
+`SceneFixtures.expectedGatedTestCount` was moving under me from concurrent work
+and I added **no** art-gated test on purpose, partly to stay out of its way.
+Whoever merges should still re-derive it.

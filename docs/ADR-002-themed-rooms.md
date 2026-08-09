@@ -1136,6 +1136,68 @@ rather than worked around here.
 
 ---
 
+## 14d. Amendment, 2026-08-09 — the desk that drew over every face
+
+§14c's last paragraph — *"What this does not fix, stated so nobody reports it as
+new"* — named `library`'s 56×70 `props.roles.desk` drawing over the face of
+whoever sits at it, and left it to theme art. **The height half is fixed and the
+paragraph is superseded on that point.**
+
+It is fixed in the scene rather than in the manifest, and the reason is worth
+keeping: §14c's own derivation of the 44 px limit says *"a station desk is drawn
+in front of the body, so it may be at most 44px tall"* — which takes "in front"
+as given. It is not given; it is a choice, made because at 32 px the near edge
+crossing the body is the only cue that a character is sitting *at* a desk rather
+than beside one. That argument assumes a desk shorter than the person at it. At
+70 px the cue is not weakened but moot, because the desk covers the body
+including the face. So `RoomScene.surfaceDepthBias(deskHeight:headClearance:)`
+resolves the depth from the desk's own content box — in front at or under the
+shortest head, behind the body and behind the chair above it — and the 44 px
+number keeps its meaning as the line between the two rather than as a limit on
+art nobody may edit.
+
+Two consequences the implementer of a future theme should hold:
+
+- **The geometry test now checks what the room DRAWS, not what a station
+  DECLARES.** §14c's carve-out was exactly how this survived a milestone: the
+  desk that occluded every face was *inherited*, and the test looked only at
+  overrides. `StationContractTests.everyStationFitsTheSeatItIsDrawnAt` walks
+  every desk any theme can put at a seat, `manifest.room` included.
+- **The width half is bounded, not fixed.** `library`'s 56 px desk overhangs the
+  next seat's station-prop lane by 8 px and `mission_control`'s 44 px one by
+  2 px. Nothing is hidden by it; closing it is a manifest art change. The
+  measured overhang is asserted, so a wider desk fails rather than ships.
+
+## 14e. Amendment, 2026-08-09 — seven seats, and the eighth agent
+
+Nothing in this ADR says how many agents the room can hold, because §2c's
+"Seats occupied" row treats population as an input the layout simply absorbs. It
+does not. `RoomLayout.seatColumn` and `ring` both wrap mod `seatCapacity`, so
+the eighth agent took seat 0's column *and* seat 0's row — a total overlap. The
+room drew seven characters while eight were running, which is a false claim
+about the data [I1] and S5 failing at the first crowd past the seat count.
+
+The seat count cannot be raised (96 px of pitch across a 720 px panel at the
+only scale the app uses) and the back row cannot be re-lapped (it falsifies
+`isBackRow`'s own walk-out clearance argument, and a half-pitch offset needs
+77 px of plate clearance and has 48). Both are argued in full in
+`04-ART-DIRECTION.md`, "Seven seats, and what the room says about the eighth
+agent".
+
+**The room says the number instead.** `SpriteIntent.setOverflow(_:)` carries how
+many agents have no seat, and the room stands a plate reading `+N` over `MORE`
+against the back wall. It is on the **agent** volatility band — it changes on
+`agentAppeared` and `agentDeparted` and on nothing else — so §6's discipline is
+unchanged and no new hysteresis constant appears. A freed seat goes to whoever
+has waited longest and they walk in, which is the same `spawn` every character
+gets and is driven by the departure that freed the chair.
+
+**This adds one row to §2c**, and it is listed here in that table's own shape:
+
+| Visual dimension | Driven by | Fallback when absent | Volatility — changes when |
+|---|---|---|---|
+| **Overflow plate** | How many agents exist beyond `RoomLayout.seatCapacity`. Nothing else. | Nothing drawn — the room has a seat for everybody. | **Agent.** `agentAppeared` / `agentDeparted`, and the promotion that follows a departure. |
+
 ## 15. If accepted, these documents are wrong until edited
 
 Out of this change's scope, listed so nothing rots:

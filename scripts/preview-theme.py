@@ -106,6 +106,12 @@ PLATE_DROP_BELOW_FEET = 20
 CONTENT_BAND_BOTTOM = AISLE_Y - PLATE_DROP_BELOW_FEET  # 12
 
 CHAR_H = 64
+# How far above its own feet the *shortest* cast variant's head starts:
+# `characters.canvas.height - max(head_top_px)` over the manifest, asserted as 44
+# by `StationContractTests.everyStationFitsTheSeatItIsDrawnAt`. It is the line
+# `RoomScene.surfaceDepthBias` resolves a desk's depth against — see
+# `desk_depth_bias`.
+SHORTEST_HEAD = 44
 VOID = (18, 18, 22, 255)
 
 
@@ -162,7 +168,26 @@ def seat_y(index):
     return BACK_SEAT_ROW_Y if seat_ring(index) % 2 else BASELINE_Y
 
 
-def prop_layout():
+def desk_depth_bias(desk_height):
+    """Transcribed from `RoomScene.surfaceDepthBias(deskHeight:headClearance:)`.
+
+    A desk short enough to sit at is drawn **in front of** the body: at 32 px the
+    only cue that a character is sitting *at* a desk rather than beside one is
+    whether the desk's near edge crosses it. A desk taller than the shortest
+    head goes **behind** the body and behind the chair instead, because at that
+    height the near-edge cue is not weakened but moot — `library`'s 56x70
+    desk-with-an-open-book covered the whole body including the face at every
+    seat, in a room whose characters are the subject.
+
+    `None` means "this theme declares no desk", which is the placeholder path;
+    the placeholder is 26 px tall and therefore always the in-front case.
+    """
+    if desk_height is not None and desk_height > SHORTEST_HEAD:
+        return -0.5
+    return 0.5
+
+
+def prop_layout(desk_height=None):
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
     Scene coordinates, y-up, the point being the content box's bottom-centre.
@@ -218,8 +243,9 @@ def prop_layout():
     # that overlap is the only cue the character is sitting *at* the desk.
     for seat in range(SEAT_CAPACITY):
         placed.append(("chair", seat_x(seat), seat_y(seat), -0.25))
+    bias = desk_depth_bias(desk_height)
     for seat in range(SEAT_CAPACITY):
-        placed.append(("desk", seat_x(seat) + TILE * 0.875, seat_y(seat), 0.5))
+        placed.append(("desk", seat_x(seat) + TILE * 0.875, seat_y(seat), bias))
     return placed
 
 
@@ -460,8 +486,12 @@ def render(theme, name, population, out_path, characters, seed_variants,
         # `y - bias`, not `y + bias`. See the sort below.
         drawn.append((y - bias, "prop", (frames[frame % len(frames)], left, top)))
 
-    # One placement list, drawn here and counted by `role_placements()`.
-    for role_name, x, y, bias in prop_layout():
+    # One placement list, drawn here and counted by `role_placements()`. The
+    # desk's depth is a function of *this theme's* desk, so the height goes in
+    # rather than the bias being a constant — see `desk_depth_bias`.
+    desk = roles.get("desk")
+    for role_name, x, y, bias in prop_layout(
+            desk["content_box"]["h"] if desk else None):
         add_prop(role_name, x, y, bias=bias)
 
     # A body at the occupied seats. Depth sorting puts it between its chair and

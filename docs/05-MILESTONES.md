@@ -437,10 +437,19 @@ lint table and every criterion marked open above.
 
 ## Deferred to v2, on purpose
 
-Population overflow beyond the `1x` floor; a colour-tag fallback if `1x` badges
-prove illegible; historical playback. Do not pull these forward
-without an ADR, and note that the first two only become real problems at agent
+~~Population overflow beyond the `1x` floor;~~ a colour-tag fallback if `1x`
+badges prove illegible; historical playback. Do not pull these forward
+without an ADR, and note that the second only becomes a real problem at agent
 counts we have not observed yet.
+
+**Overflow was pulled forward, and not as a feature.** Deferring it had assumed
+the room degraded gracefully past its seat count; it did not — `seatColumn` and
+`ring` both wrap mod `seatCapacity`, so the eighth agent was drawn on top of the
+first and the room showed seven characters while eight were running. That is S5
+failing and a false claim about the data [I1], so it was a defect rather than a
+deferral. What shipped is the smallest truthful thing: seven seats, and a plate
+that says how many more there are. See `04-ART-DIRECTION.md`, "Seven seats, and
+what the room says about the eighth agent".
 
 ---
 

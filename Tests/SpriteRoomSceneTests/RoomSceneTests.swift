@@ -1565,6 +1565,132 @@ struct RoomSceneTests {
         #expect(worst >= 6, Comment(rawValue:
             "only \(worst) px of clearance — \(worstLabel)"))
     }
+
+    // MARK: The overflow plate [I1, S5]
+
+    /// A box in scene coordinates, bottom-centre anchored the way every prop and
+    /// the plate itself are.
+    static func box(bottomCentre point: ScenePoint, width: Double, height: Double)
+    -> (minX: Double, maxX: Double, minY: Double, maxY: Double) {
+        (point.x - width / 2, point.x + width / 2, point.y, point.y + height)
+    }
+
+    static func intersects(
+        _ a: (minX: Double, maxX: Double, minY: Double, maxY: Double),
+        _ b: (minX: Double, maxX: Double, minY: Double, maxY: Double)
+    ) -> Bool {
+        a.minX < b.maxX && b.minX < a.maxX && a.minY < b.maxY && b.minY < a.maxY
+    }
+
+    /// **Nothing else stands where the plate stands, in any theme.**
+    ///
+    /// The point is `RoomLayout.overflowPlatePosition` and the props are read
+    /// from `RoomScene.decorationPlacements` — the same function the room
+    /// builds from, not a copy of it — so a theme with a taller accent or a
+    /// change to the alternation fails here rather than quietly putting the
+    /// room's only caption behind a bookcase.
+    @Test func theOverflowPlateStandsWhereNoThemePutsAProp() throws {
+        let manifest = try SceneFixtures.manifest()
+        let layout = RoomLayout()
+        let plate = SceneBitmaps.overflowPlate(9)
+        let plateBox = Self.box(
+            bottomCentre: layout.overflowPlatePosition,
+            width: Double(plate.width), height: Double(plate.height))
+
+        var themes: [(String, Manifest.Room)] = [("room", manifest.room)]
+        for id in manifest.themes.orderedIDs {
+            themes.append((id, try #require(manifest.themes.theme(id)).room))
+        }
+        #expect(themes.count > 1)
+
+        for (id, room) in themes {
+            for placement in RoomScene.decorationPlacements(layout: layout) {
+                let prop = try #require(room.prop(placement.role),
+                                        "\(id) binds no \(placement.role)")
+                let propBox = Self.box(
+                    bottomCentre: placement.point,
+                    width: Double(prop.contentBox.width),
+                    height: Double(prop.contentBox.height))
+                #expect(!Self.intersects(plateBox, propBox), Comment(rawValue:
+                    "\(id): the overflow plate overlaps the \(placement.role) at"
+                    + " x=\(placement.point.x)"))
+            }
+        }
+    }
+
+    /// **The caption is on screen, or it is silence.** The panel is 720×400 and
+    /// the plate only ever appears with every seat taken, so the frame is fixed
+    /// when it matters — but `--render` and `--window` take a size, so the
+    /// clamp is checked over a sweep rather than at the one size that ships.
+    @Test func theOverflowPlateIsInsideTheFrameAtEverySizeTheAppCanBeGiven() throws {
+        let manifest = try SceneFixtures.manifest()
+        for width in [720.0, 480.0, 1600.0] {
+            for height in [400.0, 300.0, 900.0] {
+                let scene = RoomScene(manifest: manifest)
+                scene.setViewport(CGSize(width: width, height: height))
+                scene.apply([.setOverflow(6)])
+                let plate = try #require(scene.overflowPlateBoxForTesting())
+                let camera = try #require(scene.camera)
+                let frame = (
+                    minX: Double(camera.position.x) - Double(scene.size.width) / 2,
+                    maxX: Double(camera.position.x) + Double(scene.size.width) / 2,
+                    minY: Double(camera.position.y) - Double(scene.size.height) / 2,
+                    maxY: Double(camera.position.y) + Double(scene.size.height) / 2)
+                let label = "\(Int(width))x\(Int(height))"
+                #expect(plate.x >= frame.minX, "\(label): the plate is off the left edge")
+                #expect(plate.x + plate.width <= frame.maxX, "\(label): off the right edge")
+                #expect(plate.y >= frame.minY, "\(label): off the bottom edge")
+                #expect(plate.y + plate.height <= frame.maxY, "\(label): off the top edge")
+            }
+        }
+    }
+
+    /// It says the number it was given, it stops saying anything at zero, and it
+    /// is not a prop — §6 rule 1's "zero prop-node rebuilds" must stay a
+    /// statement about the room's furniture.
+    @Test func theOverflowPlateAppearsOnlyWhenThereIsSomethingToSay() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest)
+        scene.setViewport(CGSize(width: 720, height: 400))
+        let props = scene.propNodesForTesting.count
+
+        #expect(scene.overflowPlateBoxForTesting() == nil, "it spoke before it had to")
+        scene.apply([.setOverflow(3)])
+        let three = try #require(scene.overflowPlateBoxForTesting())
+        #expect(scene.overflowShown == 3)
+
+        scene.apply([.setOverflow(12)])
+        let twelve = try #require(scene.overflowPlateBoxForTesting())
+        #expect(twelve.width > three.width, "a wider count did not widen the plate")
+
+        scene.apply([.setOverflow(0)])
+        #expect(scene.overflowPlateBoxForTesting() == nil, "it kept saying it at zero")
+        #expect(scene.propNodesForTesting.count == props, "the plate was registered as a prop")
+        #expect(scene.roomBuildCount == 1)
+    }
+
+    /// The plate reads the number, and reads as *not* an agent: every character
+    /// plate carries a saturated accent band assigned 60° apart, and this one
+    /// carries the plate colour, so there is nobody it could be mistaken for.
+    @Test func theOverflowPlateSaysTheCountAndBelongsToNobody() {
+        let plate = SceneBitmaps.overflowPlate(4)
+        let named = SceneBitmaps.nameplate(
+            NameplateText(lead: "+4", role: SceneBitmaps.overflowLabel),
+            accent: Bitmap.RGBA(220, 40, 40))
+        #expect(plate.width == named.width, "the two plates are the same construction")
+        #expect(plate.height == named.height)
+
+        var accented = 0
+        for y in 0..<plate.height {
+            for x in 0..<plate.width where plate.at(x, y) != named.at(x, y) { accented += 1 }
+        }
+        #expect(accented > 0, "the overflow plate wears a character's accent band")
+
+        // And it is legible at the only scale the app uses: the count is drawn
+        // at the nameplate's own lead scale, which is 2x. [I6]
+        #expect(SceneBitmaps.nameplateLeadScale == 2)
+        #expect(plate.height >= 20, "the plate is shorter than a nameplate's lead row")
+    }
 }
 
 // MARK: - Test hooks

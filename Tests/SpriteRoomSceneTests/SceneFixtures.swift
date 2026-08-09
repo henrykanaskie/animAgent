@@ -222,7 +222,18 @@ enum SceneArt {
     /// blocks in `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`) are
     /// deliberately **not** gated: they are arithmetic over `RoomLayout`, which
     /// a fresh clone can and should still check.
-    static let expectedGatedTestCount = 59
+    /// 65 with the ambient motion channel: six tests that need the seated frames
+    /// on disk. Five are `AmbientMotionSceneTests`, which build real
+    /// `Character`s — a `Character` with no art never enters a body state at
+    /// all, so every rule about *how* it moves would pass vacuously without the
+    /// pack. The sixth is
+    /// `AmbientMotionArtTests.theSeatedLoopHoldsExactlyTwoPositions`, which
+    /// re-derives from the shipped PNGs the measurement the whole channel stands
+    /// on: the seated loop holds two positions, not three.
+    /// `AmbientMotionPolicyTests` is deliberately **not** gated — the phrase
+    /// table and the question-mark rule are this repository's own, so a fresh
+    /// clone can and should still check them.
+    static let expectedGatedTestCount = 65
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

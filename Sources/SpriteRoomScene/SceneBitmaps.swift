@@ -191,6 +191,38 @@ public enum SceneBitmaps {
             + 0.0722 * channel(colour.b)
     }
 
+    /// The word under the count on the overflow plate.
+    ///
+    /// Small, on the role line, for the reason the nameplate's role line is
+    /// small: the number is the thing that differs and the word is context.
+    /// "MORE" rather than a noun because the plate stands in a room full of
+    /// characters and the only true statement it can make is that there are
+    /// this many more of them than are drawn.
+    public static let overflowLabel = "MORE"
+
+    /// **The plate that says how many agents the room has no seat for.**
+    ///
+    /// The room has seven seats and cannot honestly have more — see
+    /// `RoomLayout.seatCapacity` for why neither raising the count nor reusing
+    /// the back row survives its own arithmetic. What it can do is show the
+    /// seats it has and say out loud that there are `count` more, which asserts
+    /// nothing false [I1] and keeps the count answerable: seven characters plus
+    /// "+1" is still eight. The alternative — seating the eighth agent on top of
+    /// the first — is the room stating a population that is wrong, and quietly
+    /// dropping it is the same lie with nothing on screen to catch it.
+    ///
+    /// **It is a nameplate with no accent, and that is deliberate.** Same
+    /// construction, same font, same two rows, so it reads as the room's own
+    /// lettering rather than as chrome bolted on; but every character's plate
+    /// carries a saturated accent band assigned 60° apart, and this one carries
+    /// the plate colour itself. So it cannot be mistaken for somebody's
+    /// identity — there is nobody it belongs to.
+    public static func overflowPlate(_ count: Int, font: PixelFont = .standard) -> Bitmap {
+        nameplate(
+            NameplateText(lead: "+\(max(0, count))", role: overflowLabel),
+            accent: nameplatePlate, font: font)
+    }
+
     /// The `×N` that rides beside the badge when several calls are open.
     public static func badgeCount(_ count: Int, font: PixelFont = .standard) -> Bitmap {
         let text = "×\(count)"

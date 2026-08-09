@@ -99,6 +99,14 @@ S5 is still the real one. The others are how you get there.
   I2/I3: state has duration, so a 3 ms call simply never gets an ambient loop.
 - **The ghost.** A character stuck working after its session died. See I4.
 - **The mush.** Too many agents, sprites scaled below legibility. See I6; at the
-  `1x` floor, population is capped and overflow is deferred to v2.
+  `1x` floor the room has seven seats and cannot honestly have more — 96 px of
+  seat pitch across 720 px of panel. Past seven, the surplus agents are
+  **counted rather than drawn**: the room stands a plate reading `+N MORE`
+  against the back wall, so seven characters plus "+1" still answers S5. They
+  take the first seat that frees. Seating an eighth agent on top of the first —
+  which is what the wrapping seat arithmetic used to do — and dropping it
+  silently are the same failure, and both are the room stating a population that
+  is false. See `04-ART-DIRECTION.md`, "Seven seats, and what the room says
+  about the eighth agent".
 - **The lie.** Animation implying communication the data does not describe.
   See I1. This is the one that quietly destroys the product's only value.

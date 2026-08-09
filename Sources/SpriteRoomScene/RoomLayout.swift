@@ -18,9 +18,34 @@ public struct ScenePoint: Sendable, Hashable {
 public struct RoomLayout: Sendable, Hashable {
 
     public let tile: Int
-    /// Seats the floor is drawn wide enough for. Beyond this, seats wrap and
-    /// characters share columns — a room with more than this many agents is
-    /// past the point where anything reads anyway.
+    /// **How many seats exist. Not a soft limit.**
+    ///
+    /// `seatColumn` and `ring` both wrap mod this number, so seat 7 resolves to
+    /// seat 0's column *and* — because the two-row fold keys on ring parity —
+    /// seat 0's row. That is a total overlap, not a near miss: two characters
+    /// drawn on one spot, and a room that says seven when eight agents are
+    /// running. It is the room asserting a false number [I1] and it is S5, the
+    /// criterion this product is for, failing.
+    ///
+    /// **The number cannot be raised.** At `1x` — the only scale the app uses —
+    /// the panel is 720 px and the seat pitch is 96, so `96 × 7 = 672` is the
+    /// physical maximum across the visible width. More seats moves the failure
+    /// from "two characters overlapping" to "characters off screen", which
+    /// breaks S5 the same way and is harder to notice.
+    ///
+    /// **And the back row cannot be reused for a second lap.** Flipping
+    /// `isBackRow` on odd laps gives 14 non-overlapping *positions*, and it
+    /// falsifies `isBackRow`'s own clearance argument: seat 0's column would
+    /// then contain back-row seat 7, so a front-row character walking upstage
+    /// out of the room would walk through an occupied seat. Offsetting the
+    /// second lap by half a pitch does not rescue it — bodies clear, but a 77 px
+    /// plate against another 77 px plate needs 77 px and has 48.
+    ///
+    /// So the seats are the seats, and what overflows them is *said* rather than
+    /// drawn: `SceneDirector` seats the first `seatCapacity` agents and counts
+    /// the rest, and the room stands a plate at `overflowPlatePosition` that
+    /// says how many it is not showing. Seven characters plus "+1" is still a
+    /// count, and it asserts nothing false. See `isSeatable(_:)`.
     public let seatCapacity: Int
     /// Tiles between adjacent seats: one for the character, one for its desk,
     /// one of air.
@@ -219,6 +244,16 @@ public struct RoomLayout: Sendable, Hashable {
         !ring(ofSeat: index).isMultiple(of: 2)
     }
 
+    /// Whether the room has a seat for `index` — every position function below
+    /// wraps, so anything else lands on top of an existing seat.
+    ///
+    /// This is the whole of the seat contract, stated once so a caller can ask
+    /// rather than remember. `SceneDirector` is the only thing that hands seat
+    /// numbers out and it never draws a character on an index this rejects.
+    public func isSeatable(_ index: Int) -> Bool {
+        index >= 0 && index < seatCapacity
+    }
+
     /// Y of the row seat `index` sits on.
     public func seatRowY(_ index: Int) -> Double {
         isBackRow(seat: index) ? backSeatRowY : baselineY
@@ -263,6 +298,44 @@ public struct RoomLayout: Sendable, Hashable {
     /// can declare.
     public func stationPropPosition(_ index: Int) -> ScenePoint {
         ScenePoint(x: seatPosition(index).x - Double(tile), y: seatRowY(index))
+    }
+
+    /// The x of the decoration column that belongs to a seat: a tile and a half
+    /// outward from the seat's own centre, which is the gap between this seat's
+    /// desk and the next seat's station prop.
+    ///
+    /// `RoomScene` stands one backdrop or one accent on each of these, sorted
+    /// along x and alternating, so consecutive copies of one role are two seat
+    /// pitches apart. It lives here rather than in the scene because
+    /// `overflowPlatePosition` is derived from it and the two must not drift.
+    public func propColumnX(forSeat index: Int) -> Double {
+        seatPosition(index).x + Double(tile) * 1.5
+    }
+
+    /// **Where the room says how many agents it has no seat for.**
+    ///
+    /// Bottom-centre of a plate standing against the back wall, a tile above
+    /// the wall line. Two properties are being bought and both are geometric
+    /// rather than a matter of taste:
+    ///
+    /// - **Nothing else stands there.** The decoration columns alternate
+    ///   backdrop/accent along x, and seat 0's column is the middle one of the
+    ///   seven — an *accent* column, so the backdrops are a full seat pitch
+    ///   away on either side and the accent itself stands two tiles downstage
+    ///   against the back seat row. The tallest accent any theme ships reaches
+    ///   `accentRowY + 78 = 238`, which is under this line.
+    /// - **It is in frame whenever it exists.** The plate only ever appears when
+    ///   every seat is taken, and a full room's camera span is fixed, so the
+    ///   point is a constant rather than something that moves with the
+    ///   population. `RoomScene` still clamps it into the frame, because a
+    ///   viewport this app does not ship could be shorter than the one it does
+    ///   and a caption that is off screen is the same silence it exists to
+    ///   break.
+    ///
+    /// It is upstage of both seat rows, so it does not weaken "nothing is drawn
+    /// nearer the camera than the seat row" — see `RoomScene.buildRoom`.
+    public var overflowPlatePosition: ScenePoint {
+        ScenePoint(x: propColumnX(forSeat: 0), y: wallBaseY + Double(tile))
     }
 
     public var seatedFacing: Facing { .right }

@@ -479,6 +479,17 @@ struct StationContractTests {
         }
     }
 
+    /// Every theme the room can be dressed in, the manifest's own default
+    /// included — `manifest.room` *is* the resolved default theme [§14a] and a
+    /// check that skips it skips the room most users see.
+    static func everyTheme(_ manifest: Manifest) throws -> [(String, Manifest.Room)] {
+        var themes: [(String, Manifest.Room)] = [("room", manifest.room)]
+        for id in manifest.themes.orderedIDs {
+            themes.append((id, try #require(manifest.themes.theme(id)).room))
+        }
+        return themes
+    }
+
     /// **The station has to fit the seat it is drawn at**, and both numbers come
     /// out of `RoomLayout` rather than out of taste. Measured from the declared
     /// content boxes, so it runs without any art on disk.
@@ -508,14 +519,67 @@ struct StationContractTests {
         let shortestHead = try #require(heads.min())
         #expect(shortestHead == 44, "the shortest head moved; the desk limit is derived from it")
 
-        // **What is checked is what a station DECLARES.** A station that does
-        // not override the desk inherits the theme's, and two of the six themes
-        // ship a desk that would fail both limits — `library`'s is 56×70 and
-        // `mission_control`'s 44×36, measured here rather than argued. That is a
-        // property of theme art chosen before stations existed, it is recorded
-        // in `notes.md` as a finding, and asserting it here would be this test
-        // failing for something no station did. What a station may not do is
-        // make it worse.
+        // **It used to check only what a station DECLARES, and that is why the
+        // room drew over every face in `library` for a milestone.** A station
+        // that does not override the desk inherits the theme's, and the theme's
+        // is drawn by `buildRoom` at every seat whether anybody is sitting there
+        // or not — so the limits have to bind what the room *draws*, not what
+        // the station *says*. Two themes bind a desk that would fail both:
+        // `library`'s is 56×70 and `mission_control`'s 44×36.
+        //
+        // The height limit is now enforced by the scene instead of asserted
+        // against art nobody may edit here: `RoomScene.surfaceDepthBias` puts a
+        // desk taller than the shortest head **behind** the body rather than in
+        // front of it, so it cannot reach a face whatever a theme binds. That is
+        // what this checks, over every desk any theme can put at a seat, and it
+        // fails against a scene that resolves the depth by a constant.
+        var deskCount = 0
+        for (id, room) in try Self.everyTheme(manifest) {
+            var desks: [(String, Manifest.PropRole)] = []
+            if let inherited = room.prop(RoomScene.surfaceRole) {
+                desks.append(("props.roles", inherited))
+            }
+            for stationID in room.orderedStationIDs {
+                desks.append((stationID, try #require(room.station(stationID)).desk))
+            }
+            for (label, desk) in desks {
+                deskCount += 1
+                let bias = RoomScene.surfaceDepthBias(
+                    deskHeight: desk.contentBox.height, headClearance: shortestHead)
+                if bias > 0 {
+                    #expect(desk.contentBox.height <= shortestHead, Comment(rawValue:
+                        "\(id)/\(label): a \(desk.contentBox.height)px desk is drawn in front"
+                        + " of a head that starts \(shortestHead)px up"))
+                } else {
+                    #expect(bias < RoomScene.seatDepthBias, Comment(rawValue:
+                        "\(id)/\(label): the desk goes behind the body but not behind the"
+                        + " chair, so a seat's three pieces no longer sort in one order"))
+                }
+            }
+        }
+        #expect(deskCount >= 12, "only \(deskCount) desks were examined")
+
+        // **The width limit is not enforceable from here and is bounded
+        // instead.** A desk is centred on `deskPosition`, so its right edge
+        // reaches `28 + w/2` from its seat and the next seat's station prop
+        // starts at `+48`: a 56px desk overhangs that lane by 8px and a 44px one
+        // by 2px, which is the whole of what those two themes cost and it hides
+        // nothing. Fixing it means choosing different art in
+        // `assets/manifest.json`. What must not happen is a theme arriving with
+        // a desk wide enough to stand *on* the neighbour, so the measured
+        // overhang is the assertion.
+        // The next seat's prop lane at the 32px limit asserted just above.
+        let propLaneLeft = layout.stationPropPosition(1).x
+            - Double(manifest.characters.canvas.width) / 2
+        for (id, room) in try Self.everyTheme(manifest) {
+            guard let desk = room.prop(RoomScene.surfaceRole) else { continue }
+            let overhang = layout.deskPosition(0).x
+                + Double(desk.contentBox.width) / 2 - propLaneLeft
+            #expect(overhang <= 8, Comment(rawValue:
+                "\(id): a \(desk.contentBox.width)px desk overhangs the next seat's prop"
+                + " lane by \(overhang)px"))
+        }
+
         for id in manifest.themes.orderedIDs {
             let theme = try #require(manifest.themes.theme(id))
             let inheritedDesk = theme.room.prop(RoomScene.surfaceRole)?.file
@@ -525,10 +589,6 @@ struct StationContractTests {
                     #expect(station.desk.contentBox.width <= 32, Comment(rawValue:
                         "\(id)/\(stationID): the desk is \(station.desk.contentBox.width)px"
                         + " wide and overlaps the next seat"))
-                    #expect(station.desk.contentBox.height <= shortestHead, Comment(rawValue:
-                        "\(id)/\(stationID): the desk is \(station.desk.contentBox.height)px"
-                        + " tall and is drawn in front of a head that starts"
-                        + " \(shortestHead)px up"))
                 }
                 guard let prop = station.prop else { continue }
                 #expect(Double(prop.contentBox.width) <= maximumPropWidth, Comment(rawValue:
