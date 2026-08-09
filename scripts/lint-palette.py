@@ -543,6 +543,60 @@ def main(argv=None):
                        MIN_VALUE_CONTRAST * 100, dark_file))
         theme_stats[tname]["worst_contrast"] = worst
 
+    # --- costumes ---------------------------------------------------------
+    #
+    # **The check binds the day the art lands, not the day after.** The shipped
+    # manifest declares no wardrobe, so this stage measures nothing and says so;
+    # the moment `characters.costumes` is written it starts failing on the two
+    # things a costume can break that a variant cannot.
+    #
+    # A costume is drawn **on** the character, which owns the darkest and most
+    # saturated pixels in the room [I7]. So the axis that matters is not the
+    # room's ceiling — it is the cast's own floor: a garment darker than the
+    # darkest character pixel moves the darkest thing on screen onto a piece of
+    # clothing, and the value-contrast figure this lint prints stops describing
+    # what is rendered.
+    #
+    # Saturation is **reported and not failed**, deliberately. A white lab coat
+    # has no saturation and there is no saturated lab coat; the honest response
+    # is to name every costume that takes its wearer under `CHAR_MIN_SAT` and
+    # let a person weigh it, not to forbid the one garment the maintainer asked
+    # for by name. What is *not* negotiable is that the number is printed.
+    wardrobe = m.get("characters", {}).get("costumes") or {}
+    costume_sets = wardrobe.get("sets", {})
+    costume_rows = []
+    cast_floor = min((r[3] for r in rows if r[1] > 0.0), default=0.0)
+    for cname in sorted(costume_sets):
+        entry = costume_sets[cname]
+        paths = set()
+        collect(entry, paths, prose)
+        cmin_v, cmax_s = 1.0, -1.0
+        dark_file = None
+        for p in sorted(paths):
+            sat, mn, _tot, n, _w = scan(os.path.join(REPO, p))
+            if n == 0:
+                continue
+            cmax_s = max(cmax_s, sat)
+            if mn < cmin_v:
+                cmin_v, dark_file = mn, p
+        if cmax_s < 0.0:
+            failures.append("costume %s: declared but no frame could be measured"
+                            % cname)
+            continue
+        costume_rows.append((cname, cmax_s, cmin_v, bool(entry.get("asserts"))))
+        if cmin_v < cast_floor - 1e-9:
+            failures.append(
+                "costume darkness: %s has a pixel at value %.3f, below the cast's "
+                "darkest at %.3f — a garment cannot be the darkest thing on screen "
+                "[I7]; darkest is in %s" % (cname, cmin_v, cast_floor, dark_file))
+    # The I1 half, checked here as well as in CostumeContractTests, because this
+    # script runs on a machine with the art and that one runs on a fresh clone.
+    for cid in wardrobe.get("assignable", []):
+        if costume_sets.get(cid, {}).get("asserts"):
+            failures.append(
+                "costume pool: %s asserts and is assignable — a hash would be making "
+                "a claim about an agent_type nobody anticipated [I1]" % cid)
+
     # --- accents ----------------------------------------------------------
     accents = {}
     for name in sorted(variants):
@@ -748,6 +802,27 @@ def main(argv=None):
               % (worst_sat[1], worst_sat[0], CHAR_MIN_SAT))
         print("            weakest contrast    %.3f (variant %s, floor %.2f)"
               % (worst_con[5], worst_con[0], MIN_VALUE_CONTRAST))
+    # Costumes. Printed even when there are none, because "the wardrobe is
+    # empty" is a claim somebody made this run rather than an absence nobody
+    # noticed — the same reason `register_summary()` prints on every preview.
+    if costume_rows:
+        under = [r for r in costume_rows if r[1] <= CHAR_MIN_SAT]
+        print("costumes:   %d declared (%d asserting), cast darkness floor %.3f"
+              % (len(costume_rows), sum(1 for r in costume_rows if r[3]), cast_floor))
+        if args.verbose or failures:
+            print("            %-10s %-10s %-10s %s"
+                  % ("costume", "max sat", "darkest", "asserts"))
+            for cname, cs_, cv, ca in costume_rows:
+                print("            %-10s %-10.3f %-10.3f %s%s"
+                      % (cname, cs_, cv, "yes" if ca else "no",
+                         "  under CHAR_MIN_SAT" if cs_ <= CHAR_MIN_SAT else ""))
+        print("            darkest costume pixel %.3f (floor %.3f), %d costume(s) "
+              "under CHAR_MIN_SAT %.2f%s"
+              % (min(r[2] for r in costume_rows), cast_floor, len(under),
+                 CHAR_MIN_SAT, (": " + ", ".join(r[0] for r in under)) if under else ""))
+    else:
+        print("costumes:   none declared — the manifest dresses nobody, "
+              "which is a legal state")
     print("accents:    %d assigned" % len(accents))
     if worst_pair is not None:
         print("            closest pair     %.1f deg  (%s vs %s, floor %.0f)"

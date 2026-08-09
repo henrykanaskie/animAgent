@@ -18,6 +18,7 @@ Run scripts/process-assets.py and scripts/generate-art.py first.
 Python 3 stdlib only.
 """
 
+import argparse
 import json
 import os
 import sys
@@ -226,6 +227,119 @@ def build_characters():
         },
         "variants": variants,
     }
+
+
+def build_costumes():
+    """`characters.costumes` — the wardrobe, from what `costumes()` actually cut.
+
+    **Off by default, and that is not timidity.** `CostumeContractTests.
+    theShippedManifestDeclaresNoWardrobeAndThatIsLegal` asserts that the
+    committed manifest declares none, and `Tests/` is not this task's to edit.
+    So the emitter is written, exercised and measured here, and `--costumes`
+    turns it on the moment the scene side is ready for the assertion to flip.
+    Writing it on by default would take a green 456-test gate red, which is a
+    worse way to hand over a wardrobe than a flag and a sentence.
+
+    Structure comes straight from `Manifest.costumes(_:frameRate:)`:
+    `sets.<id>.layers[]` back to front, each layer carrying its own `states`,
+    plus `roles` (exact `agent_type`) and `assignable` (the hash's pool).
+    """
+    base = os.path.join(PROCESSED, "costumes", SIZE)
+    if not os.path.isdir(base):
+        return None
+    imp = import_process_assets()
+    sets = {}
+    for who in sorted(os.listdir(base)):
+        cdir = os.path.join(base, who)
+        if not os.path.isdir(cdir) or who not in imp.COSTUMES:
+            continue
+        spec = imp.COSTUMES[who]
+        layers = []
+        ok = True
+        for index in range(len(spec["layers"])):
+            ldir = os.path.join(cdir, "l%d" % index)
+            if not os.path.isdir(ldir):
+                ok = False
+                break
+            states = {}
+            for state, sspec in STATES.items():
+                per_dir = {}
+                for d in sspec["dirs"]:
+                    fl = frames_for(ldir, sspec["pose"], d)
+                    if not fl:
+                        ok = False
+                        break
+                    per_dir[d] = fl
+                if not ok:
+                    break
+                states[state] = {
+                    "source_pose": sspec["pose"],
+                    "loop": sspec["loop"],
+                    "fps": FPS,
+                    "frame_count": len(next(iter(per_dir.values()))),
+                    "frames": per_dir,
+                }
+            if not ok:
+                break
+            for name, src in COMPOSED.items():
+                states[name] = {
+                    "composed_from": src,
+                    "loop": True,
+                    "fps": FPS,
+                    "frame_count": states[src]["frame_count"],
+                    "frames": states[src]["frames"],
+                }
+            layers.append({"source": rel_layer_source(imp, spec, index),
+                           "states": states})
+        if not ok or not layers:
+            continue
+        sets[who] = {
+            "title": spec.get("title", who),
+            "asserts": spec.get("asserts") is not None,
+            "reads": spec.get("reads", ""),
+            "assertion": spec.get("asserts"),
+            "layers": layers,
+        }
+    if not sets:
+        return None
+    roles = {t: c for t, c in sorted(imp.COSTUME_ROLES.items()) if c in sets}
+    assignable = [c for c in imp.COSTUME_ASSIGNABLE if c in sets]
+    # The invariant `CostumeContractTests` checks, checked here too so a bad
+    # manifest is never written rather than written and then failed.
+    asserting = [c for c in assignable if sets[c]["asserts"]]
+    if asserting:
+        print("error: %s assert and are assignable; a hash would be making a "
+              "claim about an agent_type nobody anticipated [I1]"
+              % ", ".join(asserting), file=sys.stderr)
+        raise SystemExit(3)
+    return {
+        "note": "Two tiers. `roles` is keyed on the exact agent_type string and "
+                "may translate it — a test-engineer in a lab coat is the room "
+                "repeating a name the user chose. `assignable` is the pool an "
+                "unrecognised type is hashed over and nothing in it asserts, "
+                "which is the question_mark rule on the character layer. [I1]",
+        "sets": sets,
+        "roles": roles,
+        "assignable": assignable,
+    }
+
+
+def rel_layer_source(imp, spec, index):
+    """Where one layer came from, for the About panel and for review."""
+    kind, pick = spec["layers"][index]
+    folder, tmpl = imp.COSTUME_LAYER_SRC[kind]
+    name = tmpl % (pick[0], SIZE, pick[1]) if isinstance(pick, tuple) \
+        else tmpl % (SIZE, pick)
+    return "Modern Interiors / Character_Generator/%s/%s/%s" % (folder, SIZE, name)
+
+
+def import_process_assets():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "process_assets", os.path.join(REPO, "scripts", "process-assets.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def build_room():
@@ -760,7 +874,15 @@ def build_badges():
     return result
 
 
-def main():
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--costumes", action="store_true",
+                    help="emit characters.costumes. Off by default: the shipped "
+                         "manifest declares no wardrobe and a scene test asserts "
+                         "that it does not.")
+    ap.add_argument("--out", default=MANIFEST,
+                    help="where to write (default: assets/manifest.json)")
+    args = ap.parse_args(argv)
     manifest = {
         "schema": 1,
         "generated_by": "scripts/build-manifest.py",
@@ -799,6 +921,13 @@ def main():
         section = fn()
         if section is not None:
             manifest[key] = section
+    if args.costumes:
+        wardrobe = build_costumes()
+        if wardrobe is None:
+            print("error: --costumes but nothing under %s"
+                  % rel(os.path.join(PROCESSED, "costumes", SIZE)), file=sys.stderr)
+            return 2
+        manifest.setdefault("characters", {})["costumes"] = wardrobe
 
     # Last gate: re-stat every path the manifest mentions. An entry that has
     # gone stale between the walk and the write is a bug scheduled for M2, and
@@ -849,10 +978,10 @@ def main():
               file=sys.stderr)
         print("       The packs are not unpacked under assets/ — see README.md.",
               file=sys.stderr)
-        print("       %s is left untouched." % rel(MANIFEST), file=sys.stderr)
+        print("       %s is left untouched." % rel(args.out), file=sys.stderr)
         return 2
 
-    with open(MANIFEST, "w") as f:
+    with open(args.out, "w") as f:
         json.dump(manifest, f, indent=2, sort_keys=False)
         f.write("\n")
 
@@ -860,12 +989,17 @@ def main():
     badges = manifest.get("badges", {}).get("map", {})
     ph = sum(1 for b in badges.values() if b["provenance"] == "placeholder")
     au = sum(1 for b in badges.values() if b["provenance"] == "authored")
-    print("wrote %s" % rel(MANIFEST))
+    print("wrote %s" % rel(args.out))
     print("  %d character variants, %d states each" %
           (len(chars), len(next(iter(chars.values()))["states"]) if chars else 0))
     print("  %d badges (%d from pack, %d authored, %d placeholder)"
           % (len(badges), len(badges) - ph - au, au, ph))
     print("  %d asset paths, all verified present" % seen[0])
+    wardrobe = manifest.get("characters", {}).get("costumes")
+    if wardrobe:
+        print("  %d costumes (%d recognised over %d agent types, %d assignable)"
+              % (len(wardrobe["sets"]), len(set(wardrobe["roles"].values())),
+                 len(wardrobe["roles"]), len(wardrobe["assignable"])))
     return 0
 
 

@@ -2998,3 +2998,141 @@ number and declined to draw the conclusion. The conclusion is mine: a room that
 differs by 0.15 percentage points between *busy* and *nothing happening* is not
 carrying the one signal it exists to carry, and that is the maintainer's
 complaint stated as a measurement rather than a feeling.
+
+## 2026-08-09 — M6h: the cast can be dressed, and the outfit is a value channel rather than a silhouette one
+
+The generator's layers were shown at M0 not to need a Windows tool, and then
+nobody rendered them for six milestones. This is that pass. The art is cut, the
+manifest emitter is written, the real scene draws it, and the honest headline is
+that a costume does **not** fix the thing M0 found.
+
+### Coverage first, because M6g's `Books` is what an assumption costs
+
+Alpha-scanned per pose row and direction rather than read off a folder name
+(`scripts/cast-sheet.py --coverage`). All 132 outfit sheets are 1792×1312 —
+the premade sheet's exact geometry — and carry ink on all twenty pose rows
+except row 3, `sleep`, which is a head on a pillow with no body to dress. The
+four rows this project cuts (`idle` 1, `walk` 2, `sit_a` 4, `gift` 10) are
+covered in **every direction block and every frame**, with one exception in the
+whole set: all five colourways of `Outfit_31`, a swimsuit, are blank on frame 8
+of `gift`/`down`. Hairstyles: complete. Eyes and the face-worn Accessories are
+blank on the `up` block, which is a back view with no face in it. Bodies and
+four Accessories are 1854 wide — 62 px of trailing pad on the same 56 columns —
+so registration is `(0, 0)` everywhere.
+
+That matters more than it sounds: `TextureStore.costumeFrames` drops a layer
+whose frame count disagrees with the body's and drops it **silently**. Cutting
+both from `CHAR_EXPORT` is what makes the counts agree by construction. Verified
+on the emitted manifest: every costume declares 6/6/3/10/6/6 against the body's
+6/6/3/10/6/6.
+
+### The finding that changes the design
+
+**An outfit is not a silhouette.** Measured on a real premade on the seated
+frame, an outfit adds **0–16 px of outline out of ~1000**, and its ink lands
+inside the body's own silhouette in 26 of the 33 designs. Flattened to black by
+M0's own arithmetic, the twelve shipped costumes differ by **0.00%** at their
+closest pair on *both* the seated and the front idle frame, and 2.06% at their
+furthest — against the undressed cast's 4.15% seated and 7.28% front. A costume
+set that only differed in hue would reproduce the original problem in new
+clothes; this set does not differ in outline **at all**, and saying so is the
+finding.
+
+What it does buy is a contiguous **~100–130 px block** — the torso and lap of
+the seated sprite — going from one flat value to another. So the picks are made
+on the RGB distance between those blocks' mean colours, not on HSV value: `V =
+max(R,G,B)` scores a saturated red 0.895 and a white shirt 0.891, which is the
+wrong answer to the only question a user is asking at `1x`. Both numbers are
+printed. Closest two roles **67** of 441; closest of all twelve **46**;
+furthest 229.
+
+Silhouette is available only from **headwear** — snapback +156 px seated,
+beanie +132, detective +128, chef +404, glasses/monocle/gloves +0 — and over
+half that vocabulary asserts a role. `Outfit_30` is the one outfit family with a
+real outline, a hood, and it costs the wearer its **hair**, which M0 measured as
+the channel that does work on this cast. Neither is taken. No hair layer either,
+for the same reason.
+
+### Which outfits read as a role
+
+Rendered on a premade, front and seated, 33 designs, 132 colourways. Thirteen
+families carry role vocabulary: long coat (08), hi-vis top (16), apron over a
+shirt (09), dungarees (19), plaid field shirt (18), chef's tunic (15), suit with
+a bow tie (06), business suit (28), jacket over a shirt (22, 26), hood with a
+face mask (30), towel (33), plain buttoned shirt (12). The other twenty are
+tees, jumpers, patterned tops and two swimsuits — **a different shirt**, which
+is exactly what makes thirteen of them the honest neutral pool.
+
+### Two tiers
+
+`roles` keys the exact `agent_type` string with no folding and no prefix rule:
+`test-engineer`→lab coat, `build-verifier`→hi-vis, `art-director`→apron,
+`ingest-`/`scene-`/`ui-engineer`→dungarees, `Explore`→field shirt,
+`general-purpose`→plain shirt. Three types share one costume on purpose — same
+costume means same kind of worker, which is ADR-002 §4's ratified reading of
+four identical desks.
+
+`assignable` is six plain shirts and nothing else: no coat, no hi-vis, no apron,
+no headwear. A hash must never put an arbitrary agent in a lab coat. Enforced in
+two places — `CostumeContractTests` on a fresh clone, and a new stage in
+`lint-palette.py` on a machine with the art — and **watched failing** with `lab`
+added to the pool.
+
+### I7
+
+Every costume bottoms out at **0.314**, the cast's own darkest pixel to four
+decimals, because it is the same ink. That is by construction *and* by refusal:
+**five of the 132 colourways go below it** — `Outfit_25` 02–05 at 0.224 and
+`Outfit_10_04` at 0.282 — and `COSTUME_EXCLUDED` names them, the import refuses
+to cut them, and the lint fails on one that reaches a manifest. Watched failing
+at 0.224.
+
+**One costume takes its wearer under the 55% saturation floor and it is not
+repaired.** `lab` covers premade 06's most saturated pixels and leaves the
+character peaking at 0.463 seated. Still 2.5× the room's 0.183 ceiling, so I7's
+invariant holds and only its margin erodes — and a white lab coat has no
+saturation, there is no saturated lab coat, and repainting the one garment the
+maintainer asked for by name to satisfy a threshold would be the wrong fix. The
+other eleven clear 0.55 by selection and the lint prints the list either way.
+
+Peak saturations: `hivis` 0.918, `apron` 0.770, `overalls` 0.743, `office`
+0.627, `field` 0.557, `lab` 0.463; pool 0.556–0.770.
+
+### The manifest is not written, on purpose
+
+`CostumeContractTests.theShippedManifestDeclaresNoWardrobeAndThatIsLegal`
+asserts the shipped manifest declares none, and `Tests/` was not this change's
+to edit. `scripts/build-manifest.py --costumes` emits the whole section and was
+run, linted and rendered end to end; `assets/manifest.json` is byte-identical to
+where it started, checked with `cmp` after the render experiment restored it.
+Flipping the default is a one-word change the day that assertion flips.
+
+The end-to-end proof: `fixtures/three-subagents.jsonl` at 720×400 through
+`spriteroom --render`, against a costumed manifest, differs from the same render
+with no wardrobe by **352 px** — all of it on the two subagents that carry an
+`agent_type`, none of it on the main thread, which has no `agent_id` and
+correctly wears nothing.
+
+### Gate
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. `swift test`
+**472** passing. `python3 scripts/lint-palette.py` passes, unweakened, six
+themes, motion budget unchanged, scene comparison green at zero differing pixels
+with an empty register. The import is idempotent — 1128 costume frames,
+byte-identical across a forced rerun. Nothing under `Sources/`, `Tests/`,
+`fixtures/` or the ADRs was touched.
+
+### Still open
+
+- **The wardrobe is not in the shipped manifest.** One flag and one Swift
+  assertion apart.
+- **Stations still have no manifest entries.** The scene draws them now, and the
+  render produced a constraint worth writing down before anyone fills the map: a
+  station's `desk` content box must be **≤32 px wide** and about ≤44 px tall,
+  against a 96 px seat pitch with the desk slot at `x+12…x+44` and the prop slot
+  at `x−48…x−16`. `library`'s 56×70 desk hides 42% of its own occupant and
+  crosses into the neighbouring seat.
+- **Headwear is the only untried silhouette channel** and only two of its
+  nineteen items — beanie and snapback — assert nothing. Neither is drawn, and
+  neither has been checked against the badge, which floats in the same band
+  above the head.

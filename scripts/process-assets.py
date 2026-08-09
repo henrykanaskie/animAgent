@@ -526,6 +526,215 @@ CHAR_EXPORT = {
 CHAR_CAST = ("06", "07", "09", "10", "17", "19")
 
 # ---------------------------------------------------------------------------
+# Costumes — the character generator's overlay layers
+# ---------------------------------------------------------------------------
+#
+# `Character_Generator/{Bodies,Eyes,Outfits,Hairstyles,Accessories}/32x32/` are
+# **not** a Windows-only tool. `CHARACTER_GENERATOR.txt` says to stack them in
+# any editor that supports layers; the Windows binary in `THIRD-PARTY TOOLS.txt`
+# is a convenience for doing that, not a dependency. The files are ordinary PNGs
+# on the premade sheet's own geometry — Outfits, Hairstyles, Eyes and 80 of 84
+# Accessories are 1792x1312 exactly, Bodies and the other 4 are 1854x1312, which
+# is the same 56 columns of 32 px by 20 rows of 64 px plus 62 px of trailing
+# pad. Registration is (0, 0) in every case, measured rather than assumed.
+#
+# A costume is therefore an **overlay layer cut exactly the way `characters()`
+# cuts a premade** — same rows, same direction blocks, same frame counts, same
+# 32x64 canvas, colour untouched. The scene draws it on a node above the body
+# and steps it on the body's own frame index. Nothing here is composited onto a
+# character: `Manifest.Costume` is a layer stack, and a pre-composited variant
+# would have thrown away the premade underneath it.
+#
+# **Coverage was measured before any of this was designed**, because M6g's
+# `Books` finding is exactly what a coverage assumption costs. Alpha-scanning
+# all 132 outfit sheets row by row: every one carries ink on all 20 pose rows
+# except row 3 (`sleep`, a head on a pillow with no body to dress). All four
+# rows this project cuts — `idle` (1), `walk` (2), `sit_a` (4) and `gift` (10) —
+# are covered in **every direction block and every frame**, with one exception
+# in the whole set: all five colourways of `Outfit_31` have no ink on frame 8 of
+# `gift`/down. Outfit 31 is a swimsuit and is not used here. Hairstyles are
+# complete on every cut frame; Eyes and the face-worn Accessories are blank on
+# the `up` block only, which is a back view with no face in it and is the art
+# being right rather than a gap. Frame counts therefore match the body's by
+# construction — which matters, because `TextureStore.costumeFrames` drops a
+# layer whose count disagrees and it drops it *silently*.
+#
+# **What a costume can and cannot carry.** Measured on the seated frame, on a
+# real premade rather than a bare body:
+#
+#   * An outfit adds **0-16 px of silhouette** out of ~1000. Its ink lands
+#     inside the body's own outline in 26 of the 33 designs. **A costume does
+#     not repair M0's finding** that this cast has no outline separation.
+#   * What it does change is a **contiguous block of ~100-130 px** — the torso
+#     and lap of the seated sprite — from one flat value to another. That is
+#     the channel: value, and hue inside it.
+#   * The only real silhouette on offer is **worn headwear** — snapback +156 px
+#     on the seated frame, beanie +132, detective hat +128, chef hat +404 —
+#     and over half of that vocabulary asserts a role (a policeman's hat, a
+#     balaclava, a chef's hat). `Outfit_30` is the one outfit family with a real
+#     outline, a hood, and it costs the variant its **hair**, which M0 proved is
+#     a working identity channel. None of the three is taken here and the
+#     numbers are in `docs/04-ART-DIRECTION.md` so the next person can weigh
+#     them rather than re-measure them.
+#
+# **Five colourways are excluded by measurement, not by taste.** The cast's
+# darkest pixel is pinned at 0.314 and I7 gives the character the dark values,
+# so a costume drawn *on* a character may not go below it or the room's darkest
+# pixel moves onto a garment. Over every cut row, exactly five of the 132 do:
+# `Outfit_25` colourways 02-05 at **0.224** and `Outfit_10_04` at **0.282**.
+# `COSTUME_EXCLUDED` names them and `costumes()` refuses them.
+#
+# **Two tiers, and the second is the one that keeps this honest.**
+#
+#   * A costume in `COSTUME_ROLES` is a **translation of a name the user
+#     chose**. `agent_type` is real captured data [I1], so dressing a
+#     `test-engineer` in a lab coat repeats the user's own word "test"; it does
+#     not invent a claim. Every entry records what it asserts.
+#   * Everything else is hashed over `COSTUME_ASSIGNABLE` — plain shirts, no
+#     role vocabulary: no coat, no hi-vis, no apron, no uniform. This is the
+#     `question_mark` rule on the character layer. **A hash must never put an
+#     arbitrary agent in a lab coat**, because nothing in an arbitrary string
+#     licenses one. `CostumeContractTests` fails if an asserting costume ever
+#     appears in that pool.
+#
+# The pool is chosen for **value spread and not for hue**: hue is already the
+# nameplate accent's channel (six hues 60 degrees apart, assigned at M5) and
+# spending it twice buys nothing, while value is the one thing a flat torso
+# block can carry at 1x. The six span 0.480 to 0.927 mean value with a minimum
+# gap of 0.085, which is the widest evenly-spread 6-subset of the plain-shirt
+# families that clears the 0.314 floor.
+COSTUME_LAYER_SRC = {
+    "body": ("Bodies", "Body_%s_%s.png"),
+    "eyes": ("Eyes", "Eyes_%s_%s.png"),
+    "outfit": ("Outfits", "Outfit_%s_%s_%s.png"),
+    "hair": ("Hairstyles", "Hairstyle_%s_%s_%s.png"),
+    "accessory": ("Accessories", "%s_%s_%s.png"),
+}
+
+# Colourways whose darkest pixel goes below the cast's pinned 0.314, over every
+# row this project cuts. Measured, and re-measured by `scripts/cast-sheet.py
+# --measure`; `costumes()` refuses to cut one and says so.
+COSTUME_EXCLUDED = (
+    "Outfit_25_32x32_02.png", "Outfit_25_32x32_03.png",
+    "Outfit_25_32x32_04.png", "Outfit_25_32x32_05.png",
+    "Outfit_10_32x32_04.png",
+)
+
+# **No hair layer, deliberately.** The 200 hairstyle sheets register as exactly
+# as the outfits do and were rendered and looked at. Drawing one *replaces* the
+# premade's own hair, and hair is the one channel M0 measured as actually
+# working on this cast — the six selected variants differ in outline by 7.3% to
+# 20.6%, and almost all of that is hair. A costume that overwrote it would spend
+# a proven identity channel to buy an unproven one, and would do it on the layer
+# where `agent_type` and `agent_id` are already fighting for the same pixels.
+
+# Each costume: its layer stack back to front, what it reads as at 1x, and —
+# for a recognised one — exactly what it asserts and which word of the agent's
+# own name it is translating. `asserts: None` means it claims nothing, which is
+# what makes it legal in the pool.
+COSTUMES = {
+    # -- recognised: these say what they say --------------------------------
+    "lab": {
+        "title": "lab coat",
+        "layers": [("outfit", ("08", "01"))],
+        "reads": "long white coat over white trousers; block colour (225,220,225)",
+        "asserts": "this agent tests things. Translating the word `test` in "
+                   "`test-engineer` into a laboratory coat, which is the one "
+                   "mapping the maintainer named.",
+    },
+    "hivis": {
+        "title": "hi-vis work top",
+        "layers": [("outfit", ("16", "01"))],
+        "reads": "solid amber work top with white cuffs; block colour (241,170,50)",
+        "asserts": "this agent inspects what was built. Translating `build` and "
+                   "`verifier` in `build-verifier` into site hi-vis.",
+    },
+    "apron": {
+        "title": "studio apron",
+        "layers": [("outfit", ("09", "02"))],
+        "reads": "white shirt under a gold studio apron; block colour (220,195,152)",
+        "asserts": "this agent works in a studio. Translating `art` in "
+                   "`art-director`.",
+    },
+    "overalls": {
+        "title": "engineer's dungarees",
+        "layers": [("outfit", ("19", "01"))],
+        "reads": "blue bib dungarees with a brass buckle; block colour (93,137,222)",
+        "asserts": "this agent is an engineer. Translating the word `engineer`, "
+                   "which is the whole of what `ingest-`, `scene-` and "
+                   "`ui-engineer` have in common. **Three types share this one "
+                   "costume on purpose** — same costume means same kind of "
+                   "worker, which is ADR-002 4's ratified reading of four "
+                   "identical desks. Manufacturing three costumes for three "
+                   "names that differ only in their prefix would be decoration "
+                   "pretending to be information.",
+    },
+    "field": {
+        "title": "field shirt",
+        "layers": [("outfit", ("18", "01"))],
+        "reads": "open plaid shirt over a white tee, the darkest costume in "
+                 "the set; block colour (158,115,110)",
+        "asserts": "this agent goes out and looks for things. Translating the "
+                   "word `Explore`.",
+    },
+    "office": {
+        "title": "plain office shirt",
+        "layers": [("outfit", ("12", "03"))],
+        "reads": "plain buttoned shirt, no role vocabulary at all; block "
+                 "colour (161,166,163)",
+        "asserts": "nothing beyond `no speciality`, which is what the name "
+                   "`general-purpose` says. It is deliberately the least "
+                   "dressed of the recognised six, and it is in `roles` rather "
+                   "than the pool because it is still a translation of a name "
+                   "the user wrote.",
+    },
+    # -- neutral: these assert nothing, and differ only in value -------------
+    "n01": {"title": "plain shirt", "asserts": None,
+            "layers": [("outfit", ("20", "03"))],
+            "reads": "teal; block colour (61,131,125), value 0.563"},
+    "n02": {"title": "plain shirt", "asserts": None,
+            "layers": [("outfit", ("10", "05"))],
+            "reads": "olive; block colour (112,143,105), value 0.618"},
+    "n03": {"title": "plain shirt", "asserts": None,
+            "layers": [("outfit", ("27", "03"))],
+            "reads": "violet; block colour (121,111,158), value 0.670"},
+    "n04": {"title": "plain shirt", "asserts": None,
+            "layers": [("outfit", ("23", "03"))],
+            "reads": "pale blue; block colour (112,161,178), value 0.699"},
+    "n05": {"title": "plain shirt", "asserts": None,
+            "layers": [("outfit", ("01", "04"))],
+            "reads": "red; block colour (206,91,67), value 0.809"},
+    "n06": {"title": "plain shirt", "asserts": None,
+            "layers": [("outfit", ("21", "04"))],
+            "reads": "pink; block colour (198,142,150), value 0.833"},
+}
+
+# `agent_type` -> costume id. **Enumerated, never inferred from a prefix or a
+# suffix.** An exact-match table is reviewable and a substring rule is not, and
+# `Manifest` keys `roles` on the exact text the user wrote with no folding and
+# no trimming — the same rule `ThemeSelector` follows for `cwd`.
+#
+# The six names are this repo's own `.claude/agents/`; `Explore` and
+# `general-purpose` are the two non-empty `agent_type` values that actually
+# appear in `fixtures/`. A name not in this table gets a neutral costume, and
+# that is the whole of the second tier.
+COSTUME_ROLES = {
+    "art-director": "apron",
+    "build-verifier": "hivis",
+    "ingest-engineer": "overalls",
+    "scene-engineer": "overalls",
+    "ui-engineer": "overalls",
+    "test-engineer": "lab",
+    "Explore": "field",
+    "general-purpose": "office",
+}
+
+# The pool an unrecognised `agent_type` is hashed over. Every member must carry
+# `asserts: None` above; `CostumeContractTests.noAssertingCostumeIsInThePool`
+# fails the build if one does not.
+COSTUME_ASSIGNABLE = ("n01", "n02", "n03", "n04", "n05", "n06")
+
+# ---------------------------------------------------------------------------
 # Badge rectangles — MEASURED off UI_32x32.png by connected-component bounds
 # ---------------------------------------------------------------------------
 
@@ -1298,6 +1507,105 @@ class Importer:
             self.log("  characters/%s: %d frames across %d premades"
                      % (size, n_frames, len(CHAR_CAST)))
 
+    # -- costumes -----------------------------------------------------------
+
+    def costume_layer_paths(self, size, spec):
+        """Resolve one costume's layer stack to source paths, back to front.
+
+        Nothing enters the manifest until it exists in the download, and this is
+        where that rule bites for the generator: every path is resolved here and
+        opened by the caller, so a costume with any layer absent is skipped and
+        named rather than half cut.
+        """
+        base = os.path.join(INTERIORS, "2_Characters", "Character_Generator")
+        out = []
+        for kind, pick in spec["layers"]:
+            folder, tmpl = COSTUME_LAYER_SRC[kind]
+            name = tmpl % (pick[0], size, pick[1]) if isinstance(pick, tuple) \
+                else tmpl % (size, pick)
+            out.append((kind, os.path.join(base, folder, size, name)))
+        return out
+
+    def costumes(self, sizes):
+        """Cut each costume's layers the way `characters()` cuts a premade.
+
+        Same rows, same direction blocks, same frame counts, same canvas — the
+        scene steps a costume layer on the *body's* frame index and
+        `TextureStore.costumeFrames` drops any layer whose count disagrees,
+        silently. Cutting from one table is what makes the counts agree by
+        construction instead of by luck.
+
+        Colour is untouched, for the same reason `characters()` leaves it alone:
+        I7 assigns the characters the saturation and the dark values, and a
+        costume is character ink. The floor is enforced by refusing the five
+        colourways that go below it (`COSTUME_EXCLUDED`) rather than by
+        retoning art the licence lets us edit but the invariant does not need
+        edited.
+        """
+        for size in sizes:
+            unit = int(size.split("x")[0])
+            fw, fh = unit, unit * 2
+            n_frames = 0
+            built = []
+            for who in sorted(COSTUMES):
+                spec = COSTUMES[who]
+                layers = self.costume_layer_paths(size, spec)
+                excluded = [os.path.basename(p) for _k, p in layers
+                            if os.path.basename(p) in COSTUME_EXCLUDED]
+                if excluded:
+                    self.log("  costumes %s: %s uses %s, whose darkest pixel is "
+                             "below the cast's 0.314 — refused [I7]"
+                             % (size, who, ", ".join(excluded)))
+                    continue
+                missing = [p for _k, p in layers if not os.path.exists(p)]
+                if missing:
+                    self.log("  costumes %s: %s missing %s — skipped"
+                             % (size, who, ", ".join(os.path.basename(p)
+                                                     for p in missing)))
+                    continue
+                bad = None
+                sheets = []
+                for _kind, p in layers:
+                    w, h, px = pnglite.load(p)
+                    if w // fw < CHAR_COLS or h < CHAR_ROWS * fh:
+                        bad = "%s is %dx%d" % (os.path.basename(p), w, h)
+                        break
+                    sheets.append((w, h, px))
+                if bad:
+                    self.log("  costumes %s: %s — %s, not the premade sheet's "
+                             "geometry — skipped" % (size, who, bad))
+                    continue
+                key = "costume:%s:" % size + ":".join(
+                    _digest(p) for _k, p in layers)
+                built.append(who)
+                for index, (w, h, px) in enumerate(sheets):
+                    for state, (row, per_dir, dirs) in CHAR_EXPORT.items():
+                        for d in dirs:
+                            block = CHAR_DIRS.index(d)
+                            for k in range(per_dir):
+                                col = block * per_dir + k
+                                dst = os.path.join(
+                                    OUT, "costumes", size, who, "l%d" % index,
+                                    "%s_%s_%02d.png" % (state, d, k),
+                                )
+                                n_frames += 1
+                                if self._fresh(dst, key):
+                                    continue
+                                buf = pnglite.new(fw, fh)
+                                for y in range(fh):
+                                    sy = row * fh + y
+                                    if sy >= h:
+                                        break
+                                    si = (sy * w + col * fw) * 4
+                                    di = y * fw * 4
+                                    buf[di:di + fw * 4] = px[si:si + fw * 4]
+                                self._emit(dst, fw, fh, buf)
+            roles = sorted(set(COSTUME_ROLES.values()))
+            self.log("  costumes/%s: %d frames across %d costumes — %d recognised "
+                     "(%d agent types), %d assignable"
+                     % (size, n_frames, len(built), len(roles),
+                        len(COSTUME_ROLES), len(COSTUME_ASSIGNABLE)))
+
     # -- badges -------------------------------------------------------------
 
     def badges(self, sizes):
@@ -1582,6 +1890,7 @@ def main(argv=None):
     imp.themes(args.sizes)
     imp.animated(args.sizes)
     imp.characters(args.sizes)
+    imp.costumes(args.sizes)
     imp.badges(args.sizes)
     removed = imp.prune()
     imp.save_state()

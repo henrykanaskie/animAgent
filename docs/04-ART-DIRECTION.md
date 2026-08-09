@@ -108,11 +108,15 @@ Replaced by three independent layers that never fight each other:
 | Layer | Source | Carries |
 |---|---|---|
 | **Body** | Modern Interiors premade character sheets | what the agent is *doing* |
+| **Costume** | the character generator's outfit sheets, on the body's own frames | what the agent *is* — keyed on `agent_type`. Added at M6h; see "Costumes" below |
 | **Badge** | emote bubble, floating above the head | *which tool* is running |
 | **Room** | Modern Office tileset | the setting and the anchor desk |
 
 Nothing is held — **because no held art exists for the pose the room draws**,
 not because the art could not be placed. Delete every reference to a held prop.
+The costume layer is a *worn* one and is a different question: it registers on
+the seated row, it says what the agent is rather than what it is doing, and it
+is keyed on `agent_type` rather than on a badge class.
 
 The badge layer draws from **two** packs as of M5b. The frame — a 24×34 speech
 bubble — is Modern Interiors' own empty emote bubble; the glyph inside it is
@@ -555,6 +559,13 @@ The rule stays, because it is right about what reads at `1x`:
 But the rule can no longer be the *only* thing carrying identity, because the
 source art will not let it. **The nameplate is now load-bearing, not
 decoration** — see Typography.
+
+**A costume does not rescue this, and M6h measured it rather than hoping.** An
+outfit layer adds 0-16 px of silhouette to a seated body out of ~1000, so the
+twelve shipped costumes are silhouette-*identical*: 0.00% at their closest pair
+against the undressed cast's 4.15%. What a costume buys is a ~100 px block of
+the sprite changing value and hue, which is a real channel and a different one.
+See "Costumes" below.
 
 ### Accent hue is assigned, not sampled — corrected at M5
 
@@ -1952,6 +1963,212 @@ reasons stated so the next person does not have to re-derive them:
    backpack, glasses — is four items, of which two have a silhouette worth
    having.
 
+## Costumes: the generator's outfit layer, keyed on `agent_type` — M6h
+
+The maintainer's complaint is that the agent's *kind* is not visible on the
+agent: "the software developers should have a computer, then the tester or
+verifier should have a lab coat."
+
+`agent_type` is real captured data, so dressing a character by its type is the
+room repeating a name the user chose rather than inventing one. [I1] The art is
+`Character_Generator/Outfits/32x32/` — 132 sheets, all 1792x1312, the premade
+sheet's exact geometry.
+
+**This section corrects nothing about the VM claim, because M0 already did.**
+"No VM is needed and no generator has to run" has been in this document since
+M0 and is right. What was never done is the second half: the layers were shown
+not to need a tool, and then nobody rendered them.
+
+### What a costume is, and what it is not
+
+A costume is **an overlay layer cut exactly the way a premade is cut** — same
+rows, same direction blocks, same frame counts, same 32x64 canvas, colour
+untouched — drawn on a node above the body and stepped on the body's own frame
+index. `Manifest.Costume` is a layer stack; `TextureStore.costumeFrames` drops
+any layer whose frame count disagrees with the body's, **silently**, which is
+why both are cut from one table (`CHAR_EXPORT`) instead of two.
+
+It is deliberately **not** a pre-composited variant. Compositing body, eyes,
+outfit, hair and accessory into new character sheets was built first and thrown
+away: it produces a second cast that has to be selected, lint-checked and
+kept in step with the first, and it throws away the premade underneath it.
+
+### Coverage, checked before anything was designed on top of it
+
+M6g's `Books` finding is what a coverage assumption costs, so the alpha channel
+was scanned rather than the folder names. `scripts/cast-sheet.py --coverage`
+reproduces this.
+
+| Layer | Files | Geometry | Every cut row, direction and frame? |
+|---|---:|---|---|
+| Bodies | 9 | 1854x1312 | yes |
+| Eyes | 7 | 1792x1312 | yes except the **`up` block**, which is a back view with no face in it |
+| Outfits | 132 | 1792x1312 | yes, except **all five colourways of `Outfit_31`** on frame 8 of `gift`/`down` |
+| Hairstyles | 200 | 1792x1312 | yes |
+| Accessories | 84 | 1792x1312 (80), 1854x1312 (4) | yes except the `up` block on face-worn items |
+
+The four rows this project cuts are `idle` (1), `walk` (2), `sit_a` (4) and
+`gift` (10). Every outfit carries ink on all twenty rows except row 3 —
+`sleep`, a head on a pillow with no body to dress — so **frame counts match the
+body's by construction**. Bodies and four Accessories are 62 px wider than the
+rest; that is trailing pad, both are 56 columns of 32 px from x=0, and
+registration is `(0, 0)` everywhere. Measured, not assumed.
+
+### Which outfits read as a role, and which are a different shirt
+
+Rendered on a premade, front-facing and seated, at `1x` and `6x`
+(`cast-sheet.py --outfits`). Thirteen of the 33 designs carry role vocabulary:
+
+| Family | Reads as |
+|---|---|
+| 08 | long coat — white, light grey, charcoal. **The lab coat.** |
+| 16 | solid work top with white cuffs, amber/orange/red. **Hi-vis.** |
+| 09 | white shirt under a coloured apron. **Studio/service apron.** |
+| 19 | bib dungarees with a brass buckle. **Engineer's overalls.** |
+| 18 | open plaid shirt over a white tee. **Field/outdoor.** |
+| 15 | tunic with a neckerchief. Chef's whites or scrubs. |
+| 06 | dark suit with a bow tie. |
+| 28 | navy business suit with a tie. |
+| 22, 26 | open jacket over a white shirt. |
+| 30 | hood up **with a face mask** — the only outfit with a real silhouette, and it covers the hair. |
+| 33 | towel wrap. |
+| 12 | plain buttoned shirt — the least dressed thing that is still a garment. |
+
+The other twenty are tees, jumpers, buttoned shirts, patterned tops and two
+swimsuits. **They are a different shirt.** Thirteen of them —
+`01, 04, 10, 11, 13, 14, 17, 20, 21, 23, 24, 27, 29` — are the pool this
+document draws neutral costumes from, and they were confirmed by rendering all
+thirteen rather than by reading the numbers.
+
+### What a costume can carry, and what it cannot
+
+Measured on the seated frame, on a real premade rather than a bare body:
+
+- **An outfit adds 0-16 px of silhouette out of ~1000.** Its ink lands inside
+  the body's own outline in 26 of the 33 designs. **A costume does not repair
+  M0's finding.** Flattened to black, the twelve shipped costumes are
+  *indistinguishable*: minimum pairwise distance **0.00%** on both the seated
+  and the front idle frame, maximum **2.06%**, against the undressed cast's
+  4.15% seated and 7.28% front. Silhouette is not a channel a costume has.
+- **What it changes is a contiguous block of ~100-130 px** — the torso and lap
+  of the seated sprite — from one flat value to another. That is the channel.
+- **Headwear is the only real silhouette on offer**: snapback +156 px on the
+  seated frame, beanie +132, detective hat +128, chef hat +404; glasses,
+  monocle and gloves +0. Over half that vocabulary asserts a role — a
+  policeman's hat, a balaclava, a chef's hat — so it may only ever appear in
+  `roles`, never in the pool. None is used today.
+- **`Outfit_30` is the one outfit with an outline, and it costs the wearer its
+  hair.** M0 measured hair as the channel that does work on this cast (7.3% to
+  20.6% between the six variants, almost all of it hair). It is not taken.
+- **No hair layer**, for the same reason: overwriting the cast's hair spends a
+  proven identity channel to buy an unproven one.
+
+### The measure that predicts the picture, and the one that does not
+
+`04-ART-DIRECTION.md` and `lint-palette.py` speak HSV, where `V = max(R,G,B)`.
+On this question that is the wrong axis: a saturated red block scores 0.895 and
+a white shirt 0.891, and they look nothing alike. What a user does at `1x` is
+tell two ~100 px blocks of flat colour apart, so the costumes are chosen on the
+**RGB distance between those blocks' mean colours** (0-441), with the HSV value
+reported beside it because the rest of this repo speaks it.
+
+Both are printed by `cast-sheet.py --measure`. On the shipped set:
+
+| | closest pair | distance |
+|---|---|---:|
+| the six recognised costumes | `apron` vs `office` | **67** |
+| all twelve | `n06` vs `office` | **46** |
+| furthest | `hivis` vs `overalls` | 229 |
+
+### The wardrobe, and the two tiers
+
+**Tier 1 — recognised types may say what they say.** `roles` is keyed on the
+exact `agent_type` string, no folding, no prefix or suffix rules. The six names
+are this repo's own `.claude/agents/`; `Explore` and `general-purpose` are the
+two non-empty `agent_type` values that appear in `fixtures/`.
+
+| `agent_type` | costume | outfit | what it asserts |
+|---|---|---|---|
+| `test-engineer` | `lab` | 08_01 | this agent tests. Translating the word *test* into a laboratory coat — the one mapping the maintainer named. |
+| `build-verifier` | `hivis` | 16_01 | this agent inspects what was built. Translating *build* and *verifier* into site hi-vis. |
+| `art-director` | `apron` | 09_02 | this agent works in a studio. Translating *art*. |
+| `ingest-engineer`, `scene-engineer`, `ui-engineer` | `overalls` | 19_01 | this agent is an engineer. Translating the word *engineer*, which is all three names have in common. |
+| `Explore` | `field` | 18_01 | this agent goes out and looks for things. Translating *Explore*. |
+| `general-purpose` | `office` | 12_03 | nothing beyond *no speciality*, which is what the name says. Deliberately the least dressed of the six. |
+
+**Three types share one costume on purpose.** Same costume means same kind of
+worker — ADR-002 §4's ratified reading of four identical desks. Manufacturing
+three costumes for three names that differ only in their prefix would be
+decoration pretending to be information.
+
+**Tier 2 — unrecognised types assert nothing.** `assignable` is six plain
+shirts, `n01`-`n06`, hashed over. No coat, no hi-vis, no apron, no uniform, no
+headwear. This is the `question_mark` rule on the character layer: **a hash
+must never put an arbitrary agent in a lab coat**, because nothing in an
+arbitrary string licenses one. Enforced twice — `CostumeContractTests` on a
+fresh clone, `lint-palette.py` on a machine with the art — and both were watched
+failing with `lab` added to the pool.
+
+The main thread wears nothing. It has no `agent_id`, which is the identity rule
+rather than an exception, and the scene renders it undressed.
+
+### I7, which binds harder here than anywhere
+
+A costume is drawn **on** the character, which owns the darkest and most
+saturated pixels in the room. Two numbers per costume, on the seated frame, from
+`cast-sheet.py --measure`:
+
+| costume | max saturation | darkest value | block colour |
+|---|---:|---:|---|
+| `hivis` | 0.918 | 0.314 | (241,170,50) |
+| `apron` | 0.770 | 0.314 | (220,195,152) |
+| `overalls` | 0.743 | 0.314 | (93,137,222) |
+| `office` | 0.627 | 0.314 | (161,166,163) |
+| `field` | 0.557 | 0.314 | (158,115,110) |
+| `lab` | **0.463** | 0.314 | (225,220,225) |
+| `n01`-`n06` | 0.556 - 0.770 | 0.314 | see the table in `process-assets.py` |
+
+Against the undressed cast: darkest **0.314** on every variant, weakest peak
+saturation 0.598 (variant 06). Against the room: max saturation 0.183, mean
+value 0.741-0.817 across the six themes.
+
+- **No costume is ever the darkest thing on screen.** Every one bottoms out at
+  the pack's own 0.314, which is the cast's floor to four decimals, because it
+  is the same ink. That is by construction *and* by refusal: **five of the 132
+  colourways go below it** — `Outfit_25` 02-05 at **0.224** and `Outfit_10_04`
+  at **0.282** — and `COSTUME_EXCLUDED` names them, `process-assets.py` refuses
+  to cut them, and `lint-palette.py` fails on one if it ever reaches a manifest.
+  Watched failing at 0.224.
+- **A costume can take its wearer under the 55% saturation floor, and one
+  does.** `lab` covers premade 06's most saturated pixels and leaves the
+  character peaking at **0.463** on the seated frame. That is still 2.5x the
+  room's 0.183 ceiling, so I7's actual invariant — the room owns neither the
+  saturation nor the dark values — holds; what it erodes is the margin the lint
+  keeps. It is not repaired, because **a white lab coat has no saturation and
+  there is no saturated lab coat**, and repainting the one garment the
+  maintainer asked for by name to satisfy a threshold would be the wrong fix.
+  Every other costume clears 0.55 by selection, and the lint prints the list.
+- `lint-palette.py` gained a costume stage that measures both, over every
+  declared frame, and prints "none declared" when there is no wardrobe — because
+  a check that prints nothing is indistinguishable from one nobody ran.
+
+### What is on disk, and what is in the manifest
+
+`scripts/process-assets.py` cuts `assets/processed/costumes/32x32/<id>/l<n>/` —
+1128 frames, 94 per costume, byte-identical across a forced rerun.
+
+**`assets/manifest.json` declares no wardrobe, and that is deliberate.**
+`CostumeContractTests.theShippedManifestDeclaresNoWardrobeAndThatIsLegal`
+asserts the shipped manifest declares none, and `Tests/` was not this change's
+to edit. `scripts/build-manifest.py --costumes` emits the whole section and was
+run, linted and rendered through the real scene; turning it on by default would
+take a green test suite red, which is a worse way to hand over a wardrobe than a
+flag and a sentence. The scene half is ready: rendering
+`fixtures/three-subagents.jsonl` at `720x400` through `spriteroom --render`
+against a costumed manifest changes **352 px** against the same render with no
+wardrobe, all of it on the two subagents that carry an `agent_type`, none of it
+on the main thread.
+
 ## Stations are specified, selected, and drawn by nothing — M6g
 
 ADR-002 §4 and §7 give every theme a `props.stations.<id> = {desk, chair, prop?}`
@@ -2060,6 +2277,7 @@ that would assert seniority, which no datum says. Bigger desk, same room.
 | `scripts/generate-art.py` | **renamed from `generate-placeholders.py` at M5c.** Authors the four glyphs no pack draws — on the pack's 2× design grid, in the pack's four-colour palette — and composites them into `_bubble_frame.png`, so an authored badge is the same construction as a pack one. Also draws `document`/`checklist` as the fallback behind pack art, and the fallback cast under `--characters`. Falls back to a hand-drawn bubble only when there is no pack on disk at all. |
 | `scripts/build-manifest.py` | generates `assets/manifest.json` from disk, re-stating every path. |
 | `scripts/lint-palette.py` | the I7 gate, over `room` **and every theme**, on the same thresholds. Three colour checks and, since M6d, a **motion budget** — everything a theme animates, counted once per copy the room draws, must change fewer pixels per second than the quietest looping animation in the cast. It measures the frames itself and cross-checks the manifest's generated figures rather than reading them. Since M6f it also runs the **scene comparison**: the placement census it multiplies by is checked against the real `RoomScene`, so the count is tied to a renderer instead of to a second opinion from the same author. A missing app binary is a visible skip, not a pass; `SPRITE_ROOM_REQUIRE_SCENE=1` makes it a failure and `--no-scene` skips it loudly. Non-zero exit names the file and the value. |
+| `scripts/cast-sheet.py` | the costume review pass: `--coverage` scans the generator layers' alpha channel per pose row and direction, `--outfits` renders all 33 designs on a premade front-facing and seated, `--costumes` puts every costume on a seated character at `1x` and `4x`, `--room` seats the recognised six in the real 720x400 panel, `--measure` prints the silhouette matrix against M0's arithmetic plus the value, block-colour and I7 tables, and `--select` re-derives the assignable pool. A review tool: writes to a scratch directory, never touches `assets/`. |
 | `scripts/contact-sheet.py` | renders index-named singles onto labelled contact sheets, because the packs ship no names. `--set`/`--office` for singles, `--sheet` to label a Room Builder grid by row-col, `--pick` to confirm specific candidates at 4×. A review tool: it writes to a scratch directory and never touches `assets/`. |
 | `scripts/preview-theme.py` | composes a theme at `1x` at the real 720×400 panel, with characters, **from the manifest the scene loads**. A theme that cannot be looked at cannot be chosen. Also a check on the manifest: if this can render a theme, the manifest carries enough for the scene to. `--state` seats the cast in any body state, `--badge` puts a `badges.states` entry over every occupied seat, `--frames` writes one PNG per frame of whatever animated prop the theme carries, and `--animated <id>` is the review path for a candidate the manifest has **not** adopted. Warns when a `board` is wider than the back-row pitch, which is a defect only four copies on screen can show. A prop placement bug was fixed here at M6b, two more were found at M6f and left standing on purpose, and **both were fixed at M6g** — the register is empty and all six themes agree with the scene at zero differing pixels. See "The preview is checked against the scene" above. It also owns `prop_layout()`, the single list of every prop the room places, which `role_placements()` counts for the motion budget and `render()` draws. **`--verify` compares the result against the real `RoomScene` through `spriteroom --render`, pixel for pixel, and exits non-zero on any disagreement the register does not name — and the register is empty, so that is any disagreement at all. `register_summary()` prints its contents, including its emptiness, on every run.** `--size WxH` widens the panel past the shipped 720×400, which is what `--verify` needs to see the outer seats. |
 
