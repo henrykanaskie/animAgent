@@ -4378,3 +4378,487 @@ against a signature that takes `toolName`. In the shared tree with that file
 removed my three broken tests went green and the only remaining failures were the
 nameplate agent's (`nameplateHeadlineScaleY`, and two test names in
 `05-MILESTONES.md` with no matching functions).
+
+---
+
+## M7d — the pilot lamp: a liveness signal that stops when the listener does
+
+Task: last night's fix made movement mean an open tool call and nothing else,
+which was right and which left *an idle room and a broken app drawing the same
+picture*. Build a signal that moves **iff** the app is actually alive and
+receiving. Full argument in `docs/ADR-004-liveness-lamp.md`; this is what I
+found and what I did.
+
+### The design decision that everything else follows from
+
+The tempting implementations all fail on the same point, and it is worth writing
+down because the failure is not obvious until you name it:
+
+| candidate | why it fails |
+|---|---|
+| a pulse on a timer | keeps pulsing with the listener dead. Fiction [I1], and I2's own phrase for it is "filling dead air with invented activity" |
+| draw `NWListener.state == .ready` | motionless, so it cannot distinguish a live panel from a frozen one; and a listener can be `.ready` with its accept path wedged |
+| beat on real hook traffic | an **idle room produces no hook traffic**, which is precisely the case this exists for. It also makes the lamp a second motion channel keyed to activity, competing with the cast |
+
+So the signal has to be *earned* and it has to be earned even when nothing is
+happening. `ListenerHeartbeat` POSTs to the app's **own bound port** once a
+second and counts the `202`s. It is the only thing that moves `Liveness.beats`.
+Kill the listener and the beats stop; the lamp is dark within two seconds.
+
+Two details that are load-bearing rather than incidental:
+
+- **The probe uses a raw socket, not `Network.framework`.** `HookListener` is
+  built on the latter. A probe sharing its transport with the thing it probes can
+  be brought down by the same fault and still report success from a cached state.
+- **It is recognised on the request target** (`/_liveness`), in
+  `HTTPRequest.parse`, which is the first token of the first line — so it is
+  identified before anything else on the connection is looked at, and `handle`
+  returns *before* the decoder. It cannot create a session, an agent or tool
+  state, and it never touches the queue. Counted on its own axis
+  (`IngestCounters.probes`), deliberately outside `requests` and `malformed`:
+  folded into either, one probe a second forever would bury the counter that
+  exists to notice a real problem.
+
+### What ships, and what it costs
+
+A 9 px plate in the bottom-left corner of the frame, in the nameplate's two
+colours, hung off the camera so it never scrolls away. Three pictures separated
+by **extent**, not by value — the dormancy tab's finding re-used:
+
+    lit  5x5 ink core   a round trip landed within hold (2.0 s)
+    wink 3x3            ...and within 125 ms. The pulse
+    dark none           none did
+
+**The wink contracts rather than extinguishes**, and that is the whole reason
+there are three pictures. If the pulse were an off-frame, "no ink" would mean
+either the pulse or a dead listener, and a glance landing inside a 125 ms wink
+would read as "broken" — the confusion this feature removes, moved from the room
+into the indicator. With a contraction the rule is total: **any ink means the
+listener answered within the last two seconds.**
+
+Measured, not asserted:
+
+- **32 px/s**, placed, for the whole room, at any population. 16 changed pixels
+  per transition (5x5 -> 3x3), two per beat, one beat a second.
+  `LivenessLampTests.theLampCostsThirtyTwoChangedPixelsPerSecond` computes it off
+  the bitmaps so a change to either one moves the number.
+- **Listener p99 0.164 ms over 2000 requests with the heartbeat running**, against
+  the 5 ms I5 budget. `LivenessTests.aRunningHeartbeatDoesNotCostTheSessionLatency`.
+
+### The motion budget is argued, not inherited
+
+`04-ART-DIRECTION.md`'s 1461 px/s prop ceiling rests on "an idling character is
+the quietest thing the cast can legitimately be" — and an idling character now
+moves 0, which the doc already marks REVISIT WITH DATA. The lamp could not be
+built on a void argument, so it is priced against a **working** character
+instead: the quietest ambient phrase (`magnifier`, 1000 ms bar, two position
+changes a second over the seated art's 2 px lift) is on the order of 1300 px/s,
+and 32 is 2.5% of that.
+
+The stronger half of the argument is not the ratio, it is that **the lamp draws
+the same 32 px/s whether the room is empty or full**. It is a constant added to
+both sides of the busy/idle comparison, so it cannot change that comparison's
+sign at any population — which is exactly the defect M7c fixed, where the idle
+side was the larger one. A signal that moved *with* activity would reopen it.
+
+**Nothing is repriced.** The lamp is not a prop, not in the manifest, and not
+counted by `lint-palette.py`'s motion check. 1461 px/s still governs props and
+still rests on a false sentence; re-deriving it is still open.
+
+### The I2 carve-out, and what I did **not** do
+
+ADR-003 §7 had to argue "the badge slot is governed separately" and then insisted
+the ambiguity be closed in `CLAUDE.md`'s text. This needs the same, one layer
+further out — the lamp is not even in the room. `ADR-004` §3 proposes the clause
+in full, with three conditions (not a character; traces to a measured fact; says
+nothing about any agent) and a declaration that the ADR is **void** if the third
+is dropped.
+
+**I did not edit `CLAUDE.md`.** An agent does not amend the constitution on its
+own say-so, and the maintainer has a live inconsistency to resolve in one edit
+rather than two: **ADR-003's proposed I2 clause was never applied either**, so
+I2 currently carries neither carve-out while the repository behaves as though it
+carried both.
+
+### `--render` draws no lamp, and that is I1 not an optimisation
+
+A fixture replay has no bound port. `SceneBinding` builds a lamp only when handed
+a non-`nil` `Liveness`, which the offscreen renderer never does. The distinction
+this preserves: **no lamp** = this run has nothing to answer for; **dark lamp** =
+we asked and nothing answered.
+
+It also keeps the I7 gate honest. `lint-palette.py` diffs `preview-theme.py`'s
+composition against `spriteroom --render` pixel for pixel with an **empty**
+known-defect register, so a lamp in a listener-less render would fail it —
+correctly. All six themes still agree at zero differing pixels.
+
+### Evidence — the negative, proved by killing a real socket
+
+`spriteroom --liveness-demo DIR --for 6` binds a real ephemeral listener (port 0,
+never 8787), starts the real heartbeat, renders the real `RoomScene` through the
+real `SKRenderer` at 8 fps of wall time, and at the halfway mark calls
+`stopListenerOnly()`. It does not touch the heartbeat, the `Liveness` or the
+lamp — it kills a socket and keeps drawing. On the **empty room**, which is the
+picture that could not be told from a crash:
+
+    t=0.00        dark  beats 0    nothing proved yet
+    t=0.13-1.01   lit   beats 1
+    t=1.13        wink  beats 2    the pulse
+    t=2.13        wink  beats 3
+    t=3.00                         listener stopped
+    t=3.13-4.01   lit   beats 3    inside hold; one miss tolerated
+    t=4.13-5.88   dark  beats 3    and it stays dark
+
+Pixel diffs on the 720x400 renders: lit<->wink **16 px**, lit<->dark **25 px**,
+every one of them inside `x[6,10] y[389,393]` — the lamp's own box — and not one
+pixel anywhere else in the frame.
+
+### What it cannot do, stated rather than glossed
+
+- **It cannot catch a frozen renderer in a single frame.** A frozen panel shows a
+  frame that was true when it was drawn, lamp included. The wink closes this over
+  *time*: one second of watching separates a live panel from a frozen one. No
+  design could do better.
+- **It says only** "the listener answers". Not that hooks are installed, not that
+  Claude Code is running, not that sessions point at this port.
+- **The bottom-left corner is not guaranteed empty.** A report from the outermost
+  left seat can put a nameplate under the lamp for the length of a walk and the
+  lamp draws over it. A corner the room cannot reach does not exist at `1x`.
+- **It is chrome**, and the room is a window into a room. Taken knowingly: the
+  alternative — a fixture *in* the room asserting a fact about the *process* —
+  is a worse category error, and would need manifest art in six themes.
+
+### Open, for whoever is next
+
+1. **A watched capture at `1x`** by somebody who does not know the design, asked
+   only "is this app working?" over an idle room. Nothing here substitutes for it.
+2. **The frozen-renderer case induced deliberately** (SIGSTOP the app), to check a
+   person reads a lamp that has stopped winking as "stopped" rather than "idle".
+3. **The I2 clause**, above.
+4. **The 1461 px/s ceiling**, still open and still resting on a false sentence.
+
+### Scope
+
+`Sources/SpriteRoomCore/Ingest/{Liveness,Listener,EventQueue}.swift`,
+`Sources/SpriteRoomScene/{LivenessLamp,SceneBitmaps}.swift`,
+`Sources/SpriteRoomApp/{LiveDriver,SceneBinding,RoomHost,main}.swift`,
+`Tests/SpriteRoomCoreTests/{LivenessTests,LoopbackClient}.swift`,
+`Tests/SpriteRoomSceneTests/LivenessLampTests.swift`,
+`Tests/SpriteRoomAppTests/LivenessWiringTests.swift`,
+`docs/{ADR-004-liveness-lamp,02-ARCHITECTURE,03-EVENT-MODEL,04-ART-DIRECTION}.md`,
+`README.md`, this file.
+
+`RoomLayout`, `RoomCamera`, `RoomScene` and their tests: **untouched** — the lamp
+hangs off `scene.camera`, which is why it needed no change there. `assets/`,
+`scripts/` and `05-MILESTONES.md`: untouched. Two other agents were live in this
+tree.
+
+Gates at the end of this change, in the shared tree: `swift build --build-tests
+-Xswiftc -warnings-as-errors` clean, `swift test` **595 tests** green (568 before;
++27), `python3 scripts/lint-palette.py` passed with all six themes agreeing with
+the scene, and `spriteroom-replay` ran all 17 fixtures with zero open calls after
+the sweep.
+
+---
+
+# M7e — the two overhanging theme desks, and a docs-wide identifier cross-check
+
+Two unrelated tasks, one agent, one lane: `assets/manifest.json`, `scripts/`,
+`docs/`, and one test file. Two other agents were live in this tree.
+
+## 1. The theme desks that overhung the neighbour's prop lane — closed
+
+`library` bound a **56×70** `props.roles.desk` and `mission_control` a **44×36**,
+overhanging the next seat's station-prop lane by 8px and 2px. Both are replaced,
+in `scripts/process-assets.py`'s `THEMES` table and **regenerated** — the
+manifest was never hand-edited, and `build-manifest.py --out` reproduces the
+committed file byte for byte at the end.
+
+| theme | was | now | overhang |
+|---|---|---|---|
+| `library` | set 5 single **26** — the reading desk *with the set's own chair drawn behind it*, 56×70 | set 5 single **8** — the same desk and the same open book, no chair, 32×44 | 8px → **−4px** |
+| `mission_control` | set 19 single **127** — the grey equipment table *with a boxed unit and a pouch set on it*, 44×36 | set 19 single **126** — that same table, bare top, 40×36 | 2px → **0px** |
+
+In both cases the thing that made the desk too wide was **an object sitting on
+it**, not the desk. That is why the replacements are the same furniture rather
+than different furniture, and why the room barely changes.
+
+### The 32px limit in the brief is the prop's, not the desk's
+
+Re-derived rather than trusted, and the brief's number is wrong for a desk:
+
+- A **prop** is centred at `seatX−32` and the body starts at `seatX−16`, so a
+  prop wider than **32** stands on the character. That is the 32.
+- A **desk** is centred at `seatX+28`, and the widest thing the next seat's lane
+  can hold starts at `+48`. So `overhang = 28 + w/2 − 48 = w/2 − 20`, and the
+  desk's bound is **40**. That is the same formula
+  `StationContractTests.everyStationFitsTheSeatItIsDrawnAt` already used to
+  report the 8 and the 2 — the limit was never re-derived from it.
+
+`mission_control`'s 40px desk therefore clears with nothing to spare and
+`library`'s 32px one with 4px of air. `RoomLayout`'s own doc comment ("the desk's
+32px box spans `x+12 … x+44`") describes the 32px office desk, not a limit.
+
+### Chosen at 1x, not from the numbers
+
+Every candidate was rendered into the room through `scripts/preview-theme.py`
+and looked at, which is what `04-ART-DIRECTION.md` demands and what killed three
+of them:
+
+- **`library` 5/7** (32×54) keeps the chair, and on the narrow canvas the chair
+  reads as standing **on** the desk rather than behind it. Rejected.
+- **`library` 5/6** (32×36) is the bare desk. Quieter, and it stops the Reading
+  Room saying "reading" at the one object that was saying it. Rejected.
+- **`library` 5/25** is 26 without the chair and is still 56 wide.
+- **`mission_control`, everything ≤32 in the pack**, and there is nothing: the
+  hospital set's tables are all 40–48 wide, the Office set's grey desk variant
+  (32×24) vanishes into a grey floor, and hospital 141 (30×38) is a white
+  cabinet — the "brightest thing in the theme" failure that cut the M6 workbench.
+  So this one takes the 40 the geometry actually allows, and the honest report is
+  that a ≤32 answer does not exist rather than that one was found.
+
+`126` against `127` at `1x` with five agents is the **same picture**: both
+objects on 127's top sit on the half a seated body covers. The 2px of overhang
+was paying for something invisible.
+
+One consequence to hold: `library`'s desk is now 44px tall, *exactly* the
+shortest head clearance, so it is the last desk `RoomScene.surfaceDepthBias`
+still draws in **front** of the body. No theme now binds one over the line, so
+the behind branch is unexercised by the shipped manifest — `preview-theme.py`
+says so at the transcription, because a branch nothing reaches is a branch
+somebody deletes.
+
+### Stale numbers left behind, in files that are not mine
+
+Both carry "`library`'s is 56×70 and `mission_control`'s 44×36" in a comment.
+**Reported, not edited** — the first belongs to the agent holding the scene:
+
+- `Sources/SpriteRoomScene/RoomScene.swift:305–306` (`surfaceDepthBias`).
+- `Tests/SpriteRoomSceneTests/StationAndCostumeTests.swift:528` and `:565` — the
+  second also says the width limit "is not enforceable from here and is bounded
+  instead", which is still true, and asserts `overhang <= 8`, which now has 8px
+  of slack over the worst shipped desk. Worth tightening to 0 by whoever owns it.
+
+The docs in my lane were corrected: `04-ART-DIRECTION.md` and
+`ADR-002-themed-rooms.md` §14c/§14d, plus the transcription in
+`scripts/preview-theme.py`.
+
+## 2. The identifier cross-check now reads all of `docs/`, not one file
+
+`MilestoneCriteriaTests.everyTestTheMilestonesNameExists` resolved backticked
+test names in `docs/05-MILESTONES.md` only. The other seven documents cite code
+on nearly every page and had nothing reading them.
+
+`DocumentedSymbolTests` (same file) resolves every backticked **`Type.member`**
+span in `docs/` whose head is a type this repository declares — 43 of them —
+against every declaration in `Sources/` and `Tests/`.
+
+### What it found — three, all real, all fixed
+
+| where | span | what it was |
+|---|---|---|
+| `03-EVENT-MODEL.md:35` | `StationSceneTests.twoAgentsOfDifferentTypeDrawDifferentPixelsAtTheir`+`Seats` | a code span **wrapped across a line break**, so Markdown rendered the identifier with a space in the middle. Rewrapped. |
+| `04-ART-DIRECTION.md` | `CostumeContractTests.theShippedManifestDeclaresNoWardrobeAndThatIsLegal` | replaced by `…DeclaresAWardrobeTheResolverCanReach`; the sentence is *about* the replacement and still claimed the old name in backticks. |
+| `ADR-001-denied-calls.md:532,570` | `PermissionGateTests.everyCapturedPermissionRequestIsMainThread` | replaced by `aSubagentsGateIsAttributedToTheSubagent`; same shape. |
+
+The wrapped-span one is the interesting find: it was invisible to a reader
+*and* to any checker, and nothing in the repository could have caught it.
+
+### False positives, and how they are handled — no exemption list
+
+- **Prose that names a removed identifier deliberately.** Both of the replaced
+  tests above are exactly that case. The project already had the rule and
+  `MilestoneCriteriaTests` states it: **backticks are the claim, quotes are the
+  history.** Both were converted to quotes. The prose lost nothing — it still
+  says what the old name was and why it is gone — and the check needs no list.
+- **Names that are not ours.** `docs/` backticks `PostToolUse`, `WebFetch`,
+  `SessionEnd`, `NSPanel`, `DispatchQueue`, `canJoinAllSpaces`. A qualified span
+  whose head we do not declare is skipped by the same mechanism, not by being
+  listed.
+- **Bare identifiers are not checked outside `05-MILESTONES.md`, and that was
+  measured rather than assumed:** of the five bare three-word identifiers in
+  `docs/` that resolve to nothing, **three** are AppKit or a `~/.claude.json`
+  key. There is no mechanical way to tell them from ours. The dot is what makes
+  a span checkable, which is the same sentence `MilestoneCriteriaTests` already
+  used in the other direction.
+- **Resolution is deliberately unscoped** — any declaration anywhere in
+  `Sources/` or `Tests/` counts. So it cannot tell you a member moved between
+  types, and it fires only on a name that exists **nowhere**. Failures are
+  therefore never arguable, which is what keeps a mechanical check from being
+  argued back into a convention.
+
+`almostEveryQualifiedSpanInTheDocumentsIsCheckable` guards the vacuity end: if
+one of our own types were renamed, every citation of it would stop being
+*checked* rather than start *failing* — the silent outcome — so the share of
+spans with an unresolved head is capped.
+
+### Not covered, and named rather than quietly skipped
+
+A path check over backticked file paths was prototyped and **not adopted**: the
+docs cite files by basename (`lint-palette.py`, `04-ART-DIRECTION.md`) far more
+often than by path, so it is mostly false positives. It did surface two things
+worth someone's time, neither in my lane to judge:
+
+- `FINDINGS-M0.md` names `docs/06-WORKFLOW.md`, which does not exist.
+- `04-ART-DIRECTION.md` names `generate-placeholders.py`, which is not in
+  `scripts/`.
+
+Bare UpperCamelCase spans are also not checked: 24 of the 61 in `docs/` are hook
+events, tool names or system types, so the rule would need the exemption list
+this project refuses.
+
+## Scope
+
+`assets/manifest.json` (regenerated), `scripts/{process-assets,preview-theme}.py`,
+`Tests/SpriteRoomCoreTests/MilestoneCriteriaTests.swift`,
+`docs/{03-EVENT-MODEL,04-ART-DIRECTION,05-MILESTONES,ADR-001-denied-calls,ADR-002-themed-rooms}.md`,
+this file. `Sources/`: **untouched**.
+
+Gates at the end of this change, in the shared tree: `swift build --build-tests
+-Xswiftc -warnings-as-errors` clean, `swift test` **595 tests** green,
+`python3 scripts/lint-palette.py` passed with all six themes agreeing with the
+scene, and `python3 scripts/build-manifest.py --out <tmp>` is **byte-identical**
+to `assets/manifest.json`.
+
+---
+
+# The cluster that would have bought `2x`, and why there is no room for it
+
+**Task:** rearrange the seats from a line into a cluster over the room's depth,
+so the occupied span shrinks far enough that `RoomCamera.comfortablePopulation`
+can be repopulated and the camera can go back to `2x` (and `3x` when the room is
+quiet). The premise is the maintainer's own and the *diagnosis* is right: at `1x`
+a costume is a hue channel, a held object is "this one is working", and 274
+candidate desks are one pale slab.
+
+**Outcome: the rearrangement does not exist.** No change to what the room draws.
+The renders before and after this change are byte-identical at every population.
+What landed is the refutation, the corrected numbers it rests on, and three tests
+that make it fail loudly if any of it stops being true.
+
+## The arithmetic, in one place
+
+A `2x` view of the 720×400 panel is **360 × 200** unscaled scene pixels. A `3x`
+view is 240 × 133.
+
+**Height — 300 px against 200, and it is the harder half.** Measured from the
+shipped manifest and `RoomLayout`:
+
+| | px |
+|---|---|
+| badge above a character's feet (`64 − 14 + 1 + 34`) | 85 |
+| nameplate below its feet (`21 + 2`) | 23 |
+| the two seat rows (`seatRowDepthTiles`) | 64 |
+| the walkway in front of them | 32 |
+| one delivery row per ring, below the walkway | 96 |
+| **content band** | **300** |
+
+108 of that is the *character* — art this layout does not control. Deleting the
+report choreography's delivery rows outright still leaves **204**, four pixels
+over. And a cluster spends *depth*, so every row it adds makes this term worse,
+not better. `3x` is not close: 108 px of badge and plate against a 133 px frame
+leaves 25 px for a room.
+
+**Width — 736 px against 360.** `occupiedSpan` pads one seat to 160 px and the
+pitch is 96, so a `2x` frame holds **three** seat columns (352 px) and not four
+(448). Seven agents span 736.
+
+## Why the seats cannot be folded narrower at all
+
+This is the part worth keeping. Fewer columns than seats means **two seats in one
+column**, and *every route into or out of a seat runs up or down that seat's own
+column* — `entranceRoute`, `homeRoute`, `upstageExit`. So a stacked column puts
+one character's corridor through the other's chair at **zero** separation, both
+ways round:
+
+- the front seat's occupant walking upstage out of the room passes through the
+  back seat above it;
+- the back seat's occupant walking in from the walkway, or down to its delivery
+  row and home again, passes through the front seat below it.
+
+The escape would be to interleave the rows on a stagger. There is none: two
+plates clear each other at 71 px, so an offset `s` must satisfy `s ≥ 71` **and**
+`96 − s ≥ 71`, and a 96 px pitch is not two plates wide. Half a pitch is 48. This
+is the same refutation that already killed a second lap of seats on the back row;
+what is new is that it also kills the cluster, because the cluster *is* a second
+lap by another name.
+
+Routing round it was explored and every branch closes on the same two facts —
+the 71 px plate and the 92 px of vertical budget left after the badge and the
+plate. Recorded so nobody re-walks it: front-row exits going downstage instead of
+upstage break the eviction **convoy** (`SceneDirector` frees a seat the instant
+its occupant starts leaving, and the refill walks the same column — same
+direction is what makes that safe); back-row arrivals entering from the wall
+break it the same way in the other direction; and three corridors between two
+seat rows need `≥ 3 × 22` px of gap, which puts the band back over 200. The one
+condition that would unblock a stacked pod is **"a seat is not re-offered while
+its previous occupant is still walking out"** — that lives in `SceneDirector`,
+and even with it the band still does not fit.
+
+**The largest room that fits a `2x` frame is three seats on one row.** That is
+not this product: the maintainer's own captured session runs seven agents, so a
+`2x` room would put four of them behind the overflow plate.
+
+## What the maintainer should look at
+
+`scratchpad/zoomtask/`. `before/pop{1,3,5,7,9}-…png` are the shipped room at
+720×400 — all `1x`, camera `x=416 y=113`, unchanged by this commit.
+`sim2x-pop{3,7,9}.png` and `crop-1x-vs-2x.png` are what `2x` would look like:
+a nearest-neighbour ×2 of the same 360×200 scene region, so they are *exactly*
+the pixels a `2x` render would produce, not an impression of them.
+
+They answer the question the task asked. **Yes** — at `2x` two agents are
+plainly different: the teal cap reads, the held tablet reads as an object rather
+than a smudge, the tripod station separates from the desk. And **no** — the same
+image shows three and a half characters in a frame that has to hold seven.
+
+## What actually changed
+
+- `RoomLayout`: the plate is **71 px**, not the 77 px three comments claimed and
+  not the 65 px a fourth did. Three numbers have been written in this file for
+  one measured constant (`SceneBitmaps.maximumNameplateWidth`), and the tests all
+  ask the measurement rather than the prose, which is exactly why the prose could
+  rot without anything failing. The stagger refutation is re-derived at 71 and is
+  *stronger* there — it is now "no offset exists" rather than "only the useless
+  branch is reachable". `contentBand`'s "305 px rather than 237" is 300 and 236,
+  measured.
+- `RoomLayout.isBackRow(seat:)`: gained the cluster refutation above, next to the
+  stagger refutation it generalises.
+- `RoomCamera.init`: `comfortablePopulation` stays empty, and now says *why it
+  could not be otherwise* instead of "nothing here forbids a future policy from
+  using them again" — which was true and useless, because such a policy would be
+  silently overruled by `largestFittingScale` and the room would go on drawing at
+  `1x` under a comment claiming a preference it never gets.
+- `RoomScene`: one stale "widest plate is 65".
+- `RoomCameraTests`: `aCloserScaleDoesNotFitTheShippedPanel` walks every
+  population 0…`seatCapacity` through the exact arithmetic `RoomScene.applyScale`
+  uses and asserts `1x`; `aCloserFrameWouldHoldThreeSeatColumnsAcross` pins the
+  width answer at three; `noStaggerCanInterleaveTheTwoSeatRowsOnThisPitch` pins
+  the offset having no solution. All three are **tripwires — failing is the
+  useful direction**, because the arithmetic is spread over the manifest,
+  `SceneBitmaps` and `RoomLayout` and any of them can move.
+
+## The two levers that would actually work
+
+Neither is in this lane, and both are named rather than attempted:
+
+1. **The panel.** 720×400 is a judgement call in `NotchGeometry.PanelSize.room`.
+   The band needs 200 px of height for `2x`; it has 300. A panel ~1500×520 would
+   put seven agents at `2x`, which is a different product than a notch drop-down.
+2. **The per-character footprint.** 108 of the 200 px is badge (34 px canvas,
+   parked 51 px above the feet) and nameplate. Halving the badge, or moving it
+   beside the head instead of above it, is worth more to legibility than any
+   arrangement of the floor — because it is the term the layout cannot touch.
+
+## Gates
+
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean. `swift test`
+**598** green. `python3 scripts/lint-palette.py` passed, all six themes agreeing
+with the scene. `spriteroom-replay --all` — 17 fixtures, zero open calls after
+the sweep.
+
+## Scope
+
+`Sources/SpriteRoomScene/{RoomLayout,RoomCamera,RoomScene}.swift`,
+`Tests/SpriteRoomSceneTests/RoomCameraTests.swift`, this file. Comments and tests
+only; no behaviour changed and no render moved a pixel.

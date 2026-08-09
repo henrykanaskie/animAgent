@@ -38,8 +38,16 @@ public struct RoomLayout: Sendable, Hashable {
     /// falsifies `isBackRow`'s own clearance argument: seat 0's column would
     /// then contain back-row seat 7, so a front-row character walking upstage
     /// out of the room would walk through an occupied seat. Offsetting the
-    /// second lap by half a pitch does not rescue it — bodies clear, but a 77 px
-    /// plate against another 77 px plate needs 77 px and has 48.
+    /// second lap by an amount `s` does not rescue it: two plates clear each
+    /// other only at `SceneBitmaps.maximumNameplateWidth` = **71 px** or more,
+    /// so `s` would have to satisfy `s ≥ 71` **and** `96 − s ≥ 71` at once, and
+    /// no `s` does — a 96 px pitch is not two plates wide. Half a pitch is 48.
+    ///
+    /// (Three numbers have been written in this file for that plate: 65 when the
+    /// headline was one line, 77 when it was twelve glyphs, 71 since the limit
+    /// was cut to eleven. It is measured — `SceneBitmaps.maximumNameplateWidth`
+    /// — and every test that depends on it asks the measurement rather than the
+    /// prose, which is why the prose could go stale without anything failing.)
     ///
     /// So the seats are the seats, and what overflows them is *said* rather than
     /// drawn: `SceneDirector` seats `seatCapacity` agents and counts the rest,
@@ -178,7 +186,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// So no reporter's plate can meet any other plate at any phase of the beat,
     /// for any population and any timing. That is the guarantee the seat pitch
-    /// alone could never give: half a pitch is 48 px against a 65 px plate, and
+    /// alone could never give: half a pitch is 48 px against a 71 px plate, and
     /// widening the pitch to fix it does not even work — two characters walking
     /// the same line in opposite directions cross at zero separation whatever
     /// the pitch is. `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`
@@ -233,7 +241,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// file rests on one number — *any two seats are at least a seat pitch apart
     /// in x* — and folding the row does not touch x at all. `seatColumn` is
     /// unchanged, so the minimum column gap is still one pitch, still 96 px
-    /// against a 77 px plate.
+    /// against a 71 px plate.
     ///
     /// What the fold *adds* is two new crossings, and both are closed by that
     /// same number rather than by anything new:
@@ -245,11 +253,45 @@ public struct RoomLayout: Sendable, Hashable {
     ///   the front row's line. Same column, same pitch, same conclusion.
     ///
     /// A staggered *pitch* would have needed a genuinely new argument and does
-    /// not survive one: the offset has to clear a 77 px plate but has only the
-    /// 6 px of slack a 96 px pitch leaves over a 90 px pair of half-plates, so
-    /// it needs `s ≤ 6` or `s ≥ 58` and only the useless branch is reachable.
-    /// Depth is free where width is not, because two rows a character's height
-    /// apart cannot share a horizontal strip at any x.
+    /// not survive one: an offset `s` has to clear a 71 px plate on **both**
+    /// sides, which needs `s ≥ 71` and `96 − s ≥ 71` together, and a 96 px pitch
+    /// is not two plates wide. Depth is free where width is not, because two
+    /// rows a character's height apart cannot share a horizontal strip at any x.
+    ///
+    /// ## Why the fold cannot also buy the room any width
+    ///
+    /// The obvious next move is the one that was asked for: if the seats were a
+    /// *cluster* over the room's depth rather than a line, the occupied span
+    /// would shrink and the camera could climb back off `1x`. It cannot, and the
+    /// refutation is the one directly above, applied one step further out.
+    ///
+    /// A cluster narrower than seven columns means **two seats in one column**,
+    /// because seven seats over fewer than seven columns is what "narrower"
+    /// means. And every route into or out of a seat runs up or down that seat's
+    /// own column — that is not an incidental choice, it is the property every
+    /// argument in this file is built on, and it is what
+    /// `entranceRoute(forSeat:)` and `upstageExit(forSeat:)` exist to state. So
+    /// a stacked column puts one character's corridor through the other's chair
+    /// at **zero** separation, in both directions:
+    ///
+    /// - the front seat's occupant walking upstage out of the room passes
+    ///   through the back seat above it;
+    /// - the back seat's occupant walking in from the aisle, or down to its
+    ///   delivery row and home again, passes through the front seat below it.
+    ///
+    /// Neither is a tight clearance to be widened. Sliding one row sideways is
+    /// the staggered pitch again — 48 px against 71 — and there is no offset
+    /// that clears both neighbours at once, so interleaving two rows on a 96 px
+    /// grid is not available at any offset.
+    ///
+    /// **What that leaves is one seat per column**, so the room's occupied width
+    /// is `(seats − 1) × 96` plus the padding `occupiedSpan` adds, and the only
+    /// way to narrow it is to seat fewer agents. `RoomCamera` carries what a
+    /// `2x` frame could actually hold, which is three of them — and the shipped
+    /// panel cannot hold three either, on height. The two seat rows bought
+    /// depth: a room that reads as a place rather than a queue, and a badge line
+    /// that does not sit on a neighbour's plate. They did not buy width and no
+    /// arrangement of them can.
     public func isBackRow(seat index: Int) -> Bool {
         !ring(ofSeat: index).isMultiple(of: 2)
     }
@@ -565,8 +607,18 @@ public struct RoomLayout: Sendable, Hashable {
     /// case a glance surface exists for.
     ///
     /// The strip is no longer a thin one: seats sit on two rows, so it runs from
-    /// an outermost delivery row's plate to the **back** row's badge — 305 px of
-    /// the panel's 400 rather than 237. See `isBackRow(seat:)`.
+    /// an outermost delivery row's plate to the **back** row's badge — measured
+    /// against the shipped manifest, **300 px** of the panel's 400 rather than
+    /// 236. See `isBackRow(seat:)`.
+    ///
+    /// **Those 300 px are why the camera cannot leave `1x`**, and the split is
+    /// worth having in front of you before changing anything here: 85 px of
+    /// badge above the feet and 23 px of plate below them are the character and
+    /// come from the manifest; 64 px are the two seat rows; 32 px are the
+    /// walkway; and 96 px are the three delivery rows the report beat reserves.
+    /// A `2x` view of a 720×400 panel has 200. `RoomCamera.init` carries the
+    /// whole argument and `aCloserScaleDoesNotFitTheShippedPanel` keeps these
+    /// numbers honest.
     ///
     /// Both arguments are measured from the manifest by the caller rather than
     /// written down here, so a taller badge or a taller font changes the frame

@@ -606,7 +606,7 @@ public final class RoomScene: SKScene {
             // **The transit used to be the room's one unguarded window.** A
             // reporter walking the aisle passed every station between its desk
             // and its anchor's, and a station is 96 px from the next while the
-            // widest plate is 65 — so it was within a plate width of *some*
+            // widest plate is 71 — so it was within a plate width of *some*
             // station for most of the walk, and if that station's occupant
             // stepped into the aisle the two plates touched. Widening the seat
             // pitch does not close that: two characters walking one line in

@@ -143,6 +143,95 @@ struct RoomCameraTests {
             contentWidth: 0, contentHeight: 0) == 3)
     }
 
+    // MARK: Why the allow-list is empty [see `RoomCamera.init`]
+
+    /// **The empty table is not only a preference; on this panel it is the only
+    /// answer that is true.**
+    ///
+    /// `theRoomIsDrawnWideAtEveryPopulation` records the *decision* to stop
+    /// pulling the camera in. This records the *fact* that the decision has
+    /// nothing to overrule: at 720×400 — `NotchGeometry.PanelSize.room`, the
+    /// panel the app ships — no population fits a scale above the floor, so a
+    /// table naming `2` would be ignored by `largestFittingScale` anyway and the
+    /// room would go on drawing at `1x` with a comment claiming otherwise.
+    ///
+    /// It is written as a test because the arithmetic is spread over three
+    /// files: the badge height and the head line come from the manifest, the
+    /// plate from `SceneBitmaps`, the rows and the delivery reserve from
+    /// `RoomLayout`. Any of them can move without anyone noticing this
+    /// conclusion moved with it.
+    ///
+    /// **It is a tripwire, and failing is the useful direction.** A change that
+    /// makes a closer scale reachable — a shorter badge, a shallower room, a
+    /// panel with more height — fails here, and whoever made it is then holding
+    /// the one place that decides whether the camera should use it.
+    @Test func aCloserScaleDoesNotFitTheShippedPanel() throws {
+        let manifest = try SceneFixtures.manifest()
+        let layout = RoomLayout()
+        let camera = RoomCamera(manifest: manifest)
+        // `NotchGeometry.PanelSize.room`, spelled out rather than imported:
+        // `SpriteRoomScene` does not depend on `SpriteRoomApp` and must not.
+        let panel = (width: 720.0, height: 400.0)
+
+        // Exactly what `RoomScene.applyScale` feeds the camera.
+        let headTop = manifest.characters.variants.values.map(\.headTopPx).min() ?? 0
+        let badgeTop = Double(manifest.characters.canvas.height - headTop + 1)
+            + Double(manifest.badges.canvas.height)
+        let plateDrop = Double(SceneBitmaps.maximumNameplateHeight + 2)
+        let band = layout.contentBand(
+            badgeTopAboveFeet: badgeTop, plateDropBelowFeet: plateDrop)
+        let contentHeight = band.top - band.bottom
+
+        // Height settles it on its own, and does so at *every* population,
+        // because the band is deliberately not a function of who is on screen.
+        #expect(contentHeight > panel.height / 2, Comment(rawValue:
+            "the content band is \(contentHeight) px and 2x has"
+            + " \(panel.height / 2); if this now fits, revisit"
+            + " RoomCamera.comfortablePopulation"))
+
+        for population in 0...layout.seatCapacity {
+            // Seat 0 is framed even when empty — `RoomScene.charactersBySeat`.
+            let seats = Array(0...max(0, population - 1))
+            let span = layout.occupiedSpan(seats: seats)
+            let scale = camera.largestFittingScale(
+                viewportWidth: panel.width, viewportHeight: panel.height,
+                contentWidth: span.maxX - span.minX, contentHeight: contentHeight)
+            #expect(scale == 1, "population \(population) fits at \(scale)x")
+        }
+    }
+
+    /// **How much room a `2x` frame has across, in seats.** Three.
+    ///
+    /// The half of the refutation that looks answerable by rearranging the
+    /// seats, pinned so the answer is a number rather than an impression. Four
+    /// columns need 448 px of the 360 a `2x` frame has, and seven need 736.
+    @Test func aCloserFrameWouldHoldThreeSeatColumnsAcross() {
+        let layout = RoomLayout()
+        func widthAtTwo(_ seats: Int) -> Double {
+            let span = layout.occupiedSpan(seats: 0..<seats)
+            return (span.maxX - span.minX) * 2
+        }
+        #expect(widthAtTwo(3) <= 720)
+        #expect(widthAtTwo(4) > 720)
+        #expect(widthAtTwo(layout.seatCapacity) > 720)
+    }
+
+    /// **And rearranging cannot answer even that half**, because a room narrower
+    /// than one column per seat is a room with two seats in one column, and the
+    /// only alternative — interleaving the two rows on a stagger — has no
+    /// solution on this pitch. See `RoomLayout.isBackRow(seat:)`.
+    ///
+    /// A staggered row clears the columns on *both* sides of it only if the
+    /// pitch is at least two plates wide. It is 96 against 71.
+    @Test func noStaggerCanInterleaveTheTwoSeatRowsOnThisPitch() {
+        let layout = RoomLayout()
+        let pitch = layout.tile * layout.seatSpacingTiles
+        let plate = SceneBitmaps.maximumNameplateWidth
+        #expect(pitch < 2 * plate, "a \(pitch) px pitch would fit two \(plate) px plates")
+        #expect((1..<pitch).allSatisfy { min($0, pitch - $0) < plate },
+                "some offset clears a plate on both sides after all")
+    }
+
     /// The ladder comes from the manifest, so a manifest that changed it would
     /// change the camera without a code change — and the values it declares
     /// must still be integers.

@@ -179,6 +179,12 @@ def desk_depth_bias(desk_height):
     desk-with-an-open-book covered the whole body including the face at every
     seat, in a room whose characters are the subject.
 
+    That desk was replaced at M7e (set 5 single 26 -> single 8, 32x44) and no
+    theme currently binds one over the head line, so the behind case is unused
+    by the shipped manifest. It is not dead code and must not be dropped: it is
+    what stops the next theme's art being able to hide a face, and the fact that
+    nothing exercises it today is a fact about six themes, not about the rule.
+
     `None` means "this theme declares no desk", which is the placeholder path;
     the placeholder is 26 px tall and therefore always the in-front case.
     """

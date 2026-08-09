@@ -45,6 +45,36 @@ public struct RoomCamera: Sendable, Hashable {
         // The ladder is untouched and still integer [I6]. Closer scales remain
         // on it and remain reachable through `largestFittingScale`; nothing
         // here forbids a future policy from using them again.
+        //
+        // **It stays empty for a second reason, and this one is arithmetic
+        // rather than taste: on the panel this app ships, nothing above `1x`
+        // fits, at any population and under any arrangement of the seats.** The
+        // panel is 720×400, so `2x` frames 360×200 unscaled pixels and `3x`
+        // frames 240×133. Against that, from the manifest and `RoomLayout`:
+        //
+        // - *Height.* One seated character reserves **85 px** of badge above its
+        //   own feet and **23 px** of nameplate below them — 108 of the 200,
+        //   before a single tile of floor. The two seat rows are 64 px apart, the
+        //   walkway is 32 px in front of them, and the report choreography
+        //   reserves one delivery row per ring below *that*, 96 px. The content
+        //   band is 108 + 64 + 32 + 96 = **300**. Deleting every delivery row
+        //   outright still leaves 204, and folding the seats deeper makes it
+        //   worse, not better, because depth is the axis a cluster spends.
+        // - *Width.* `RoomLayout.occupiedSpan` pads one seat to 160 px and the
+        //   seat pitch is 96, so 360 px holds three seat columns (352) and not
+        //   four (448). Seven agents span **736**.
+        //
+        // The width alone would look answerable by clustering the seats — it is
+        // not, and `RoomLayout.isBackRow(seat:)` carries why a narrower room
+        // cannot be built at all — but even a free answer to the width would
+        // leave the height, and the height is mostly art this file does not
+        // control. The largest room that fits a `2x` frame is three seats on one
+        // row, which is not this product.
+        //
+        // `aCloserScaleDoesNotFitTheShippedPanel` pins all of it mechanically,
+        // so a future change that *does* make a closer scale reachable fails a
+        // test and is told to come back here, rather than silently doing nothing
+        // because this table is empty.
         self.comfortablePopulation = comfortablePopulation ?? [:]
     }
 
