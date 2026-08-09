@@ -69,10 +69,19 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
             return .terminal
         case "WebSearch", "WebFetch":
             return .globe
-        // `Agent` is the hook-payload name for subagent dispatch. `Task` is the
-        // model-facing name and never appears in a payload — it is accepted
-        // here only because `docs/04-ART-DIRECTION.md` still lists it, and
-        // accepting a name we will never see costs nothing.
+        // `Agent` is the hook-payload name for subagent dispatch, and it is the
+        // only one. `Task` — the model-facing name, which never appears in a
+        // payload — was mapped here too, on the stated grounds that
+        // `docs/04-ART-DIRECTION.md` still listed it. `13fd7fc` removed it from
+        // that copy, so the row existed in neither table and this was the last
+        // residue of a documented M0 error [FINDINGS-M0, defect 81]. It is gone:
+        // the tables own this mapping and the switch implements them, so a name
+        // in no table is a divergence rather than a courtesy. Nothing is lost if
+        // the hook name is ever renamed — the room shows the question mark and
+        // logs the tool as unmapped, which is the alarm this project designed
+        // [I1], and `everyToolInEveryFixtureIsEitherMappedOrDeliberatelyNot`
+        // fails on the first capture that carries the new name. Pre-accepting a
+        // name we have never seen would silence both.
         //
         // **`SendMessage` is in this bucket on the strength of the capture, not
         // on a reading of its name.** `docs/03-EVENT-MODEL.md` already records
@@ -83,7 +92,7 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
         // already treats `SendMessage` as dispatch, and badging it as anything
         // else would have the glyph disagree with the character waking up beside
         // it in the same batch.
-        case "TodoWrite", "Agent", "Task", "SendMessage":
+        case "TodoWrite", "Agent", "SendMessage":
             return .checklist
         // **`Monitor` stays here on purpose.** It is the one tool in the capture
         // with two disjoint substrates and a name that does not say which: a

@@ -641,9 +641,31 @@ statement about an agent that stopped, which that agent's next event refutes.
 The order between them, and against the tool badge, is under "Precedence in the
 badge slot" above.
 
-**Body state while working** is the sitting pose, regardless of tool. The tool
-identity lives entirely in the badge. This is what lets a new tool name appear
-tomorrow without new art.
+**Body state while working is a seated pose in every case**, and *which* seated
+pose is a function of the **badge class** — the one the lowest-ordinal rule above
+has already computed — never of `tool_name` directly. The scene looks the state
+up in `characters.poses.working` keyed by the badge's manifest key, falling
+through to the table's required `default` and then to `working` itself, so the
+lookup is total for any badge and for a manifest carrying no table at all.
+[ADR-002 §5a and §8 item 7, implemented]
+
+This paragraph used to read "the sitting pose, regardless of tool", and **the
+property it was there to protect is unchanged: a tool name that appears tomorrow
+still needs no new art.** What changed is why. It holds because both tables are
+*total*, not because the answer is constant — an unrecognised tool is the
+question mark, the question mark falls to the default pose, and the default pose
+is art we already own. Nothing above needs editing when a new tool ships, and
+nothing needs drawing.
+
+**What is on screen today is still indistinguishable from the old sentence, and
+that is a fact about the manifest rather than about the code.**
+`characters.poses.working` ships empty: `04-ART-DIRECTION.md` measured the pack's
+only candidate for a second seated pose at 96 differing pixels out of 288 000 for
+a four-agent room — the legs, which every desk covers — so no table was written.
+Every badge class therefore resolves to the same pose and every working character
+sits identically. The behaviour is decided by the lookup, not by the sentence:
+fill the table in the manifest and the room changes with no code change, which is
+also the moment this paragraph's first clause starts to be visible.
 
 ## The reporting animation
 

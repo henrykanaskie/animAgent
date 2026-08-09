@@ -210,7 +210,19 @@ struct ArtAvailabilityTests {
             lines.append("  Expected on a fresh clone: assets/ is gitignored (purchased LimeZu")
             lines.append("  packs, not redistributable); only assets/manifest.json is tracked.")
             if let first = survey.missingPaths.first { lines.append("  First missing: \(first)") }
-            lines.append("  Set SPRITE_ROOM_REQUIRE_ART=1 to make this a failure instead of a skip.")
+            // The notice has to know which mode it is in, exactly as
+            // `PanelWindowServer.notice(survey:gated:required:)` does — the two
+            // gates mirror each other idiom for idiom. Printing "set this to
+            // make it a failure" directly above the failure that variable has
+            // just caused is the kind of line that teaches people to stop
+            // reading the notice, and the notice is the whole mechanism by
+            // which a green run is unambiguous.
+            if SceneArt.isRequired {
+                lines.append("  SPRITE_ROOM_REQUIRE_ART is SET, so this is a FAILURE below.")
+            } else {
+                lines.append(
+                    "  Set SPRITE_ROOM_REQUIRE_ART=1 to make this a failure instead of a skip.")
+            }
         }
         lines.append(rule)
         print(lines.joined(separator: "\n"))
