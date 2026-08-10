@@ -694,8 +694,10 @@ this.
 
 **Step 1 — the desk-surface anchor. Cheapest of all, and it draws nothing.**
 Owners: `art-director` (sanity-check the seven measured values), then
-`scene-engineer` (a new "RoomLayout.deskSurfacePosition(seat:)" and the depth
-rule — quoted, not backticked, because it does not exist yet).
+`scene-engineer` (`RoomLayout.deskSurfacePosition(seat:surfaceHeightAboveFloor:)`
+— backticked now that this step has shipped it; the depth rule stays out of
+this step, since there is nothing yet to depth-sort against the desk it stands
+on, and is deferred to the step that draws an object here).
 One generator rule (§2b), one manifest key per desk role, one placement function.
 Ships as a pure measurement with **no visible change**, and it is verifiable on its
 own: a test asserting the anchor lands on the slab for all six themes, `library`
@@ -749,9 +751,16 @@ need bindings and an I7 check, and no authored pixels.
    `four-subagents-mission_control-720x400-t020.00.png`, five agents at `1x`, the
    twin-monitor stands are the most legible per-agent difference in the frame —
    but a desk-top object is smaller than a floor stand and inherits nothing.
-4. **The `library` and `mission_control` anchors looked at by eye**, since they are
-   the two desks whose surface is not their box top and the two whose desks are
-   drawn *behind* the body.
+4. **The `library` anchor looked at by eye.** It is the *one* desk whose surface
+   is not its box top: its art has a book drawn on it, so the box top is 44 and
+   the surface is 36, and the rule has to return the desk rather than the book.
+
+   **This item originally named `mission_control` alongside it and that was
+   wrong.** Implementing step 1 measured all seven: `mission_control`'s surface
+   *is* its box top, because its bare equipment table's own top row already
+   clears the 80% run threshold. Both are still 36 px and both are still drawn
+   behind the body, which is what made them look like one case — they are two,
+   and only one of them exercises the rule.
 5. **A session where the description and the tools disagree**, deliberately
    constructed: dispatch an agent to "plan the refactor" and have it edit six
    files. The desk must end on `authoring`. This is the maintainer's own honest

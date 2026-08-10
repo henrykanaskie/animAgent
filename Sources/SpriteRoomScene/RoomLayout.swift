@@ -372,6 +372,32 @@ public struct RoomLayout: Sendable, Hashable {
         ScenePoint(x: seatPosition(index).x + Double(tile) * 0.875, y: seatRowY(index))
     }
 
+    /// **The desk's top surface for a seat** — the plane an object could stand
+    /// on, not the desk's own bottom-centre anchor. [ADR-006 §2b, §2c]
+    ///
+    /// `content_box` measures a desk's ink footprint, and for most desks that
+    /// footprint's top row *is* the surface — but not always: `library` binds a
+    /// desk with a book already drawn on it, whose box top is 8 px above the
+    /// slab underneath. `surfaceHeightAboveFloor` is the manifest's answer to
+    /// which row is really the surface (`room.props.roles.desk.surface_y`, or a
+    /// theme's own), measured by `scripts/build-manifest.py` rather than
+    /// guessed here — this file has no access to the manifest and never reads a
+    /// PNG, so the height above the floor is a parameter, the same shape
+    /// `contentBand(badgeTopAboveFeet:plateDropBelowFeet:)` already takes its
+    /// own manifest-measured heights in.
+    ///
+    /// `x` matches `deskPosition(_:)`'s own — this point sits directly above
+    /// the desk's bottom-centre anchor, on the same column. Where *on* that
+    /// surface an object's own near edge goes, and how it depth-sorts against
+    /// the desk, is §2c's placement rule for the step that draws something
+    /// here; this accessor only answers "where is the surface", which is a
+    /// question every future object needs the same answer to and none of them
+    /// should answer by eyeballing a second time.
+    public func deskSurfacePosition(seat index: Int, surfaceHeightAboveFloor: Double) -> ScenePoint {
+        let anchor = deskPosition(index)
+        return ScenePoint(x: anchor.x, y: anchor.y + surfaceHeightAboveFloor)
+    }
+
     /// Bottom-centre of a station's one optional adjacent prop: a tile to the
     /// character's **left**, on the seat row. [ADR-002 §7]
     ///

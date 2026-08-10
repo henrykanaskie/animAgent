@@ -156,6 +156,44 @@ def content_box(path):
     return {"x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1}
 
 
+def desk_surface_height(path, box):
+    """How many px above the floor a desk's top surface sits. [ADR-006 SS2b]
+
+    `content_box` measures a desk's own ink footprint, not the plane an object
+    could stand on — usually the same row, but not when something is already
+    drawn on the desk (`library` binds a wooden desk with an open book on it,
+    whose box top is 8px above the slab underneath).
+
+    The rule is mechanical: scan down from the top of `box`, row by row, for
+    the first row carrying an unbroken horizontal run of opaque pixels at least
+    80% of the box width. That row is the surface. For a bare desk it is the
+    box's own top row; for `library` it finds the slab under the book instead.
+
+    Converted to a height above the floor rather than left as an image row,
+    because that is what a placement rule needs and what `content_box`'s own
+    docstring establishes: the scene puts a prop's content_box *bottom*-centre
+    on the floor point for its tile, so the box's bottom row is the floor and
+    every row above it is that many px higher — `(box.y + box.h) - surface_row`.
+
+    Returns `None` if no row clears the threshold, which should not happen for
+    anything shaped like a desk; the caller treats that as "no surface" rather
+    than guessing one. [I1]
+    """
+    w, h, px = pnglite.load(path)
+    threshold = 0.8 * box["w"]
+    for y in range(box["y"], box["y"] + box["h"]):
+        run = best = 0
+        for x in range(box["x"], box["x"] + box["w"]):
+            if px[(y * w + x) * 4 + 3] > 127:
+                run += 1
+                best = max(best, run)
+            else:
+                run = 0
+        if best >= threshold:
+            return (box["y"] + box["h"]) - y
+    return None
+
+
 def build_characters():
     base = os.path.join(PROCESSED, "characters", SIZE)
     if not os.path.isdir(base):
@@ -382,6 +420,10 @@ def build_room():
             "what": spec["what"],
             "content_box": box,
         }
+        if role == "desk":
+            surface = desk_surface_height(path, box)
+            if surface is not None:
+                roles[role]["surface_y"] = surface
 
     out = {
         "tile": {"w": 32, "h": 32},
@@ -405,7 +447,12 @@ def build_room():
                     "other %d files stay unidentified and are listed for completeness "
                     "only. An object is placed by putting its measured content_box "
                     "bottom-centre on a named point, because the singles are not "
-                    "bottom-aligned in their canvas." % (len(roles), len(props) - len(roles)),
+                    "bottom-aligned in their canvas. The `desk` role additionally "
+                    "carries `surface_y`: how many px above the floor its top surface "
+                    "sits, measured by the topmost row of an 80%%-of-box-width ink run "
+                    "rather than by the box's own top — the two disagree wherever "
+                    "something is drawn standing on the desk. [ADR-006 SS2b]"
+                    % (len(roles), len(props) - len(roles)),
             "roles": roles,
             "files": props,
         },
@@ -752,6 +799,10 @@ def build_themes():
                 "what": what,
                 "content_box": box,
             }
+            if role == "desk":
+                surface = desk_surface_height(path, box)
+                if surface is not None:
+                    roles[role]["surface_y"] = surface
 
         bdir = os.path.join(tdir, "builder")
         tiles, declared = [], {}
@@ -842,7 +893,12 @@ def build_themes():
                         "canvas widened from 64 to 128 at M6c to admit a 128px-wide "
                         "animated prop; padding is bottom-centred and placement is by "
                         "content_box, so nothing moved — checked in pixels against a "
-                        "before/after render of all six themes, not in arithmetic."
+                        "before/after render of all six themes, not in arithmetic. "
+                        "The `desk` role additionally carries `surface_y`: how many px "
+                        "above the floor its top surface sits, measured by the topmost "
+                        "row of an 80%%-of-box-width ink run rather than by the box's "
+                        "own top — bottom-centred padding does not move it, since it is "
+                        "computed from the box's own coordinates. [ADR-006 SS2b]"
                         % prop_canvas,
                 "animation_note": "A role may carry an `animation` object beside `file`. "
                                   "`file` is frame 0 and stays first, so a reader that "

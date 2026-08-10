@@ -4687,7 +4687,7 @@
         "h": 96
       },
       "identified": true,
-      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 4 roles below were identified by rendering the singles and looking at them; the other 335 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas.",
+      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 4 roles below were identified by rendering the singles and looking at them; the other 335 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b]",
       "roles": {
         "board": {
           "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_171.png",
@@ -4726,7 +4726,8 @@
             "y": 64,
             "w": 32,
             "h": 24
-          }
+          },
+          "surface_y": 24
         },
         "plant": {
           "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_99.png",
@@ -5487,7 +5488,7 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
@@ -5530,7 +5531,8 @@
                 "y": 64,
                 "w": 32,
                 "h": 24
-              }
+              },
+              "surface_y": 24
             },
             "plant": {
               "file": "assets/processed/themes/briefing/32x32/singles/plant.png",
@@ -5595,7 +5597,7 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
@@ -5638,7 +5640,8 @@
                 "y": 64,
                 "w": 32,
                 "h": 24
-              }
+              },
+              "surface_y": 24
             },
             "plant": {
               "file": "assets/processed/themes/broadcast/32x32/singles/plant.png",
@@ -5703,7 +5706,7 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
@@ -5767,7 +5770,8 @@
                 "y": 34,
                 "w": 32,
                 "h": 44
-              }
+              },
+              "surface_y": 36
             },
             "plant": {
               "file": "assets/processed/themes/library/32x32/singles/plant.png",
@@ -5832,7 +5836,7 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
@@ -5875,7 +5879,8 @@
                 "y": 40,
                 "w": 40,
                 "h": 36
-              }
+              },
+              "surface_y": 36
             },
             "plant": {
               "file": "assets/processed/themes/mission_control/32x32/singles/plant.png",
@@ -6073,7 +6078,7 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
@@ -6116,7 +6121,8 @@
                 "y": 64,
                 "w": 32,
                 "h": 24
-              }
+              },
+              "surface_y": 24
             },
             "plant": {
               "file": "assets/processed/themes/office/32x32/singles/plant.png",
@@ -6181,7 +6187,7 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic.",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
           "roles": {
             "board": {
@@ -6224,7 +6230,8 @@
                 "y": 64,
                 "w": 32,
                 "h": 24
-              }
+              },
+              "surface_y": 24
             },
             "plant": {
               "file": "assets/processed/themes/stage/32x32/singles/plant.png",
