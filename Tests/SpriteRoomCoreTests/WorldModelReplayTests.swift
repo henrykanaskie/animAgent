@@ -21,6 +21,10 @@ import Testing
             "callClosed",
             "callOpened",         // Bash echo done
             "callClosed",
+            // `Stop`, 10 ms ahead of the `SessionEnd`. The main character's
+            // turn ends and it stands; the departure follows it out of the
+            // door. [ADR-005 §3]
+            "turnChanged",
             "agentDeparted",      // SessionEnd
             "populationChanged",
         ])
@@ -82,27 +86,47 @@ import Testing
         #expect(await model.unhandledTotal == 0)
     }
 
-    /// Consuming it must not make it a *second* creation path: the later
-    /// prompts in one session change nothing at all.
-    @Test func laterUserPromptsInTheSameSessionEmitNothing() async throws {
+    /// Consuming it must not make it a *second* creation path: a later prompt
+    /// reaches an agent that already exists, so it creates nothing and its only
+    /// possible news is that a turn began.
+    ///
+    /// **Three of this fixture's four prompts answer a `Stop`, so they open a
+    /// turn and say so.** That is ADR-005 §3's opener; before it, a later prompt
+    /// emitted nothing whatever, which is the correction under §3 and the reason
+    /// a one-directional `turnEnded` could not have worked. What has not changed
+    /// is the thing this test is named for: no character appears, no call moves,
+    /// no lifecycle moves.
+    @Test func laterUserPromptsInTheSameSessionOnlyEverOpenATurn() async throws {
         let entries = try Fixtures.entries("three-subagents")
         let prompts = entries.filter { $0.event?.kind == .userPromptSubmit }
         #expect(prompts.count == 4, "the fixture's four prompts are the point of this test")
 
         let model = WorldModel()
         var promptsSeen = 0
+        var opened = 0
         for entry in entries {
             guard let event = entry.event else { continue }
             if event.kind == .userPromptSubmit, promptsSeen > 0 {
                 let before = await model.snapshot()
-                #expect(await model.ingest(event, at: entry.receivedAt).isEmpty)
-                #expect(await model.snapshot() == before)
+                let deltas = await model.ingest(event, at: entry.receivedAt)
+                let main = AgentRef(
+                    project: event.cwd, session: event.sessionID, agent: .mainThread)
+                #expect(deltas == [] || deltas == [.turnChanged(agent: main, hasTurn: true)],
+                        Comment(rawValue: "a later prompt emitted \(deltas.map(\.tag))"))
+                if !deltas.isEmpty { opened += 1 }
+                let after = await model.snapshot()
+                #expect(after.agents.map(\.ref) == before.agents.map(\.ref),
+                        "a later prompt created or removed a character")
+                #expect(after.agents.map(\.openCalls) == before.agents.map(\.openCalls),
+                        "a later prompt moved tool state")
+                #expect(after.agents.map(\.lifecycle) == before.agents.map(\.lifecycle))
             } else {
                 await model.ingest(event, at: entry.receivedAt)
             }
             if event.kind == .userPromptSubmit { promptsSeen += 1 }
         }
         #expect(promptsSeen == 4)
+        #expect(opened == 3, "\(opened) of the three later prompts followed a Stop and re-seated")
     }
 
     // MARK: the parent→child link
@@ -315,35 +339,59 @@ import Testing
         #expect(lifetimes.allSatisfy { $0 > 10 })
     }
 
-    /// `Stop` fires four times in this one turn. It is not end-of-session and
-    /// it emits nothing.
+    /// `Stop` fires four times in this fixture. It is not end-of-session, it
+    /// departs nobody, and the **only** thing it changes is the turn.
     ///
     /// **This is also the check that the main agent needs no dormancy of its
     /// own.** `SubagentStop` had to stop departing its character; `Stop` never
-    /// departed one. It emits no delta and sets no lifecycle — asserted here as
-    /// an unchanged snapshot, which includes the lifecycle field — and the only
-    /// caller of `depart` is `endSession`, reached by `SessionEnd` and the idle
-    /// sweep. So the main character already stays in the room across a turn
-    /// boundary, which is the whole of what dormancy buys a subagent, and
-    /// marking it dormant would be the weaker claim besides: four `Stop`s here
-    /// are four assistant message streams inside one user turn, not four turns.
-    @Test func stopFiresRepeatedlyAndChangesNothing() async throws {
+    /// departed one. It sets no lifecycle and touches no call — asserted here by
+    /// diffing the snapshot field by field — and the only caller of `depart` is
+    /// `endSession`, reached by `SessionEnd` and the idle sweep. So the main
+    /// character stays in the room across a turn boundary, which is the whole of
+    /// what dormancy buys a subagent. Marking it dormant would also be the
+    /// weaker claim, since `Stop` fires once per assistant message stream.
+    ///
+    /// **The one thing it now changes is `hasTurn`,** and that is ADR-005 §3's
+    /// closer arriving at last. Before it, every `Stop` in the corpus drew
+    /// nothing at all and the main character sat from its first event until it
+    /// left. This test used to assert exactly that — `deltas.isEmpty` and an
+    /// unchanged snapshot — so it is the test the change had to come through.
+    @Test func stopEndsTheTurnAndChangesNothingElse() async throws {
         let entries = try Fixtures.entries("three-subagents")
         let stops = entries.filter { $0.event?.kind.name == "Stop" }
         #expect(stops.count == 4)
 
         let model = WorldModel()
+        var ended = 0
         for entry in entries.prefix(while: { $0.event?.kind.name != "SessionEnd" }) {
             guard let event = entry.event else { continue }
             if case .stop = event.kind {
                 let before = await model.snapshot()
                 let deltas = await model.ingest(event, at: entry.receivedAt)
-                #expect(deltas.isEmpty)
-                #expect(await model.snapshot() == before)
+                let main = AgentRef(
+                    project: event.cwd, session: event.sessionID, agent: .mainThread)
+                #expect(deltas == [.turnChanged(agent: main, hasTurn: false)], Comment(rawValue:
+                    "a Stop emitted \(deltas.map(\.tag)); the turn end is the whole of its news"))
+                ended += 1
+
+                // Every other field, diffed rather than asserted whole, so that
+                // "changes nothing else" keeps meaning what it said.
+                let after = await model.snapshot()
+                #expect(after.agents.map(\.ref) == before.agents.map(\.ref),
+                        "a Stop added or removed a character")
+                #expect(after.agents.map(\.lifecycle) == before.agents.map(\.lifecycle),
+                        "a Stop moved a lifecycle — it is not a death and not a dormancy")
+                #expect(after.agents.map(\.openCalls) == before.agents.map(\.openCalls),
+                        "a Stop touched tool state; it is not a close path and not a reap trigger")
+                #expect(after.agents.map(\.attention) == before.agents.map(\.attention),
+                        "a Stop moved a badge")
+                #expect(after.agents.map(\.task) == before.agents.map(\.task))
+                #expect(after.agents.map(\.parent) == before.agents.map(\.parent))
             } else {
                 await model.ingest(event, at: entry.receivedAt)
             }
         }
+        #expect(ended == 4, "the four Stops before SessionEnd are the point of this test")
     }
 
     // MARK: four-subagents — four of one type, and the resume cycle
@@ -828,6 +876,7 @@ import Testing
             "callOpened", "callClosed",
             "callOpened", "callClosed",
             "callOpened", "callClosed",
+            "turnChanged",                          // Stop, 10 ms before SessionEnd
             "agentDeparted", "populationChanged",
         ],
         // Five opens before the first close. That shape is I3.
@@ -835,6 +884,7 @@ import Testing
             "agentAppeared", "populationChanged",
             "callOpened", "callOpened", "callOpened", "callOpened", "callOpened",
             "callClosed", "callClosed", "callClosed", "callClosed", "callClosed",
+            "turnChanged",                          // Stop, 8 ms before SessionEnd
             "agentDeparted", "populationChanged",
         ],
         // Three `Agent` dispatches, each opening and closing in milliseconds
@@ -881,6 +931,9 @@ import Testing
             "agentAppeared", "populationChanged", "callClosed", "agentLinked", "agentTasked",
             "callOpened",
             "agentAppeared", "populationChanged", "callClosed", "agentLinked", "agentTasked",
+            // The first `Stop`, 8.2 s in: the main thread has dispatched its
+            // three subagents and its own turn is over. [ADR-005 §3]
+            "turnChanged",
             "callOpened", "callClosed", "callOpened",
             "callOpened", "callClosed", "callOpened", "callClosed",
             "callClosed", "callOpened", "callOpened", "callClosed",
@@ -891,9 +944,19 @@ import Testing
             // the `sleep` badge. Nothing here reports without also going
             // dormant, and nothing goes dormant without reporting.
             "reportDelivered", "dormancyChanged",   // first subagent goes dormant
+            // The main thread's own boundaries, interleaved with the subagents'.
+            // Each pair is the `UserPromptSubmit` that ends a standing interval
+            // — 9.60 s, 5.37 s and 10.14 s after the `Stop` before it — and the
+            // next `Stop`, 1.80 / 2.33 / 5.23 s later. A subagent finishing
+            // wakes the main thread as a synthetic prompt, which is why the two
+            // casts' boundaries arrive together and why "several `Stop`s in one
+            // user turn" always has an opener between them. [ADR-005 §3]
+            "turnChanged", "turnChanged",
             "callClosed", "reportDelivered", "dormancyChanged",  // second
+            "turnChanged", "turnChanged",
             "callClosed", "callOpened", "callClosed",
             "reportDelivered", "dormancyChanged",   // third
+            "turnChanged", "turnChanged",
             "agentDeparted", "agentDeparted", "agentDeparted", "agentDeparted",
             "populationChanged",                    // SessionEnd, all four at once
         ],
@@ -909,6 +972,7 @@ import Testing
             "agentAppeared", "populationChanged",
             "callOpened", "callClosed",
             "callOpened", "callClosed",
+            "turnChanged",                          // Stop, 11 ms before SessionEnd
             "agentDeparted", "populationChanged",
         ],
         // Two gates: one denied, one approved. The denied `Bash` opens and is
@@ -941,6 +1005,11 @@ import Testing
             "attentionChanged", "attentionChanged", // raised, then cleared by its own close
             "gateChanged",                          // the approving close disarms the mark
             "callClosed",
+            // The `Stop` at the end of the approved turn. It arrives with the
+            // *denied* call still open — nothing in this stream ever closes one
+            // — and ends the turn anyway: that call is dead and standing the
+            // character up is the truer picture. [ADR-005 §3]
+            "turnChanged",
             "callAbandoned",                        // the denied call, at SessionEnd
             "agentDeparted", "populationChanged",
         ],
@@ -969,11 +1038,22 @@ import Testing
             "callOpened", "gateChanged", "attentionChanged", "attentionChanged",
             "gateChanged",
             "callOpened", "callClosed",
+            // Three turns, drawn at last. Each `turnChanged` pair is a `Stop`
+            // and the `UserPromptSubmit` 67 s later that starts the next turn,
+            // with an `idle_prompt` raised and cleared in between. This is the
+            // fixture ADR-005 §3 measures at 1 posture change before and 6
+            // after: four prompts, three `Stop`s and almost no tool calls, so
+            // its character stood motionless through 157 s of real work.
+            "turnChanged",
             "attentionChanged", "attentionChanged",
+            "turnChanged",
             "callOpened", "callClosed",
+            "turnChanged",
             "attentionChanged", "attentionChanged",
+            "turnChanged",
             "callOpened", "callClosed",
             "callOpened", "callClosed",
+            "turnChanged",
             "callAbandoned",
             "agentDeparted", "populationChanged",
         ],
@@ -981,6 +1061,7 @@ import Testing
         "unknown-events": [
             "agentAppeared", "populationChanged",
             "callOpened", "callClosed",
+            "turnChanged",                          // Stop, 21 ms before SessionEnd
             "agentDeparted", "populationChanged",
         ],
     ]

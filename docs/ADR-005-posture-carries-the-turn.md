@@ -6,7 +6,9 @@ condition 1; both are applied in `CLAUDE.md` and `docs/ADR-003-badge-dwell.md`.
 **§7 was deliberately held back from that change** — it needs a delta in
 `SpriteRoomCore`, and a second module is a second concern — and was built in
 task #65; see the note at the head of §7 for what shipped, what was re-measured
-and the one claim it makes that turned out to need paying for.
+and the one claim it makes that turned out to need paying for. **§3's own missing
+delta was held back for the identical reason and was built in task #66**; the
+first correction below is now closed.
 Author: `planner`, task #63/#64. Written against Claude Code 2.1.224,
 `fixtures/` as committed, and the scene as committed at HEAD.
 
@@ -14,12 +16,14 @@ Author: `planner`, task #63/#64. Written against Claude Code 2.1.224,
 are corrected in place below rather than left for the next reader to trip over.**
 Two are measurements and one is a fact about the model:
 
-- **§3's closers are not all available to the scene.** `Stop` emits **no delta**
-  and neither does a second `UserPromptSubmit` — see the correction under §3 —
-  so the main agent's turn end is not implementable in `SpriteRoomScene` at all.
-  What shipped seats the main character at its session's first event and stands
-  it up only when it leaves. Every number §3 gives for the main agent is
-  therefore a number about a `turnEnded` delta that does not exist yet.
+- **§3's closers were not all available to the scene. CLOSED in task #66.**
+  `Stop` emitted **no delta** and neither did a second `UserPromptSubmit` — see
+  the correction under §3 — so the main agent's turn end was not implementable in
+  `SpriteRoomScene` at all, and what shipped at #64 seated the main character at
+  its session's first event and stood it up only when it left. The missing delta
+  now exists as `WorldDelta.turnChanged(agent:hasTurn:)`; see the second note
+  under §3 for what was built, what it measures, and the one place it differs
+  from what this document asked for.
 - **§1's 4 924 px is not the posture swap.** It is the whole-frame change between
   two *different instants*, and 3 128 px of it is the badge bubble coming down.
   Measured at one instant with only the rule changed, the posture swap is
@@ -27,9 +31,13 @@ Two are measurements and one is a fact about the model:
 - **§9 item 6's original claim that every frame renders at `1x`** was already
   corrected on disk before implementation began.
 
-The measured result — the shortest posture dwell going from one frame to
-**8.196 s**, and corpus posture changes from 95 to 40 — is in the corrections
-under §3 and in `PostureTests.thePostureChannelIsOnTheTimescaleOfAGlance`.
+The measured result is in the corrections under §3 and in
+`PostureTests.thePostureChannelIsOnTheTimescaleOfAGlance`. Task #64 took the
+shortest posture dwell from one frame to **8.196 s** and corpus posture changes
+from 95 to 40; task #66 added the main agent's boundary, taking the changes to
+**73**, the shortest **standing** dwell to **4.226 s** — §3's own predicted
+number, to the millisecond — and the shortest **seated** dwell to **1.706 s**,
+which is a complete turn rather than a stutter.
 
 It proposes **one change to I2's first sentence** and argues that at length in §6,
 because the whole question is whether it is a change or a reading. It makes
@@ -199,15 +207,57 @@ event or a sweep the model already has, already reaps, and already emits.
 > rebuild. So four of the five closers are available and the fifth is the main
 > agent's.
 >
-> **What shipped, therefore:** the main character sits down at its session's
-> first event and stands up only when it leaves. That is a blind spot rather
-> than a fiction — the room declines to draw a boundary it was not told about,
-> which is I1's own instruction — but it means the `denial-then-work` 1 → 6 and
-> `idle-notification` 0 → 2 rows of the table below, the 26 `Stop`s of §8's
-> bonus, and §4's "standing, still = turn over" row for the main agent are all
-> **contingent on a `turnEnded(agent:)` delta that does not exist**. Adding it is
-> a `SpriteRoomCore` change of the same shape and size as §7's `gateChanged`, and
-> it was held back for the same reason: a second module is a second concern.
+> **What shipped at #64, therefore:** the main character sits down at its
+> session's first event and stands up only when it leaves. That is a blind spot
+> rather than a fiction — the room declines to draw a boundary it was not told
+> about, which is I1's own instruction — but it means the `denial-then-work`
+> 1 → 6 and `idle-notification` 0 → 2 rows of the table below, the 26 `Stop`s of
+> §8's bonus, and §4's "standing, still = turn over" row for the main agent are
+> all **contingent on a `turnEnded(agent:)` delta that does not exist**. Adding
+> it is a `SpriteRoomCore` change of the same shape and size as §7's
+> `gateChanged`, and it was held back for the same reason: a second module is a
+> second concern.
+>
+> **CORRECTION CLOSED (task #66).** Built as `WorldDelta.turnChanged(agent:
+> hasTurn:)`, on `gateChanged`'s footing — a change never a repeat, replayed by
+> `ProjectRegistry` across a project switch. Emitted by `Stop`; the openers are
+> `UserPromptSubmit`, `SubagentStart` and any `PreToolUse`, and the last of them
+> emits *ahead of* the `callOpened` it carries so a call can never reach a
+> standing character. Four things differ from what this section asked for, and
+> the last one is the important one:
+>
+> - **It is a `Bool`, not the one-shot `turnEnded(agent:)` named above**, and it
+>   had to be. The scene needs the *opening* edge as well, and for a main thread
+>   already on screen the only event that carries one is a second
+>   `UserPromptSubmit` — which, by this very correction, emitted nothing at all.
+>   A one-shot would have needed a second delta beside it saying the same fact.
+>   "Same shape and size as `gateChanged`" is therefore the right instruction and
+>   `turnEnded` is the wrong name for it; `dormancyChanged` took the same shape
+>   for the same reason.
+> - **The subagent half is deliberately not emitted.** `SubagentStop` is already
+>   `dormancyChanged`, which `03-EVENT-MODEL.md` names as a subagent's turn
+>   boundary, so a second delta would give the scene two writers of one field. No
+>   agent can receive both: `Stop` never carries an `agent_id` and `SubagentStop`
+>   always does. Checked over every capture.
+> - **The `Stop` ends the turn whatever the open-call set holds.** Five in the
+>   corpus arrive with a `Bash` still open and every one is an interactively
+>   denied call nothing will ever close, so standing that character up is the
+>   truer picture — and it *removes* motion, because those five phantom calls had
+>   been driving the `terminal` phrase over an agent doing nothing.
+> - **The measured result, and the number that moved is not the one predicted.**
+>   §3's table below predicted the counts and they came out exactly: 1 → 6 for
+>   `denial-then-work`, 0 → 2 for `idle-notification`, and the corpus total from
+>   40 to **73**. §3's dwell table predicted a **4.226 s** minimum standing
+>   interval and that too came out exactly. What §3 did not anticipate is that
+>   the *composite* dwell `PostureTests` pins — the shortest gap between any two
+>   posture changes — falls from 8.196 s to **1.706 s**, because seating the main
+>   character at a prompt and standing it at a `Stop` makes short *turns* visible
+>   for the first time. Every interval in the corpus under 4.2 s is a seated one:
+>   a turn that took 1.7 s, drawn as 1.7 s. The test now measures the two
+>   postures apart for that reason, and the binding assertion is on the standing
+>   half — a short standing interval is a turn boundary drawn where no turn
+>   ended, which is what §9 risk 3 is about, and a short seated interval is a
+>   short turn.
 >
 > **The measured result of what did ship**, over all 17 fixtures, deltas batched
 > at 1/60 as the scene actually receives them
@@ -579,6 +629,10 @@ report walk. Under §3 every one of them stands a character up, for a median of
 9.6 seconds. That is a real, frequent, previously-silent event acquiring a visible
 beat, for free, as a side effect of the fix the maintainer asked for.
 
+*Delivered in task #66*, and the median came out at 10.1 s over the 12 `Stop`s
+whose stream re-seats the character; the other 14 are followed by the session
+ending. See the closed correction under §3.
+
 ## 9. What this could get wrong
 
 1. **Semantic drift on the biggest channel.** A user who learned "seated =
@@ -595,6 +649,21 @@ beat, for free, as a side effect of the fix the maintainer asked for.
    standing interval in the whole corpus is 4.23 s. But the corpus has 26 `Stop`s
    and a workload with heavy async subagent traffic could produce a short one, and
    the guard against it is §10 item 2 rather than anything in the design.
+
+   *Re-measured before building the delta (task #66), and the answer is stronger
+   than "it does not bite".* **No `Stop` in the corpus is followed by more work in
+   the same turn** — not one of the 26 is followed by a `PreToolUse` or a
+   `SubagentStart` before something re-opens the turn. Every one is followed by a
+   `UserPromptSubmit` (12, minimum 4.226 s) or by the session ending (14). And
+   that is *structural* rather than lucky: the way an async subagent wakes the
+   main thread — the exact shape this risk names — is a **synthetic
+   `UserPromptSubmit` carrying its own `prompt_id`**, which is itself an opener.
+   So "several `Stop`s in one user turn" always has an opener between them, and
+   both readings draw the same true picture. The residual is a subagent that
+   returns in milliseconds, which `fixtures/` does not contain; §10 item 2 remains
+   the guard.
+   `PostureTests.nothingUnderTheFloorIsACharacterStandingUpAndSittingBackDown`
+   is the mechanical form of it.
 4. **Four fixtures get *more* posture changes** (§3). I argue they are the fix's
    other half; a maintainer who disagrees is disagreeing with seating a character
    that has a prompt and no tool call, which is a separable decision and could be
@@ -693,8 +762,11 @@ except the last, which is another agent's.**
 
   The `PermissionRequest` half was done in task #65, with the `Stop` and
   `SubagentStop` rows, the attention-badge section, the ambient-loop section and
-  the reaping section. The `Stop` row's "stands the main character up" is still
-  outstanding and still waiting on `turnEnded`.
+  the reaping section. The `Stop` row's "stands the main character up" was done
+  in task #66 with the delta itself, along with the `UserPromptSubmit` and
+  `PreToolUse` rows, the posture section's dwell table, the reaping section's
+  fourth stream obligation, and a new subsection measuring the §9 risk-3 hazard.
+  Nothing in this bullet is outstanding.
 - **`docs/04-ART-DIRECTION.md`** — "Body states": `idle` is no longer what a
   character between two tool calls draws. The motion-budget section is *untouched*
   and should say so explicitly, since this change moves 0 px/s in dead air.

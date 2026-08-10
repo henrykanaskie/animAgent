@@ -286,6 +286,54 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// the same reason `dormancyChanged(false)` is not emitted there: the
     /// `agentDeparted` behind it removes the character the fact belonged to.
     case gateChanged(agent: AgentRef, isGated: Bool)
+    /// **This agent has, or no longer has, a turn in progress** — the main
+    /// thread's turn boundary, which until now left the model in no form at all.
+    ///
+    /// ADR-005 §3 keys the posture to the turn: a character is seated from any
+    /// event this app consumes for it until that agent's turn ends. Four of the
+    /// five closers §3 names already reach the scene — `SubagentStop` as
+    /// `dormancyChanged`, and `SessionEnd`, the idle sweep and eviction as
+    /// `agentDeparted` — and the fifth, `Stop`, reached it as nothing. So the
+    /// main character sat down at its session's first event and stood up only
+    /// when it left: a blind spot rather than a fiction, but one that cost the
+    /// 26 `Stop`s in `fixtures/` any picture at all while a subagent's turn end
+    /// got the whole report walk. This is that delta.
+    ///
+    /// **A `Bool`, on `gateChanged`'s exact footing, and the ADR's sketched
+    /// one-shot `turnEnded(agent:)` would not have worked.** The scene needs the
+    /// *opening* edge as well, and for the main thread the only event that
+    /// carries it — a second `UserPromptSubmit` — emits nothing else at all
+    /// (correction 1 under ADR-005 §3): the agent already exists, so
+    /// `ensureAgent` is silent. A one-directional delta would therefore have
+    /// needed a second one beside it to say the same fact twice. `dormancyChanged`
+    /// took the same shape for the same reason.
+    ///
+    /// **A *change*, never a repeat.** A second `Stop` inside one standing
+    /// interval says nothing new; nor does a `PreToolUse` for an agent already
+    /// in a turn, which is almost every `PreToolUse` there is. Over the whole
+    /// corpus the stream carries 26 falses and 12 trues.
+    ///
+    /// **It is the main thread's, and a subagent never gets one.** `Stop` carries
+    /// no `agent_id` by construction, and a subagent's turn boundary is
+    /// `SubagentStop` — which already leaves the model as `dormancyChanged`, and
+    /// which `docs/03-EVENT-MODEL.md` already names as the turn boundary the
+    /// delta stream carries. Emitting both for one fact would give the scene two
+    /// writers of one field. Checked over every capture by
+    /// `TurnBoundaryTests.noSubagentIsEverToldAboutATurnBoundaryTwice`.
+    ///
+    /// **Reapable, with no deadline of its own** [I4], and the obligation runs in
+    /// the opposite direction from `gateChanged`'s. The dangerous standing value
+    /// here is `true` — a character seated forever is the room asserting a turn
+    /// that ended — and it is bounded four ways: `Stop`, `SessionEnd`, the
+    /// 30-minute idle sweep, and eviction. The last three take the character with
+    /// them and so emit `agentDeparted` instead, exactly as `dormancyChanged` and
+    /// `gateChanged` do. The `false` direction needs no reaping at all: standing
+    /// is the room declining to claim anything, and any work that resumes re-opens
+    /// the turn before the call opens. That equivalence — *nothing holds an open
+    /// call while standing* — is what
+    /// `TurnBoundaryTests.noCharacterEverWorksWhileItsTurnIsOver` checks on the
+    /// stream over all seventeen captures.
+    case turnChanged(agent: AgentRef, hasTurn: Bool)
     case populationChanged(project: String, count: Int)
 
     public var description: String {
@@ -312,6 +360,8 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
             return "dormancyChanged  \(agent) \(isDormant ? "dormant" : "awake")"
         case let .gateChanged(agent, isGated):
             return "gateChanged      \(agent) \(isGated ? "gated" : "clear")"
+        case let .turnChanged(agent, hasTurn):
+            return "turnChanged      \(agent) \(hasTurn ? "in turn" : "turn over")"
         case let .populationChanged(project, count):
             let leaf = project.split(separator: "/").last.map(String.init) ?? project
             return "populationChanged \(leaf)=\(count)"
@@ -363,6 +413,20 @@ public struct AgentSnapshot: Sendable, Hashable {
     /// exactly the kind I4 exists to catch, and a character frozen forever is
     /// the same class of failure as one that types forever.
     public let isGated: Bool
+    /// **Whether this agent has a turn in progress** — ADR-005 §3's posture
+    /// interval. The transition is carried by `WorldDelta.turnChanged`; this
+    /// field is the standing value.
+    ///
+    /// `true` from the agent's first consumed event, and `false` only between a
+    /// main-thread `Stop` and the `UserPromptSubmit` or `PreToolUse` that opens
+    /// the next turn. A subagent's is `true` for its whole life, because its turn
+    /// boundary is `SubagentStop` and that leaves the model as `dormancyChanged`.
+    ///
+    /// It is on the snapshot for the same reason `isGated` is: so that the
+    /// obligation can be *checked* from outside the actor. A character seated
+    /// forever is a claim that a turn is still running, which is the same class
+    /// of orphaned state I4 exists to catch.
+    public let hasTurn: Bool
 
     /// An agent is working if and only if its open-call set is non-empty. [I2]
     public var isWorking: Bool { !openCalls.isEmpty }

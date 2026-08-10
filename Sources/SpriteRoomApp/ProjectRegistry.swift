@@ -62,10 +62,11 @@ struct ProjectRegistry: Sendable {
     /// calling it live.
     ///
     /// Population 0 is a clean signal here and a short grace period is all it
-    /// needs. `Stop` fires at the end of every assistant turn and emits no
-    /// delta, and the main agent departs only on `SessionEnd` — so a project
-    /// does *not* dip to 0 between turns. Reaching 0 means every session under
-    /// that `cwd` really ended.
+    /// needs. `Stop` fires at the end of every assistant turn and emits nothing
+    /// that touches the roster — since ADR-005 §3 it emits `turnChanged`, which
+    /// stands a character up and leaves it in the room — and the main agent
+    /// departs only on `SessionEnd`. So a project does *not* dip to 0 between
+    /// turns. Reaching 0 means every session under that `cwd` really ended.
     ///
     /// The one case it cannot distinguish is `/clear`, which ends the session
     /// and silently starts another in the same process whose first event is an
@@ -130,6 +131,17 @@ struct ProjectRegistry: Sendable {
         /// never close at all, so it is the fact in this record most likely to
         /// still be true when the user switches back. [ADR-005 §7]
         var isGated = false
+        /// From `.turnChanged`: this agent has a turn in progress, and so is
+        /// seated. Same reason as `attention` and `isGated` — a main character
+        /// whose `Stop` arrived while you were looking at another project must
+        /// still be standing when you come back, or the room re-asserts a turn
+        /// that ended. Measured standing intervals run from 4.23 s to 67.9 s and
+        /// one in the corpus never ends at all. [ADR-005 §3]
+        ///
+        /// `true` by default, matching both `WorldModel.AgentState.hasTurn` and
+        /// `SceneDirector`'s `isInTurn: true` at `agentAppeared`: a character
+        /// exists because an event for it arrived.
+        var hasTurn = true
     }
 
     private struct ProjectState: Sendable {
@@ -207,6 +219,13 @@ struct ProjectRegistry: Sendable {
                 // back, and its body must still be still. Does not touch
                 // population — a gated agent is in the room, and stuck in it.
                 states[project]?.agents[agent]?.isGated = isGated
+            case let .turnChanged(agent, hasTurn):
+                // Live state, same as the three above. This is the posture, and
+                // it is the longest-lived of the four: a main character that
+                // stopped is standing until the user types again, which no
+                // finite number bounds. Does not touch population — a character
+                // between turns is still in the room.
+                states[project]?.agents[agent]?.hasTurn = hasTurn
             case .reportDelivered, .populationChanged:
                 break
             }
@@ -337,6 +356,26 @@ struct ProjectRegistry: Sendable {
                 deltas.append(.callOpened(agent: ref, call: call))
             }
         }
+        // **The posture comes last, and it has to.** A character whose turn
+        // ended must still be standing after a switch: a fresh `SceneDirector`
+        // seats every presentation it creates, which is ADR-005 §3's opener and
+        // is right for a live stream, so without this a menu click would sit a
+        // finished main character back down and re-assert a turn that ended. [I1]
+        //
+        // It is emitted *after* the calls rather than beside the other three
+        // standing facts because `callOpened` is itself an opener — any
+        // `PreToolUse` puts an agent in a turn — and the two really do co-occur:
+        // five `Stop`s in the corpus arrive with an interactively denied `Bash`
+        // still open, which nothing in their stream will ever close. Replayed in
+        // the other order the rebuild would seat exactly those five and diverge
+        // from the live stream it is supposed to reproduce.
+        //
+        // Only the `false` direction, for the same reason `dormancyChanged` and
+        // `gateChanged` emit only theirs: `true` is what the rebuild already
+        // produces.
+        for ref in roster.keys.sorted() where roster[ref]?.hasTurn == false {
+            deltas.append(.turnChanged(agent: ref, hasTurn: false))
+        }
         deltas.append(.populationChanged(project: project, count: roster.count))
         return deltas
     }
@@ -390,6 +429,7 @@ extension WorldDelta {
         case let .attentionChanged(agent, _): return agent.project
         case let .dormancyChanged(agent, _): return agent.project
         case let .gateChanged(agent, _): return agent.project
+        case let .turnChanged(agent, _): return agent.project
         case let .populationChanged(project, _): return project
         }
     }

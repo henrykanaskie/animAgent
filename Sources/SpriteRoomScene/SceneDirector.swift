@@ -302,8 +302,13 @@ public struct SceneDirector: Sendable {
         ///
         /// It is an interval between two real events, the same shape
         /// `isDormant` is, and it is opened and closed in `apply(_:at:)` — see
-        /// the `.agentAppeared`, `.callOpened` and `.dormancyChanged` arms,
-        /// which are the only three places it moves.
+        /// the `.agentAppeared`, `.callOpened`, `.dormancyChanged` and
+        /// `.turnChanged` arms, which are the only four places it moves.
+        ///
+        /// **Two deltas close it and they belong to different casts.**
+        /// `dormancyChanged` is a subagent's `SubagentStop`; `turnChanged` is the
+        /// main thread's `Stop`. No agent can receive both, because `Stop` never
+        /// carries an `agent_id` and `SubagentStop` always does.
         ///
         /// **It is not a second copy of `openCalls`.** A turn contains many
         /// calls and the gaps between them: over `fixtures/` the median tool
@@ -775,18 +780,16 @@ public struct SceneDirector: Sendable {
                     presentations[agent]?.dormantSince = isDormant ? now : nil
                 }
                 presentations[agent]?.isDormant = isDormant
-                // **The turn boundary, and the only one the delta stream
-                // carries.** `dormancyChanged` *is* `SubagentStop` for a
-                // subagent — the model's own name for "this one finished a turn
-                // and is still assigned" — so the posture and the `Z` tab now
-                // say the same thing on the same frame instead of the tab
-                // sitting over a body that disagrees with it. A revival is the
-                // same fact inverted and seats the character again.
+                // **A subagent's turn boundary.** `dormancyChanged` *is*
+                // `SubagentStop` for a subagent — the model's own name for "this
+                // one finished a turn and is still assigned" — so the posture and
+                // the `Z` tab say the same thing on the same frame instead of the
+                // tab sitting over a body that disagrees with it. A revival is
+                // the same fact inverted and seats the character again.
                 //
-                // **The main agent's `Stop` has no delta**, so the main
-                // character has no standing state inside a session; it sits at
-                // its first event and stands only when it leaves. See
-                // `SceneDirector`'s own note. [ADR-005 §3]
+                // The main agent's is `turnChanged`, below. This arm is never
+                // reached for one: `SubagentStop` carries an `agent_id` by
+                // construction and `Stop` never does. [ADR-005 §3]
                 presentations[agent]?.isInTurn = !isDormant
                 note(&touched, agent)
 
@@ -805,6 +808,26 @@ public struct SceneDirector: Sendable {
                 // is disarmed by the close of any marked call — so by the time a
                 // beat could be armed the gate that named its calls is gone.
                 presentations[agent]?.isGated = isGated
+                note(&touched, agent)
+
+            case let .turnChanged(agent, hasTurn):
+                // **The main thread's turn boundary, and nothing but the
+                // posture.** It takes no badge — a `Stop` is not a notification
+                // and not a `Z` — and no motion, because motion is the open-call
+                // set's business and this says nothing about it. [ADR-005 §3]
+                //
+                // It is the other half of the `dormancyChanged` arm above: that
+                // one is a subagent's turn boundary and this one is the main
+                // agent's, and no agent ever receives both, because `Stop`
+                // carries no `agent_id` and `SubagentStop` always does.
+                //
+                // **It does not cancel a closing beat.** A beat says *the last
+                // thing this agent did was a read*, which stays true across the
+                // turn boundary — and ADR-003 §6, as ADR-005 §5 restated it,
+                // needs only that the body assert no ongoing work for every
+                // frame of it. A standing body asserts less than a seated one,
+                // not more.
+                presentations[agent]?.isInTurn = hasTurn
                 note(&touched, agent)
 
             case let .reportDelivered(agent):

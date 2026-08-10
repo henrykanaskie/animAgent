@@ -178,15 +178,19 @@ import Testing
         let gap = try #require(notifications.first).receivedAt.timeIntervalSince(stop.receivedAt)
         #expect(abs(gap - 60.021) < 0.1, "idle_prompt arrived \(gap)s after Stop")
 
-        // `Stop` itself changes nothing, and specifically does not raise a
-        // badge: the character's idleness is already an empty open-call set.
+        // `Stop` raises no badge. It ends the turn and stands the character up
+        // [ADR-005 §3] — that is the whole of its news, and it is on a different
+        // channel: the posture says *no turn in progress*, and the badge would
+        // say *the room needs you*, which nothing yet does. The `idle_prompt`
+        // that does say it is still 60 s away.
         let model = WorldModel()
         for entry in entries.prefix(while: { $0.event?.kind != .stop }) {
             guard let event = entry.event else { continue }
             await model.ingest(event, at: entry.receivedAt)
         }
         let onStop = await model.ingest(try #require(stop.event), at: stop.receivedAt)
-        #expect(onStop.isEmpty)
+        #expect(onStop.map(\.tag) == ["turnChanged"], Comment(rawValue:
+            "a Stop emitted \(onStop.map(\.tag)) — only the turn end belongs to it"))
         #expect(await model.snapshot().agents.allSatisfy { $0.attention == nil })
     }
 
@@ -233,6 +237,7 @@ import Testing
         let tags = deltas.map(\.tag)
         #expect(tags == [
             "agentAppeared", "populationChanged",   // UserPromptSubmit
+            "turnChanged",                          // Stop, 1.7 s later [ADR-005 §3]
             "attentionChanged",                     // Notification, 60 s after Stop
             "agentDeparted", "populationChanged",   // SessionEnd
         ])

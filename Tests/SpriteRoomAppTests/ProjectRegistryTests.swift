@@ -65,6 +65,8 @@ struct ProjectRegistryTests {
             return .dormancyChanged(agent: moved(agent), isDormant: isDormant)
         case let .gateChanged(agent, isGated):
             return .gateChanged(agent: moved(agent), isGated: isGated)
+        case let .turnChanged(agent, hasTurn):
+            return .turnChanged(agent: moved(agent), hasTurn: hasTurn)
         case .populationChanged:
             return .populationChanged(project: project, count: 0)
         }
@@ -103,6 +105,8 @@ struct ProjectRegistryTests {
             return .dormancyChanged(agent: moved(agent), isDormant: isDormant)
         case let .gateChanged(agent, isGated):
             return .gateChanged(agent: moved(agent), isGated: isGated)
+        case let .turnChanged(agent, hasTurn):
+            return .turnChanged(agent: moved(agent), hasTurn: hasTurn)
         case .populationChanged:
             return delta
         }
@@ -338,7 +342,8 @@ struct ProjectRegistryTests {
         for delta in rebuilt {
             switch delta {
             case .agentAppeared, .agentLinked, .agentTasked, .attentionChanged,
-                 .dormancyChanged, .gateChanged, .callOpened, .populationChanged:
+                 .dormancyChanged, .gateChanged, .turnChanged, .callOpened,
+                 .populationChanged:
                 continue
             default: Issue.record("reconstruction emitted \(delta)")
             }
@@ -418,6 +423,88 @@ struct ProjectRegistryTests {
             return agent
         })
         #expect(expected.isSubset(of: appeared))
+    }
+
+    /// **A character whose turn ended is still standing after a project
+    /// switch.** [ADR-005 §3]
+    ///
+    /// The same rule as dormancy, attention and the gate, and the longest-lived
+    /// of the four: a main character that stopped stands until the user types
+    /// again, and the measured standing intervals run from 4.23 s to 67.9 s with
+    /// one in the corpus that never ends at all. A fresh `SceneDirector` seats
+    /// every presentation it creates, so without the replay a menu click would
+    /// sit a finished main character back down and re-assert a turn that ended.
+    ///
+    /// `denial-then-work` is the fixture because its three `Stop`s are the whole
+    /// point of the delta: 157 s of real work across three complete turns, and
+    /// the character used to stand motionless through all of it.
+    @Test func aStandingCharacterIsStillStandingAfterAProjectSwitch() async throws {
+        var registry = ProjectRegistry()
+        let all = try await Self.deltas("denial-then-work", project: "/work/alpha")
+        // Everything up to the first departure, so there is a live roster with a
+        // turn already ended on it.
+        let live = Array(all.prefix(while: { delta in
+            if case .agentDeparted = delta { return false }
+            return true
+        }))
+        registry.absorb(live, at: Self.t0)
+
+        // The last word the stream said about each agent's turn.
+        var expected: Set<AgentRef> = []
+        for delta in live {
+            guard case let .turnChanged(agent, hasTurn) = delta else { continue }
+            if hasTurn { expected.remove(agent) } else { expected.insert(agent) }
+        }
+        #expect(!expected.isEmpty, "nobody was left standing, so this checked nothing")
+
+        let rebuilt = registry.reconstruct("/work/alpha")
+        let standing = Set(rebuilt.compactMap { delta -> AgentRef? in
+            guard case let .turnChanged(agent, false) = delta else { return nil }
+            return agent
+        })
+        #expect(standing == expected,
+                "the reconstruction lost \(expected.subtracting(standing)) standing character(s)")
+
+        // And it never says the opposite. Seated is the default a fresh director
+        // already holds; restating it would be a delta with no fact behind
+        // it. [I1]
+        #expect(!rebuilt.contains { if case .turnChanged(_, true) = $0 { return true }
+                                    return false })
+    }
+
+    /// **The posture is replayed after the open calls, and the order is the
+    /// claim.**
+    ///
+    /// `callOpened` is itself a turn opener — any `PreToolUse` seats a character
+    /// — so a rebuild that restated the posture before re-opening the calls would
+    /// seat exactly the characters it had just stood up. The two really do
+    /// co-occur: five `Stop`s in the corpus arrive with an interactively denied
+    /// `Bash` still open that nothing in their stream will ever close, and
+    /// `denial-then-work` holds three of them.
+    @Test func aStandingCharacterWithAnOpenCallIsRebuiltStandingAndWorking() async throws {
+        var registry = ProjectRegistry()
+        let all = try await Self.deltas("denial-then-work", project: "/work/alpha")
+        // Up to the reaper's abandon of the denied `Bash`, which is the only
+        // thing in this stream that ever closes it. By then the third `Stop` has
+        // already landed, so the roster holds a character that is standing and
+        // holding a call at the same time.
+        let live = Array(all.prefix(while: { delta in
+            if case .callAbandoned = delta { return false }
+            return true
+        }))
+        registry.absorb(live, at: Self.t0)
+
+        let rebuilt = registry.reconstruct("/work/alpha")
+        let openIndex = rebuilt.firstIndex { if case .callOpened = $0 { return true }; return false }
+        let standIndex = rebuilt.firstIndex {
+            if case .turnChanged(_, false) = $0 { return true }
+            return false
+        }
+        let opened = try #require(openIndex, "the denied Bash is no longer open at the switch")
+        let stood = try #require(standIndex)
+        #expect(stood > opened, Comment(rawValue:
+            "the rebuild restates the posture at \(stood) and re-opens calls at \(opened);"
+            + " a callOpened after a turnChanged(false) seats the character it just stood up"))
     }
 
     @Test func reconstructionIsDeterministic() async throws {

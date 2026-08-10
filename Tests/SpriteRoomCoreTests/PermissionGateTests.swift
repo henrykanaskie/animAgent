@@ -284,14 +284,19 @@ import Testing
         let stop = try entry(entries, "Stop")
         let deltas = await model.ingest(
             try #require(stop.event), at: gateAt.addingTimeInterval(1))
-        // **`Stop` emits exactly one thing now, and only when there was a gate to
-        // close.** It is not ADR-005 §3's missing `turnEnded` and says nothing
-        // about the turn: it releases a body that was held still, which is the
-        // fact this `Stop` genuinely carries.
-        #expect(deltas == [.gateChanged(agent: main, isGated: false)])
+        // **`Stop` says two things and they are separate facts on separate
+        // channels.** The gate clear releases a body that was being held still
+        // [ADR-005 §7]; the turn end stands the character up [ADR-005 §3]. The
+        // order is the one every other arm takes — the wait ended, then the turn
+        // did.
+        #expect(deltas == [
+            .gateChanged(agent: main, isGated: false),
+            .turnChanged(agent: main, hasTurn: false),
+        ])
         #expect(await model.permissionGateMark(main) == nil)
 
-        // A second `Stop` says nothing, because there is no gate left to close.
+        // A second `Stop` says nothing: there is no gate left to close and no
+        // turn left to end. Both halves are a change and never a repeat.
         #expect(await model.ingest(
             try #require(stop.event), at: gateAt.addingTimeInterval(2)).isEmpty)
 

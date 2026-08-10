@@ -47,6 +47,21 @@ public actor WorldModel {
         /// to. A parallel dictionary keyed by agent would have been one more
         /// thing to remember to clear, i.e. one more thing to leak.
         var permissionGate: Set<ToolUseID>?
+        /// **ADR-005 §3 — whether this agent has a turn in progress.** The whole
+        /// of what the posture channel says, and the fact `Stop` used to carry
+        /// nowhere.
+        ///
+        /// `true` at creation, because an agent exists *because* an event for it
+        /// arrived and an event for it arriving means it is in a turn — which is
+        /// the same reasoning `SceneDirector` already applies at
+        /// `agentAppeared`. Closed by `Stop` and re-opened by `UserPromptSubmit`
+        /// or `PreToolUse`.
+        ///
+        /// **It lives inside `AgentState`, which is what makes it reapable**
+        /// [I4]: every path that ends an agent removes the whole struct, so a
+        /// turn cannot outlive the character holding it. The delta stream has a
+        /// second obligation of its own — see `WorldDelta.turnChanged`.
+        var hasTurn = true
     }
 
     /// One dispatching `PostToolUse`'s news about a child: who launched it and
@@ -348,12 +363,25 @@ public actor WorldModel {
             // and two calls in `three-subagents` are genuinely still running
             // when one arrives. The mark is what tells the two apart.
             answerPermissionGate(ref: ref, at: now, into: &deltas)
+            // ADR-005 §3 — the main thread's turn opener. Behind the gate answer
+            // so the stream reads in the order the facts happened: the wait
+            // ended, then the next turn began. Silent unless a `Stop` closed the
+            // last one, which is what makes a mid-turn synthetic prompt free.
+            beginTurn(ref: ref, into: &deltas)
 
         case .subagentStart:
             ensureAgent(ref, agentType: event.agentType, lifecycle: .spawning, into: &deltas)
+            // Named by ADR-005 §3 as a subagent's opener, and silent in every
+            // capture: nothing closes a subagent's turn in this model, because
+            // `SubagentStop` says that as `dormancyChanged`. It is here so the
+            // three openers read in one place rather than two.
+            beginTurn(ref: ref, into: &deltas)
 
         case let .preToolUse(toolUseID, toolName, task):
             ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
+            // Ahead of the call it opens: the character sits down and then
+            // starts working, which is the order the two facts happen in.
+            beginTurn(ref: ref, into: &deltas)
             open(
                 toolUseID: toolUseID, toolName: toolName, task: task,
                 ref: ref, at: now, into: &deltas)
@@ -428,13 +456,18 @@ public actor WorldModel {
             // what stops a mark left by an approved-then-finished turn being
             // acted on by an unrelated prompt much later.
             //
-            // **So `Stop` is no longer silent in one case and is still silent in
-            // every other**: a `Stop` for an agent that was at a gate emits
-            // `gateChanged(isGated: false)` and puts a stopped character back in
-            // motion, and a `Stop` for an agent that was not — which is 25 of
-            // the corpus's 26 — emits nothing, exactly as before. This is not
-            // ADR-005 §3's missing `turnEnded`; it says nothing about the turn.
+            // **`Stop` now says two things and they are different things.**
+            // The gate clear puts a stopped character back in *motion*; the turn
+            // end stands it *up*. One is ADR-001 (d) rule 2 and fires for the one
+            // `Stop` in the corpus that had a gate open; the other is ADR-005 §3
+            // and fires for all 26. Ordered wait-ended-then-turn-ended, the same
+            // way the attention clear leads every other arm.
+            //
+            // **It ends the turn whatever the open-call set holds.** See
+            // `endTurn` for the measurement behind that and for why `Stop` firing
+            // several times in one user turn does not put the strobe back.
             disarmPermissionGate(ref: ref, into: &deltas)
+            endTurn(ref: ref, into: &deltas)
 
         case .sessionEnd:
             endSession(project: event.cwd, session: event.sessionID, into: &deltas)
@@ -569,7 +602,8 @@ public actor WorldModel {
                         task: agentState.task,
                         openCalls: agentState.openCalls.values.sorted(),
                         attention: agentState.attention,
-                        isGated: agentState.permissionGate != nil))
+                        isGated: agentState.permissionGate != nil,
+                        hasTurn: agentState.hasTurn))
                 }
             }
         }
@@ -818,6 +852,60 @@ public actor WorldModel {
     /// deadlines.
     func permissionGateMark(_ ref: AgentRef) -> Set<ToolUseID>? {
         projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.permissionGate
+    }
+
+    // MARK: The turn — ADR-005 §3
+
+    /// **The main thread's turn boundary, and the only path that closes one
+    /// without also removing the character.**
+    ///
+    /// `Stop` fires once per assistant message stream and can fire several times
+    /// in one user turn, which `docs/03-EVENT-MODEL.md` has always warned makes
+    /// it an unreliable *end-of-turn* signal — and which ADR-005 §9 risk 3 names
+    /// as the one thing that could put the strobe back on a different key. The
+    /// measurement over all seventeen captures, taken before this was built:
+    ///
+    /// - **No `Stop` in the corpus is followed by more work in the same turn.**
+    ///   Not one of the 26 is followed by a `PreToolUse` or a `SubagentStart`
+    ///   before something re-opens the turn. Every one is followed either by a
+    ///   `UserPromptSubmit` (12 of them; 4.23 s at the shortest) or by the
+    ///   session ending (14).
+    /// - **That is structural rather than lucky.** The way an async subagent
+    ///   wakes the main thread — the very shape §9 worried about — is a
+    ///   *synthetic* `UserPromptSubmit`, which is itself an opener. So "several
+    ///   `Stop`s in one user turn" always has a prompt between them, and the room
+    ///   draws the same picture either way: the main thread stopped, then was
+    ///   handed something.
+    /// - The residual risk is a subagent that returns in milliseconds, which
+    ///   `fixtures/` does not contain. ADR-005 §10 item 2 is the guard, and it is
+    ///   a live capture rather than anything in this function.
+    ///
+    /// **It closes the turn whatever the open-call set holds**, and the corpus
+    /// says that matters five times: three `Stop`s in `denial-then-work` and one
+    /// each in `parallel-denial` and `permission-prompt` arrive with a `Bash`
+    /// still open. Every one of those five is an interactively denied call that
+    /// **nothing in its stream will ever close** — the shape ADR-001 exists for —
+    /// so standing that character up is the truer picture, not the less true one.
+    /// Consulting the open-call set here would also re-couple the two channels
+    /// ADR-005 §3 separated, on the side where the set is known to be stale.
+    private func endTurn(ref: AgentRef, into deltas: inout [WorldDelta]) {
+        guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.hasTurn == true
+        else { return }
+        projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.hasTurn = false
+        deltas.append(.turnChanged(agent: ref, hasTurn: false))
+    }
+
+    /// The openers ADR-005 §3 names: `UserPromptSubmit`, `SubagentStart`, and any
+    /// `PreToolUse`. An agent doing something is in a turn.
+    ///
+    /// Silent for an agent already in one, which is the ordinary case — every
+    /// `PreToolUse` of every fixture but the eleven that follow a `Stop`. The
+    /// guard is what keeps this a change rather than a repeat.
+    private func beginTurn(ref: AgentRef, into deltas: inout [WorldDelta]) {
+        guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.hasTurn == false
+        else { return }
+        projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.hasTurn = true
+        deltas.append(.turnChanged(agent: ref, hasTurn: true))
     }
 
     private func setLifecycle(_ lifecycle: AgentLifecycle, ref: AgentRef) {
