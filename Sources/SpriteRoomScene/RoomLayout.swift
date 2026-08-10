@@ -140,17 +140,27 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// `m` is the margin, and it is taken from the axis that already has one
     /// rather than chosen: rows are a tile apart and clear the tallest plate by
-    /// `tile − plateHeight` = 6 px, which is the bound
+    /// `tile − plateHeight` = 21 px, which is the bound
     /// `noAdversarialPairingOfBeatsEverTouchesTwoPlates` pins. Using the same
     /// number across means the room clears by the same amount in both axes.
     ///
     /// It returns **3** for every plate the room has yet had — 71 × 26 when this
-    /// was derived, 63 × 21 as the plate stands — so stating it costs nothing
+    /// was derived, 63 × 11 as the plate stands — so stating it costs nothing
     /// today. The threshold worth knowing is where it returns **2**, a 64 px
     /// pitch and a room a third narrower: `plateWidth + tile − plateHeight ≤ 64`.
-    /// At the plate's current 21 px height that is a width of **53 px or less**;
-    /// at 26 px it was 58. The height matters because the margin is borrowed
-    /// from the row axis, so a shorter plate buys width as well as height.
+    /// At the plate's current 11 px height that is a width of **43 px or less**;
+    /// at 21 px it was 53 and at 26 px it was 58.
+    ///
+    /// **The height cuts both ways and the sign is not the obvious one.** The
+    /// margin is borrowed from the row axis, so a *shorter* plate leaves more
+    /// room across the rows and therefore asks for more across the columns: the
+    /// one-row plate made the two-tile pitch harder to reach, not easier. It
+    /// also opened a band of plate widths, **44…48 px**, at which the pitch this
+    /// returns is two plates wide — see
+    /// `RoomCameraTests.noStaggerCanInterleaveTheTwoSeatRowsAtAnyPlateWidth`,
+    /// which used to hold for every width from 33 up and now names the
+    /// exception. Nothing in the room is in that band; a plate that lands there
+    /// would need `isBackRow`'s refutation re-derived.
     ///
     /// **It is not wired to the default.** `RoomLayout()` still declares 3, and
     /// `theSeatPitchIsTheNarrowestTheseNameplatesAllow` is the tripwire that

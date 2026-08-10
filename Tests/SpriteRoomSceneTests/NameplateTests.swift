@@ -52,17 +52,17 @@ struct NameplateTests {
     }
 
     @Test func longNamesAreTruncatedWithAnEllipsisNotClipped() {
-        let fitted = font.fit("security-reviewer", limit: SceneBitmaps.nameplateTypeGlyphLimit)
-        #expect(fitted.count == SceneBitmaps.nameplateTypeGlyphLimit)
+        let fitted = font.fit("security-reviewer", limit: SceneBitmaps.nameplateGlyphLimit)
+        #expect(fitted.count == SceneBitmaps.nameplateGlyphLimit)
         #expect(fitted.hasSuffix("…"))
         #expect(fitted.hasPrefix("SECURITY-"))
     }
 
-    /// The headline is still short of the longest type, so the truncation has to
+    /// The line is still short of the longest type, so the truncation has to
     /// stay *visible*. A silently chopped type reads as a different, shorter
     /// type.
     @Test func aTruncatedTypeStillSaysItWasTruncated() {
-        #expect(font.fit("general-purpose", limit: SceneBitmaps.nameplateTypeGlyphLimit)
+        #expect(font.fit("general-purpose", limit: SceneBitmaps.nameplateGlyphLimit)
                 == "GENERAL-P…")
     }
 
@@ -76,10 +76,14 @@ struct NameplateTests {
     /// 65…95 px therefore buys exactly what 95 buys, and only ≤ 64 buys
     /// anything at all.
     ///
+    /// **Losing two rows did not change this**, which is why the plate did not
+    /// widen when it got shorter: the dead band is a property of the tile, not
+    /// of how many rows the plate has.
+    ///
     /// Asserted as *the plate clears a two-tile pitch* rather than as
     /// `limit == 10`, so that a wider font, a change of tracking or a change of
     /// padding fails here instead of silently spending the tile.
-    @Test func theHeadlineIsAsLongAsATwoTilePitchCanCarry() {
+    @Test func theLineIsAsLongAsATwoTilePitchCanCarry() {
         let tile = RoomLayout().tile
         #expect(SceneBitmaps.maximumNameplateWidth <= 2 * tile,
                 "the plate is \(SceneBitmaps.maximumNameplateWidth) px and no longer fits two tiles")
@@ -90,31 +94,31 @@ struct NameplateTests {
                 "a glyph is going spare: \(oneMore) px would still fit two tiles")
     }
 
-    /// **Ten glyphs separate the types that exist, and the tag catches the
-    /// ones it cannot.**
+    /// **Ten glyphs separate the types that exist, and nothing catches the ones
+    /// they cannot.**
     ///
     /// Truncation is lossy and no glyph count fixes that: two types sharing a
     /// ten-character prefix truncate alike, and `claude-code-guide` against a
-    /// hypothetical `claude-code-runner` is the case. That is the *second* half
-    /// of what the discriminator is for and the reason it survives this change
-    /// rather than being dropped — it separates two agents of one type, and it
-    /// separates two agents whose types the plate could not tell apart either.
-    @Test func typesSeparateOnTheHeadlineAndTheTagCatchesTheRest() {
-        let limit = SceneBitmaps.nameplateTypeGlyphLimit
+    /// hypothetical `claude-code-runner` is the case. The discriminator row used
+    /// to catch exactly that, and the plate is one row now — so this records
+    /// that the two are the same plate, which is the second half of what the
+    /// row was doing and the second half of what its removal cost.
+    @Test func typesSeparateOnTheOneLineAndNothingCatchesTheRest() {
+        let limit = SceneBitmaps.nameplateGlyphLimit
         let real = ["claude-code-guide", "security-reviewer", "scene-engineer",
                     "statusline-setup", "general-purpose", "Explore", "Plan"]
         let fitted = real.map { font.fit($0, limit: limit) }
-        #expect(Set(fitted).count == real.count, "two types share a headline: \(fitted)")
+        #expect(Set(fitted).count == real.count, "two types share a line: \(fitted)")
 
-        // And where a headline genuinely cannot separate them, the plate still
-        // does.
+        // And where the line cannot separate them, nothing else on the plate
+        // does either. [SceneDirectorTests.sameTypedSubagentsWithNoDispatchNowShareOnePlate]
         let accent = Bitmap.RGBA(77, 195, 255)
         #expect(font.fit("claude-code-guide", limit: limit)
                 == font.fit("claude-code-runner", limit: limit))
         #expect(SceneBitmaps.nameplate(
-                    NameplateText(lead: "8DE", role: "claude-code-guide"), accent: accent).pixels
-                != SceneBitmaps.nameplate(
-                    NameplateText(lead: "6E7", role: "claude-code-runner"), accent: accent).pixels)
+                    NameplateText(lead: "", role: "claude-code-guide"), accent: accent).pixels
+                == SceneBitmaps.nameplate(
+                    NameplateText(lead: "", role: "claude-code-runner"), accent: accent).pixels)
     }
 
     /// Integer scaling is pixel doubling, so a 2× line is exactly the 1× line
@@ -190,7 +194,7 @@ struct NameplateTests {
         #expect(layout.backSeatRowY - layout.baselineY >= Double(layout.tile))
     }
 
-    /// **Height is the axis the two-row plate spends, and it is bounded.**
+    /// **Height was the axis the three-row plate spent, and it is bounded.**
     /// A seated character stands one tile above a character on the walkway. A
     /// plate taller than that tile would put a seated plate and a walkway plate
     /// in the same horizontal strip, at which point `noTwoNameplatesEverIntersect`
@@ -202,95 +206,94 @@ struct NameplateTests {
         #expect(Double(SceneBitmaps.maximumNameplateHeight) < drop)
     }
 
-    /// **The type is on the accent band and the discriminator is not.**
+    /// **The plate is one line on one band, and the band is the whole plate.**
     ///
-    /// This is the whole of the hierarchy, and it is position rather than size
-    /// because size is not available — see `SceneBitmaps.nameplate` for why the
-    /// type cannot be magnified in either axis. So it is asserted where it
-    /// lives: every pixel of the type is inside the band, every pixel of the
-    /// discriminator is below it, and the band is the saturated field.
-    @Test func theTypeIsOnTheAccentBandAndTheDiscriminatorIsBelowIt() throws {
+    /// The maintainer's instruction, asserted as geometry: there is one run of
+    /// ink, it is one glyph tall, and every pixel that is not that ink is the
+    /// accent. No second row, no dark field under it, and no empty slot left
+    /// where a row used to be. [I1 — a viewer cannot be shown a slot and left
+    /// to wonder what should have been in it]
+    @Test func thePlateIsOneLineOnOneBandAndNothingElse() throws {
         let accent = Bitmap.RGBA(255, 136, 77)
         let plate = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
-        let headlineInk = SceneBitmaps.contrastingInk(on: accent)
-        #expect(headlineInk != SceneBitmaps.nameplateInk, "the two rows share an ink")
+            NameplateText(lead: "", role: "general-purpose", task: "READ ALPH…"),
+            accent: accent)
+        let ink = SceneBitmaps.contrastingInk(on: accent)
 
-        var headlineRows: Set<Int> = [], tagRows: Set<Int> = []
+        var inkRows: Set<Int> = []
         for y in 0..<plate.height {
-            for x in 0..<plate.width {
-                if plate.at(x, y) == headlineInk { headlineRows.insert(y) }
-                if plate.at(x, y) == SceneBitmaps.nameplateInk { tagRows.insert(y) }
+            for x in 0..<plate.width where plate.at(x, y) == ink { inkRows.insert(y) }
+        }
+        let top = try #require(inkRows.min()), bottom = try #require(inkRows.max())
+        #expect(bottom - top + 1 <= font.glyphHeight, "more than one row of ink: \(inkRows)")
+        #expect(!plate.pixels.isEmpty)
+
+        // Every non-ink pixel is the accent — the dark plate colour the rows
+        // used to sit on is not drawn at all.
+        for y in 0..<plate.height {
+            for x in 0..<plate.width where plate.at(x, y) != ink {
+                #expect(plate.at(x, y) == accent, "a non-accent pixel at \(x),\(y)")
             }
         }
-        let headlineBottom = try #require(headlineRows.max())
-        let tagTop = try #require(tagRows.min())
-        #expect(headlineBottom < tagTop, "the type is not above the discriminator")
 
-        // Everything on the type's rows is the accent field; nothing on the
-        // discriminator's is. Column 1, not 0: column 0 is the border, which is
-        // the accent hue on every row and would prove nothing.
-        for y in headlineRows { #expect(plate.at(1, y) == accent, "row \(y) is off the band") }
-        for y in tagRows {
-            #expect(plate.at(plate.width / 2, y) != accent, "row \(y) is on the band")
-        }
-
-        // The type is the 1× face and nothing else — no stretch, no second
+        // And the line is the 1× face and nothing else — no stretch, no second
         // letterform set. [I6]
-        var headlineInkCount = 0
+        var inkCount = 0
         for y in 0..<plate.height {
-            for x in 0..<plate.width where plate.at(x, y) == headlineInk { headlineInkCount += 1 }
+            for x in 0..<plate.width where plate.at(x, y) == ink { inkCount += 1 }
         }
-        let flat = font.render(
-            font.fit("general-purpose", limit: SceneBitmaps.nameplateTypeGlyphLimit),
-            colour: headlineInk)
-        #expect(headlineInkCount == flat.opaquePixelCount)
+        #expect(inkCount == font.render("READ ALPH…", colour: ink).opaquePixelCount)
     }
 
-    /// **The discriminator survives, small.** Dropping it would put two
-    /// `general-purpose` subagents back on one plate, which is the M4 failure
-    /// this project already fixed once; what was wrong was its *size*, not its
-    /// presence.
-    @Test func theDiscriminatorIsStillOnThePlateAndStillSeparatesTwins() {
-        let accent = Bitmap.RGBA(196, 255, 77)
-        let first = SceneBitmaps.nameplate(
-            NameplateText(lead: "A69", role: "general-purpose"), accent: accent)
-        let second = SceneBitmaps.nameplate(
-            NameplateText(lead: "1B1", role: "general-purpose"), accent: accent)
-        #expect(first.width == second.width && first.height == second.height)
-        #expect(first.pixels != second.pixels, "two same-typed agents share a plate")
+    /// **The plate's exact size, pinned.** 63 × 11 where the three-row plate was
+    /// 63 × 29. The height is what the camera's content band and `RoomLayout`'s
+    /// row clearance are both derived from, so it is asserted as a number here
+    /// and as a relation everywhere else.
+    @Test func theWholePlateIsSixtyThreeByEleven() {
+        #expect(SceneBitmaps.maximumNameplateWidth == 63)
+        #expect(SceneBitmaps.maximumNameplateHeight == 11)
+        // A real plate, not just the bound: every plate is one row, so a
+        // full-width task is exactly the largest one.
+        let plate = SceneBitmaps.nameplate(
+            NameplateText(lead: "", role: "general-purpose", task: "READ ALPH…"),
+            accent: Bitmap.RGBA(196, 255, 77))
+        #expect(plate.height == SceneBitmaps.maximumNameplateHeight)
+        #expect(plate.width == SceneBitmaps.maximumNameplateWidth)
     }
 
     @Test func thePlateHasABorderInTheAccentHueAndInkInTheMiddle() {
         let accent = Bitmap.RGBA(255, 64, 0)
         let plate = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "Explore"), accent: accent)
+            NameplateText(lead: "", role: "Explore"), accent: accent)
         #expect(plate.at(0, 0) == accent)
         #expect(plate.at(plate.width - 1, plate.height - 1) == accent)
 
         var ink = 0
+        let lineInk = SceneBitmaps.contrastingInk(on: accent)
         for y in 0..<plate.height {
-            for x in 0..<plate.width where plate.at(x, y) == SceneBitmaps.nameplateInk {
-                ink += 1
-            }
+            for x in 0..<plate.width where plate.at(x, y) == lineInk { ink += 1 }
         }
-        #expect(ink > 0, "no type line on the plate")
+        #expect(ink > 0, "no line on the plate")
     }
 
     /// The accent is no longer a one-pixel outline. M2 refuted hue *sampled
     /// from the art*; these hues are assigned 60° apart and lint-enforced, so
     /// they are the one identity channel that measurably works — and a band is
     /// catchable from the corner of the eye where an outline is not.
+    ///
+    /// **It got louder as the plate got smaller**: the band was the top 11 px of
+    /// a 29 px plate and is now the whole of an 11 px one, so everything on the
+    /// plate that is not a glyph is the character's hue.
     @Test func theAccentCoversASubstantialShareOfThePlate() {
         let accent = Bitmap.RGBA(77, 195, 255)
         let plate = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
+            NameplateText(lead: "", role: "general-purpose"), accent: accent)
         var count = 0
         for y in 0..<plate.height {
             for x in 0..<plate.width where plate.at(x, y) == accent { count += 1 }
         }
         let share = Double(count) / Double(plate.width * plate.height)
-        #expect(share > 0.35, "accent covers only \(share) of the plate")
+        #expect(share > 0.75, "accent covers only \(share) of the plate")
     }
 
     /// Six hues 60° apart cannot all be light, so the band's ink is chosen by
@@ -330,60 +333,49 @@ struct NameplateTests {
     }
 
     /// Identity has a second channel: two agents with the same name but
-    /// different variants still differ, because the band carries the accent.
+    /// different variants still differ, because the plate carries the accent.
+    /// **It is the only channel left for two agents the text cannot separate**,
+    /// and it is assigned per character rather than per type.
     @Test func theAccentSeparatesTwoPlatesWithTheSameName() {
         let a = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "Explore"), accent: Bitmap.RGBA(255, 0, 0))
+            NameplateText(lead: "", role: "Explore"), accent: Bitmap.RGBA(255, 0, 0))
         let b = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "Explore"), accent: Bitmap.RGBA(0, 0, 255))
+            NameplateText(lead: "", role: "Explore"), accent: Bitmap.RGBA(0, 0, 255))
         #expect(a.pixels != b.pixels)
     }
 
-    /// **An `agent_id` with nothing usable in it gets no tag, not a made-up
-    /// one.** The type is already the headline, so the plate simply loses its
-    /// second row; synthesising a discriminator would be a label the data never
-    /// carried. [I1]
-    @Test func aPlateWithNoDiscriminatorDrawsTheTypeAloneRatherThanInventingOne() {
+    /// **The ladder is a true statement at every rung, and every rung is one
+    /// row.** A subagent with a dispatch shows the task; one we never saw a
+    /// dispatch for shows its `agent_type`; the main agent shows `MAIN`. Nothing
+    /// is synthesised to fill a line and no line is left empty. [I1]
+    @Test func everyRungOfTheLadderIsOneRowAndSomethingTheDataSaid() {
         let accent = Bitmap.RGBA(77, 195, 255)
-        let plain = SceneBitmaps.nameplate(
-            NameplateText(lead: "", role: "general-purpose"), accent: accent)
-        let tagged = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
-        #expect(plain.height < tagged.height, "the empty discriminator still drew a row")
-        #expect(plain.width == tagged.width, "the type still sets the width")
-        #expect(plain.opaquePixelCount == plain.width * plain.height)
-        var ink = 0
-        let headlineInk = SceneBitmaps.contrastingInk(on: accent)
-        for y in 0..<plain.height {
-            for x in 0..<plain.width where plain.at(x, y) == headlineInk { ink += 1 }
-        }
-        #expect(ink > 0, "the type vanished with the discriminator")
-    }
-
-    /// The main agent has no `agent_id` and therefore no `agent_type` either —
-    /// absence of `agent_id` *is* the main agent. Its one name goes on the band,
-    /// where every other character's identity goes, rather than being demoted to
-    /// the small row by a rule that was written for the other case.
-    /// [CLAUDE.md, Identity model]
-    @Test func theMainAgentsNameIsTheHeadline() {
-        let accent = Bitmap.RGBA(255, 136, 77)
-        let plate = SceneBitmaps.nameplate(NameplateText(lead: "main"), accent: accent)
         let ink = SceneBitmaps.contrastingInk(on: accent)
-        var band = 0
-        for y in 0..<(plate.height / 2) {
-            for x in 0..<plate.width where plate.at(x, y) == ink { band += 1 }
+        let rungs = [
+            NameplateText(lead: "", role: "general-purpose", task: "READ ALPH…"),
+            NameplateText(lead: "", role: "general-purpose"),
+            NameplateText(lead: "main"),
+        ]
+        let expected = ["READ ALPH…", "GENERAL-P…", "MAIN"]
+        for (text, line) in zip(rungs, expected) {
+            let plate = SceneBitmaps.nameplate(text, accent: accent)
+            #expect(plate.height == SceneBitmaps.maximumNameplateHeight, "\(line) is not one row")
+            #expect(plate.opaquePixelCount == plate.width * plate.height)
+            var count = 0
+            for y in 0..<plate.height {
+                for x in 0..<plate.width where plate.at(x, y) == ink { count += 1 }
+            }
+            #expect(count == font.render(line, colour: ink).opaquePixelCount,
+                    "the plate does not read \(line)")
         }
-        #expect(band > 0, "MAIN is not on the band")
-        #expect(plate.height == SceneBitmaps.nameplate(
-                    NameplateText(lead: "", role: "MAIN"), accent: accent).height,
-                "the main plate is not the one-row plate every typeless agent gets")
     }
 
-    /// An empty `agent_type` — M0c found it arrives — must not draw a blank row.
-    @Test func anEmptyRoleDrawsNoSecondRow() {
+    /// An empty `agent_type` — M0c found it arrives — must not draw a blank
+    /// plate. With nothing above it on the ladder, `lead` is what is left.
+    @Test func anEmptyRoleFallsThroughToTheLead() {
         let accent = Bitmap.RGBA(255, 136, 77)
-        #expect(SceneBitmaps.nameplate(NameplateText(lead: "8DE", role: ""), accent: accent)
-                == SceneBitmaps.nameplate(NameplateText(lead: "8DE"), accent: accent))
+        #expect(SceneBitmaps.nameplate(NameplateText(lead: "main", role: ""), accent: accent)
+                == SceneBitmaps.nameplate(NameplateText(lead: "main"), accent: accent))
     }
 
     @Test func theBadgeCountPlateRendersTheMultiplier() {
@@ -417,132 +409,72 @@ struct NameplateTests {
         }
     }
 
-    // MARK: The task line — the band's new occupant
+    // MARK: The task line — the plate's only occupant
 
-    /// **The three rows, in order, asserted where they live.**
-    ///
-    /// The hierarchy is carried by position and field rather than by size — see
-    /// `SceneBitmaps.nameplate` for why no magnification is available to any of
-    /// them — so this is the only place it can be checked: every pixel of the
-    /// task is inside the accent band, and every pixel of the type and of the
-    /// discriminator is below it, in that order.
-    @Test func theTaskIsOnTheAccentBandAndTheTypeAndTagAreBelowIt() throws {
-        let accent = Bitmap.RGBA(255, 136, 77)
-        let plate = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose", task: "MOVE BADG…"),
-            accent: accent)
-        let bandInk = SceneBitmaps.contrastingInk(on: accent)
-        #expect(bandInk != SceneBitmaps.nameplateInk, "the band and the rows share an ink")
-
-        var bandRows: Set<Int> = [], plateRows: Set<Int> = []
-        for y in 0..<plate.height {
-            for x in 0..<plate.width {
-                if plate.at(x, y) == bandInk { bandRows.insert(y) }
-                if plate.at(x, y) == SceneBitmaps.nameplateInk { plateRows.insert(y) }
-            }
-        }
-        let bandBottom = try #require(bandRows.max())
-        #expect(try #require(plateRows.min()) > bandBottom, "the task is not above the type")
-        for y in bandRows { #expect(plate.at(1, y) == accent, "row \(y) is off the band") }
-        for y in plateRows {
-            #expect(plate.at(plate.width / 2, y) != accent, "row \(y) is on the band")
-        }
-
-        // The type is above the discriminator, and both are on the dark plate.
-        // Their two runs of rows are separated by the row of air `platePadY`
-        // puts above each, so counting the gaps is what says there are two rows
-        // rather than one tall one.
-        let sorted = plateRows.sorted()
-        let breaks = zip(sorted, sorted.dropFirst()).filter { $1 - $0 > 1 }.count
-        #expect(breaks == 1, "the type and the discriminator are not two rows: \(sorted)")
-
-        // And the type really is the type: same ink count as the fitted line
-        // drawn flat, so nothing was stretched or substituted. [I6]
-        var typeInk = 0
-        for y in sorted where y <= (sorted.first! + font.glyphHeight) {
-            for x in 0..<plate.width where plate.at(x, y) == SceneBitmaps.nameplateInk {
-                typeInk += 1
-            }
-        }
-        #expect(typeInk == font.render(
-            font.fit("general-purpose", limit: SceneBitmaps.nameplateTypeGlyphLimit),
-            colour: SceneBitmaps.nameplateInk).opaquePixelCount)
-    }
-
-    /// **An agent with no task gets exactly the plate it had before this
-    /// change**, and that is the whole of "shows nothing where the task would
-    /// be". There is no empty row, no placeholder and no third band — a viewer
-    /// cannot be shown a slot and left to wonder what should have been in it.
-    /// [I1]
-    @Test func aPlateWithNoTaskIsByteIdenticalToTheTwoRowPlate() {
+    /// **An agent with no task shows its type on the same one row**, and that is
+    /// the whole of "shows nothing where the task would be". There is no empty
+    /// row and no placeholder — a viewer cannot be shown a slot and left to
+    /// wonder what should have been in it. [I1]
+    @Test func aPlateWithNoTaskShowsTheTypeOnTheSameOneRow() {
         let accent = Bitmap.RGBA(77, 195, 255)
         let withoutTask = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
+            NameplateText(lead: "", role: "general-purpose"), accent: accent)
         let explicitlyNone = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose", task: nil), accent: accent)
+            NameplateText(lead: "", role: "general-purpose", task: nil), accent: accent)
         #expect(withoutTask.pixels == explicitlyNone.pixels)
-        // Two rows: band plus one. 11 + 10.
-        #expect(withoutTask.height == 21)
-        // And the main agent, which has no task permanently, is untouched too.
+        #expect(withoutTask.height == 11)
+        // And the main agent, which has no task permanently, is the same plate.
         #expect(SceneBitmaps.nameplate(NameplateText(lead: "main"), accent: accent).height == 11)
     }
 
-    /// **The plate gains a row without moving one.** `agentTasked` lands after
-    /// the character is already seated, so the update has to be invisible except
-    /// for what it adds: the band keeps its height and its position, and the
-    /// plate node is anchored at its top edge, so everything new is underneath.
+    /// **The plate does not change shape when a task lands.** `agentTasked`
+    /// rides one event behind the `SubagentStart` that seated the character, so
+    /// the update happens under the user's eye; with one row it is a
+    /// substitution on a line that keeps its height, not a plate that grows.
     ///
-    /// What this cannot assert is that the band's *text* is unchanged — it is
-    /// not, and deliberately: the type gives the band up to the task. That is
-    /// one substitution on one row, once per agent, a frame or so after it sits
-    /// down.
-    @Test func gainingATaskGrowsThePlateDownwardsAndMovesNoRowAboveIt() {
+    /// The width can change, and only because the *text* did: a ten-glyph task
+    /// replacing a seven-glyph type is a wider line. The plate is centred on the
+    /// character, so that is symmetric and moves nothing else.
+    @Test func gainingATaskReplacesTheLineAndChangesNoRowCount() {
         let accent = Bitmap.RGBA(196, 255, 77)
         let before = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose"), accent: accent)
+            NameplateText(lead: "", role: "general-purpose"), accent: accent)
         let after = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose", task: "READ ALPH…"),
+            NameplateText(lead: "", role: "general-purpose", task: "READ ALPH…"),
             accent: accent)
-        #expect(after.width == before.width, "the plate widened")
-        #expect(after.height == before.height + font.glyphHeight + 1)
-
-        // The accent band is the same field in the same place: same height, and
-        // every pixel of its interior still the accent.
-        func bandHeight(_ bitmap: Bitmap) -> Int {
-            var rows = 0
-            while rows < bitmap.height, bitmap.at(1, rows) == accent { rows += 1 }
-            return rows
-        }
-        #expect(bandHeight(after) == bandHeight(before))
+        #expect(after.height == before.height, "the plate changed height")
+        // Both lines are ten glyphs here, so this pair does not move at all.
+        #expect(after.width == before.width)
+        #expect(after.pixels != before.pixels, "the line did not change")
     }
 
-    /// **Ten glyphs is the plate's width, not the task's allowance.** The band
-    /// and the type row are both full-width, so a task limit above the type
-    /// limit would widen the plate for one line — and the plate's width is the
-    /// term the seat pitch and the camera are both derived from.
+    /// **Ten glyphs is the plate's width.** One row, so the line's limit *is*
+    /// the plate's width — and the plate's width is the term the seat pitch and
+    /// the camera are both derived from.
     @Test func theTaskLineGetsThePlatesWidthAndNotAGlyphMore() {
-        #expect(SceneBitmaps.nameplateTaskGlyphLimit == SceneBitmaps.nameplateTypeGlyphLimit)
         let accent = Bitmap.RGBA(255, 64, 0)
         let plate = SceneBitmaps.nameplate(
-            NameplateText(lead: "8DE", role: "general-purpose", task: "MMMMMMMMMM"),
+            NameplateText(lead: "", role: "general-purpose", task: "MMMMMMMMMM"),
             accent: accent)
         #expect(plate.width == SceneBitmaps.maximumNameplateWidth)
         #expect(plate.width == 63)
+        // Eleven glyphs would be 69 px, which buys the same three-tile pitch and
+        // costs the ≤ 64 px target. See `SceneBitmaps.nameplateGlyphLimit`.
+        #expect(font.width(of: String(repeating: "M", count: 11)) + 4 == 69)
     }
 
-    /// **The tallest plate is the three-row one, and it still clears a tile.**
+    /// **Every plate is the tallest plate, because every plate is one row.**
     /// `maximumNameplateHeight` is what `RoomLayout` separates the seat rows by
     /// and what the camera's content band is measured from, so it has to be the
-    /// bound of the plate that can actually happen — not of the two-row plate
-    /// this used to be.
-    @Test func theTallestPlateIsTheOneWithATaskOnIt() {
+    /// bound of the plate that can actually happen — and there is now only one
+    /// shape a plate can be.
+    @Test func theTallestPlateIsTheOnlyShapeAPlateHas() {
         let accent = Bitmap.RGBA(255, 136, 77)
-        let three = SceneBitmaps.nameplate(
-            NameplateText(lead: "MMMMM", role: "MMMMMMMMMM", task: "MMMMMMMMMM"),
-            accent: accent)
-        #expect(SceneBitmaps.maximumNameplateHeight == three.height)
-        #expect(three.height == 29)
-        #expect(three.height < RoomLayout().tile,
+        let tasked = SceneBitmaps.nameplate(
+            NameplateText(lead: "", role: "MMMMMMMMMM", task: "MMMMMMMMMM"), accent: accent)
+        #expect(SceneBitmaps.maximumNameplateHeight == tasked.height)
+        #expect(tasked.height == 11)
+        #expect(tasked.height < RoomLayout().tile,
                 "the plate no longer fits between the aisle and the seat row")
     }
 
@@ -611,7 +543,7 @@ struct NameplateTests {
         for description in ["Fix the bug", "Touch file", "Move the badge beside the head",
                             "Read delta/epsilon, sleep, reread alpha"] {
             let line = SceneDirector.taskLine(description) ?? ""
-            #expect(line.count <= SceneBitmaps.nameplateTaskGlyphLimit, "\(description) → \(line)")
+            #expect(line.count <= SceneBitmaps.nameplateGlyphLimit, "\(description) → \(line)")
         }
     }
 

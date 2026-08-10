@@ -1843,15 +1843,12 @@ struct RoomSceneTests {
 
         scene.apply([.setOverflow(12)])
         let twelve = try #require(scene.overflowPlateBoxForTesting())
-        // **The plate no longer widens with the count, and that is not a
-        // regression — it is `MORE` setting the width.** The count used to be
-        // drawn at 2× and was the widest thing on the plate, so "a wider count
-        // widens the plate" was a usable proxy for "the number is drawn". Both
-        // rows are 1× now, and four glyphs of `MORE` are wider than any count
-        // under five digits. So the number is checked directly: the plates say
-        // different things, and `theOverflowPlateSaysTheCountAndBelongsToNobody`
-        // checks *which* row says it.
-        #expect(twelve.width == three.width)
+        // **The plate widens with the count again**, because the count and
+        // `MORE` share one line now — `+3 MORE` against `+12 MORE`. It stopped
+        // doing so while they were two rows and `MORE` set the width; that note
+        // is what this replaces. The number is still checked directly, since a
+        // width is only a proxy for it.
+        #expect(twelve.width > three.width)
         #expect(SceneBitmaps.overflowPlate(12).pixels != SceneBitmaps.overflowPlate(3).pixels,
                 "the plate drew the same thing for 3 and 12")
 
@@ -1867,7 +1864,7 @@ struct RoomSceneTests {
     @Test func theOverflowPlateSaysTheCountAndBelongsToNobody() {
         let plate = SceneBitmaps.overflowPlate(4)
         let named = SceneBitmaps.nameplate(
-            NameplateText(lead: "+4", role: SceneBitmaps.overflowLabel),
+            NameplateText(lead: "+4 \(SceneBitmaps.overflowLabel)"),
             accent: Bitmap.RGBA(220, 40, 40))
         #expect(plate.width == named.width, "the two plates are the same construction")
         #expect(plate.height == named.height)
@@ -1876,22 +1873,23 @@ struct RoomSceneTests {
         for y in 0..<plate.height {
             for x in 0..<plate.width where plate.at(x, y) != named.at(x, y) { accented += 1 }
         }
-        #expect(accented > 0, "the overflow plate wears a character's accent band")
+        #expect(accented > 0, "the overflow plate wears a character's accent")
 
-        // And the count is what the plate leads with — the row a character's
-        // plate gives to its `agent_type`, because on this plate the number is
-        // the thing that differs and `MORE` is the context. All the ink on the
-        // top half of the plate is the count.
-        var top = 0
-        for y in 0..<(plate.height / 2) {
+        // **The count and the word share the plate's one line.** They had a row
+        // each until the nameplate lost its rows; keeping them both is what
+        // makes the plate a sentence rather than a bare number. The count leads,
+        // because it is the half that differs.
+        var ink = 0
+        for y in 0..<plate.height {
             for x in 0..<plate.width where plate.at(x, y) == SceneBitmaps.nameplateInk {
-                top += 1
+                ink += 1
             }
         }
-        #expect(top == PixelFont.standard
-                    .render("+4", colour: SceneBitmaps.nameplateInk).opaquePixelCount,
-                "the count is not the line the plate leads with")
-        #expect(plate.height >= 20, "the plate lost a row")
+        #expect(ink == PixelFont.standard
+                    .render("+4 MORE", colour: SceneBitmaps.nameplateInk).opaquePixelCount,
+                "the plate does not read `+4 MORE`")
+        #expect(plate.height == SceneBitmaps.maximumNameplateHeight,
+                "the overflow plate is not the room's one-row plate")
     }
 }
 

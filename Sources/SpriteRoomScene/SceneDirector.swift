@@ -1075,45 +1075,35 @@ public struct SceneDirector: Sendable {
         return seat
     }
 
-    /// `agent_type` names the character. Its absence is the main agent — that
-    /// is the identity rule, not a fallback. [CLAUDE.md, Identity model]
+    /// **What the character is doing, in a word or two, and nothing else.** The
+    /// plate is one row [`SceneBitmaps.nameplate`], so this is a ladder rather
+    /// than a set of fields: the shortened task if a dispatch gave us one, the
+    /// `agent_type` if not, and `main` for the main agent — whose absence of an
+    /// `agent_id` *is* its identity. [CLAUDE.md, Identity model]
     ///
-    /// **A subagent's plate also carries a discriminator from its `agent_id`,
-    /// always.** Three `general-purpose` subagents dispatched together all read
-    /// `GENERAL-P…` and are then distinguishable only by which seat they took —
-    /// M4 watched that happen live. With silhouette refuted at M0 (the best
-    /// six-variant subset differs by 7.3% of outline; several premades are
-    /// identical) and accent hue refuted at M2, the plate *text* is the only
-    /// channel left, so S4 fails for the most ordinary case there is unless the
-    /// text separates them.
+    /// Every rung is something the payload said. A subagent we attached to
+    /// after its dispatch has no task, so it shows its type, which is true and
+    /// is not a placeholder shaped like a task. [I1]
     ///
-    /// `agent_id` is the only field that actually distinguishes two subagents of
-    /// one type. It is real data we already hold, so showing three characters of
-    /// it is not fiction; an invented index or an assigned colour would be. [I1]
+    /// # The `agent_id` discriminator is gone
     ///
-    /// **Always on, never conditional.** The alternative — show it only while
-    /// two visible agents share a type — was rejected: it mutates a plate that
-    /// is already on screen the moment a second agent arrives, which is a change
-    /// of *identity* under the user's eye, and it fires precisely when the room
-    /// got busy and they are looking at it. It would also flicker, since the
-    /// visible set changes on every arrival, departure and report walk. A stable
-    /// plate is worth more than the glyphs it costs. The main agent has no
-    /// `agent_id` and therefore no suffix, which is not an exception: absence of
-    /// `agent_id` *is* the main agent.
+    /// M5 added it and M7d moved it to its own row: the last three alphanumerics
+    /// of `agent_id`, always on, because `agent_id` is the only field that
+    /// distinguishes two subagents of one type and because silhouette (M0) and
+    /// sampled accent hue (M2) had both been refuted as identity channels. It
+    /// was doing real work and it is no longer produced at all.
     ///
-    /// **The discriminator no longer trails.** M5 put it last, in the same 5×7
-    /// as the type, after an ellipsis — so three `general-purpose` plates agreed
-    /// for eight glyphs and disagreed in the three smallest ones at the far end.
-    /// The information is the same; the ordering was backwards. It now has a row
-    /// of its own at the foot of the plate. See `SceneBitmaps.nameplate` for the
-    /// full ordering and why the task took the band off the type.
+    /// That is the maintainer's instruction — the plate takes too much space and
+    /// should carry the summary and *that's it* — and the cost is exact:
+    /// `fixtures/concurrent-permission-gates.jsonl` dispatches `Touch file s1`
+    /// and `Touch file s2`, both shorten to `TOUCH FIL…`, and those two
+    /// characters now have identical plates.
+    /// `twoNearlyIdenticalDispatchesNowShareAPlateEntirely` pins it so it stays
+    /// a known property rather than a bug someone rediscovers.
     ///
-    /// **Three `general-purpose` subagents dispatched together no longer read
-    /// alike at all**, which is what this change is for: `READ ALPH…`,
-    /// `READ BETA…` and `READ DELT…` in `fixtures/three-subagents.jsonl` are
-    /// three distinct headlines where the type gave one. The discriminator is
-    /// still what carries S4, because a shortening that fits ten glyphs can
-    /// collide and does — see `taskLine(_:)`.
+    /// It is not restorable in a smaller form: three glyphs of hex on the one
+    /// line would take those glyphs off the task, which is the half the
+    /// maintainer asked to read.
     ///
     /// **`agent_type` is not abbreviated, and that is a decision.** `GEN` for
     /// `general-purpose` needs either a table of names we made up — which is
@@ -1128,7 +1118,7 @@ public struct SceneDirector: Sendable {
     /// answer this project already gives everywhere else it cannot represent
     /// something faithfully. [I1]
     static func nameplate(for presentation: Presentation) -> NameplateText {
-        guard case let .subagent(id) = presentation.ref.agent else {
+        guard case .subagent = presentation.ref.agent else {
             // **The main agent has no task, permanently**, and this is where
             // that is structural rather than remembered: there is no dispatch
             // to carry one and this branch has nowhere to put one if there
@@ -1138,16 +1128,11 @@ public struct SceneDirector: Sendable {
         // M0c found `agent_type` can arrive as the empty string, so absent has
         // to mean empty as well as nil or the plate draws a blank row.
         let type = presentation.agentType.flatMap { $0.isEmpty ? nil : $0 } ?? "subagent"
-        let task = taskLine(presentation.task)
-        guard let discriminator = discriminator(id) else {
-            // No usable characters in the `agent_id`, so there is nothing that
-            // differs and the plate says so by having no lead: the type alone,
-            // on one row. The type does *not* get promoted to the lead line —
-            // a five-glyph 2× line would truncate `general-purpose` to `GENE…`
-            // and lose more than the layout buys. [I1]
-            return NameplateText(lead: "", role: type, task: task)
-        }
-        return NameplateText(lead: discriminator, role: type, task: task)
+        // `lead` is the ladder's bottom rung and a subagent never reaches it:
+        // `type` is non-empty by the line above. It is empty rather than
+        // carrying something invisible, so that what the plate holds is what the
+        // plate draws.
+        return NameplateText(lead: "", role: type, task: taskLine(presentation.task))
     }
 
     /// Function words the task line drops.
@@ -1202,12 +1187,19 @@ public struct SceneDirector: Sendable {
     /// half of `move badge` the maintainer named. The type line has cut mid-word
     /// since M5 (`GENERAL-P…`) and nobody has misread it.
     ///
-    /// **What it cannot do.** Ten glyphs is two short words, so two dispatches
-    /// that differ only in their third word collapse:
+    /// **What it cannot do, and nothing else on the plate covers for it any
+    /// more.** Ten glyphs is two short words, so two dispatches that differ only
+    /// in their third word collapse:
     /// `fixtures/concurrent-permission-gates.jsonl` sends `Touch file s1` and
-    /// `Touch file s2` and both plates read `TOUCH FIL…`. The tag row is what
-    /// still separates those two characters, which is the second reason it
-    /// survived this change.
+    /// `Touch file s2` and both plates read `TOUCH FIL…`. There used to be a
+    /// discriminator row underneath to separate them and there is not now — the
+    /// plate is one row. Those two characters are identical on screen.
+    /// [`SceneDirector.nameplate(for:)`]
+    ///
+    /// A wider line would not rescue it: `TOUCH FILE S1` needs thirteen glyphs,
+    /// and eleven or twelve clip to `TOUCH FILE…` — the same string for both.
+    /// Thirteen is a plate the seat pitch cannot afford.
+    /// [`SceneBitmaps.nameplateGlyphLimit`]
     ///
     /// Returns `nil` — no task row at all — for `nil` in, and for a description
     /// with no drawable word in it. Never a placeholder, never a guess. [I1]
@@ -1228,7 +1220,7 @@ public struct SceneDirector: Sendable {
         // informative, but it is what the payload said.
         let carried = kept.isEmpty ? words : kept
         let phrase = carried.joined(separator: " ")
-        let limit = SceneBitmaps.nameplateTaskGlyphLimit
+        let limit = SceneBitmaps.nameplateGlyphLimit
         let elided = carried.count < words.count
         if !elided, phrase.count <= limit { return phrase }
         // One glyph goes to the mark, and a clip that lands on a space gives it
@@ -1238,29 +1230,6 @@ public struct SceneDirector: Sendable {
         while clipped.last == " " { clipped.removeLast() }
         guard !clipped.isEmpty else { return nil }
         return clipped + "…"
-    }
-
-    /// Characters of `agent_id` the lead line carries.
-    ///
-    /// Three rather than two because two is not enough to be safe: over six
-    /// same-typed agents, two hex characters collide about 5.5% of the time and
-    /// three about 0.4%, and a collision here is exactly the failure S4 names.
-    /// A fourth would buy 0.03% and cost 12 px of a plate whose width is the
-    /// axis under pressure.
-    static let nameplateDiscriminatorGlyphs = 3
-
-    /// The **last** three alphanumerics of `agent_id`, uppercased.
-    ///
-    /// The last rather than the first: every `agent_id` observed is `a` plus 16
-    /// hex characters, so a leading slice spends a third of its budget on a
-    /// constant. Taking from the end is also robust to any future prefix
-    /// convention, and it stays a plain slice of the real id rather than a hash
-    /// — someone comparing the plate against a transcript can see the same
-    /// characters there.
-    static func discriminator(_ agentID: String) -> String? {
-        let usable = agentID.filter { $0.isLetter || $0.isNumber }
-        guard !usable.isEmpty else { return nil }
-        return String(usable.suffix(nameplateDiscriminatorGlyphs)).uppercased()
     }
 
     private func note(_ list: inout [AgentRef], _ agent: AgentRef) {

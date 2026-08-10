@@ -173,14 +173,14 @@ struct RoomCameraTests {
     /// | | px |
     /// |---|---:|
     /// | badge slot above the feet | 85 → **51** — the slot moved beside the head |
-    /// | nameplate below the feet | **23** |
+    /// | nameplate below the feet | 23 → 31 → **13** — a task row on, then three rows down to one |
     /// | the two seat rows | **64** |
     /// | the walkway | **32** |
     /// | one delivery row per ring | 96 → **0** — the report stopped walking |
-    /// | **content band** | 300 → **170** |
+    /// | **content band** | 300 → 170 → 178 → **160** |
     ///
-    /// A `2x` view of a 720×400 panel frames 200 px of height. 170 is inside it,
-    /// with 30 px to spare, and `3x` is still out of reach at 133. So height no
+    /// A `2x` view of a 720×400 panel frames 200 px of height. 160 is inside it,
+    /// with 40 px to spare, and `3x` is still out of reach at 133. So height no
     /// longer settles the question at every population — **width does**, and it
     /// says three. `aCloserFrameWouldHoldThreeSeatColumnsAcross` is now the
     /// binding constraint rather than a footnote, and the boundary is asserted
@@ -312,9 +312,9 @@ struct RoomCameraTests {
         #expect((1..<pitch).allSatisfy { min($0, pitch - $0) < plate },
                 "some offset clears a plate on both sides after all")
 
-        // Every plate width a two-line plate could plausibly be, against the
-        // pitch that width would buy. `pitch < 2 × plate` is what has no
-        // solution, and one tile of rounding-up is never a second plate.
+        // Every plate width a plate could plausibly be, against the pitch that
+        // width would buy. `pitch < 2 × plate` is what has no solution, and one
+        // tile of rounding-up is never a second plate.
         //
         // **33 px, not 0, and the boundary is real rather than a convenience.**
         // Below it the pitch stops being the plate's and becomes the *desk's* —
@@ -325,16 +325,30 @@ struct RoomCameraTests {
         // offset `s` is just a room whose columns are `min(s, pitch − s)` apart,
         // which is narrower than the narrowest spacing this formula allows. The
         // room would be built by narrowing the pitch, not by staggering it.
-        for width in 33...120 {
+        //
+        // **49 px, not 44, and the gap is what the one-row plate opened.** The
+        // margin this formula borrows from the row axis is `tile − plateHeight`,
+        // so a *shorter* plate asks for a wider gap: at 21 px of plate it was
+        // 11 px and at 11 px it is 21. That moves the width at which the pitch
+        // rounds up to three tiles from 54 down to 44, and between 44 and 48 the
+        // 96 px pitch it rounds up to is two plates wide. Nothing in the room is
+        // in that band — the plate is 63 px and buys 96, which is not two plates
+        // — but the claim is no longer universal and is not stated as if it
+        // were. Whoever narrows the plate into 44…48 px is choosing a room where
+        // a stagger is arithmetically available; `RoomLayout.isBackRow`'s
+        // refutation would then have to be re-derived rather than inherited.
+        let openBand = (33...120).filter { width in
             let tiles = RoomLayout.minimumSeatSpacingTiles(
                 plateWidth: width, plateHeight: SceneBitmaps.maximumNameplateHeight,
                 tile: layout.tile)
-            let candidate = tiles * layout.tile
-            #expect(candidate < 2 * width, Comment(rawValue:
-                "a \(width) px plate buys a \(candidate) px pitch, which is two"
-                + " plates wide — a stagger would open up, and"
-                + " RoomLayout.isBackRow's refutation would stop holding"))
+            return tiles * layout.tile >= 2 * width
         }
+        #expect(openBand == Array(44...48), Comment(rawValue:
+            "the widths at which a stagger opens up moved: \(openBand)"))
+        #expect(!openBand.contains(plate), Comment(rawValue:
+            "the shipped \(plate) px plate buys a pitch two plates wide — a"
+            + " stagger would open up, and RoomLayout.isBackRow's refutation"
+            + " would stop holding"))
     }
 
     /// The ladder comes from the manifest, so a manifest that changed it would

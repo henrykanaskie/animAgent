@@ -76,29 +76,57 @@ struct SceneDirectorTests {
 
     // MARK: Body state — criterion 2, and [I2]
 
-    @Test func aCharacterIsWorkingExactlyWhileItsOpenCallSetIsNonEmpty() {
+    /// **`agent is working ⟺ !openCalls.isEmpty` is unchanged, and it is a
+    /// statement about the *motion*.** [I2, ADR-005 §6]
+    ///
+    /// It was written when the two channels were one: the body state was
+    /// `openCalls.isEmpty ? .idle : .working` and `idle` was a standing pose, so
+    /// the same expression decided both whether the character moved and whether
+    /// it was at its desk. ADR-005 split them, because keying the *posture* on
+    /// the call meant a character stood up in the walkway for the 2.35 s between
+    /// two calls of one turn. The motion is what carries "working" now, and this
+    /// test follows it there: the sequence the scene will play is the one held
+    /// frame `AmbientMotion` returns for an empty set, and a phrase exactly when
+    /// there is a call to play it for.
+    @Test func aCharacterMovesExactlyWhileItsOpenCallSetIsNonEmpty() {
         var director = Self.director()
         let agent = Self.ref(.mainThread)
+
+        /// What the scene will draw: the composition `Character` performs, off
+        /// the two values the director emits.
+        func isMoving() -> Bool {
+            guard let state = director.bodyState(agent) else { return false }
+            return AmbientMotion.sequence(
+                for: director.badge(agent).badge, state: state,
+                openCalls: director.openCallCount(agent), frameCount: 3).count > 1
+        }
+
         _ = director.apply([.agentAppeared(agent: agent, agentType: nil, lifecycle: .active)])
-        #expect(director.bodyState(agent) == .idle)
+        #expect(director.bodyState(agent) == .working, "the agent's first event seats it")
+        #expect(!isMoving(), "a character with no open call moved")
 
         _ = director.apply([.callOpened(agent: agent, call: Self.call("a", "Bash"))])
         #expect(director.bodyState(agent) == .working)
+        #expect(isMoving())
 
         _ = director.apply([.callOpened(agent: agent, call: Self.call("b", "Read"))])
-        #expect(director.bodyState(agent) == .working)
+        #expect(isMoving())
 
         _ = director.apply([
             .callClosed(agent: agent, toolUseID: "a", toolName: "Bash", outcome: .succeeded)])
-        #expect(director.bodyState(agent) == .working, "one call still open")
+        #expect(isMoving(), "one call still open")
 
         _ = director.apply([
             .callClosed(agent: agent, toolUseID: "b", toolName: "Read", outcome: .succeeded)])
-        #expect(director.bodyState(agent) == .idle)
+        #expect(!isMoving(), "the set emptied and the body kept moving")
+        #expect(director.bodyState(agent) == .working,
+                "the character left its desk because a call returned")
     }
 
-    /// An abandoned call is our blind spot, not the user's failure. The
-    /// character returns to idle and shows nothing else. [I4]
+    /// An abandoned call is our blind spot, not the user's failure. The badge
+    /// comes down, the motion stops, and nothing else is shown — in particular
+    /// the character does not get up, because a reap says nothing about where
+    /// the agent is. [I4, ADR-005 §3]
     @Test func anAbandonedCallClosesLikeAnyOther() {
         var director = Self.director()
         let agent = Self.ref(.mainThread)
@@ -109,7 +137,8 @@ struct SceneDirectorTests {
         let intents = director.apply([
             .callAbandoned(
                 agent: agent, toolUseID: "a", toolName: "Bash", reason: .deadlineExpired)])
-        #expect(director.bodyState(agent) == .idle)
+        #expect(director.openCallCount(agent) == 0)
+        #expect(director.bodyState(agent) == .working)
         #expect(intents.contains { intent in
             if case let .setBadge(_, selection) = intent { return selection.badge == nil }
             return false
@@ -594,10 +623,12 @@ struct SceneDirectorTests {
         guard case let .spawnCharacter(_, _, nameplate, _, _, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
-        // The discriminator leads and the type is the second line — the two
-        // halves are carried separately so the plate can size them differently.
-        #expect(nameplate.lead == "8DE")
+        // No dispatch has been seen, so the type is what the one line carries.
         #expect(nameplate.role == "security-reviewer")
+        #expect(nameplate.headline == "security-reviewer")
+        // And nothing is carried that the plate does not draw: the `agent_id`
+        // discriminator used to live here.
+        #expect(nameplate.lead.isEmpty)
 
         var mainDirector = Self.director()
         let mainIntents = mainDirector.apply([
@@ -605,21 +636,27 @@ struct SceneDirectorTests {
         guard case let .spawnCharacter(_, _, mainPlate, _, _, _) = mainIntents[0] else {
             Issue.record("expected a spawn"); return
         }
-        // No `agent_id`, so no discriminator. That is the identity rule, not a
-        // special case. [CLAUDE.md]
+        // No `agent_id`. That is the identity rule, not a special case.
+        // [CLAUDE.md]
         #expect(mainPlate == NameplateText(lead: "main"))
-        #expect(mainPlate.role == nil, "the main agent has no type line to draw")
+        #expect(mainPlate.role == nil, "the main agent has no type to draw")
     }
 
-    /// The failure this whole change exists for: three subagents of one type,
-    /// dispatched together, used to render three identical `GENERAL-P…` plates
-    /// and were then distinguishable only by seat. [M4, S4]
+    /// **Three subagents of one type, with no dispatch between them, are now one
+    /// plate — and this is the regression the one-row instruction bought.**
     ///
-    /// Tightened: it is not enough that the *plates* differ — they differed at
-    /// M5 too, in the three smallest glyphs at the end of a twelve-glyph line.
-    /// The **discriminator** must differ, because it is the only field that can:
-    /// the type is shared by construction here.
-    @Test func sameTypedSubagentsGetDifferentPlates() {
+    /// M4 watched exactly this happen live and M5 fixed it with an `agent_id`
+    /// discriminator on a row of its own. The maintainer has since asked for the
+    /// plate to carry the summary of what the agent is doing *and that's it*, so
+    /// the row is gone and so is the fix. Recorded as an assertion rather than
+    /// left to be rediscovered: three characters, one plate, separable only by
+    /// seat.
+    ///
+    /// It bites only where the room has nothing else to say. A dispatch gives
+    /// each of them its own line — `threeSubagentsEndUpWithThreeDifferentHeadlines`
+    /// is the same three agents in the real capture — so what is lost is the
+    /// untasked case and the case where two tasks shorten alike.
+    @Test func sameTypedSubagentsWithNoDispatchNowShareOnePlate() {
         var director = Self.director()
         let ids = ["a894ded5b0c4b18de", "a3b448736697956e7", "a793beae9fa532d0f"]
         var plates: [NameplateText] = []
@@ -630,61 +667,20 @@ struct SceneDirectorTests {
             for case let .spawnCharacter(_, _, plate, _, _, _) in intents { plates.append(plate) }
         }
         #expect(plates.count == 3)
-        #expect(Set(plates).count == 3, "same-typed subagents share a plate: \(plates)")
-        #expect(Set(plates.map(\.lead)).count == 3,
-                "the difference is not in the only field that can carry it: \(plates)")
+        #expect(Set(plates).count == 1, "something is still separating them: \(plates)")
         #expect(plates.allSatisfy { $0.role == "general-purpose" })
-    }
 
-    /// The rendered plates must differ, and the size of that difference is
-    /// measured rather than asserted.
-    ///
-    /// **The multiplier is one, and that is the price of the fix.** This test
-    /// used to assert 4×: the discriminator was drawn at 2× in both axes, so
-    /// every differing cell of the 1× face became four. It is now the small line
-    /// at 1×, because the accent band belongs to the `agent_type` — the thing a
-    /// person can actually act on — and the plate has no width to give both. So
-    /// what is checked is that the discriminator is drawn *exactly* the 1× face,
-    /// unshrunk and unabbreviated, and that two of them still separate the
-    /// plates. The identity channel that grew instead is the headline, and
-    /// `NameplateTests.theTypeIsOnTheAccentBandAndTheDiscriminatorIsBelowIt`
-    /// measures that.
-    @Test func sameTypedSubagentPlatesDifferByExactlyTheFacesOwnSeparation() {
+        // Down to the pixels, because a value that compares equal could still
+        // have drawn differently — and it does not.
         let accent = Bitmap.RGBA(255, 136, 77)
-        let font = PixelFont.standard
-        let leads = ["8DE", "6E7", "D0F"]
-
-        func differingPixels(_ first: Bitmap, _ second: Bitmap) -> Int {
-            var count = 0
-            for y in 0..<min(first.height, second.height) {
-                for x in 0..<min(first.width, second.width)
-                where first.at(x, y) != second.at(x, y) { count += 1 }
-            }
-            return count
-        }
-
-        for (index, lead) in leads.enumerated() {
-            for other in leads[leads.index(after: index)...] {
-                let plateA = SceneBitmaps.nameplate(
-                    NameplateText(lead: lead, role: "general-purpose"), accent: accent)
-                let plateB = SceneBitmaps.nameplate(
-                    NameplateText(lead: other, role: "general-purpose"), accent: accent)
-                #expect(plateA.width == plateB.width && plateA.height == plateB.height)
-
-                let atOne = differingPixels(
-                    font.render(lead, colour: Bitmap.RGBA(255, 255, 255)),
-                    font.render(other, colour: Bitmap.RGBA(255, 255, 255)))
-                #expect(atOne > 0, "\(lead) and \(other) render alike at 1×")
-                #expect(differingPixels(plateA, plateB) == atOne,
-                        "\(lead) vs \(other): the tag is not the 1× face, drawn as it is")
-            }
-        }
+        let drawn = plates.map { SceneBitmaps.nameplate($0, accent: accent).pixels }
+        #expect(Set(drawn).count == 1)
     }
 
-    /// The plate is decided once, at spawn, and never rewritten. Showing the
-    /// discriminator only when a twin turns up would change a character's
-    /// identity while the user is looking at it.
-    @Test func theDiscriminatorIsPresentEvenWhenTheTypeIsUnique() {
+    /// The plate is decided once, at spawn, and rewritten only when a task
+    /// lands. What it says at spawn is the type, because that is all the room
+    /// has been told.
+    @Test func aSubagentWithNoDispatchYetWearsItsType() {
         var director = Self.director()
         let intents = director.apply([
             .agentAppeared(agent: Self.ref(.subagent("a1c0ffee0badf00d1")),
@@ -692,19 +688,7 @@ struct SceneDirectorTests {
         guard case let .spawnCharacter(_, _, plate, _, _, _) = intents[0] else {
             Issue.record("expected a spawn"); return
         }
-        #expect(plate == NameplateText(lead: "0D1", role: "Explore"))
-    }
-
-    @Test func theDiscriminatorIsTheTailOfTheAgentIDAndSurvivesOddIDs() {
-        // Every observed id is `a` + 16 hex, so a leading slice would spend a
-        // third of its budget on a constant.
-        #expect(SceneDirector.discriminator("a894ded5b0c4b18de") == "8DE")
-        #expect(SceneDirector.discriminator("a3b448736697956e7") == "6E7")
-        // Shorter than the budget, and punctuation, degrade rather than crash.
-        #expect(SceneDirector.discriminator("c1") == "C1")
-        #expect(SceneDirector.discriminator("x-y-z") == "XYZ")
-        #expect(SceneDirector.discriminator("---") == nil)
-        #expect(SceneDirector.discriminator("") == nil)
+        #expect(plate == NameplateText(lead: "", role: "Explore"))
     }
 
     /// Whatever the type is, the drawn plate must stay inside the seat pitch or
@@ -990,8 +974,9 @@ struct SceneDirectorTests {
         }
         #expect(agent == child)
         #expect(plate.headline == "READ ALPH…")
-        #expect(plate.subhead == "Explore", "the type left the plate")
-        #expect(plate.tag == "D0F", "the discriminator left the plate")
+        // The type is still carried — it is the rung under the task, and it is
+        // what this character wore a moment ago — but it is no longer drawn.
+        #expect(plate.role == "Explore")
     }
 
     /// A character that appears and is tasked in one batch is spawned once, with
@@ -1068,16 +1053,26 @@ struct SceneDirectorTests {
 
         let main = latest.first { if case .mainThread = $0.key.agent { true } else { false } }
         #expect(main?.value.headline == "main")
-        #expect(main?.value.subhead == nil, "the main agent grew a type row")
+        #expect(main?.value.role == nil, "the main agent grew a type")
     }
 
-    /// **Two dispatches whose first two words agree collapse onto one headline,
-    /// and the plate still separates the characters.** `concurrent-permission-
-    /// gates` sends `Touch file s1` and `Touch file s2`; ten glyphs cannot hold
-    /// the third word, so both read `TOUCH FIL…`. The discriminator row is what
-    /// keeps S4 — this is the case that justifies its survival, recorded rather
-    /// than discovered later.
-    @Test func twoNearlyIdenticalDispatchesShareAHeadlineAndNotAPlate() async throws {
+    /// **Two dispatches whose first two words agree now produce two identical
+    /// plates.** `concurrent-permission-gates` sends `Touch file s1` and
+    /// `Touch file s2`; ten glyphs cannot hold the third word, so both read
+    /// `TOUCH FIL…`, and with the discriminator row gone there is nothing under
+    /// them to say which is which.
+    ///
+    /// **This is a regression in S4 and it is the price of the one-row plate.**
+    /// It is pinned rather than fixed so that it stays a known property: if this
+    /// test starts failing, either the shortening changed or something was put
+    /// back on the plate, and both are decisions somebody has to make on
+    /// purpose. Asserted down to the pixels, because the plate is what the user
+    /// sees.
+    ///
+    /// A wider line does not rescue it — `TOUCH FILE S1` needs thirteen glyphs
+    /// and the seat pitch cannot afford them. See
+    /// `SceneBitmaps.nameplateGlyphLimit`.
+    @Test func twoNearlyIdenticalDispatchesNowShareAPlateEntirely() async throws {
         var director = Self.director()
         var latest: [AgentRef: NameplateText] = [:]
         for batch in try await SceneFixtures.batchedDeltas("concurrent-permission-gates") {
@@ -1087,7 +1082,62 @@ struct SceneDirectorTests {
         #expect(subagents.count == 2)
         #expect(Set(subagents.values.map(\.headline)) == ["TOUCH FIL…"],
                 "the collapse this test records has stopped happening: \(subagents.values)")
-        #expect(Set(subagents.values.map(\.tag)).count == 2,
-                "two characters with one headline are now one plate")
+        #expect(Set(subagents.values).count == 1,
+                "the two plates differ again: \(subagents.values)")
+
+        let accent = Bitmap.RGBA(77, 195, 255)
+        let drawn = Set(subagents.values.map { SceneBitmaps.nameplate($0, accent: accent).pixels })
+        #expect(drawn.count == 1, "the two plates draw differently after all")
+    }
+
+    /// **Every plate collision in `fixtures/`, enumerated.**
+    ///
+    /// The list rather than the one case, because "which pairs of characters are
+    /// now indistinguishable" is the question the one-row plate raises and it
+    /// should be answerable by running the suite. A fixture appears here when
+    /// two agents that are on screen *at the same moment* end up with the same
+    /// `NameplateText`; agents that never overlap cannot be confused with each
+    /// other and are not counted.
+    ///
+    /// **Exactly one pair in the whole corpus collides**:
+    /// `concurrent-permission-gates`, whose two dispatches `Touch file s1` and
+    /// `Touch file s2` shorten alike to `TOUCH FIL…`.
+    ///
+    /// Everything else separates. The other two multi-agent fixtures are
+    /// `three-subagents` (`READ ALPH…`, `READ BETA…`, `READ DELT…`, `main`) and
+    /// `four-subagents` (`READ ONE…`, `READ TWO…`, `READ THRE…`, `READ FOUR…`,
+    /// `main`); the remaining thirteen have one character each.
+    /// `subagent-permission`'s only subagent also reads `TOUCH FIL…`, from
+    /// `Touch a file via bash`, but there is nobody in that room to confuse it
+    /// with.
+    @Test func everySimultaneousPlateCollisionInTheCorpusIsListed() async throws {
+        // Every fixture that produces more than one character.
+        let names = ["three-subagents", "four-subagents", "concurrent-permission-gates",
+                     "subagent-permission", "parallel-tools", "killed-session",
+                     "denial-then-work", "denied-batch-cancel", "interactive-batch-serial",
+                     "interactive-session", "parallel-denial", "permission-prompt",
+                     "queued-prompt", "single-agent-simple", "tool-failure",
+                     "idle-notification", "unknown-events"]
+        var collisions: [String: Int] = [:]
+        for name in names {
+            var director = Self.director()
+            var live: [AgentRef: NameplateText] = [:]
+            var worst = 0
+            for batch in try await SceneFixtures.batchedDeltas(name) {
+                let intents = director.apply(batch)
+                for (agent, plate) in Self.plates(intents) { live[agent] = plate }
+                for case let .exitCharacter(agent, _) in intents { live.removeValue(forKey: agent) }
+                // Pairs of *simultaneously visible* characters wearing one plate.
+                let plates = Array(live.values)
+                var pairs = 0
+                for (index, plate) in plates.enumerated() {
+                    pairs += plates[plates.index(after: index)...].count { $0 == plate }
+                }
+                worst = max(worst, pairs)
+            }
+            if worst > 0 { collisions[name] = worst }
+        }
+        #expect(collisions == ["concurrent-permission-gates": 1], Comment(rawValue:
+            "the corpus's plate collisions moved: \(collisions.sorted { $0.key < $1.key })"))
     }
 }

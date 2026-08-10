@@ -229,14 +229,15 @@ Do not close one of these by editing the criterion.
   rather than as arithmetic nobody could overrule, and the choice has a cost
   either way: preferring `2x` under four agents means the camera changes scale
   when the fourth arrives. `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt`.
-- **A nameplate leads with the part that distinguishes it.** Two rows: a solid
-  accent band on top and a dark row beneath it. No plate exceeds the seat pitch,
-  no two plates ever intersect, and a truncated type still says it was truncated
-  — the ellipsis is lossy but *visibly* lossy, and no abbreviation scheme
-  degrades honestly over arbitrary text.
-  `sameTypedSubagentPlatesDifferByExactlyTheFacesOwnSeparation`,
-  `theDiscriminatorIsTheTailOfTheAgentIDAndSurvivesOddIDs`, `noPlateExceedsTheSeatPitch`,
-  `noTwoNameplatesEverIntersect`, `noTwoNameplatesEverIntersectAcrossResumedSubagents`,
+- **A nameplate says what the character is doing, in a word or two.** One row:
+  a solid accent band carrying the shortened task, the `agent_type` if we never
+  saw a dispatch, `MAIN` for the main agent. No plate exceeds the seat pitch, no
+  two plates ever intersect, and a truncated line still says it was truncated —
+  the ellipsis is lossy but *visibly* lossy, and no abbreviation scheme degrades
+  honestly over arbitrary text. `thePlateIsOneLineOnOneBandAndNothingElse`,
+  `everyRungOfTheLadderIsOneRowAndSomethingTheDataSaid`,
+  `noPlateExceedsTheSeatPitch`, `noTwoNameplatesEverIntersect`,
+  `noTwoNameplatesEverIntersectAcrossResumedSubagents`,
   `aTruncatedTypeStillSaysItWasTruncated`. This carries M2's criterion forward:
   M0 found the cast is not separable by silhouette, so the plate is a primary
   identity channel and not decoration.
@@ -247,13 +248,22 @@ Do not close one of these by editing the criterion.
   single-line plate as the win. The separation was real and it was spent on the
   wrong string: the loudest element in the room said `430` — the last three hex
   characters of an `agent_id` — while `GENERAL-P…` sat under it at half the size.
-  The maintainer had already asked for agent *names* that read better, and this
-  is the second answer to that question. The band now carries the `agent_type`
-  at eleven glyphs and the discriminator is the small row; the multiplier this
-  bullet was proud of is gone, deliberately, and
-  `theTypeIsOnTheAccentBandAndTheDiscriminatorIsBelowIt` is what replaces it.
-  See `04-ART-DIRECTION`, "The plate leads with the type — M7d", for why no
-  amount of magnification was available to the type instead.
+  The band then took the `agent_type`, and at M7e the task took it off the type,
+  which left three rows.
+
+  **All of that is one row now, on the maintainer's instruction**, looking at the
+  running app: *"the nameplates are still wrong, they take up too much space,
+  should just have the summary of what they are doing in one or 2 words. and
+  that's it."* 63 × 29 px became 63 × 11. The `agent_type` is drawn only when
+  there is no task to outrank it and the `agent_id` discriminator is not
+  produced at all, so **two agents the line cannot separate are now one plate**
+  — a real regression in S4, pinned rather than papered over by
+  `twoNearlyIdenticalDispatchesNowShareAPlateEntirely`,
+  `sameTypedSubagentsWithNoDispatchNowShareOnePlate` and
+  `everySimultaneousPlateCollisionInTheCorpusIsListed`, which enumerates every
+  colliding pair in `fixtures/` (there is one). See `04-ART-DIRECTION`, "The
+  plate is one row", for the arithmetic and for why a wider line does not buy
+  the collision back.
 
   **This criterion was deleted by accident at `70f5793` and restored here.** The
   reconciliation that closed four items anchored a patch on a string that sat
