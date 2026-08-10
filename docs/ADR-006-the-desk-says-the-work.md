@@ -271,6 +271,23 @@ paper stacks, all already in `assets/processed/`, all from the pack the app alre
 credits. **No pack needs buying and, if the art-director accepts these bindings,
 no pixel needs authoring.**
 
+> **Wrong about `running`, corrected during implementation rather than in this
+> proposal.** This table's ink boxes were measured *by bounding box*; step 4's
+> own re-check measured every single in the 130–134 band *row by row* against
+> the same 28 px bound and none of the five clears it — the tightest is
+> 30 px, two over. So the fourth object is not a pack single after all, and
+> "no pixel needs authoring" is false of `running` specifically. §1's table and
+> the two paragraphs above keep the record straight: `laptop`, `papers` and
+> `pad` are declared, unbound, exactly as proposed; `running`'s desk-top role
+> is **authored** — `Sources/SpriteRoomScene/DeskMonitorArt.swift`, in the
+> shape `HeldObjectArt` already established and licensed (that file's own doc
+> comment and ADR-005 §0) — rather than bound to 130–134, and it carries no
+> `assets/manifest.json` entry, because there is no source PNG for one to name.
+> `docs/04-ART-DIRECTION.md`'s "Prop roles" section has the full account and
+> the palette/silhouette numbers; `DeskMonitorArtTests` is where they are
+> checked, since `scripts/lint-palette.py` reads the manifest and cannot see an
+> object the manifest does not name.
+
 **One correction to the brief's inventory, offered because it changes a build
 estimate.** "Workbench singles 85–101 exist but are unidentified" — I rendered all
 seventeen. **None of them is a workbench.** 85 is a low bench; 86–96 are flat floor
@@ -722,6 +739,12 @@ more bindings (153; 130–134; 179), `scene-engineer` for nothing new. Independe
 shippable one at a time and in any order; each one that lands makes one more kind
 visible and each one that does not leaves a bare desk, which is already the
 fallback.
+
+> **`running` did not bind to 130–134 — §2d's correction above.** It is authored
+> (`DeskMonitorArt`) rather than bound, so its step is one file of art plus its
+> own tests instead of one manifest entry, and it does not touch
+> `assets/manifest.json` at all. The other two bindings in this step (153, 179)
+> are unaffected and still just a manifest entry each.
 
 **Step 5 — re-measure.** Owner: `test-engineer`. Re-run §3a's table over the step-0
 capture, and answer §9 items 1 and 2. If the gate turns out to refuse almost

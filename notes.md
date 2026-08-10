@@ -6578,3 +6578,424 @@ HEAD, +10 in `ReportDeliveryTests`), 77 art-gated tests ran;
 17 fixtures with zero open calls after the sweep. The central test was run against
 HEAD's sources first and failed for all six seats in both clauses. `--panel-render`
 was never used and port 8787 was not touched.
+
+---
+
+## 2026-08-10 — ADR-006 step 3: what stands on the desk (declared, not bound)
+
+**Scope.** ADR-006 §1/§2c/§2d, declarations only: `assets/manifest.json`
+(`room.props.roles`), one new test file, `docs/04-ART-DIRECTION.md`. No
+`SceneDirector`, no chooser, nothing drawn — the manifest names three objects
+and no code reads any of them yet, same as step 1 left `surface_y` unread.
+
+**Verified every index by rendering it, not by reading the ADR's own table.**
+Built contact sheets of `assets/processed/room/32x32/singles/` at 6-14x nearest-
+neighbour for the whole desk-scale band the ADR named (120-179) plus a scan of
+the full 339-single pack for anything narrower the ADR might have missed, and
+looked at each one. The ADR's own inventory held up except on one point it
+flagged for scrutiny — the width budget, below — which is exactly the kind of
+number this task's brief said not to trust unchecked (the standing example
+being "workbenches 85-101", which turned out to be a bench, ten rugs, a framed
+picture, three plants already bound elsewhere, and a rucksack).
+
+**Re-derived the SS2c width bound instead of assuming 28px.** The near edge is
+where `SeatedHead.clearance(nearEdgeX:)` — the real, shipped clearance
+function, not a re-implementation — goes unbounded: `column >= canvasWidth`,
+i.e. `nearEdgeX >= canvasWidth / 2 = 16` for this cast's 32px canvas. The far
+edge is the desk's own footprint: `RoomLayout.deskPosition(0).x -
+seatPosition(0).x` is 28, and the manifest's own `desk` role is 32px wide, so
+the desk's right edge sits at `28 + 16 = 44`. `44 - 16 = 28`. Confirmed against
+the shipped code and manifest by a Swift test
+(`theDeskTopWidthBoundIsTwentyEightPixels`) rather than left as arithmetic in a
+doc comment, and confirmed the `+16` threshold itself against every real seated
+frame in the cast (`theSeatedHeadClearanceThresholdMatchesWhatTheWidthBoundAssumes`).
+
+**The width bound rejected one of the four kinds, and that is reported rather
+than worked around.** Measuring ink bounding boxes (alpha>0, same convention
+`content_box` already uses) over the whole desk-scale band:
+
+| kind | candidate(s) | measured width | verdict |
+|---|---|---|---|
+| `authoring` | laptop, singles 135/137/138/140, wedge lid-up | 26px | fits; declared as `laptop` (135) |
+| `research` | paper stack, singles 153/154/155 | 24 / 32 / 32px | only 153 fits; 154 and 155 are the same family over budget. Declared as `papers` (153) |
+| `coordinating` | pad/book, single 179 | 24px | fits; declared as `pad` (179) |
+| `running` | desk monitor, singles 130-134, lit screen | 30-32px, all five | **none fits. Not declared.** |
+
+Every monitor candidate in the pack — front view and both ¾ angles, 130 through
+134 — measures 30-32px against the 28px bound, by 2-4px, consistently across
+the full ink footprint (checked row by row on 130/131/133, not just the
+bounding box, in case a foot or a cable was inflating it — it wasn't; the
+screen bezel itself is 32px). No narrower monitor exists anywhere else in the
+339-single pack; the width<=28,height 18-42 band was swept in full and the only
+other matches are backpacks, rugs, cabinets, framed pictures and vending-
+machine-shaped equipment, none a monitor. So `running` gets nothing rather than
+a compromise — the brief's own rule ("three unmistakable objects beat four
+where one is a guess") and the project's standing refusal of the cog, the
+hammer and the hand-mirror.
+
+**Palette risk did not materialise, checked rather than assumed.** The brief
+flagged a lit monitor screen as the obvious I7 risk. Measured anyway, on all
+three declared singles and the five rejected monitor candidates, using the same
+`scan()` the lint runs: max saturation tops out at 0.183 (the laptop's screen
+icons) against the 0.25 ceiling — comfortably under, because this pack's "lit"
+screens are pale blue-grey rather than saturated. The monitors were rejected on
+width, not on palette; had a narrower one existed it would have passed I7
+cleanly.
+
+**Silhouette distinctness, checked by flattening to solid black at true 1x**,
+per this file's own standing rule for character variants, applied here to
+objects: laptop is a diagonal wedge, papers a small low diamond, pad a tall
+solid bar, and the rejected monitor a rectangle-on-a-stalk — four different
+outlines, confirmed at native (1x) size, not just at magnification. Pinned in
+`DeskTopObjectTests.theDeclaredSinglesInkFootprintsAreDistinctSilhouettesAtOnex`
+(gated on the art) and, cheaply and ungated, by no two declared roles sharing
+both content-box dimensions.
+
+**Manifest.** Hand-edited, not generated — `scripts/build-manifest.py` was not
+run. Path count (`file` keys ending `.png`, walked recursively): **47 before,
+50 after**, +3, matching the three roles added and nothing else. `git diff
+assets/manifest.json` is 41 insertions / 1 deletion across one prose-note edit
+and three new role blocks in `room.props.roles`, read line by line before
+writing this. `room.props.roles` is already in `build-manifest.py`'s
+`GUARDED_SECTIONS`, unchanged, and now covers 7 entries instead of 4 — larger,
+not smaller. No `ensure_ascii` risk: nothing was written with `json.dump`, and
+the new prose is plain ASCII (checked: the file's only non-ASCII bytes remain
+the pre-existing escaped `—` sequences, none newly introduced as raw
+UTF-8).
+
+**Tests** (`Tests/SpriteRoomSceneTests/DeskTopObjectTests.swift`, 9 new): the
+three declarations exist with the exact file/single_index/content_box measured
+above; `running` (and `monitor`/`screen`/`display`) has no role; the three new
+roles are not `desk`/`chair` and the full role-name set is pinned; no two share
+a content-box shape; the 28px bound is re-derived from `RoomLayout` and the
+manifest's own `desk` rather than hardcoded, and every declared role fits it
+[art-gated: the `+16` threshold reproduced against the real cast; the rejected
+monitor singles 130-134 reproduced over the bound and the three declared roles
+reproduced under it **from the actual pixels**, not from `content_box` alone,
+so a future edit that drifts the manifest from the art is caught here; the
+three silhouettes proven pixel-distinct]. `SceneArt.expectedGatedTestCount`
+raised 77 -> 80 for the three gated tests, with the doc-comment entry the
+convention requires.
+
+**docs/04-ART-DIRECTION.md** updated in the same change: the "Prop roles —
+added at M5" section's claim that monitors and laptops were "deliberately not
+added" because "the art carries no datum for where that surface is" is now
+false — step 1 gave `desk` a `surface_y` — so it is marked out of date in the
+section's own established idiom (a blockquote replacing stale prose, the
+pattern already used twice elsewhere in this file) rather than silently
+rewritten, and a new table records the three roles, their singles, and the
+`running` rejection with its reason.
+
+**Verification.** `swift build --build-tests -Xswiftc -warnings-as-errors`
+clean. `SPRITE_ROOM_REQUIRE_ART=1 swift test`: first run (concurrent with other
+agents' `swift build`s in this shared checkout, several "another instance of
+SwiftPM" waits observed) showed 1 failing issue with no detail captured behind
+a `tail -200` truncation; re-run clean end to end, **695 tests / 64 suites**
+green, 80 art-gated tests ran and reported. `python3 scripts/lint-palette.py`
+exit 0 — room saturation ceiling 0.183 against 0.25, `laptop`/`papers`/`pad`
+counted among the room's 480 files and none flagged; the three new roles do
+not appear in "role copies per panel" (`board x4, chair x7, desk x7, plant
+x3`), confirming nothing draws them yet. `./.build/debug/spriteroom-replay
+--all`: 17 fixtures, zero open calls after the sweep. Not committed, per
+instruction.
+
+**What was not honoured.** `running` (desk monitor with a lit screen) has no
+declared desk-top role. Every candidate in the pack measures 30-32px against
+the derived 28px width bound and no narrower one exists anywhere in the
+339-single pack. Three of the four work kinds got a role; the fourth is
+reported here rather than filled with the least-wrong monitor available.
+
+---
+
+## Task #66 — `turnChanged`: the main agent's turn boundary (ADR-005 §3, correction 1)
+
+Closes the blind spot ADR-005 names in its own text. `Stop` emitted no delta and
+neither did a second `UserPromptSubmit`, so the main character sat down at its
+session's first event and stood up only when it left; 26 `Stop`s in the corpus
+drew nothing while a subagent's turn end got the whole report walk.
+
+**Measured first, before designing, because the ADR's §9 risk 3 is that `Stop`
+fires several times in one user turn.** Over all 17 fixtures, main-agent
+`Stop` → next consumed event:
+
+| next event | n | interval |
+|---|---:|---|
+| `UserPromptSubmit` (re-seats) | 12 | 4.226 / 4.499 / 5.165 / 5.370 / 9.603 / 10.135 / 11.096 / 22.865 / 34.327 / 67.430 / 67.879 s, +1 whose stream ends |
+| `SessionEnd` (departs) | 14 | 0.008 / 0.010 / 0.011 / 0.016 / 0.021 s, then 22.1–121.4 s |
+| `Notification` (neither) | — | 6.28 s and 8× 60.02 s, all mid-interval |
+
+**Not one of the 26 is followed by more work in the same turn** — zero
+`Stop`→`PreToolUse` and zero `Stop`→`SubagentStart`. That is structural, not
+lucky: the way an async subagent wakes the main thread is a *synthetic*
+`UserPromptSubmit` carrying its own `prompt_id`, which is itself an opener. So
+"several `Stop`s in one user turn" always has an opener between them and both
+readings draw the same picture. The residual — a subagent returning in
+milliseconds — is not in `fixtures/`; ADR-005 §10 item 2 remains the guard.
+
+**Built.** `WorldDelta.turnChanged(agent:hasTurn:)`, on `gateChanged`'s footing.
+It is a **`Bool`, not the `turnEnded(agent:)` one-shot the ADR sketched**, and it
+had to be: the scene needs the opening edge too, and for a main thread already on
+screen the only event carrying one is a second `UserPromptSubmit` — which by this
+very correction emitted nothing. A one-shot would have needed a second delta
+beside it saying the same fact. `dormancyChanged` took the same shape for the
+same reason. Closed by `Stop`; opened by `UserPromptSubmit`, `SubagentStart` and
+any `PreToolUse`, the last of them emitting **ahead of** its `callOpened` so a
+call can never reach a standing character.
+
+**Subagents deliberately never get one.** `SubagentStop` is already
+`dormancyChanged`, which `03-EVENT-MODEL.md` names as their turn boundary; two
+deltas for one fact would give `SceneDirector` two writers of one field. No agent
+can receive both — `Stop` never carries an `agent_id`, `SubagentStop` always
+does. Pinned over every capture.
+
+**Reaping [I4], and its obligation points the *opposite* way from
+`gateChanged`'s.** The dangerous standing value here is `true`: a scene left
+holding it draws a character seated forever, asserting a turn that is still
+running. Four paths bound it — `Stop` emits the close explicitly; `SessionEnd`,
+the 30-minute idle sweep and eviction take the character with them and ride on
+`agentDeparted`, the same division `dormancyChanged` and `gateChanged` make. The
+`false` direction needs no reaping: standing claims nothing, and work always
+re-opens the turn before the call opens. Checked on the *stream* by
+`noCharacterIsLeftSeatedOnceTheReaperHasHadItsSay` and
+`noCharacterEverWorksWhileItsTurnIsOver` over all 17 captures.
+
+`ProjectRegistry` replays it, **after** the `callOpened` loop rather than beside
+the other three standing facts — `callOpened` is itself an opener, so the old
+ordering would have seated exactly the characters it had just stood up. That is
+reachable: five `Stop`s in the corpus arrive with an interactively denied `Bash`
+still open. Two tests, one for the fact and one for the ordering.
+
+**Posture changes per fixture, before → after** (frame-batched, counting the
+initial draw):
+
+| fixture | keyed to call | ADR-005 §3 as shipped | + `turnChanged` |
+|---|---:|---:|---:|
+| four-subagents | 39 | 13 | 24 |
+| three-subagents | 10 | 7 | 13 |
+| concurrent-permission-gates | 8 | 4 | 7 |
+| denial-then-work | 2 | 1 | **6** |
+| subagent-permission | 6 | 3 | 4 |
+| idle-notification | 1 | 1 | **2** |
+| interactive-batch-serial | 3 | 1 | 2 |
+| interactive-session | 1 | 1 | 2 |
+| parallel-denial | 2 | 1 | 2 |
+| permission-prompt | 2 | 1 | 2 |
+| queued-prompt | 3 | 1 | 2 |
+| unknown-events | 3 | 1 | 2 |
+| denied-batch-cancel / killed-session / parallel-tools / single-agent-simple / tool-failure | 2/6/3/3/1 | 1 each | 1 each |
+| **total** | **95** | **40** | **73** |
+
+`denial-then-work` 1 → 6 and `idle-notification` 1 → 2 are the two rows ADR-005
+§3 predicted, hit exactly. `spriteroom-replay fixtures/denial-then-work.jsonl`
+now prints 27 deltas for 28 events, six of them `turnChanged`, against 20 and
+none.
+
+**Minimum posture dwell, and the one number the manager asked me to stop on.**
+
+| | before | after |
+|---|---:|---:|
+| shortest **standing** dwell (stood up, then sat back down) | 8.196 s | **4.226 s** |
+| shortest **seated** dwell (sat down, then stood up) | ∞ | **1.706 s** |
+| composite, either posture | 8.196 s | **1.706 s** |
+
+**The composite falls below 4.2 s and I do not think that is the complaint
+getting worse — here is the evidence, and the decision is the maintainer's.**
+Every posture interval in the whole corpus under 4.2 s is a **seated** one: 1.706
+(idle-notification), 1.795 / 2.325 (three-subagents), 1.972 / 2.094 / 2.180
+(four-subagents), 4.215 (concurrent-permission-gates), 4.263 (denial-then-work).
+Every one is a *complete turn*, `UserPromptSubmit` → `Stop`. The shortest
+**standing** interval is 4.226 s, which is ADR-005 §3's own predicted number to
+the millisecond, and nothing is under it.
+
+The distinction is the whole point: a short standing interval means a turn
+boundary was drawn where no turn ended, which is the strobe returning on a new
+key. A short seated interval means the assistant answered in 1.7 s and the room
+said so. `idle-notification` draws exactly **one** transition in its entire life
+— spawn seated, stand at 1.706 s, stand for the next 119 s — so the 1.706 s
+figure is the interval from *appearing* to the single change, not an alternation.
+The busiest stretch in the corpus is `four-subagents` t=56.8–84.6: sit 2.09,
+stand 4.23, sit 1.97, stand 5.17, sit 2.18, stand 4.50 — six changes over 28 s,
+each one a real turn boundary, nothing between them.
+
+There is no design that keeps the composite above 4.2 s without a hold constant,
+and ADR-005 §2 *proves* no hold classifies correctly. So `PostureTests` now
+measures the two postures apart and pins both, and the binding assertion moved to
+the standing half. If the maintainer reads a 1.7 s turn as a stutter, the
+separable thing to drop is seating the character at a prompt (ADR-005 §9 risk 4),
+which costs `idle-notification` and leaves M4 half-fixed.
+
+**Two side effects worth naming.** A `Stop` ends the turn whatever the open-call
+set holds — five in the corpus arrive over an interactively denied `Bash` nothing
+will ever close. Standing that character up is the truer picture, and it
+*removes* motion: `AmbientMotion` returns `idleSequence` for a standing body, so
+those five phantom calls stop driving the `terminal` phrase (250 ms period, the
+busiest row in the table) over an agent doing nothing. Second, a cold `Stop` for
+an unseen session now creates its main character already **standing** rather than
+seated, which is the honest reading of the only event we have about it.
+
+**Render evidence, read.** `spriteroom --render` (never `--panel-render`),
+`denial-then-work` at 960×540: t=38 seated side-on at the desk, t=40 standing
+front-facing in the walkway (the `Stop` at 39.751), t=105 standing under the
+`idle_prompt` bubble, t=108 seated again (the prompt at 107.181), t=112 standing
+(the `Stop` at 111.444). Seated→standing is **852 px of 518 400**, all of it
+inside a 44×68 box on the one character. `idle-notification` t=1 seated / t=3
+standing — a turn that calls no tool, visible on the body for the first time.
+
+**Verification.** `swift build --build-tests -Xswiftc -warnings-as-errors` clean.
+`SPRITE_ROOM_REQUIRE_ART=1 swift test` green: 695 tests / 64 suites, art PRESENT
+(2228 paths). 15 of those tests are this change's (8 `TurnBoundaryTests`, 5
+`PostureTests`, 2 `ProjectRegistryTests`); the rest of the delta from the 671 at
+HEAD is another agent's concurrent work in the same checkout.
+`python3 scripts/lint-palette.py` passes. `./.build/debug/spriteroom-replay
+--all`: 17 fixtures, zero open calls after the sweep. Not committed, per
+instruction. `assets/manifest.json`, `scripts/build-manifest.py`,
+`RoomScene.swift`, `RoomLayout.swift` and `RoomCamera.swift` untouched.
+
+**Central test seen RED first**:
+`PostureTests.theMainCharacterStandsWhenItsTurnEndsAndSitsWhenTheUserPrompts`
+failed at HEAD with `measured.after → 1` against the expected 6, and
+`aTurnThatCallsNoToolIsStillVisibleOnTheBody` with 1 against 2.
+
+---
+
+## `running`'s desk monitor — authored, closing ADR-006 §1's fourth gap
+
+A previous agent declared `laptop` (135), `papers` (153) and `pad` (179) as
+desk-top roles for `authoring`, `research` and `coordinating`, and correctly
+refused `running`: every desk monitor in the pack (130–134) measures 30–32 px
+against the 28 px SS2c width bound, checked row by row over all 339 singles.
+No compliant single exists. That refusal was right and is unchanged.
+
+The refusal was also the wrong stopping point, because `Bash`/`BashOutput`/
+`KillShell` are `running`'s tools and `Bash` is the corpus's single most common
+tool call — 37 against `Read`'s 19 (ADR-006 §3b). With no object, `running`
+draws the bare desk, which is the same picture abstention draws — so the most
+common kind would have been the one invisible kind, inverting what the feature
+is for.
+
+**The fix is authored art, not a relaxed bound or a fifth pack purchase.**
+`HeldObjectArt`'s own doc comment states the licence and this relies on it
+rather than re-arguing it: "I1 forbids the room asserting *data* the hooks did
+not give us; it says nothing about who drew the pixels." Four things in this
+room are already authored — four of seven badges, every nameplate, the `×N`
+chip, the dormancy tab — and `HeldObjectArt` is a fifth. `DeskMonitorArt`
+(`Sources/SpriteRoomScene/DeskMonitorArt.swift`) is a sixth, in the same shape:
+an ASCII design grid at half scale, doubled onto whole pixels, in the pack's
+own inks.
+
+**The design grid** (`.` transparent, `o` outline, `a` screen, `b` status dot),
+10×11 before doubling, 20×22 canvas after:
+
+```
+oooooooooo
+oaaaaaaaao
+oaabaabaao
+oaaaaaaaao
+oaaaaaaaao
+oooooooooo
+....oo....
+....oo....
+....oo....
+..oooooo..
+.oooooooo.
+```
+
+Screen (rows 0–5, 10 cols wide) — stalk (rows 6–8, 2 cols) — flared base
+(rows 9–10, 6 then 8 cols). ADR-006 §1a names the intended family, "an upright
+rectangle on a stalk"; the stalk is what `pad` (a book standing on its own
+spine, no waist) does not have.
+
+**Width, re-derived rather than trusted.** `DeskTopObjectTests
+.deskTopWidthBound` computes 28 px from `RoomLayout`/the manifest's own `desk`
+role, unchanged. The monitor's ink footprint is **20 px** — six under the
+bound, more margin than `laptop`'s own 26 px declaration leaves ("comfortably
+under" was the brief's own instruction).
+
+**Silhouette, checked as a real structural claim, not a pixel-set inequality.**
+A raw "narrowest row / widest row" ratio does not separate the monitor from the
+three sourced siblings: `laptop`'s wedge corner tapers to a single pixel
+(ratio 0.077) and `papers`'s angled edge to 0.18, both tighter than the
+monitor's own 0.2, despite neither having a waist in the sense that matters.
+The predicate that actually separates them is an **interior** row pinched to
+under half of the widest row *on both sides of it* — a valley with two real
+shoulders, which a monotonic taper toward one edge cannot produce.
+`hasInteriorWaist`, first checked in Python against the three siblings' real
+row-width profiles before being written into Swift:
+
+| shape | profile | interior waist? |
+|---|---|---|
+| `laptop` | 4,4,6,6,…,26,26,…,6,6,2,2 (single unimodal hump) | no |
+| `papers` | 4,4,8,8,…,22,22,…,10,10,6,6 (single hump) | no |
+| `pad` | flat at 24 for 36 rows, tapers to 8 at one end only | no |
+| monitor | 20 (screen) → 4 (stalk) → 12,16 (base) | **yes** |
+
+`DeskTopObjectTests.theMonitorsOwnRowProfileHasAnInteriorWaist` (ungated,
+pure arithmetic on the authored bitmap) and `.noSourcedSiblingsRowProfileHasAn
+InteriorWaist` (gated, opens the three real PNGs) both pass.
+
+**Palette [I7], room ceiling not character floor** — this object stands on the
+desk, in the room, not in a character's hands. All three colours are sampled
+from the shipped pack rather than invented: `(154, 154, 170)` is the shared
+structural ink across `desk`/`laptop`/`papers`/`pad`'s own processed singles
+(sat 0.094, val 0.667); the lit screen, `(182, 198, 222)`, is `laptop`'s own
+screen colour (sat **0.180**, val 0.871 — the brief quoted the `laptop`
+declaration's own measured 0.183 as the budget for a lit screen; this is the
+same pixel, to a rounding step); the status dot, `(159, 159, 175)`, sat 0.091,
+val 0.686. All inside the room's `[0.55, 0.92]` value band and under the 25%
+saturation ceiling with real margin. `scripts/lint-palette.py` reads the
+manifest and this object has no manifest entry (see below), so it cannot see
+any of this — `DeskMonitorArtTests` measures what the lint cannot, the same
+arrangement `HeldObjectArtTests` uses for the held layer.
+`thePaletteIsReallySampledFromTheShippedPackFiles` (gated) opens
+`desk`/`laptop`/`papers`/`pad`'s real pixels and confirms all three bytes
+really are there.
+
+**Height — does not reach the head at either desk surface (24 px, five
+themes; 36 px, two).** `RoomLayout.deskSurfacePosition(seat:surfaceHeightAbove
+Floor:)` only moves `y`; the near-edge `x` is `deskPosition(_:).x` regardless
+of which surface height a theme uses (`theSurfaceHeightNeverMovesTheMonitors
+NearEdgeX`, ungated). `SeatedHead.clearance(nearEdgeX: 16)` — the same near
+edge SS2c places every desk-top object's left side at — is unbounded
+(`== canvasHeight`) against the real seated cast
+(`theMonitorCannotCoverAHeadPixelAtEitherDeskSurfaceHeight`, gated): there is
+no height, at either surface convention, at which a surface starting there
+covers a head pixel. This is ADR-006 §2c's own argument, re-run at this
+object's own near edge rather than assumed to transfer from the three roles
+that never checked it either.
+
+**No manifest entry — deliberately, unlike `laptop`/`papers`/`pad`.** Those
+three point at real pack PNGs, so the manifest is the right place for their
+provenance. This object has no source file to point at; it is drawn by the
+scene, exactly like `HeldObjectArt`, `SceneBitmaps.nameplate` and the four
+authored badges, none of which carry a manifest entry either. `assets/
+manifest.json` is untouched by this change — checked in the diff, png path
+count unmoved.
+
+**Not bound.** No `WorkKind`, no chooser, no `SceneDirector` edit — out of
+scope by instruction and by ownership (another agent is live in
+`SceneDirector.swift`/`ProjectRegistry.swift`/`SpriteRoomCore/` right now).
+This closes the vocabulary; wiring is separate.
+
+**Verification**, in a checkout also carrying two other agents' uncommitted
+work in `Sources/SpriteRoomCore/`, `SceneDirector.swift`, `ProjectRegistry.swift`
+and elsewhere — built and tested in place since the whole tree compiled and
+none of the failures below trace to those files:
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean.
+`SPRITE_ROOM_REQUIRE_ART=1 swift test`: **704 tests / 65 suites, all green**,
+art PRESENT (2228 paths), **83 art-dependent tests ran** (was 80;
+`SceneArt.expectedGatedTestCount` updated in the same change — three new gated
+tests in `DeskMonitorArtTests`, the pre-existing `theDeclaredSinglesInkFootprints
+AreDistinctSilhouettesAtOnex` extended to include the monitor rather than
+counted again). `python3 scripts/lint-palette.py` passes (room max saturation
+unchanged at 0.183 — this object is invisible to it, as expected and as
+documented). `./.build/debug/spriteroom-replay --all`: 17 fixtures, zero open
+calls after the sweep, unaffected since nothing in `SpriteRoomCore` or
+`SceneDirector` was touched. Not committed, per instruction.
+
+Files: `Sources/SpriteRoomScene/DeskMonitorArt.swift` (new);
+`Tests/SpriteRoomSceneTests/DeskTopObjectTests.swift` (new `DeskMonitorArtTests`
+struct, and the silhouette test above extended); `Tests/SpriteRoomSceneTests/
+SceneFixtures.swift` (`expectedGatedTestCount` 80 → 83, with the count's own
+derivation documented); `docs/04-ART-DIRECTION.md` and
+`docs/ADR-006-the-desk-says-the-work.md` (the gap recorded as closed, in both
+places that documented it as open). `assets/manifest.json` untouched.

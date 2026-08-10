@@ -4687,7 +4687,7 @@
         "h": 96
       },
       "identified": true,
-      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 4 roles below were identified by rendering the singles and looking at them; the other 335 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b]",
+      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The roles below were identified by rendering the singles and looking at them; the other unidentified files are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b] `laptop`, `papers` and `pad` are desk-top object declarations for ADR-006 SS1/SS2c \u2014 measured content_box only, not yet placed by any scene code. A fourth kind, a desk monitor with a lit screen for `running`, is deliberately not declared: every candidate single in the pack's desk-scale band (130-134, 30-32px wide) exceeds the SS2c desk-top width bound of 28px, so no compliant art exists for it.",
       "roles": {
         "board": {
           "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_171.png",
@@ -4740,6 +4740,45 @@
             "y": 40,
             "w": 32,
             "h": 36
+          }
+        },
+        "laptop": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_135.png",
+          "single_index": 135,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye for ADR-006; verified against the desk-top width bound derived in ADR-006 SS2c (W <= 28px) rather than trusted from the ADR's own table",
+          "what": "open laptop, lid up, 3/4 view, screen showing two faint icon dots - a wedge silhouette, unbound: no scene code reads this role yet [ADR-006 SS1a authoring]",
+          "content_box": {
+            "x": 4,
+            "y": 38,
+            "w": 26,
+            "h": 40
+          }
+        },
+        "papers": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_153.png",
+          "single_index": 153,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye for ADR-006; the two taller stacks at singles 154 and 155 read the same family but measure 32px wide, over the SS2c width bound, so only 153 is declared",
+          "what": "small stack of a few loose sheets, angled - a low flat slab silhouette, unbound: no scene code reads this role yet [ADR-006 SS1a research]",
+          "content_box": {
+            "x": 8,
+            "y": 72,
+            "w": 24,
+            "h": 22
+          }
+        },
+        "pad": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_179.png",
+          "single_index": 179,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye for ADR-006; the pack ships no names for its singles",
+          "what": "book or pad standing upright on its spine, on a small base - a thin upright board silhouette, unbound: no scene code reads this role yet [ADR-006 SS1a coordinating]",
+          "content_box": {
+            "x": 8,
+            "y": 32,
+            "w": 24,
+            "h": 42
           }
         }
       },

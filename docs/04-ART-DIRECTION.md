@@ -875,11 +875,79 @@ the scene puts that box's bottom-centre on a named point. A fixed offset would
 have been right for one file and 12 px into the floor for the next.
 
 **The other 334 singles stay unidentified**, and stay out of the role map. A
-role nothing draws is an invitation for the scene to guess. Monitors (121–133)
-and laptops (139–140) are identifiable too and were deliberately *not* added: a
-monitor has to stand on a desk's surface and the art carries no datum for where
-that surface is, so placing one would be an eyeballed offset dressed up as
-data. [I1]
+role nothing draws is an invitation for the scene to guess.
+
+> **The paragraph above is out of date and this one replaces it.** ADR-006 §2b
+> gave `desk` a measured `surface_y`, so "the art carries no datum for where
+> that surface is" is no longer the reason a desk-top object waits. ADR-006 §2c
+> then derived the placement rule and its width bound — 28 px, an object's near
+> edge at the seat's +16 and its far edge inside the desk's own footprint at
+> +44 — and step 3 checked every candidate in the pack's desk-scale band
+> (120–179) against it, by rendering and measuring, not by trusting the ADR's
+> own table (which the ADR itself flags one correction against: "workbenches
+> 85–101" from an earlier inventory are a bench, ten rugs, a framed picture,
+> three plants already bound elsewhere and a rucksack — no workbench there at
+> all). Three of the four work kinds got a role; `running`'s did not, and the
+> reason is the same width bound rather than a missing datum:
+
+| Role | Single | What it is | Work kind |
+|---|---|---|---|
+| `laptop` | 135 | open laptop, lid up, ¾ view — a wedge silhouette | `authoring` |
+| `papers` | 153 | small stack of loose sheets, angled — a low flat slab | `research` |
+| `pad` | 179 | book or pad standing on its spine, on a small base — a thin upright board | `coordinating` |
+
+> **`running`'s desk monitor was not added.** Every candidate in the pack's
+> monitor family — singles 130–134, lit screen, front or ¾ view — measures
+> 30–32 px wide against the 28 px bound; none fits, so none was declared. Two
+> paper stacks the pack ships alongside `papers` (154 and 155, 32 px each) are
+> over budget for the same reason and stay unidentified too. Three
+> unmistakable objects beat four where one is a guess [ADR-006, following
+> CLAUDE.md's own refusal of the cog, the hammer and the hand-mirror].
+>
+> **Declared, not bound.** As of this entry these three roles sit in
+> `room.props.roles` exactly as `desk`/`chair`/`board`/`plant` do, with a
+> measured `content_box` each — and nothing in `SceneDirector` or `RoomScene`
+> reads any of the three by name yet. The step that chooses which one an agent
+> is drawn with, if any, is separate and later.
+
+> **`running`'s gap is closed, and not by buying a fourth pack single —
+> `Bash` is the corpus's own most common tool (37 calls against `Read`'s 19,
+> ADR-006 §3b), so the bare desk would have been the *typical* picture rather
+> than a rare abstention.** `DeskMonitorArt` (`Sources/SpriteRoomScene/`)
+> authors a desk monitor the way `HeldObjectArt` authors the six held objects
+> and `SceneBitmaps` authors the nameplate, the `×N` chip and the dormancy tab:
+> a design grid in the pack's own inks, doubled onto whole pixels. I1 governs
+> data, not who drew the pixels — see `HeldObjectArt`'s own doc comment and
+> ADR-005 §0, which this repeats rather than re-argues.
+>
+> Screen, stalk, base — 20×22 px, six whole pixels under the 28 px bound (the
+> brief's own "comfortably under" instruction; `laptop`'s own 26 px declaration
+> leaves less). The stalk is the feature that earns the family ADR-006 §1a
+> names, "an upright rectangle on a stalk": `pad` (a book standing on its own
+> spine) has no comparable waist, and `DeskTopObjectTests
+> .noSourcedSiblingsRowProfileHasAnInteriorWaist` checks that against `pad`'s,
+> `laptop`'s and `papers`'s real pixels rather than trusting the picture in a
+> comment — a naive narrowest-over-widest ratio does not separate them
+> (`laptop`'s own wedge corner tapers to 0.077, tighter than the monitor's
+> 0.2), so the check is a valley with real shoulders on both sides, not a bare
+> ratio.
+>
+> Every colour is sampled from `desk`/`laptop`/`papers`/`pad`'s own processed
+> pixels rather than invented — `(154, 154, 170)` is the shared structural ink
+> across all four files, and the lit-screen colour, `(182, 198, 222)`, is
+> `laptop`'s own screen ink, measured at 0.180 saturation against the room's
+> 0.25 ceiling, matching the 0.183 the `laptop` declaration itself measured.
+> `scripts/lint-palette.py` cannot see any of this — it reads
+> `assets/manifest.json`, and this object, like every other authored bitmap in
+> the room, carries no manifest entry, because there is no source file for one
+> to name. `DeskMonitorArtTests` is where the room's I7 numbers are checked for
+> it instead, the same arrangement `HeldObjectArtTests` uses for the held
+> layer.
+>
+> **Declared and legible, not bound.** Nothing in `SceneDirector` chooses
+> `running`'s desk object, exactly as nothing yet chooses `authoring`,
+> `research` or `coordinating`'s. This closes the vocabulary; a chooser is a
+> separate, later change.
 
 `SceneBitmaps.placeholderDesk` survives as the fallback for a manifest with no
 `desk` role, so the room still draws against an older manifest.

@@ -277,7 +277,39 @@ enum SceneArt {
     /// other five are arithmetic on `RoomLayout` and `DeliveryFloor` — including
     /// the whole of the collision argument and the whole of the [I4] argument —
     /// so a fresh clone still checks everything this change has to prove.
-    static let expectedGatedTestCount = 77
+    ///
+    /// 80 with ADR-006's desk-top object declarations: three of
+    /// `DeskTopObjectTests`' nine need the pack. One re-derives the SS2c
+    /// near-edge-16 threshold against every real seated frame; one recomputes
+    /// the three declared singles' ink boxes from the actual PNGs (catching
+    /// `content_box` drift) and confirms the rejected desk-monitor candidates
+    /// (130-134) really do exceed the derived width bound, so `running`'s
+    /// abstention is checked against pixels rather than trusted from prose; one
+    /// confirms the three declared silhouettes do not coincide pixel for pixel.
+    /// The other six in that file — the declarations themselves, that `running`
+    /// has no role, and the 28px bound re-derived from `RoomLayout` — are data
+    /// and arithmetic, so a fresh clone still checks them.
+    ///
+    /// 83 with `running`'s authored monitor (`DeskMonitorArt`): three new gated
+    /// tests in `DeskMonitorArtTests`, plus the pre-existing
+    /// `theDeclaredSinglesInkFootprintsAreDistinctSilhouettesAtOnex` extended
+    /// (not counted again) to include it. One opens `desk`/`laptop`/`papers`/
+    /// `pad`'s own processed pixels to confirm the monitor's three colours
+    /// really are sampled from them, rather than trusted from the doc comment
+    /// that says so. One opens the same three roles' pixels to prove none of
+    /// them has the interior waist the monitor's own row profile does —
+    /// the silhouette-family claim, checked against the shapes it is
+    /// contrasted with rather than only against itself. One re-derives
+    /// `SeatedHead.clearance` at the monitor's own near edge against the real
+    /// seated cast, closing this task's explicit "does not reach the head at
+    /// either desk-surface height" obligation. The rest of
+    /// `DeskMonitorArtTests` — the palette band, the palette's closed set, the
+    /// 2x2 grid, the width bound, the row-profile waist on the monitor's own
+    /// bitmap, and that a desk-surface height never moves the near-edge x —
+    /// are pure bitmap and `RoomLayout` arithmetic over art this repository
+    /// draws itself, so a fresh clone still checks them, the same reasoning
+    /// `HeldObjectArtTests` uses for its own four ungated tests.
+    static let expectedGatedTestCount = 83
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.
