@@ -6445,3 +6445,136 @@ renders. Final runs in the real tree, with both changes present:
 `scripts/lint-palette.py` exit 0, `spriteroom-replay --all` 17 fixtures with zero
 open calls after the sweep. `--panel-render` was never used and port 8787 was not
 touched.
+
+---
+
+## 2026-08-10 — Task #62: the reporter walks to the anchor again, on one shared row
+
+**Found.** The maintainer, watching the live app: *"When they complete/turn in
+their work, they aren't walking to the main agent, they just walk down and pass
+the envelope to no one."* They are right, and it is M6f's approved trade coming
+due. `deliveryPosition`'s own doc comment recorded the cost honestly — "the
+reporter no longer arrives at the anchor's desk" — and understated what it looks
+like: the beat *depicts* a transfer between two characters, and the second
+character is not there. Measured on the code as it stood, at the frame the
+reporter plays `deliver`:
+
+| reporter | to its anchor | to the nearest character |
+|---|---:|---:|
+| seats 1, 2 | 101.2 px | 101.2 px — a tie with the next ring out |
+| seats 3, 4 | 194.6 px | 135.8 px — a stranger |
+| seats 5, 6 | 289.8 px | 101.2 px — a stranger |
+
+The seat pitch is 96, so on the room's own unit of "not next to each other" the
+anchor was never next to the reporter, and for four of six seats the nearest
+character was somebody else entirely. That is an I1 problem and not only a
+composition one.
+
+**The arithmetic, re-derived rather than trusted.** The band at HEAD is **160**:
+51 px of badge slot, 13 px of plate, 64 px of seat rows, 32 px of walkway; a `2x`
+view of the 720×400 panel gives 200. So the headroom is 40 px and the task's
+figure was right. (It is 170 → 178 → 160 in the two commits the task names:
+`2806f5c` *cost* 8 px by putting the task on the plate, `2caa864` gave back 18 by
+cutting the plate to one row.) **One** shared delivery row is 32 → **192**, 8 px to spare.
+Three rows — what M6f deleted — would be 256 and does not fit. The room's own
+share of the band goes 96 → 128.
+
+**The two objections M6f rejected this on, answered.**
+
+*The scheduler.* There is no schedule and nothing waits, which is a better answer
+than a bounded queue. `DeliveryFloor` grants a claim on the **stretch of the row**
+a beat will occupy — `deliveryCorridor`, every x from the reporter's own column to
+where it stands to hand over, held for the whole round trip — and refuses a claim
+that comes within `clearance` of a live one. A refused reporter plays the beat
+M6f left behind, in its own column on the walkway, **in the same frame**. So the
+exclusion is a statement about two intervals rather than about timing, no report
+is ever delayed, there is no queue to drain, and the only reapable thing is the
+claim. It is released three ways: on the beat finishing; every frame, for any
+claimant that has stopped running a script (which covers a character retired
+mid-beat); and on a per-claim budget of twice the beat's own computed length,
+whose clock starts at the first sweep after the claim so it is correct against
+the render loop's uptime origin. If a claim ever did leak, the room degrades to
+exactly what ships today — every later report uses the in-place beat — rather
+than to a stuck character.
+
+*The corridor.* It does **not** cross the row every arrival steps through, and
+that objection had already expired when it was written down: M6f itself moved the
+walk-in from "one seat pitch outward along the walkway" to "straight up its own
+column from the walkway". `deliveryRowY` is one tile downstage of the walkway and
+**nothing else in the room can be on it** — arrivals begin on the walkway,
+`homeRoute` and `upstageExit` only increase `y`, both seat rows and every prop
+`decorationPlacements` puts down are upstage. The reporter reaches the row down
+its own column and leaves it up its own column. So the room's rule is now:
+
+> Every leg of every route is either **vertical inside the moving character's own
+> column**, or **lateral on `deliveryRowY`** — a row no other route touches.
+
+`theRoomsOneLateralCorridorMeetsNoOtherRoute` enumerates every route the layout
+can produce and proves the second half; `twoGrantedCorridorsAreAlwaysAPlateApart`
+proves two granted claims are always at least a plate apart, over every (anchor,
+first, second) triple — 70 granted, 140 refused.
+
+**Rejected: the cheaper "adjacent" geometry.** The task asked whether ending up
+adjacent could be bought for less than a row. It cannot. Adjacency to a character
+at the room's centre means crossing seat columns, and the only floor cheaper than
+a new row is the walkway itself — which is where every arrival starts and where
+every *refused* reporter stands, i.e. exactly the traffic the fallback creates.
+Spending 32 px buys total independence from it. The other direction — assigning
+each ring its own resting slot near the anchor so no exclusion is needed at all —
+fails on the arithmetic: slots a pitch apart put the innermost 96 px from the
+anchor (not adjacent), and slots half a pitch apart put two reporters 48 px apart
+against a 63 px plate.
+
+**Two things found while building it.**
+
+*The clearance is the plate's, not a constant.* `deliveryClearance` is
+`plateWidth + (tile − plateHeight)` — which is `minimumSeatSpacingTiles`' own
+`needed`, the seat pitch *before* it rounds to a whole tile. So the delivery row
+separates two reporters by the same amount and for the same reason the seat rows
+separate two neighbours, and it moves when the plate moves.
+
+*A seat is the wrong key for the claim, and the failure is reachable.* A subagent
+goes dormant on the same event that starts its report, so it is instantly the
+longest-dormant character in the room and the first seat `settleSeats` hands to a
+newcomer — while it is still seconds from the end of its walk. Keyed by seat, the
+newcomer's own report overwrites a claim whose holder is standing in the corridor.
+`aSeatHandedOnMidBeatDoesNotHandOnTheDeliveryRowWithIt` was run against a
+seat-keyed floor and fails (the newcomer delivers at `y=0`, on top of the leaver);
+with a per-beat id it is refused and delivers on the walkway.
+
+**The beat got longer and ADR-005 §8 has a rule about that.** A report to the
+main agent is 6.14 s from ring 1, 7.03 s from ring 2, 11.47 s from ring 3; the
+worst case the layout can produce is 19.47 s, a far-ring seat reporting to a
+nested parent on the *opposite* far ring. The shortest gap between two
+`SubagentStop`s **of one agent** anywhere in `fixtures/` is 29.14 s (the only
+other pair is 45.03 s), so §8's admission rule holds — but with 1.5× rather than
+the 20× `deliver` alone had, and that is stated rather than glossed. The 19.47 s
+case is deliberately **not** capped: capping means either a threshold nobody can
+derive or refusing the walk to a distant anchor, which is this defect
+reintroduced for the pair hardest to associate by eye.
+
+**What it costs, plainly.** The same report can look different on two occasions —
+walk or in-place — depending on what else is on the row. On the corpus that never
+happens: **9 of 9** reports walk to their anchor (3 in `three-subagents`, 6 in
+`four-subagents`, matched against the `reportDelivered` count from the model), so
+the fallback is proved by a synthetic pairing and reached by no capture we hold.
+And one long beat holds most of the row while it runs, so a report landing inside
+that window gets the in-place beat.
+
+**Render evidence, read rather than filed.** `three-subagents` t=20.4 and t=26.4
+and `four-subagents` t=35.6 and t=36.6: the reporter stands a delivery gap from
+`MAIN`, on its own side, turned towards it, plate clear of the anchor's, while a
+second reporter walks home up its own column. At `2x` — `subagent-permission`
+t=23.2, population 2 — the delivering reporter's nameplate sits **exactly on the
+frame's bottom edge**, which is `cameraY`'s clamp doing its job rather than a new
+tightness: the aim is clamped at `band.bottom + half` at every band, so the plate
+was on that edge at 160 too. The 8 px of new headroom is spent *above* the badge,
+not below the plate.
+
+**Verification.** `swift build --build-tests -Xswiftc -warnings-as-errors` clean;
+`SPRITE_ROOM_REQUIRE_ART=1 swift test` **671 tests / 62 suites** green (661 at
+HEAD, +10 in `ReportDeliveryTests`), 77 art-gated tests ran;
+`python3 scripts/lint-palette.py` exit 0; `./.build/debug/spriteroom-replay --all`
+17 fixtures with zero open calls after the sweep. The central test was run against
+HEAD's sources first and failed for all six seats in both clauses. `--panel-render`
+was never used and port 8787 was not touched.

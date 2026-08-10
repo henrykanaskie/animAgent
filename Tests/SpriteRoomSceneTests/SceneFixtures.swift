@@ -269,7 +269,15 @@ enum SceneArt {
     /// assert one held frame about a character that was holding none. The rule
     /// itself — the third condition in `AmbientMotion.sequence` — is checked
     /// ungated in `AmbientMotionPolicyTests`, which a fresh clone still runs.
-    static let expectedGatedTestCount = 72
+    ///
+    /// 77 with the report walk: five of `ReportDeliveryTests`' ten drive real
+    /// characters through a real beat and read where they were standing when they
+    /// played `deliver`. Without the pack a `Character` never enters `deliver` at
+    /// all, so all five would assert something about a beat that never ran. The
+    /// other five are arithmetic on `RoomLayout` and `DeliveryFloor` — including
+    /// the whole of the collision argument and the whole of the [I4] argument —
+    /// so a fresh clone still checks everything this change has to prove.
+    static let expectedGatedTestCount = 77
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

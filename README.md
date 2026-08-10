@@ -522,7 +522,10 @@ What is honestly still open:
   the content band from 145 to 241 px and the delivery rows took it to 300, which
   put `2x` at 600 px against a 400 px panel. M6f took 96 px back (the report beat
   stopped walking to the anchor) and the badge slot moving beside the head took
-  another 34: the band is **170 px** and `2x` fits, with `3x` still out at 133.
+  another 34; the one-row nameplate took 18 more; and task #62 spent 32 of that
+  putting **one** shared delivery row back, so the report walks to its anchor
+  again. The band is **192 px** and `2x` fits with 8 px to spare, `3x` still out
+  at 133.
   What holds the camera down now is **width** — a `2x` frame holds three seat
   columns and seven agents span 736 px — so a closer rung is available to a room
   of one to three agents and nothing else. Whether to take it is open: it buys
@@ -541,13 +544,16 @@ What is honestly still open:
   lattice — every character is confined to its own seat's column — so the worst
   synthetic overlap went from −26 px to +6 px, and delivery position is a pure
   function of the reporter's seat, so there are no slots left to claim out of
-  order. The lattice had a second half at M6d, *or its own ring's delivery row*,
-  and that half is gone: a reporter delivers standing in its own column, one row
-  downstage of its chair, so no route in the room moves sideways and the three
-  rows the report walk reserved went back to the camera — 96 px of content
-  band. `claimStation`,
-  `releaseStation` and `reportingSlots` no longer exist; this file described them
-  for a day after they were deleted.
+  order. The lattice had a second half at M6d, *or its own ring's delivery row*;
+  M6f deleted it along with the walk it protected, and task #62 put back **one**
+  shared row of the three because a beat that hands an envelope to nobody is not
+  worth 96 px. The rule is *vertical inside your own column, or lateral on the
+  delivery row* — a row nothing else in the room ever stands on or crosses — and
+  what keeps two reporters off each other is `DeliveryFloor`, a claim on a
+  stretch of that row rather than a slot to be taken out of order. A reporter
+  refused a stretch plays the in-place beat immediately; nothing queues.
+  `claimStation`, `releaseStation` and `reportingSlots` no longer exist; this
+  file described them for a day after they were deleted.
 - **`mission_control` has the thinnest palette margin in the set.** It was the
   weakest theme at M6 and was rebuilt at M6b: it draws its props on a value band
   floored at 0.46, which took wall-minus-darkest-prop from 0.169 to 0.302 — the

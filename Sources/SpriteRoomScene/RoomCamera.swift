@@ -32,7 +32,7 @@ public struct RoomCamera: Sendable, Hashable {
     /// binding term at M6f, when the band went 300 → 170 against the 200 a `2x`
     /// view gives; width decides this now, and width says three.
     ///
-    /// `3x` is absent because 170 does not fit its 133.
+    /// `3x` is absent because 192 does not fit its 133.
     ///
     /// **The cost, stated so nobody has to discover it:** the camera changes
     /// scale when the fourth agent arrives. That is a visible step, and it is
@@ -71,20 +71,31 @@ public struct RoomCamera: Sendable, Hashable {
         // **This comment used to carry a second reason, and it has expired.** It
         // said that nothing above `1x` fits the shipped panel at any population,
         // so the table could not have been otherwise. That was true at a 300 px
-        // content band. It is not true now, and the honest version is narrower:
+        // content band. It is not true now, and the honest version is narrower.
+        //
+        // **The margin is 8 px and this is the file that has to know it.** The
+        // band spent 32 of the 40 px the one-row nameplate freed on the delivery
+        // row that puts a reporter beside its anchor
+        // [`RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)`]. Anything
+        // that grows the band by more than 8 px from here takes `2x` away at
+        // every population, and `theBandFitsACloserScaleAndWidthDecidesWhoGets
+        // It` is what says so rather than the app quietly falling to `1x`.
         //
         // The panel is 720×400, so `2x` frames 360×200 unscaled pixels and `3x`
         // frames 240×133. Against that, from the manifest and `RoomLayout`:
         //
-        // - *Height.* The band is **170**: 51 px of badge slot above the feet and
-        //   23 px of plate below them — the character's own art — over 64 px of
-        //   seat rows and a 32 px walkway. It **fits `2x`**, with 30 px to spare,
-        //   and does not fit `3x`. It was 300 until M6f, which spent two terms:
-        //   96 px of delivery row, floor the report beat reserved so a reporter
-        //   walking to its anchor crossed nobody, and 34 px of badge, which moved
-        //   from above the head to beside it. 96 px is the room's own share now
-        //   and it cannot go lower — a room needs its seats and one row of floor
-        //   in front of them.
+        // - *Height.* The band is **192**: 51 px of badge slot above the feet and
+        //   13 px of plate below them — the character's own art — over 64 px of
+        //   seat rows, a 32 px walkway and a 32 px delivery row. It **fits `2x`**,
+        //   with 8 px to spare, and does not fit `3x`. It was 300 until M6f,
+        //   which spent two terms: 96 px of delivery row — one per ring — and
+        //   34 px of badge, which moved from above the head to beside it. Those
+        //   rows were what let a reporter walk to its anchor without crossing
+        //   anybody, and deleting them deleted the walk; **one** of them has been
+        //   bought back out of what the one-row nameplate freed, shared by every
+        //   reporter rather than one per ring, and that is the 32. 128 px is the
+        //   room's own share now and it cannot go lower without giving the walk
+        //   up again — two seat rows, one row to arrive on, one row to walk along.
         // - *Width.* `RoomLayout.occupiedSpan` pads one seat to 160 px and the
         //   seat pitch is 96, so 360 px holds three seat columns (352) and not
         //   four (448). Seven agents span **736**.

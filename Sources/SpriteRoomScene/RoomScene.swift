@@ -32,6 +32,24 @@ public final class RoomScene: SKScene {
     /// a second opinion.
     private var restingBody: [AgentRef: BodyState] = [:]
 
+    /// **Who is walking along the delivery row.** The one piece of scheduling in
+    /// this scene, and it schedules nothing: it decides which of two truthful
+    /// report beats a reporter plays, never whether or when one plays at all.
+    /// See `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)` and
+    /// `DeliveryFloor`.
+    private var deliveryFloor: DeliveryFloor
+    /// Who holds each live claim, so it can be given back the moment that
+    /// character stops walking or leaves. Keyed by the claim's own id.
+    ///
+    /// The *character* rather than the agent, because a leaver is taken out of
+    /// `characters` at the top of its exit and is still walking the row for
+    /// several seconds after that — a report and a `SessionEnd` in one frame is
+    /// exactly the case `.report` exists for.
+    private var deliveryClaimant: [Int: (character: Character, seat: Int)] = [:]
+    /// One id per beat, never reused. See `DeliveryFloor` for why the seat is
+    /// not the key.
+    private var nextDeliveryBeatID = 0
+
     /// The scale the director asked for, from population. The viewport can
     /// only ever push this *down* the ladder, never up. [I6]
     private var preferredScale = 3
@@ -53,6 +71,13 @@ public final class RoomScene: SKScene {
     ) {
         self.layout = layout
         self.store = TextureStore(manifest: manifest, themeID: themeID)
+        // The clearance is the plate's, measured, not a constant — see
+        // `RoomLayout.deliveryClearance(plateWidth:plateHeight:tile:)`.
+        self.deliveryFloor = DeliveryFloor(
+            clearance: RoomLayout.deliveryClearance(
+                plateWidth: SceneBitmaps.maximumNameplateWidth,
+                plateHeight: SceneBitmaps.maximumNameplateHeight,
+                tile: layout.tile))
         super.init(size: CGSize(width: 320, height: 180))
         scaleMode = .fill
         // Slightly darker than the room's value floor so the room never blends
@@ -710,28 +735,30 @@ public final class RoomScene: SKScene {
                   // `SubagentStop` and so never reports — this is the guard that
                   // says so rather than a comment claiming it. [I1]
                   seat != anchorSeat else { break }
-            // Stand up, step one row downstage onto the walkway — **inside the
-            // reporter's own column** — turn to the anchor, hand over, and step
-            // back up into the chair.
+            // Stand up, step down the reporter's **own column** to the delivery
+            // row, walk along it to a delivery gap short of the anchor, turn,
+            // hand over, and walk the same route back into the chair.
             //
             // **The transit used to be the room's one unguarded window**, and
-            // then its most expensive fixture. A reporter walking the aisle to
+            // then its most expensive fixture. A reporter walking the *aisle* to
             // its anchor passed every station in between, and a station is a
-            // pitch from the next while the widest plate is 71 — so it was
-            // within a plate width of *some* station for most of the walk. The
-            // fix was to give every ring a row of its own to walk along, three
-            // rows and 96 px of floor, which is what the content band could not
-            // afford. Deleting the sideways leg closes the same window for
-            // nothing: with no lateral movement anywhere in the room, two
-            // characters' separation in x is a constant of the lattice. See
-            // `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)` for the
-            // proof and `theRoomHasNoLateralMovementLeftToSeparate` for the
-            // arithmetic that holds it.
+            // pitch from the next while the widest plate is 63 — so it was
+            // within a plate width of *some* station for most of the walk. M6f
+            // deleted the leg rather than pay the three rows that fixed it, and
+            // the maintainer saw what that left: an envelope handed to nobody.
+            //
+            // What holds it now is one row nothing else in the room can be on,
+            // and a claim on a stretch of that row that no second reporter may
+            // overlap. A reporter refused the row plays the in-place beat — the
+            // one M6f left behind — rather than waiting for anything.
+            // `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)` carries the
+            // proof, `theRoomsOneLateralCorridorMeetsNoOtherRoute` the arithmetic.
             let side = layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: seat)
+            let route = claimDeliveryRow(for: character, seat: seat, anchorSeat: anchorSeat)
             character.reportAndReturn(
-                out: layout.deliveryRoute(anchorSeat: anchorSeat, reporterSeat: seat),
+                out: route.out,
                 facing: layout.deliveryFacing(side: side),
-                home: layout.homeRoute(forSeat: seat),
+                home: layout.homeRoute(forSeat: seat, fromY: route.deliversAtY),
                 // **Sit back down facing the desk.** The beat turns the
                 // character towards its anchor, and the walk home is now purely
                 // vertical, so nothing turns it back — `Character` ends a script
@@ -769,11 +796,16 @@ public final class RoomScene: SKScene {
                 let reporterSeat = seat!
                 let side = layout.deliverySide(
                     anchorSeat: anchorSeat, reporterSeat: reporterSeat)
+                // Same claim, same two beats: a leaver that reported in the same
+                // frame earns the walk on the same terms as one that stays, and
+                // is refused it on the same terms. `retire` gives the stretch
+                // back at the end.
+                let route = claimDeliveryRow(
+                    for: character, seat: reporterSeat, anchorSeat: anchorSeat)
                 character.reportAndDepart(
-                    out: layout.deliveryRoute(
-                        anchorSeat: anchorSeat, reporterSeat: reporterSeat),
+                    out: route.out,
                     facing: layout.deliveryFacing(side: side),
-                    home: layout.homeRoute(forSeat: reporterSeat),
+                    home: layout.homeRoute(forSeat: reporterSeat, fromY: route.deliversAtY),
                     thenExitAt: exit
                 ) { [weak self, weak character] in
                     self?.retire(character)
@@ -891,17 +923,103 @@ public final class RoomScene: SKScene {
         node.position = CGPoint(x: x.rounded(), y: y.rounded())
     }
 
-    /// **There is nothing left to claim.** Where a reporter stands is a pure
-    /// function of its own seat — its ring picks the row, its half of the room
-    /// picks the side — so two reporters cannot be sent to the same spot and
-    /// there is no reservation to leak, no order to get wrong, and no state that
-    /// has to survive a re-entrant second report.
+    // MARK: The delivery row
+
+    /// **Ask for the walk; take the in-place beat if the row is not free.**
     ///
-    /// The bookkeeping this replaces held a set of sideways slots claimed
-    /// lowest-free. That was not seat-ordered, so the farther of two same-side
-    /// reporters could take the nearer slot and then walk home through the
-    /// nearer one's station — a real collision, and the kind that only shows up
-    /// when two subagents stop within a second of each other.
+    /// Returns the route the character should walk out along and the y it will
+    /// be standing on when it delivers, which is what `homeRoute` needs to know
+    /// whether the way back has a lateral leg in it.
+    ///
+    /// The claim is on `RoomLayout.deliveryCorridor(anchorSeat:reporterSeat:)` —
+    /// every x the beat occupies, out and back — so a granted claim is a
+    /// statement about where this character is at every instant it is on the
+    /// row. Nothing here can make a report wait: the else-branch is a beat, not
+    /// a retry. [I4]
+    private func claimDeliveryRow(for character: Character, seat: Int, anchorSeat: Int)
+    -> (out: [ScenePoint], deliversAtY: Double) {
+        let corridor = layout.deliveryCorridor(anchorSeat: anchorSeat, reporterSeat: seat)
+        let out = layout.deliveryRoute(anchorSeat: anchorSeat, reporterSeat: seat)
+        // Twice the beat it is timing. The deadline is the reaper of last resort
+        // — the normal release is the beat finishing, and the frame loop drops a
+        // claim whose character has stopped walking — so it can afford to be
+        // generous, and being generous is what stops it firing on a slow frame
+        // and handing a live corridor to a second reporter.
+        let budget = 2 * (beatSeconds(out: out, seat: seat) + deliverBeatSeconds)
+        // A second report for one character replaces its own beat rather than
+        // competing with it: `Character.run` restarts the script from wherever
+        // it is standing, so the old corridor is not being walked any more.
+        releaseDeliveryRow(heldBy: character)
+        let id = nextDeliveryBeatID
+        nextDeliveryBeatID += 1
+        guard deliveryFloor.claim(id: id, corridor: corridor, budget: budget) else {
+            return (layout.inPlaceDeliveryRoute(reporterSeat: seat), layout.aisleY)
+        }
+        deliveryClaimant[id] = (character, seat)
+        return (out, layout.deliveryRowY)
+    }
+
+    private func releaseDeliveryRow(heldBy character: Character) {
+        for (id, held) in deliveryClaimant where held.character === character {
+            deliveryFloor.release(id: id)
+            deliveryClaimant[id] = nil
+        }
+    }
+
+    /// How long the whole round trip takes at the walk speed, from the seat out
+    /// and back again. `Character.duration` is the same arithmetic the script
+    /// itself runs on, including its 0.2 s floor per leg, so this is the beat's
+    /// real length rather than an estimate of it.
+    private func beatSeconds(out: [ScenePoint], seat: Int) -> TimeInterval {
+        var total: TimeInterval = 0
+        var from = layout.seatPosition(seat)
+        for point in out {
+            total += Character.duration(from: from, to: point)
+            from = point
+        }
+        for point in layout.homeRoute(forSeat: seat, fromY: from.y) {
+            total += Character.duration(from: from, to: point)
+            from = point
+        }
+        return total
+    }
+
+    /// The longest `deliver` any variant in the manifest plays, in seconds. Read
+    /// off the manifest rather than written down, so a re-cut animation moves the
+    /// deadline with it.
+    private var deliverBeatSeconds: TimeInterval {
+        var longest: TimeInterval = 0
+        for variant in store.manifest.characters.variants.values {
+            guard let animation = variant.animation(.deliver) else { continue }
+            let frames = animation.frames.values.map(\.count).max() ?? 0
+            longest = max(longest, Double(frames) / max(1, animation.fps))
+        }
+        return longest
+    }
+
+    /// Gives back every stretch of the delivery row whose character has stopped
+    /// walking — the condition itself rather than a proxy for it — and then
+    /// anything held past its budget.
+    ///
+    /// A character that has finished its script is standing still, and a claim
+    /// held by a character standing still is a claim on floor nobody is using. A
+    /// character that was retired mid-frame is off the scene graph and has no
+    /// script either. Both are the same test.
+    private func sweepDeliveryFloor(at time: TimeInterval) {
+        for (id, held) in deliveryClaimant where !held.character.isScripted {
+            deliveryFloor.release(id: id)
+            deliveryClaimant[id] = nil
+        }
+        for id in deliveryFloor.reap(at: time) { deliveryClaimant[id] = nil }
+    }
+
+    /// The seats of the characters currently holding a stretch of the delivery
+    /// row. Read-only, for the tests that check the claim is given back —
+    /// nothing in the scene reads it and no picture depends on it.
+    var deliveryRowHoldersForTesting: [Int] {
+        deliveryFloor.occupiedIDs.compactMap { deliveryClaimant[$0]?.seat }.sorted()
+    }
+
     private func retire(_ character: Character?) {
         guard let character else { return }
         animated.removeAll { $0 === character }
@@ -919,6 +1037,9 @@ public final class RoomScene: SKScene {
 
     public func advance(to time: TimeInterval) {
         for character in animated { character.advance(to: time) }
+        // After the characters, so a beat that ended this frame gives its stretch
+        // of the delivery row back this frame rather than next one.
+        sweepDeliveryFloor(at: time)
         // **The only place a prop's picture is ever changed after the room is
         // built, and it is handed the clock and nothing else.** [ADR-002 §14b]
         // `apply(_:)` is where every consequence of a delta reaches this scene,

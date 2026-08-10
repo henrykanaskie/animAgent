@@ -36,7 +36,9 @@ struct RoomCameraTests {
     /// band was 300 px against the 200 a `2x` view of this panel gives, so no
     /// closer scale fitted and the preference was not really a preference. M6f
     /// spent 96 px of delivery rows and 34 px of badge slot to bring the band
-    /// to 170, and the question became live again.
+    /// to 170, and the question became live again. It is **192** now — one of
+    /// those three delivery rows was bought back, so that a reporter arrives
+    /// beside the agent it is reporting to — and 192 still fits 200.
     ///
     /// The maintainer's original complaint survives intact where it applies: a
     /// **one-agent** room is still not a close-up of one desk, because `2x` at
@@ -176,15 +178,22 @@ struct RoomCameraTests {
     /// | nameplate below the feet | 23 → 31 → **13** — a task row on, then three rows down to one |
     /// | the two seat rows | **64** |
     /// | the walkway | **32** |
-    /// | one delivery row per ring | 96 → **0** — the report stopped walking |
-    /// | **content band** | 300 → 170 → 178 → **160** |
+    /// | the delivery row | 96 → 0 → **32** — three per ring, then none, now one shared |
+    /// | **content band** | 300 → 170 → 178 → 160 → **192** |
     ///
-    /// A `2x` view of a 720×400 panel frames 200 px of height. 160 is inside it,
-    /// with 40 px to spare, and `3x` is still out of reach at 133. So height no
-    /// longer settles the question at every population — **width does**, and it
-    /// says three. `aCloserFrameWouldHoldThreeSeatColumnsAcross` is now the
-    /// binding constraint rather than a footnote, and the boundary is asserted
-    /// here as a scale per population rather than as one answer for all of them.
+    /// A `2x` view of a 720×400 panel frames 200 px of height. 192 is inside it,
+    /// with 8 px to spare, and `3x` is still out of reach at 133. So height still
+    /// does not settle the question at every population — **width does**, and it
+    /// says three. `aCloserFrameWouldHoldThreeSeatColumnsAcross` is the binding
+    /// constraint rather than a footnote, and the boundary is asserted here as a
+    /// scale per population rather than as one answer for all of them.
+    ///
+    /// **The 8 px is the whole margin and it is deliberately not spent.** The
+    /// last row bought — one shared delivery row, which is what puts a reporter
+    /// beside the agent it reports to [`RoomLayout.deliveryPosition(anchorSeat:
+    /// reporterSeat:)`] — took 32 of the 40 px `2caa864` freed. There is no room
+    /// for a second one, and a room that wanted one would be choosing to give
+    /// `2x` up rather than trimming something.
     ///
     /// **It is still a tripwire and it still fails in both directions.** A
     /// taller badge, a deeper room or a wider plate pushes a population back down
@@ -210,15 +219,14 @@ struct RoomCameraTests {
         let contentHeight = band.top - band.bottom
 
         // **The decomposition, so a failure says which term moved.** The room's
-        // own share is the two seat rows and the walkway; everything else is the
-        // character's own art, out of the layout's hands.
-        let roomsShare = Double(layout.tile * layout.seatRowDepthTiles)
-            + (layout.baselineY - layout.aisleY)
+        // own share is the two seat rows, the walkway and the delivery row;
+        // everything else is the character's own art, out of the layout's hands.
+        let roomsShare = layout.topSeatRowY - (layout.standingRows.min() ?? 0)
         #expect(contentHeight == roomsShare + badgeTop + plateDrop)
-        #expect(roomsShare == 96, Comment(rawValue:
+        #expect(roomsShare == 128, Comment(rawValue:
             "the room's own share of the band is \(roomsShare) px; it was 192 with"
-            + " a delivery row per ring and cannot go below 96 — a room needs its"
-            + " seats and one row of floor in front of them"))
+            + " a delivery row per ring and 96 with none, and 128 is two seat rows,"
+            + " a walkway to arrive on and one delivery row to walk along"))
 
         // **Height: 2x fits, 3x does not.**
         #expect(contentHeight <= panel.height / 2, Comment(rawValue:
@@ -274,7 +282,7 @@ struct RoomCameraTests {
     /// columns need 448 px of the 360 a `2x` frame has, and seven need 736.
     ///
     /// **It was a footnote and it is now the whole answer.** Height used to hold
-    /// every population to `1x` at 300 px of band; the band is 170 and this is
+    /// every population to `1x` at 300 px of band; the band is 192 and this is
     /// what is left. It is also the one term a narrower plate can move: a 64 px
     /// pitch would make it four rather than three
     /// [`RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:tile:)`].

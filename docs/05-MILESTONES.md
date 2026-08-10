@@ -229,6 +229,13 @@ Do not close one of these by editing the criterion.
   rather than as arithmetic nobody could overrule, and the choice has a cost
   either way: preferring `2x` under four agents means the camera changes scale
   when the fourth arrives. `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt`.
+
+  **And 32 px of it was spent again at task #62.** The one-row nameplate took the
+  band to 160, and one shared delivery row — the price of a reporter arriving
+  beside the agent it reports to rather than handing an envelope to nobody — took
+  it to **192**. `2x` still fits, with **8 px** of margin, and that 8 px is now
+  the whole budget: anything that grows the band further takes `2x` away at every
+  population.
 - **A nameplate says what the character is doing, in a word or two.** One row:
   a solid accent band carrying the shortened task, the `agent_type` if we never
   saw a dispatch, `MAIN` for the main agent. No plate exceeds the seat pitch, no
@@ -378,14 +385,13 @@ Do not close one of these by editing the criterion.
   departure that followed it, and `reported` was never cleared, so at `SessionEnd`
   every character converged on the anchor and replayed a delivery from minutes
   earlier. A report now takes nobody out of the room, is not replayed at
-  departure, and a reporter delivers standing in its own column so a round trip
-  crosses nobody at all — it used to approach on its own side of the anchor,
-  which was the same concern one step weaker. A leaver caught mid-report comes
-  home up its own column and goes out upstage, and a longer walk never finishes
-  sooner than a shorter one.
+  departure, and a reporter approaches on its own side of the anchor so a round
+  trip never crosses the anchor's chair twice. A leaver caught mid-report comes
+  home along the delivery row into its own column and goes out upstage, and a
+  longer walk never finishes sooner than a shorter one.
   `aReportInAnEarlierFrameDoesNotReplayItselfAtDeparture`,
   `aReportIsAWalkOnItsOwnAndTakesNobodyOutOfTheRoom`,
-  `aReporterDeliversInItsOwnColumnAndTurnsToFaceItsAnchor`,
+  `aReporterStopsShortOfItsAnchorOnItsOwnSideAndTurnsToFaceIt`,
   `aLeaverCaughtMidReportComesHomeUpItsOwnColumnAndLeavesUpstage`,
   `aWalkTakesTimeInProportionToItsLengthAtEveryLength`.
 
@@ -400,12 +406,21 @@ Do not close one of these by editing the criterion.
   commit whose paragraph above says its subject is deleted — a criterion left
   citing a function nobody can run, which is a criterion that cannot fail. What
   it used to prove is now held by construction and is asserted where the
-  construction is: `aReporterDeliversInItsOwnColumnAndTurnsToFaceItsAnchor`
+  construction is: `aReporterStopsShortOfItsAnchorOnItsOwnSideAndTurnsToFaceIt`
   checks the delivery point is a pure function of `(anchorSeat, reporterSeat)`
-  and sits in the reporter's own column, over every pairing of seats, so there is
-  no shared slot for a second reporter to take. `theRoomHasNoLateralMovementLeftToSeparate`
-  and `noAdversarialPairingOfBeatsEverTouchesTwoPlates` cover the collision the
-  claim was there to rule out. The renames were mechanical: the leaver test
+  over every pairing of seats, so there is no slot to claim out of order.
+  `theRoomHasNoLateralMovementLeftToSeparate` and
+  `noAdversarialPairingOfBeatsEverTouchesTwoPlates` cover the collision the claim
+  was there to rule out.
+
+  **The delivery row came back — one, shared — and with it a claim.** Task #62:
+  the maintainer saw that reporters "pass the envelope to no one", which was M6f
+  deleting the walk to buy back 96 px of band. `DeliveryFloor` is not the
+  `DeliveryStation` this bullet says was deleted and is not a return to it: it
+  claims a **stretch of one row** rather than a slot, refusing a claim is a
+  geometric test rather than an ordering, and a refused reporter plays the
+  in-place beat in the same frame rather than queueing behind anything. See
+  `ReportDeliveryTests`. The renames were mechanical: the leaver test
   above, and `noThemeNameAndNoArtFilenameIsWrittenDownInSources` in the themes
   bullet.
 

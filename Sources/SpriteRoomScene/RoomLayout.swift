@@ -221,13 +221,41 @@ public struct RoomLayout: Sendable, Hashable {
 
     /// The walkway one tile in front of the desk row, nearer the camera.
     ///
-    /// It is the front of the room and the only floor downstage of the seats:
-    /// every character reaches its chair from it, every character that leaves
-    /// mid-beat comes back through it, and a reporter steps out onto it to hand
-    /// its report over. What nobody does is *travel along* it — see
-    /// `deliveryPosition(anchorSeat:reporterSeat:)`, which is where the rule
-    /// that makes this safe is stated and proved.
+    /// It is the room's thoroughfare: every character reaches its chair from it,
+    /// every character that leaves mid-beat comes back through it, and a
+    /// reporter that could not get the delivery row hands its report over from
+    /// it. **What nobody does is travel *along* it** — every character that
+    /// touches this row is crossing it inside its own seat column. That is what
+    /// lets any number of characters use it at once, and it is why the one
+    /// lateral leg in the room is on `deliveryRowY` and not here. See
+    /// `deliveryPosition(anchorSeat:reporterSeat:)`.
     public var aisleY: Double { baselineY - Double(tile) }
+
+    /// **The one row in this room a character may travel *along*.** One tile
+    /// downstage of the walkway, and the front of the room.
+    ///
+    /// A reporter drops onto it from its own column, walks to its anchor, hands
+    /// over, walks back to its own column and climbs home. Nothing else in the
+    /// room ever stands here, ever crosses here, or has a waypoint here:
+    /// `entranceRoute` starts on the walkway, `homeRoute` and `upstageExit` only
+    /// ever ascend, both seat rows are upstage, and every prop the room places is
+    /// upstage of the seats [`RoomScene.decorationPlacements`]. So the lateral
+    /// corridor this row carries meets **no other route at all**, which is the
+    /// property the walkway cannot give it.
+    ///
+    /// It costs 32 px of `contentBand` and that is the whole price of the walk;
+    /// see `deliveryPosition(anchorSeat:reporterSeat:)` for the ledger.
+    public var deliveryRowY: Double { aisleY - Double(tile) }
+
+    /// Every row a character can have its feet on, downstage first. Four:
+    /// the delivery row, the walkway, and the two seat rows.
+    ///
+    /// Two characters on different rows cannot share a plate's horizontal strip,
+    /// because the rows are a tile apart and a plate is
+    /// `SceneBitmaps.maximumNameplateHeight` tall — which is the second block of
+    /// `theRoomHasNoLateralMovementLeftToSeparate`, and the reason it is stated
+    /// as a list here is so that a row added anywhere is a row that test sees.
+    public var standingRows: [Double] { [deliveryRowY, aisleY] + seatRows }
 
     // MARK: The lattice [the aisle invariant]
 
@@ -240,8 +268,10 @@ public struct RoomLayout: Sendable, Hashable {
     /// what picks a seat's row — see `isBackRow(seat:)`.
     ///
     /// It used to pick one more thing: a reporter's own delivery row, one row of
-    /// floor per ring reserved in front of the walkway. Those rows are gone and
-    /// so is the ring's part in the clearance argument; see
+    /// floor per ring reserved in front of the walkway. **There is one delivery
+    /// row now and every reporter uses it**, so the ring no longer names a row —
+    /// what keeps two reporters off each other is `DeliveryFloor`, which
+    /// separates them in x rather than in depth. See
     /// `deliveryPosition(anchorSeat:reporterSeat:)`.
     public func ring(ofSeat index: Int) -> Int {
         let wrapped = ((index % seatCapacity) + seatCapacity) % seatCapacity
@@ -458,96 +488,167 @@ public struct RoomLayout: Sendable, Hashable {
 
     public var seatedFacing: Facing { .right }
 
-    /// Where a reporting subagent stands to deliver: out of its chair, one row
-    /// downstage onto the walkway, still in its own column.
+    /// Where a reporting subagent stands to deliver: down onto the delivery row
+    /// and along it, to a spot beside the character it is reporting to.
     public var deliveryPosition: ScenePoint {
         deliveryPosition(anchorSeat: 0, reporterSeat: 2)
     }
 
-    /// **Which side of its anchor a reporter is on.**
+    /// **Which side of its anchor a reporter is on, and therefore which side it
+    /// approaches from.**
     ///
-    /// This used to choose where the reporter walked *to*: its own side of the
-    /// anchor rather than the far one, so that a round trip did not cross the
-    /// anchor's chair twice. Nobody walks to the anchor any more, so it no longer
-    /// chooses anything — it reads off where the reporter already sits, and its
-    /// one consumer is `deliveryFacing(side:)`. Seat 0 sits on the centre line
-    /// and is the anchor rather than a reporter, so the tie goes right and is
-    /// never reached. [see `deliveryPosition(anchorSeat:reporterSeat:)`]
+    /// Its own, so a round trip never crosses the anchor's chair. Seat 0 sits on
+    /// the centre line and is the anchor rather than a reporter, so the tie goes
+    /// right and is never reached.
+    /// [see `deliveryPosition(anchorSeat:reporterSeat:)`]
     public func deliverySide(anchorSeat: Int, reporterSeat: Int) -> Facing {
         seatPosition(reporterSeat).x >= seatPosition(anchorSeat).x ? .right : .left
     }
 
-    /// **Where a reporter stands to hand its report over: out of its chair, one
-    /// row downstage onto the walkway, in its own column. It never goes to the
-    /// anchor at all.**
+    /// How far short of the anchor a reporter stops: a tile and a half.
+    ///
+    /// Near enough that the hand-over is between two characters and not into
+    /// space, far enough that the reporter's body does not stand on the anchor's
+    /// nameplate — which is the defect `noTwoNameplatesEverIntersect` was written
+    /// against, and the reason the number is 48 rather than a tile.
+    public var deliveryGap: Double { Double(tile) * 1.5 }
+
+    /// The point on the delivery row directly below a seat. A reporter drops to
+    /// here out of its own column before it goes anywhere sideways, and comes
+    /// back to here before it climbs — so every *vertical* move it makes is
+    /// inside its own column and every *lateral* one is on this row.
+    public func deliveryLaneEntry(forSeat index: Int) -> ScenePoint {
+        ScenePoint(x: seatPosition(index).x, y: deliveryRowY)
+    }
+
+    /// **Where a reporter stands to hand its report over: a delivery gap short
+    /// of its anchor, on its own side of it, on the delivery row.**
+    ///
+    /// It walks there. The maintainer watched the shipped app and said the
+    /// reporters "aren't walking to the main agent, they just walk down and pass
+    /// the envelope to no one", and they were right: M6f deleted the lateral leg
+    /// to buy 96 px of band, and what was left was a beat that mimes a hand-over
+    /// with nothing within a seat pitch to hand anything to. That is not a
+    /// composition complaint. The beat *depicts* a transfer between two
+    /// characters, and one of them was not there — a picture asserting something
+    /// no arrangement of the data supports. [I1]
     ///
     /// ## The rule this is an instance of
     ///
-    /// > **No character ever moves sideways.** Every leg of every route in this
-    /// > room is vertical and inside the moving character's own seat column:
-    /// > arriving (`entranceRoute`), stepping out to report (`deliveryRoute`),
-    /// > coming home (`homeRoute`), leaving (`upstageExit`).
+    /// > **Every leg of every route in this room is either vertical and inside
+    /// > the moving character's own seat column, or lateral and on
+    /// > `deliveryRowY`.**
     ///
-    /// Two plates can meet only if they share a horizontal strip **and** come
-    /// within a plate width in x. Columns are one seat pitch apart — 96 px,
-    /// `seatSpacingTiles * tile`, and `seatColumn` is what nothing in the
-    /// choreography touches — and the widest plate is
-    /// `SceneBitmaps.maximumNameplateWidth` = 71 px. So the horizontal
-    /// separation between any two characters in this room is a **constant of the
-    /// lattice**: 96 px between neighbours, 25 px clear of the plate, at every
-    /// instant of every beat, for any population, any timing, any pairing. There
-    /// is no phase to reason about because x never changes.
+    /// The first clause is M6f's, unchanged, and it still covers arriving
+    /// (`entranceRoute`), stepping out (`deliveryRoute`'s first two legs), coming
+    /// home (`homeRoute`) and leaving (`upstageExit`). Two plates meet only if
+    /// they share a horizontal strip **and** come within a plate width in x, and
+    /// for every pair of characters that both obey the first clause the second
+    /// condition is decided once by `seatColumn`: 96 px between neighbouring
+    /// columns against a `SceneBitmaps.maximumNameplateWidth` plate.
     ///
-    /// The single exception is two characters in **one** column, which the room
-    /// can produce exactly once: a seat is free the instant its occupant starts
-    /// walking out, so a refill can begin while the leaver is still in the
-    /// column. Both move upstage, so they are a convoy — same direction, same
-    /// speed, the gap they start with is the gap they keep — and that is the
-    /// argument `entranceRoute(forSeat:)` and `theWholeCastCanLeaveInOneFrame`
-    /// already rest on, unchanged.
+    /// The exception is two characters in **one** column, which the room produces
+    /// exactly once: a seat is free the instant its occupant starts walking out,
+    /// so a refill can begin while the leaver is still in the column. Both move
+    /// upstage, so they are a convoy — same direction, same speed, the gap they
+    /// start with is the gap they keep. `entranceRoute(forSeat:)` and
+    /// `theWholeCastCanLeaveInOneFrame` rest on that and are untouched.
     ///
-    /// ## What this replaced, and why it is a better argument
+    /// ## The second clause, which is what this change adds back
     ///
-    /// The reporter used to *walk to the anchor*, and the whole floor plan was
-    /// built round that one lateral leg. Because it crossed columns, it had to
-    /// be given floor nobody else was standing on, and one row was not enough:
-    /// three same-side reporters (seats 1, 3 and 5) can be walking at once, so
-    /// it took **one delivery row per ring** — three rows, 96 px of depth
-    /// reserved below the walkway. The proof then needed four separate parts:
-    /// rows a tile apart cannot share a strip; a row carries one seat per side;
-    /// the two sides stop a delivery gap short of centre; and a reporter's own
-    /// column meets a lower ring's corridor outside it by a full pitch.
+    /// **1. The corridor meets no other route.** `deliveryRowY` is a row nothing
+    /// else in the room can be on. Arrivals begin on the walkway a row upstage of
+    /// it; `homeRoute` and `upstageExit` only ever increase `y`; both seat rows
+    /// and every prop the room places are upstage
+    /// [`RoomScene.decorationPlacements`]. A reporter reaches the row down its
+    /// **own column** and leaves it up its **own column**, so the only thing that
+    /// crosses the walkway during a report is one character inside one column,
+    /// which is the first clause again.
     ///
-    /// Every part of that was about keeping one lateral leg out of everyone's
-    /// way. Delete the leg and there is nothing left to separate — and the 96 px
-    /// goes back to the camera. `contentBand` falls from **300 px to 204**,
-    /// which is what a `2x` room is measured against.
+    /// That is the direct answer to the objection this option was rejected on at
+    /// M6f — that it "puts a lateral corridor back across the one row every
+    /// arrival steps through". It does not, because the corridor is not on that
+    /// row. The objection was written when the arrival began one seat pitch
+    /// outward *along the walkway*; M6f itself deleted that, so by the time the
+    /// trade was refused the reason had already expired.
+    ///
+    /// **2. Two reporters cannot be on the row together unless their corridors
+    /// are clear of each other**, which is `DeliveryFloor` — and it is a
+    /// statement about x, not about time. A beat claims the closed interval
+    /// `deliveryCorridor(anchorSeat:reporterSeat:)`, every x its body will occupy
+    /// from the moment it drops onto the row to the moment it leaves it. A second
+    /// claim is granted only if it clears every live one by
+    /// `DeliveryFloor.clearance` = one plate plus the lattice's own margin. A
+    /// reporter that is not granted the row does not wait: it plays the beat it
+    /// plays today, in its own column on the walkway. See
+    /// `inPlaceDeliveryRoute(reporterSeat:)`.
+    ///
+    /// So the scheduler decides which of **two truthful pictures** a report gets.
+    /// It cannot decide whether the room is correct, and it cannot delay
+    /// anything, so there is no queue to drain and nothing to reap but the claim
+    /// itself. [I4]
+    ///
+    /// ## The ledger
+    ///
+    /// One row, 32 px, `contentBand` **160 → 192** against the 200 a `2x` view of
+    /// the 720×400 panel gives. It is affordable now and was not at M6f because
+    /// the nameplate paid for it: `2806f5c` put the task on the plate and cost
+    /// 8 px (170 → 178), and `2caa864` cut the plate to one row and gave back 18
+    /// (178 → 160). Three rows — one per ring, which is what M6f deleted — would
+    /// be 96 px and a band of 256, and does not fit. That is the whole of the
+    /// difference between the option refused then and the one taken here: **one
+    /// row instead of three, paid for out of the plate.**
     ///
     /// ## What it costs, plainly
     ///
-    /// **The reporter no longer arrives at the anchor's desk.** A report used to
-    /// say *who* it was to by ending up next to them; it now says it only by
-    /// which way the reporter turns — `deliveryFacing(side:)` — so on the near
-    /// side of the room a reporter to the main agent and a reporter to a nested
-    /// parent further in turn the same way and are told apart by nothing. That
-    /// is a real loss of information and it is recorded rather than dressed up.
-    /// What is kept is the beat itself: the character genuinely stands up,
-    /// steps to the front of the room, turns to the person it is reporting to,
-    /// and hands something over — every frame of which traces to one real
-    /// `reportDelivered`. [I1]
-    ///
-    /// The alternative that would have kept the walk was to serialise it: one
-    /// shared row and a rule that at most one reporter is ever on it. That is
-    /// 32 px rather than 96 and still leaves the band at 236, it makes the
-    /// guarantee depend on a scheduler rather than on the lattice, and it puts a
-    /// lateral corridor back across the one row every arrival steps through. It
-    /// was weighed and rejected; the arithmetic is in `notes.md`.
+    /// A report that does not get the row is told apart from one that does, and
+    /// the same agent's report can look different on two different occasions.
+    /// That is a real inconsistency and it is recorded rather than dressed up.
+    /// What is bought is that when the walk plays — which is most of the time;
+    /// `mostReportsInTheCorpusGetTheWalk` measures it on `fixtures/` — the
+    /// envelope goes to a character rather than to the floor.
     ///
     /// `anchorSeat` is whose seat the reporter delivers to — 0, the main agent,
     /// unless `tool_response.agentId` linked it to a parent that is still in the
-    /// room. It reaches the facing and nothing else.
+    /// room.
     public func deliveryPosition(anchorSeat: Int, reporterSeat: Int) -> ScenePoint {
+        let outward = deliverySide(anchorSeat: anchorSeat, reporterSeat: reporterSeat) == .right
+            ? 1.0 : -1.0
+        return ScenePoint(
+            x: seatPosition(anchorSeat).x + outward * deliveryGap, y: deliveryRowY)
+    }
+
+    /// **Every x a report beat occupies on the delivery row**, from the
+    /// reporter's own column to where it stands to hand over.
+    ///
+    /// The claim `DeliveryFloor` grants is this interval and it is held for the
+    /// whole beat, out and back — so a granted claim is a statement about the
+    /// reporter's position at every instant it is on the row, not about the
+    /// instant it was granted. That is what makes the exclusion geometric rather
+    /// than a matter of scheduling: two granted claims are two disjoint stretches
+    /// of one row, and the characters inside them are as far apart as the
+    /// stretches are.
+    public func deliveryCorridor(anchorSeat: Int, reporterSeat: Int) -> ClosedRange<Double> {
+        let from = deliveryLaneEntry(forSeat: reporterSeat).x
+        let to = deliveryPosition(anchorSeat: anchorSeat, reporterSeat: reporterSeat).x
+        return min(from, to)...max(from, to)
+    }
+
+    /// **The beat a reporter plays when the delivery row is not free: the one
+    /// that shipped between M6f and now.** One row downstage onto the walkway,
+    /// in its own column, turned towards the anchor.
+    ///
+    /// It says less — it does not say *who* — and it says nothing false. Every
+    /// frame of it still traces to one real `reportDelivered`, and it is
+    /// available at every instant for any number of reporters at once, because
+    /// the walkway is crossed in-column by construction. That is what lets the
+    /// delivery row be a lock with no queue behind it. [I1, I4]
+    public func inPlaceDeliveryPosition(reporterSeat: Int) -> ScenePoint {
         seatApproach(reporterSeat)
+    }
+
+    public func inPlaceDeliveryRoute(reporterSeat: Int) -> [ScenePoint] {
+        [inPlaceDeliveryPosition(reporterSeat: reporterSeat)]
     }
 
     /// Which way the reporter faces to hand its report over: at the anchor.
@@ -565,40 +666,52 @@ public struct RoomLayout: Sendable, Hashable {
         ScenePoint(x: seatPosition(index).x, y: aisleY)
     }
 
-    /// **The report walk, as waypoints.** One leg, straight down the reporter's
-    /// own column onto the walkway.
+    /// **The report walk, as waypoints.** Three legs: down the reporter's own
+    /// column to the walkway, down its own column again onto the delivery row,
+    /// and only then sideways along that row to the anchor.
     ///
-    /// It is still built here rather than at the call site, and still returned as
-    /// a list rather than a point, because the *shape* is the guarantee and the
-    /// shape is the thing a caller could get wrong. It used to be three legs —
-    /// down to the aisle, down to the ring's delivery row, then sideways to the
-    /// anchor — and the danger was a caller cutting the corner into a diagonal.
-    /// The danger now is a caller reintroducing the sideways leg at all.
+    /// It is built here rather than at the call site, and returned as a list
+    /// rather than a point, because the *shape* is the guarantee and the shape is
+    /// the thing a caller could get wrong. A caller that cut the corner — a
+    /// straight desk-to-anchor diagonal — would drag the plate across three rows
+    /// of the room and the second clause of
+    /// `deliveryPosition(anchorSeat:reporterSeat:)`'s rule would be gone with
+    /// nothing failing.
     public func deliveryRoute(anchorSeat: Int, reporterSeat: Int) -> [ScenePoint] {
-        [deliveryPosition(anchorSeat: anchorSeat, reporterSeat: reporterSeat)]
+        [seatApproach(reporterSeat),
+         deliveryLaneEntry(forSeat: reporterSeat),
+         deliveryPosition(anchorSeat: anchorSeat, reporterSeat: reporterSeat)]
     }
 
-    /// The same route reversed: **one leg, straight up the character's own
-    /// column, into its chair** — or no legs at all when it is already in it.
+    /// The same route reversed: **back along the delivery row into the
+    /// character's own column, then straight up it into the chair** — or no legs
+    /// at all when it is already in it.
     ///
-    /// It used to be three waypoints and `fromY` trimmed the ones a character
-    /// was already above, because home could begin on a delivery row, on the
-    /// walkway or in the chair. One waypoint is enough now: wherever a character
-    /// is, it is in this column, so the segment from where it stands to its own
-    /// seat is vertical whatever `fromY` was.
+    /// **`fromY` decides how much of that is needed, and it is load-bearing in
+    /// both directions.**
     ///
-    /// **What `fromY` still decides is whether there is a leg at all**, and that
-    /// turned out to be load-bearing rather than tidiness. A zero-length walk
-    /// still costs `Character.duration`'s 0.2 s floor, and a leaver spends those
-    /// 0.2 s standing still in a column that its replacement is already climbing
-    /// — a seat is free the instant its occupant starts walking out. The dwell
-    /// was free while the walk-in started up to 96 px below the seats; it is not
-    /// free now that it starts one tile below, because 0.2 s at 72 px/s is 14 px
-    /// of a 32 px convoy gap. `noAdversarialPairingOfBeatsEverTouchesTwoPlates`
-    /// measured the two plates 8 px *inside* each other before this guard.
+    /// - *At or below the delivery row* the character may be off its own column
+    ///   — the delivery row is the one place in the room where that is true — so
+    ///   the lane entry goes in front and the climb starts from the column. A
+    ///   caller that omitted it would produce the diagonal `deliveryRoute` is
+    ///   written to prevent, on the way home instead of on the way out.
+    /// - *Above it* the character is in its own column already and one vertical
+    ///   leg is the whole route.
+    /// - *At or above the seat row* there is no leg at all, and that guard is not
+    ///   tidiness: a zero-length walk still costs `Character.duration`'s 0.2 s
+    ///   floor, and a leaver spends those 0.2 s standing still in a column its
+    ///   replacement is already climbing — a seat is free the instant its
+    ///   occupant starts walking out. 0.2 s at 72 px/s is 14 px of a 32 px convoy
+    ///   gap; `noAdversarialPairingOfBeatsEverTouchesTwoPlates` measured the two
+    ///   plates 8 px *inside* each other before it was added.
+    ///
+    /// The default is the furthest downstage the room goes, so a caller that does
+    /// not say gets the full route rather than a diagonal.
     public func homeRoute(forSeat index: Int, fromY: Double = -.greatestFiniteMagnitude)
     -> [ScenePoint] {
-        fromY >= seatRowY(index) ? [] : [seatPosition(index)]
+        guard fromY < seatRowY(index) else { return [] }
+        guard fromY <= deliveryRowY else { return [seatPosition(index)] }
+        return [deliveryLaneEntry(forSeat: index), seatPosition(index)]
     }
 
     /// **The walk-in, as waypoints: straight up the character's own column,
@@ -704,25 +817,35 @@ public struct RoomLayout: Sendable, Hashable {
     /// | | px |
     /// |---|---:|
     /// | badge slot above the feet | 51 |
-    /// | nameplate below the feet | 23 |
+    /// | nameplate below the feet | 13 |
     /// | the two seat rows | 64 |
     /// | the walkway | 32 |
-    /// | **content band** | **170** |
+    /// | the delivery row | 32 |
+    /// | **content band** | **192** |
     ///
-    /// A `2x` view of a 720×400 panel has 200 px of height, and 170 is inside it
-    /// with 30 to spare. **It was 300.** Two terms went, in the same pass and
-    /// from opposite sides of the boundary this file draws: 96 px of delivery
-    /// row, which was the layout's, and 34 px of badge, which was not. The
-    /// layout's own share is 96 now and cannot go lower — a room needs its seats
-    /// and it needs one row of floor in front of them for people to arrive on and
-    /// report from.
+    /// A `2x` view of a 720×400 panel has 200 px of height, and 192 is inside it
+    /// with 8 to spare. **It was 300, then 160.** The history is worth the four
+    /// lines because the last two rows of this table were bought and sold twice:
     ///
-    /// The 96 was one delivery row per ring, floor below the walkway that existed
-    /// to keep one lateral corridor out of everyone's way; see
-    /// `deliveryPosition(anchorSeat:reporterSeat:)`. `RoomCamera.init` carries
+    /// - M6f spent 96 px of delivery row — one row per ring — and 34 px of badge,
+    ///   taking 300 to 170. The rows were floor the report beat reserved so that a
+    ///   reporter walking to its anchor crossed nobody, and deleting them deleted
+    ///   the walk.
+    /// - `2806f5c` put the task on the plate (170 → 178) and `2caa864` cut the
+    ///   plate to one row (178 → **160**), which is 40 px of headroom against
+    ///   `2x`.
+    /// - This change spends 32 of that 40 on **one** delivery row, shared by every
+    ///   reporter rather than one per ring, and the walk is back. Three rows would
+    ///   be 256 and does not fit; one does, with 8 px to spare.
+    ///
+    /// The layout's own share is 128 and cannot go lower without giving the walk
+    /// back up: a room needs its two seat rows, one row of floor in front of them
+    /// for people to arrive on and report from, and one row for the walk itself.
+    /// See `deliveryPosition(anchorSeat:reporterSeat:)`. `RoomCamera.init` carries
     /// what the camera does with the result and
     /// `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt` keeps these numbers
-    /// honest. **Width is what holds the camera now**, not height.
+    /// honest. **Width is what holds the camera now**, not height — 192 still fits
+    /// `2x`, and it is the seat pitch that says only three agents do.
     ///
     /// Both arguments are measured from the manifest by the caller rather than
     /// written down here, so a taller badge or a taller font changes the frame
@@ -735,13 +858,16 @@ public struct RoomLayout: Sendable, Hashable {
     public func contentBand(
         badgeTopAboveFeet: Double, plateDropBelowFeet: Double
     ) -> (bottom: Double, top: Double) {
-        // The lowest plate belongs to a character on the walkway — the only row
-        // in the room nearer the camera than the seats, and the only place a
-        // character can be that is not a chair.
+        // The lowest plate belongs to a character on the **delivery row** — the
+        // furthest downstage anyone ever stands, and the row a reporter walks
+        // along to reach its anchor. It is `standingRows.first`, and it is
+        // written that way so that a row added to the room is a row the camera
+        // frames rather than a row it crops.
         // The highest pixel belongs to a character on the **back** seat row —
         // the furthest upstage anyone sits, and the row whose badge would be
         // cropped by a band measured from `baselineY`.
-        (aisleY - plateDropBelowFeet, topSeatRowY + badgeTopAboveFeet)
+        ((standingRows.min() ?? aisleY) - plateDropBelowFeet,
+         topSeatRowY + badgeTopAboveFeet)
     }
 
     /// Bounding box in x of the given seats plus their desks, padded by a
@@ -760,5 +886,129 @@ public struct RoomLayout: Sendable, Hashable {
             maxX = max(maxX, position.x + Double(tile * 2))
         }
         return (max(0, minX - Double(tile)), min(width, maxX + Double(tile)))
+    }
+
+    /// **The exclusion rule for the one row characters travel along**, as a
+    /// number rather than as a policy: a plate plus the margin the lattice
+    /// already clears by everywhere else.
+    ///
+    /// It is `minimumSeatSpacingTiles`' own `needed` — the seat pitch *before*
+    /// it is rounded up to a whole tile — so the delivery row separates two
+    /// reporters by the same amount the seat rows separate two neighbours, for
+    /// the same reason, computed from the same two measurements. Two claims that
+    /// clear each other by this leave their plates at least `tile − plateHeight`
+    /// apart, which is 21 px at the shipped plate and is the bound
+    /// `noAdversarialPairingOfBeatsEverTouchesTwoPlates` asserts against.
+    public static func deliveryClearance(plateWidth: Int, plateHeight: Int, tile: Int) -> Double {
+        Double(max(0, plateWidth) + max(0, max(1, tile) - max(0, plateHeight)))
+    }
+}
+
+/// **Who is on the delivery row.**
+///
+/// The report walk crosses seat columns, so unlike every other route in this
+/// room it cannot be made safe by `seatColumn` alone. This is what makes it
+/// safe instead, and the thing to understand about it is that **it is not a
+/// scheduler**: it grants a claim on a stretch of one row, refuses claims that
+/// would overlap a live one, and never makes anybody wait. A reporter that is
+/// refused plays `RoomLayout.inPlaceDeliveryRoute(reporterSeat:)` immediately —
+/// the beat that shipped before this row existed, in its own column, where any
+/// number of characters can be at once.
+///
+/// So there is no queue. Nothing is deferred, nothing accumulates, and the
+/// answer to "what happens if it never drains" is that there is nothing to
+/// drain. [I4]
+///
+/// **What can still go wrong is a claim that is never given back** — a callback
+/// that does not fire, a character retired between two frames — and that is a
+/// stuck *room* rather than a stuck character: the holder finishes its walk and
+/// sits down normally, and only later reports are affected, and only by being
+/// given the in-place beat. It is closed twice over anyway:
+///
+/// - `RoomScene` releases on the beat's own completion, and every frame drops
+///   any claim whose character has stopped running a script or has left the
+///   scene — the condition itself rather than a proxy for it;
+/// - and `reap(at:)` drops a claim held past `budget`, which `RoomScene` sets to
+///   twice the beat it is timing. A deadline is the reaper of last resort here,
+///   not the mechanism, which is why it can afford to be generous.
+///
+/// **It is keyed by an opaque id, one per beat — not by seat and not by agent.**
+///
+/// A seat looks like the natural key and is the wrong one. A subagent goes
+/// dormant on the same event that starts its report, which makes it the
+/// longest-dormant character in the room and therefore the first candidate
+/// `SceneDirector.settleSeats` evicts — so its seat can be handed to a new agent
+/// while it is still several seconds from the end of its walk. Keyed by seat,
+/// that new agent's own report would overwrite a claim whose holder is standing
+/// in the corridor. A per-beat id has no such collision, and it keeps this type
+/// free of `SpriteRoomCore` so it unit-tests as arithmetic.
+public struct DeliveryFloor: Sendable, Hashable {
+
+    public struct Claim: Sendable, Hashable {
+        public var corridor: ClosedRange<Double>
+        /// How long this claim may be held before `reap(at:)` takes it back.
+        public var budget: TimeInterval
+        /// When the clock first saw it. `nil` until the first `reap(at:)` after
+        /// the claim, so the floor never has to be told what time it is at claim
+        /// time and cannot mis-reap against an unstarted clock — `RoomScene`'s
+        /// clock is the render loop's, whose origin is system uptime.
+        public var startedAt: TimeInterval?
+    }
+
+    /// How far two claims must clear each other.
+    /// [`RoomLayout.deliveryClearance(plateWidth:plateHeight:tile:)`]
+    public let clearance: Double
+    private var claims: [Int: Claim] = [:]
+
+    public init(clearance: Double) { self.clearance = max(0, clearance) }
+
+    public var occupiedIDs: Set<Int> { Set(claims.keys) }
+    public func claim(id: Int) -> Claim? { claims[id] }
+    public var isEmpty: Bool { claims.isEmpty }
+
+    /// Whether `corridor` clears every live claim except `id`'s own.
+    ///
+    /// A re-claim under an id that already holds the row is always allowed: it
+    /// is the same beat being restarted, and a beat is one character.
+    public func admits(corridor: ClosedRange<Double>, forID id: Int) -> Bool {
+        for (held, claim) in claims where held != id {
+            let gap = max(corridor.lowerBound - claim.corridor.upperBound,
+                          claim.corridor.lowerBound - corridor.upperBound)
+            if gap < clearance { return false }
+        }
+        return true
+    }
+
+    /// Take the stretch if it is free. `false` means the caller plays the
+    /// in-place beat — it does **not** mean "try again later", and there is no
+    /// later to try at.
+    @discardableResult
+    public mutating func claim(
+        id: Int, corridor: ClosedRange<Double>, budget: TimeInterval
+    ) -> Bool {
+        guard admits(corridor: corridor, forID: id) else { return false }
+        claims[id] = Claim(corridor: corridor, budget: max(0, budget), startedAt: nil)
+        return true
+    }
+
+    public mutating func release(id: Int) { claims[id] = nil }
+    public mutating func releaseAll() { claims.removeAll() }
+
+    /// Drops every claim held past its budget and returns their ids.
+    ///
+    /// The first call after a claim starts its clock rather than expiring it, so
+    /// the floor is correct against any clock origin.
+    @discardableResult
+    public mutating func reap(at time: TimeInterval) -> [Int] {
+        var expired: [Int] = []
+        for (id, claim) in claims {
+            guard let started = claim.startedAt else {
+                claims[id]?.startedAt = time
+                continue
+            }
+            if time - started >= claim.budget { expired.append(id) }
+        }
+        for id in expired { claims[id] = nil }
+        return expired.sorted()
     }
 }

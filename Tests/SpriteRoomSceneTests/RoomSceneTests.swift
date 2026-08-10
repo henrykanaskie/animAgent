@@ -405,34 +405,41 @@ struct RoomSceneTests {
         #expect(layout.seatColumn(0) == layout.columns / 2)
     }
 
-    @Test func theDeliveryPointIsOnTheWalkwayInTheReportersOwnColumn() {
+    @Test func theDeliveryPointIsBesideTheAnchorOnTheDeliveryRow() {
         let layout = RoomLayout()
         // The convenience point is seat 2 reporting to seat 0, and seat 2 is
         // left of centre — so it stands left of the anchor and turns right to
-        // face it. That much is unchanged; where it stands is not.
+        // face it.
         #expect(layout.deliveryPosition.x < layout.seatPosition(0).x)
         #expect(layout.deliveryFacing == .right)
-        #expect(layout.deliveryPosition.x == layout.seatPosition(2).x,
-                "the reporter left its own column")
-        // On the walkway — the one row in the room that is not a seat row, and
-        // the row every arrival already starts on.
-        #expect(layout.deliveryPosition.y == layout.aisleY)
+        #expect(layout.deliveryPosition.x == layout.seatPosition(0).x - layout.deliveryGap,
+                "the reporter did not reach its anchor")
+        // On the delivery row — the one row in the room a character travels
+        // *along*, and the one row nothing else in the room ever touches.
+        #expect(layout.deliveryPosition.y == layout.deliveryRowY)
+        #expect(layout.deliveryRowY < layout.aisleY)
         #expect(layout.aisleY < layout.baselineY)
         for seat in 0..<layout.seatCapacity {
             #expect(layout.seatPosition(seat).y != layout.deliveryPosition.y)
         }
+        // And the beat it falls back to when the row is taken is the one that
+        // shipped between M6f and now: the reporter's own column, on the walkway.
+        for seat in 0..<layout.seatCapacity {
+            #expect(layout.inPlaceDeliveryPosition(reporterSeat: seat)
+                    == layout.seatApproach(seat))
+        }
     }
 
-    /// **A reporter never leaves its own column, and turns to face its anchor.**
+    /// **A reporter walks to its anchor's side, and turns to face it.**
     ///
-    /// This test used to be called `aReporterApproachesItsAnchorFromItsOwnSide…`
-    /// and asserted that the reporter stopped *between* itself and the anchor.
-    /// There is no "between" any more: the reporter delivers standing in its own
-    /// column, one row downstage of its chair, whoever it is reporting to. The
-    /// half that survives is the half [I1] cares about — it turns to face the
-    /// person it is reporting to, because delivering with your back turned would
-    /// be a small lie about a real event.
-    @Test func aReporterDeliversInItsOwnColumnAndTurnsToFaceItsAnchor() {
+    /// This test has been through three claims. It began as
+    /// `aReporterApproachesItsAnchorFromItsOwnSide…`; M6f rewrote it as
+    /// `aReporterDeliversInItsOwnColumn…` when the walk was deleted; the walk is
+    /// back, one shared row instead of three, so the original claim is the claim
+    /// again. What was never in doubt is the half [I1] cares about — it turns to
+    /// face the person it is reporting to, because delivering with your back
+    /// turned would be a small lie about a real event.
+    @Test func aReporterStopsShortOfItsAnchorOnItsOwnSideAndTurnsToFaceIt() {
         let layout = RoomLayout()
         for anchor in 0..<layout.seatCapacity {
             let anchorX = layout.seatPosition(anchor).x
@@ -442,27 +449,27 @@ struct RoomSceneTests {
             for reporter in 1..<layout.seatCapacity where reporter != anchor {
                 let side = layout.deliverySide(anchorSeat: anchor, reporterSeat: reporter)
                 let delivery = layout.deliveryPosition(anchorSeat: anchor, reporterSeat: reporter)
-                #expect(delivery.x == layout.seatPosition(reporter).x,
-                        "reporter \(reporter) left its own column to reach seat \(anchor)")
-                #expect(delivery.y == layout.aisleY)
+                #expect(abs(delivery.x - anchorX) == layout.deliveryGap,
+                        "reporter \(reporter) did not reach seat \(anchor)")
+                #expect(delivery.y == layout.deliveryRowY)
                 #expect(layout.deliveryFacing(side: side)
                         == (delivery.x < anchorX ? .right : .left))
             }
         }
     }
 
-    /// **Nothing in the room ever crosses the centre line, because nothing in
-    /// the room ever moves sideways at all.**
+    /// **Every waypoint of every route except a report's is on the moving
+    /// character's own column, and a report leaves that column only on the
+    /// delivery row.**
     ///
-    /// The old rule was narrower and needed arithmetic: a reporter walking to a
-    /// parent on the far side would drag its corridor through the other half's
-    /// rows, so it stopped a delivery gap short of centre and the two halves'
-    /// nearest delivery points had to clear a plate width. Both halves of that
-    /// are now free — a reporter's x is its seat's x — and this checks the
-    /// stronger property directly: **every waypoint of every route the layout
-    /// can produce lies on the seat's own column**, for every seat, every anchor
-    /// and every route. That single fact is the whole collision argument; see
-    /// `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)`.
+    /// M6f's version of this asserted the first clause of *every* route with no
+    /// exception, which it could because it had deleted the one route that
+    /// crosses columns. The exception is back — see
+    /// `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)` — and it is stated
+    /// here as an exception with a boundary rather than dropped: a report's
+    /// waypoints are on its own column *until* it is on `deliveryRowY`, and the
+    /// only waypoint that is not is on that row. `ReportDeliveryTests
+    /// .theRoomsOneLateralCorridorMeetsNoOtherRoute` carries what that buys.
     @Test func everyWaypointOfEveryRouteIsOnTheMovingCharactersOwnColumn() {
         let layout = RoomLayout()
         for seat in 0..<layout.seatCapacity {
@@ -472,7 +479,9 @@ struct RoomSceneTests {
                 ("home", layout.homeRoute(forSeat: seat)),
                 ("exit", [layout.upstageExit(forSeat: seat)]),
                 ("approach", [layout.seatApproach(seat)]),
-                ("seat", [layout.seatPosition(seat)])
+                ("seat", [layout.seatPosition(seat)]),
+                ("in-place report", layout.inPlaceDeliveryRoute(reporterSeat: seat)),
+                ("delivery lane entry", [layout.deliveryLaneEntry(forSeat: seat)]),
             ]
             for anchor in 0..<layout.seatCapacity where anchor != seat {
                 routes.append(("report to \(anchor)",
@@ -480,9 +489,10 @@ struct RoomSceneTests {
             }
             for (name, route) in routes {
                 for point in route {
-                    #expect(point.x == column, Comment(rawValue:
-                        "seat \(seat)'s \(name) route leaves its column:"
-                        + " \(point.x) against \(column)"))
+                    #expect(point.x == column || point.y == layout.deliveryRowY,
+                            Comment(rawValue:
+                        "seat \(seat)'s \(name) route leaves its column at y=\(point.y),"
+                        + " which is not the delivery row: \(point.x) against \(column)"))
                 }
             }
         }
@@ -766,9 +776,16 @@ struct RoomSceneTests {
     }
 
     /// A leaver goes out **up its own column**, not along the front of everyone
-    /// else's desk. A character caught mid-report is out on the walkway when the
-    /// session ends, so its exit starts one row downstage of its chair and is
-    /// one continuous ascent of the same column.
+    /// else's desk. A character caught mid-report is over at its anchor on the
+    /// delivery row when the session ends, so its exit is the one place in this
+    /// room where getting back into the column is part of the route: it walks
+    /// home along the row it came out on, and everything after that is one
+    /// continuous ascent of its own column.
+    ///
+    /// **The lateral part is measured rather than excused.** The test counts the
+    /// frames the leaver is off its column and requires every one of them to be
+    /// on the delivery row — a leaver that got its lateral leg anywhere else
+    /// would be crossing a row somebody could be standing on.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aLeaverCaughtMidReportComesHomeUpItsOwnColumnAndLeavesUpstage() throws {
         let manifest = try SceneFixtures.manifest()
@@ -788,35 +805,44 @@ struct RoomSceneTests {
         }
         step(4)
         scene.apply(director.apply([.reportDelivered(agent: cast[3])]))
-        // Stepped to the moment of the hand-over rather than waited out. The
-        // beat used to be a walk down three rows, a traverse and a walk back, so
-        // three seconds landed inside it; it is now one tile down, the deliver,
-        // and one tile back, and a fixed wait runs past the end of it. Catching
+        // Stepped to the moment of the hand-over rather than waited out. Catching
         // the character *while it is off its chair* is the whole point of the
-        // test, so the test asks when that is.
+        // test, so the test asks when that is rather than guessing a duration.
         let reporter = try #require(scene.character(for: cast[3]))
         let station = scene.layout.seatPosition(3)
         while reporter.state != .deliver, time < 20 { step(1.0 / 60.0) }
         #expect(reporter.state == .deliver, "the reporter never delivered")
-        #expect(Double(reporter.position.y) == scene.layout.aisleY,
-                "the reporter is not out on the walkway")
+        #expect(Double(reporter.position.y) == scene.layout.deliveryRowY,
+                "the reporter is not out on the delivery row")
         #expect(Double(reporter.position.y) != station.y, "the reporter never left its chair")
-        #expect(Double(reporter.position.x) == station.x, "the reporter left its own column")
+        #expect(Double(reporter.position.x)
+                == scene.layout.deliveryPosition(anchorSeat: 0, reporterSeat: 3).x,
+                "the reporter did not reach its anchor")
 
         scene.apply(director.apply([.agentDeparted(agent: cast[3])]))
-        // It comes back up its own column — and it never leaves that column
-        // again, all the way out through the back of the room. There is no
-        // corner left to cut: every waypoint on the way out has the column's own
-        // x, which is what `everyWaypointOfEveryRouteIsOnTheMovingCharactersOwnColumn`
-        // asserts of the layout and this asserts of the frames.
-        var strayed = 0
-        let end = time + 14
+        // It comes home along the delivery row into its own column and never
+        // leaves that column again, all the way out through the back of the
+        // room. There is no corner cut: every frame it is off its column is a
+        // frame on the delivery row, which is the second clause of
+        // `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)`'s rule asserted
+        // on the frames rather than on the waypoints.
+        var offColumn = 0
+        var offColumnAndOffTheRow = 0
+        let end = time + 20
         while time < end {
             time += 1.0 / 60.0
             scene.advance(to: time)
-            if abs(Double(reporter.position.x) - station.x) > 1e-6 { strayed += 1 }
+            guard abs(Double(reporter.position.x) - station.x) > 1e-6 else { continue }
+            offColumn += 1
+            if abs(Double(reporter.position.y) - scene.layout.deliveryRowY) > 1e-6 {
+                offColumnAndOffTheRow += 1
+            }
         }
-        #expect(strayed == 0, "the leaver left its own column on the way out")
+        #expect(offColumn > 0, "the leaver was never off its column; the walk did not happen")
+        #expect(offColumnAndOffTheRow == 0, Comment(rawValue:
+            "the leaver was off its own column on \(offColumnAndOffTheRow) frames that"
+            + " were not on the delivery row — a diagonal, across rows other"
+            + " characters stand on"))
         #expect(reporter.position == CGPoint(
             x: scene.layout.upstageExit(forSeat: 3).x,
             y: scene.layout.upstageExit(forSeat: 3).y))
@@ -852,6 +878,15 @@ struct RoomSceneTests {
     /// `everyWaypointOfEveryRouteIsOnTheMovingCharactersOwnColumn` is the other
     /// half of this: it checks the premise, this checks what the premise buys.
     /// `noAdversarialPairingOfBeatsEverTouchesTwoPlates` then drives it.
+    ///
+    /// **The one lateral leg is back and this test's scope is now stated rather
+    /// than universal.** A report crosses columns on `deliveryRowY`; what keeps
+    /// two reporters off each other there is `DeliveryFloor`, and
+    /// `ReportDeliveryTests.twoGrantedCorridorsAreAlwaysAPlateApart` is where that
+    /// is proved. Everything below is about every *other* pairing in the room,
+    /// which is every pairing that does not involve a granted delivery corridor —
+    /// and block 4, which used to be about two reporters on the walkway, still is:
+    /// the walkway is where a refused reporter delivers.
     @Test func theRoomHasNoLateralMovementLeftToSeparate() {
         let layout = RoomLayout()
         let widest = Double(SceneBitmaps.maximumNameplateWidth)
@@ -872,17 +907,22 @@ struct RoomSceneTests {
 
         // 2. Rows are further apart than a plate is tall, so two characters on
         //    different rows cannot share a horizontal strip at any x. There are
-        //    exactly three rows now — the two seat rows and the walkway — where
-        //    there were six. The three that went were the report beat's, one per
-        //    ring, and they are the 96 px this change gave back to the camera.
-        let rows = layout.seatRows + [layout.aisleY]
+        //    exactly four rows: the two seat rows, the walkway, and the delivery
+        //    row. It was six (one delivery row per ring), then three, and it is
+        //    four — one shared delivery row is what buys the walk back.
+        //
+        //    Asked of `RoomLayout.standingRows` rather than assembled here, so a
+        //    row added to the room is a row this block sees.
+        let rows = layout.standingRows
         let sorted = rows.sorted()
         for (lower, upper) in zip(sorted, sorted.dropFirst()) {
             #expect(upper - lower > tallest,
                     "rows \(lower) and \(upper) put two plates in one strip")
         }
         #expect(Set(rows).count == rows.count, "two of the room's rows are the same line")
-        #expect(rows.count == 3, "the room grew a row; every row is a row two plates can share")
+        #expect(rows.count == 4, "the room grew a row; every row is a row two plates can share")
+        #expect(sorted.first == layout.deliveryRowY,
+                "the delivery row is no longer the front of the room")
 
         // 3. **The crossings.** A character moving in its own column passes
         //    through every row between where it started and where it is going,
@@ -904,15 +944,16 @@ struct RoomSceneTests {
             }
         }
 
-        // 4. And the one row two characters can genuinely stand on at once: the
-        //    walkway, where any number of reporters can be out of their chairs
-        //    together. They are in their own columns, so the tightest pair is
-        //    two adjacent columns and the bound is block 1's again — which is
-        //    the whole of what the three delivery rows were buying.
+        // 4. And the one row any number of characters can stand on at once: the
+        //    walkway, where every reporter refused the delivery row delivers.
+        //    They are in their own columns, so the tightest pair is two adjacent
+        //    columns and the bound is block 1's again. This is why the fallback
+        //    needs no exclusion of its own and can be handed out to everybody in
+        //    the same frame.
         for seat in 1..<layout.seatCapacity {
             for other in (seat + 1)..<layout.seatCapacity {
-                let first = layout.deliveryPosition(anchorSeat: 0, reporterSeat: seat)
-                let second = layout.deliveryPosition(anchorSeat: 0, reporterSeat: other)
+                let first = layout.inPlaceDeliveryPosition(reporterSeat: seat)
+                let second = layout.inPlaceDeliveryPosition(reporterSeat: other)
                 #expect(first.y == second.y, "two reporters no longer share the walkway")
                 #expect(abs(first.x - second.x) >= widest, Comment(rawValue:
                     "reporters \(seat) and \(other) deliver"
@@ -1037,15 +1078,20 @@ struct RoomSceneTests {
     /// even claimed in the right order the two shared a line, so one's corridor
     /// ran through the other's slot.
     ///
-    /// Where a reporter stands is now its **own seat's column**, one row
-    /// downstage. Two same-side reporters therefore stand on one row and a seat
-    /// pitch apart in x, and neither the claim order nor the timing can put them
-    /// in each other's way, because neither of them moves in x at all. Nothing
-    /// is claimed and nothing is released.
+    /// **There is a claim again and it is not that claim.** `DeliveryFloor`
+    /// hands out a *stretch of one row*, refuses anything that would come within
+    /// a plate of a live one, and a reporter it refuses does not queue — it
+    /// delivers in its own column on the walkway, in the same frame. So the pair
+    /// under test here is the pair the old bookkeeping got wrong, seats 1 and 3,
+    /// both right of the anchor and therefore both wanting the same stretch: one
+    /// walks to the anchor on the delivery row and the other stands in its own
+    /// column a row upstage. They are on **different rows**, which is the
+    /// strongest separation this room has, and the plates are checked every frame
+    /// of both beats regardless.
     ///
-    /// This is the test the three delivery rows were built for, and it is the
-    /// one that had to keep passing without them: seats 1 and 3 are rings 1 and
-    /// 2, so they *did* deliver on rows of their own, and now they do not.
+    /// This is the test the three delivery rows were built for; it had to keep
+    /// passing without them at M6f and it has to keep passing with one of them
+    /// back. `ReportDeliveryTests` carries what the one row is for.
     @Test(.enabled(if: SceneArt.isAvailable))
     func twoSameSideReportersDeliverClearOfEachOther() throws {
         let manifest = try SceneFixtures.manifest()
@@ -1087,10 +1133,10 @@ struct RoomSceneTests {
         step(4)
         scene.apply(director.apply([.reportDelivered(agent: cast[1])]))
         // Fire the second the instant the first is actually delivering, so both
-        // are out of their chairs on the walkway together — the window the old
-        // bookkeeping got wrong, and the one the delivery rows existed to close.
-        // Stepped to the event rather than waited out: the beat is a third of
-        // what it was and a fixed three seconds now runs past the end of it.
+        // are out of their chairs together — the window the old bookkeeping got
+        // wrong, and the one the delivery row exists to close. Stepped to the
+        // event rather than waited out, so the overlap is real rather than hoped
+        // for.
         while stations[cast[1]] == nil, time < 20 { step(1.0 / 60.0) }
         #expect(stations[cast[1]] != nil, "the first reporter never delivered")
         #expect(scene.character(for: cast[1])?.isScripted == true,
@@ -1098,15 +1144,18 @@ struct RoomSceneTests {
         scene.apply(director.apply([.reportDelivered(agent: cast[3])]))
         step(12)
 
-        // The same row — they share the walkway now — and a full seat pitch
-        // apart in x, because each is standing in its own column.
+        // Different rows: the first took the delivery row and walked to the
+        // anchor, the second was refused it and delivered in its own column on
+        // the walkway. A row apart is 32 px against an 11 px plate.
         let first = try #require(stations[cast[1]])
         let second = try #require(stations[cast[3]])
-        #expect(first.y == second.y, "the two reporters did not share the walkway")
-        #expect(first.y == scene.layout.aisleY)
-        #expect(abs(first.x - second.x) >= Double(SceneBitmaps.maximumNameplateWidth),
-                "two reporters delivered \(abs(first.x - second.x)) px apart across")
-        #expect(second.x > first.x, "the farther reporter delivers further out")
+        #expect(first.y == scene.layout.deliveryRowY,
+                "the first reporter did not get the delivery row")
+        #expect(second.y == scene.layout.aisleY,
+                "the second reporter was not refused the row it could not have")
+        #expect(abs(first.y - second.y) > Double(SceneBitmaps.maximumNameplateHeight),
+                "the two reporters delivered in one horizontal strip")
+        #expect(second.x > first.x, "the refused reporter is not further out")
         #expect(overlaps == 0, "\(overlaps) frames with intersecting nameplates")
         // Both are home and sitting again: a report takes nobody out of the room.
         #expect(scene.population == 4)
@@ -1183,12 +1232,14 @@ struct RoomSceneTests {
         // at the wide default, and a band derived from `MAIN` alone would have
         // cropped every subagent's type line.
         let plateHeight = Double(SceneBitmaps.maximumNameplateHeight)
-        // The lowest plate belongs to a character on the walkway — the nearest
-        // the camera any character can stand.
-        #expect(layout.aisleY - 2 - plateHeight >= band.bottom)
-        // Every row the choreography can stand a character on is inside it, and
-        // there are three of them now rather than six.
-        for row in layout.seatRows + [layout.aisleY] {
+        // The lowest plate belongs to a character on the **delivery row** — the
+        // nearest the camera any character can stand, and where a reporter is
+        // when it hands its report over.
+        #expect(layout.deliveryRowY - 2 - plateHeight >= band.bottom)
+        // Every row the choreography can stand a character on is inside it —
+        // asked of `standingRows`, so a row added to the room is a row this
+        // checks rather than a row it forgets.
+        for row in layout.standingRows {
             #expect(row - 2 - plateHeight >= band.bottom, "a plate on row \(row) is cropped")
         }
         // The band is what the characters occupy and nothing else. It used to be
@@ -1196,21 +1247,21 @@ struct RoomSceneTests {
         // "not a flat band of empty wall and floor"; the delivery rows made the
         // occupied strip genuinely taller than the nominal box, so the proxy is
         // replaced by the thing it stood for.
-        #expect(band.bottom == layout.aisleY
+        #expect(band.bottom == layout.deliveryRowY
                 - Double(SceneBitmaps.maximumNameplateHeight + 2))
 
         // **And the whole of it, as one number.** The band is the badge, the
-        // plate, the two seat rows and the walkway, and nothing else — the term
-        // that is not on this list is the one this change removed. Written as
-        // the sum rather than as a literal so that a taller badge moves it
-        // instead of breaking it.
+        // plate, the two seat rows, the walkway and the delivery row, and nothing
+        // else. Written as the sum rather than as a literal so that a taller badge
+        // moves it instead of breaking it.
         let seatRows = Double(layout.tile * layout.seatRowDepthTiles)
         let walkway = layout.baselineY - layout.aisleY
+        let deliveryRow = layout.aisleY - layout.deliveryRowY
         let badgeTop = Character.badgeSlotTopAboveFeet(
             canvasHeight: manifest.characters.canvas.height,
             headTopPx: manifest.characters.variants.values.map(\.headTopPx).min() ?? 0)
         #expect(band.top - band.bottom
-                == badgeTop + plateHeight + 2 + seatRows + walkway,
+                == badgeTop + plateHeight + 2 + seatRows + walkway + deliveryRow,
                 "the content band is carrying a term the room does not draw")
     }
 

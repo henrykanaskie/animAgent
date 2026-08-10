@@ -812,7 +812,15 @@ is the only compensation available for the text the plate stopped carrying.
 **The height, which is a budget other things spend.** `maximumNameplateHeight`
 fell 29 → **11**, so the camera's content band fell **178 → 160 px** against the
 200 a `2x` view of the 720×400 panel gives: 96 px of room (two seat rows and the
-walkway), 51 px of badge slot above the feet, 13 px of plate below them. It also
+walkway), 51 px of badge slot above the feet, 13 px of plate below them.
+
+> **The 40 px this freed has been spent, and on one thing.** Task #62 put one
+> delivery row back — 32 px — so that a reporter arrives beside the agent it is
+> reporting to instead of miming a hand-over into empty floor. The band is
+> **192** and the margin against `2x` is **8 px**. Everything in this paragraph
+> still holds; the room's share is 128 rather than 96.
+
+It also
 moved a number in `RoomLayout.minimumSeatSpacingTiles`, in the counter-intuitive
 direction: that formula borrows its horizontal margin from the row axis, so a
 shorter plate asks for a *wider* gap and the width that would buy a two-tile
@@ -1011,20 +1019,26 @@ The "carrying characters or furniture" row is the top of the tallest backdrop
 minus the bottom of the lowest seated plate, so it moves with the theme: 234 px
 for `office`'s 46 px chart board, 268 px for `broadcast`'s 80 px softbox.
 
-**That foreground reserve was 128 px — 32% of the panel — and it is 32 px now.**
+**That foreground reserve was 128 px — 32% of the panel — and it is 64 px now.**
 The frame's bottom edge sits exactly on `contentBand.bottom`, which is the lowest
-pixel of a nameplate belonging to a character standing on the **walkway**.
+pixel of a nameplate belonging to a character standing on the **delivery row**.
 Nothing is wasted there; it is simply empty whenever nobody is out of a chair,
 which is most of the time.
 
-96 px of it was one delivery row per ring, and the paragraph that used to stand
-here said "none of the three is negotiable" — three same-side reporters (seats 1,
-3 and 5) must not share a row, and rows are a tile apart. That was true of the
-beat it was written for, and the beat changed: **a reporter no longer walks to
-its anchor.** It steps one row downstage of its own chair, in its own column,
-turns to face the anchor and hands over there. With no lateral leg anywhere in
-the room there is nothing to give a corridor to, and the three rows went with the
-walk. The content band fell from 300 px to 204. [`RoomLayout.deliveryPosition`]
+96 of that 128 was one delivery row per ring, and the paragraph that used to
+stand here said "none of the three is negotiable" — three same-side reporters
+(seats 1, 3 and 5) must not share a row, and rows are a tile apart. M6f took a
+different way out and deleted the walk instead: a reporter stepped one row
+downstage of its own chair, in its own column, turned to face the anchor and
+handed over there, and the content band fell from 300 px to 170.
+
+**The maintainer watched that ship and said the reporters "pass the envelope to
+no one", and they were right.** The walk is back on **one** shared row — 32 px,
+not 96 — and what keeps two reporters off each other is no longer a row each but
+a claim on a stretch of the one row, `DeliveryFloor`. A reporter refused a
+stretch plays M6f's in-place beat instead, in the same frame, so nothing ever
+waits. The band is 192 against the 200 a `2x` view of this panel gives.
+[`RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)`]
 
 What is left is forced, and the arithmetic is worth writing down:
 
@@ -1039,7 +1053,9 @@ What is left is forced, and the arithmetic is worth writing down:
 The one fix that would work is a change to the report beat itself: deliver
 *upstage* of the seat rows rather than downstage, which would free the whole
 foreground. That is a redesign of the choreography and its safety proof, not a
-composition change, and it is not this one.
+composition change, and it is not this one. It is also now the only place a
+second row of foreground could come from: the band has **8 px** of headroom
+against `2x` and the delivery row spent the rest.
 
 > **The first bullet was false, and it is what let the foreground grow back.**
 > `cameraY` was never at its clamp — it was at its *preference*, and the
