@@ -373,6 +373,77 @@ honest rather than as reassuring.** It is a guard against a workload the fixture
 do not contain, not a fix for one they do. §9 item 2 is the measurement that would
 price it.
 
+> ## The threshold above is superseded. The maintainer retuned it mid-build.
+>
+> **Everything in §3 up to here is the reasoning that produced `≥ 3` and `≥ 2×`,
+> and the premise it rests on was withdrawn**, in these words: *"it doesn't need
+> real data, the screen isn't going to be big enough or have enough resolution
+> for that. just needs to be a prop on the table."* The object is furniture, not
+> a readout. A rule that leaves 22 of 27 desks bare is the right rule for a claim
+> a person might rely on and the wrong one for a prop, and this document's own
+> "if far more than five earn an object, the threshold is not doing its job" is
+> withdrawn with it.
+>
+> **What shipped**, in `WorkTally`, all three numbers named and testable:
+>
+> | | value | what it buys |
+> |---|---:|---|
+> | `WorkTally.adoptionFloor` | **1** | one observed tool call furnishes a bare desk |
+> | `WorkTally.replacementFloor` | **2** | one stray call cannot overturn an occupied one |
+> | `WorkTally.majorityRatio` | **2** | and a challenger must double what the incumbent scored this turn |
+>
+> The 2:1 majority is §3 item 4's own and it moved: it used to compare the top
+> against the **runner-up** and now compares a challenger against **the thing it
+> would replace**, which is the comparison actually being made at a change.
+>
+> **`observedVotes` is what the lower floor cost.** A floor of 1 without it would
+> let a *description* furnish a desk — an agent dispatched to "read the logs"
+> would get a paper stack before doing anything — so the opening claim is
+> admissible as a vote and inadmissible as the only vote. It is still worth
+> exactly one real call, so §3 item 1's whole argument survives.
+>
+> **Measured over the same 17 fixtures**, by `DeskObjectCorpusTests`, which
+> prints these numbers on every run rather than only agreeing with them:
+>
+> | | proposed rule | shipped rule |
+> |---|---:|---:|
+> | agents furnished / 27 | 5 | **26** |
+> | agents keeping a bare desk | 22 | **1** |
+> | `setDeskObject` intents | 5 | **28** |
+> | of which **replacements** | 0 | **2** |
+> | worst character | 1 change | **2 changes** |
+> | tightest gap between two changes | n/a | **52.2 s** |
+>
+> By kind: `running` 13, `research` 9, `coordinating` 4. **`authoring` is 0 and
+> cannot be anything else** — §3b is why, and it is unchanged.
+>
+> **Abstention is still reachable and is still exactly one thing.** The single
+> bare desk is `idle-notification`'s main agent, which appears and never opens a
+> classifiable call at all. `DeskObjectCorpusTests
+> .onlyAnAgentWithNoClassifiableCallAtAllKeepsABareDesk` asserts both directions:
+> every bare desk had zero classifiable calls, and every furnished one had at
+> least one. That is not a confidence threshold, it is the difference between a
+> fact and no fact. [I1]
+>
+> **Stability was the thing to protect and it is not the floor that was
+> protecting it.** 28 sets for 26 characters is 26 first appearances and two
+> corrections, both a subagent that read a file in one turn and ran commands in
+> the next, 52 s apart. What holds it are the replacement margin and the
+> turn-scoped tally, neither of which moved — against the naive argmax rule's 32
+> changes, this is 2. The enforced worst case is unchanged and is a clock: one
+> change per character per `SceneDirector.deskObjectDwell`, so 15 a minute
+> against ADR-005's measured 23 ms median tool call.
+>
+> **And the clock is the looser of the two bounds, which was not obvious.**
+> Because votes only accumulate within a turn, every successive change has to
+> double the count that beat it last time — so churn is bounded
+> *logarithmically* by the arithmetic alone, before any clock is consulted. Fed
+> 128 calls arranged as adversarially as a stream can be, one character produces
+> **seven** changes, not 128
+> (`WorkTallyTests.theVoteRuleAloneBoundsChangesWithinATurnLogarithmically`).
+> The room would be stable here with no dwell floor at all; the floor is what
+> stops the seven landing inside one second.
+
 ### 3b. The evidence base for the observed half is thin, and the brief did not say so
 
 Full `PreToolUse` census over all 17 fixtures:
@@ -502,13 +573,32 @@ no open state and no new reaping obligation. [I4]
 
 ### 5b. The one new intent
 
-A new case, "SpriteIntent.setDeskObject(agent:kind:)", emitted only when the
+A new case, `SpriteIntent.setDeskObject(agent:kind:)`, emitted only when the
 drawn kind actually changes — the discipline `setNameplate` already follows.
-(Quoted rather than backticked: `DocumentedSymbolTests` reads a backticked
-identifier as a claim that the symbol exists, and this one is proposed. It takes
-backticks in the change that writes it.) `RoomScene`
+(It was quoted rather than backticked while it was proposed, because
+`DocumentedSymbolTests` reads a backticked identifier as a claim that the symbol
+exists. It exists now, so it takes backticks.) `RoomScene`
 gains one node per seated character, parented like the station's own furniture and
 hidden rather than destroyed, so ADR-002 §6 rule 1 is honoured by construction.
+
+> **Shipped, with two details this section could not have named.** `kind` is
+> **not optional** and no value of the intent clears a desk, which is §4b held
+> structurally rather than by a rule somebody has to remember. And the node is
+> created **hidden and textureless at spawn** rather than on first use, so
+> furnishing a desk is a texture and a flag on a node that was already in the
+> tree — `DeskObjectSceneTests.noDeskObjectNodeIsEverRebuiltAcrossAnyFixtureReplay`
+> is rule 1's mechanical check for a slot `noPropNodeIsEverRebuiltAcrossAnyFixture
+> Replay` cannot see, because per-character furniture lives outside `propNodes`
+> exactly as a station's does.
+>
+> **One composition fact, recorded because a render found it rather than an
+> argument.** The badge slot sits beside the head, in the same column band as
+> the desk-top object, and it is in the overlay z band — so while a character
+> wears a badge or an attention bubble, that bubble covers the object standing
+> on its desk. The precedence is the right way round (M0's finding that the
+> badge carries tool identity, and the overlay band that exists so no body can
+> occlude it) and the occlusion is transient, but it is a real cost and it is
+> not visible from the geometry alone.
 
 ### 5c. `--render` draws it, and `scripts/lint-palette.py` will notice
 
@@ -532,6 +622,18 @@ because the main agent's kind is stable in practice — it dispatches, tracks an
 messages — and both `MAIN` results in §3a are `coordinating`. This ADR does not
 require ADR-005; it is simply better with it, and it needs no turn delta of its
 own either way.
+
+> **This degradation is dead text: the boundary exists.** `50a385d` shipped
+> `WorldDelta.turnChanged(agent:hasTurn:)` for the main thread's `Stop` after
+> this section was written, so a `Stop` clears the main agent's votes exactly as
+> `SubagentStop` clears a subagent's and there is no second scoping rule in the
+> code. It was checked rather than assumed —
+> `DeskObjectDirectorTests.theMainAgentsTallyIsScopedToItsTurnLikeEverybodyElses`
+> — and it is load-bearing in a way this section could not have predicted: with
+> the retuned floor (§3a's note), the incumbent starts every new turn with zero
+> votes of its own, so what stops the first call of a turn rearranging the
+> furniture is `WorkTally.replacementFloor` rather than the tally scoping. The
+> two now hold each other up.
 
 ---
 
@@ -701,6 +803,17 @@ not**: that is a pose, and `working` is the only seated animation in the art.
 
 ## 8. Build order — cheapest first, each step independently shippable
 
+> **Step 0 is withdrawn by the maintainer and no longer blocks anything.** The
+> object is furniture rather than a readout (§3a's note), so tuning it against a
+> real coding session is not the prerequisite this section made it. §3b is still
+> true and still the largest weakness in the *evidence*: `authoring` — the
+> laptop, the kind asked for first — has never fired on captured data and cannot,
+> because the corpus holds zero `Edit`, zero `Write`, zero `Grep` and zero
+> `Glob`. It is unit-tested directly
+> (`DeskObjectDirectorTests.editingFilesPutsALaptopOnTheDesk`) and that is not the
+> same thing as having seen it. Steps 3 and 4 shipped without it, deliberately
+> and on instruction. **`fixtures/` was not edited or added to.**
+
 **Step 0 — capture a real working session. Not shippable; blocks steps 3–5.**
 Owner: `test-engineer`. No art. §3b is the argument: the committed corpus contains
 zero `Edit`, zero `Write` and zero `Grep`, so `authoring` — the kind the maintainer
@@ -745,6 +858,18 @@ fallback.
 > own tests instead of one manifest entry, and it does not touch
 > `assets/manifest.json` at all. The other two bindings in this step (153, 179)
 > are unaffected and still just a manifest entry each.
+
+> **Steps 2 and 4's binding half shipped together**, because step 2's "draws
+> nothing" milestone stopped being worth having once step 0 was withdrawn: there
+> was no capture to regression-test the model against before drawing it. What
+> landed is `WorkKind`, `WorkKind.init?(badge:)`, the lexicon, `WorkTally`, the
+> gate, the dwell floor, `SpriteIntent.setDeskObject(agent:kind:)` and the node
+> that draws it — no `SpriteRoomCore` change of any kind, exactly as §5a
+> requires. The replay-harness line this step asked for was **not** added:
+> `spriteroom-replay` depends on `SpriteRoomCore` alone and a work kind lives in
+> `SpriteRoomScene`, so printing one there would mean either a new dependency or
+> a second copy of the classifier. `DeskObjectCorpusTests` prints the same table
+> from the suite instead, over the same 17 fixtures, and fails on it.
 
 **Step 5 — re-measure.** Owner: `test-engineer`. Re-run §3a's table over the step-0
 capture, and answer §9 items 1 and 2. If the gate turns out to refuse almost
@@ -863,6 +988,22 @@ Out of scope for this change; listed so nothing rots.
   for a different purpose. If the maintainer disagrees that the two are admissible,
   that disagreement is the whole decision and the ADR should be rejected rather
   than trimmed. **I2 is untouched** (§6e) and this ADR adds no carve-out to it.
+
+  > **Still unapplied, and the code now depends on it.** The implementing change
+  > did not touch `CLAUDE.md` — that decision is the maintainer's and is not a
+  > subagent's to take. What is now shipping under it: `tool_name` on
+  > `PreToolUse` feeds `WorkKind.init?(badge:)`, and `tool_input.description` on
+  > an `Agent` dispatch — already decoded, already carried as
+  > `AgentSnapshot.task`, already drawn shortened on the nameplate — feeds
+  > `WorkKind.init?(dispatchDescription:)`, whose output is one of five closed
+  > values. **No other field of `tool_input` is read**, and §6c's six rules all
+  > hold as written: nothing is drawn verbatim, nothing is written to disk,
+  > nothing is sent anywhere, no signature gained a `WorkKind`, the lexicon is
+  > closed and abstains (`WorkKindLexiconTests`), and the description is read
+  > only where the model already reads it. If the amendment is refused, the half
+  > to remove is the lexicon and its one seeded vote —
+  > `WorkTally.seedOpeningClaim` and `Presentation.openingClaimCounted` — and the
+  > observed half stands untouched, because it reads no new field at all (§1c).
 - **`docs/03-EVENT-MODEL.md`** — the tool→badge section gains a sentence saying the
   same six classes now also feed a work kind, and a note that `tool_input.description`
   is read for classification as well as for the nameplate.

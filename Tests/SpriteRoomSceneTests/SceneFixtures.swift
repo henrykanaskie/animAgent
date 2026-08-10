@@ -309,7 +309,27 @@ enum SceneArt {
     /// are pure bitmap and `RoomLayout` arithmetic over art this repository
     /// draws itself, so a fresh clone still checks them, the same reasoning
     /// `HeldObjectArtTests` uses for its own four ungated tests.
-    static let expectedGatedTestCount = 83
+    ///
+    /// 89 when the desk-top object was bound to a work kind: six tests in
+    /// `DeskObjectSceneTests`, all of them about what is on screen rather than
+    /// about the rule. Three are placement — the near edge, the far edge and the
+    /// surface height in scene pixels at every seat of every theme; the depth
+    /// against the desk the object stands on; and every theme drawing every kind
+    /// despite no theme declaring the three sourced roles itself. Three are the
+    /// node — a bare desk being a hidden node rather than a missing one, no
+    /// desk-object node rebuilt across any fixture replay (the per-character
+    /// analogue of `noPropNodeIsEverRebuiltAcrossAnyFixtureReplay`, which cannot
+    /// see this slot), and a departed character taking its object with it. Each
+    /// one builds a real `RoomScene`, which places nothing without the pack, so
+    /// without the gate they would assert about an empty room and pass.
+    ///
+    /// The rest of that change is deliberately **not** gated and must not become
+    /// so: `DeskObjectCorpusTests` — the measurement the whole design is judged
+    /// on — reads the director rather than the scene, and `WorkKindTests`,
+    /// `WorkKindLexiconTests`, `WorkTallyTests` and `DeskObjectDirectorTests` are
+    /// this repository's own arithmetic. A fresh clone still checks every number
+    /// in ADR-006 §3.
+    static let expectedGatedTestCount = 89
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

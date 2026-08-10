@@ -294,6 +294,22 @@ public struct Manifest: Sendable, Hashable {
         /// why nothing noticed that the art survey was not counting the other
         /// frames. [ADR-002 §14b]
         public let animation: Animation?
+        /// `props.roles.<role>.surface_y` — **how many pixels above the floor
+        /// this prop's top surface sits**, when the generator measured one.
+        /// Carried by the `desk` role and by nothing else today. [ADR-006 §2b]
+        ///
+        /// It is not `contentBox.height`, and the difference is the whole reason
+        /// the key exists: `content_box` measures a prop's ink footprint, not the
+        /// plane you may stand something on, and for a desk with something
+        /// already drawn on it the two disagree. `library` binds a school desk
+        /// with an open book on top — box top 44, slab 36 — so a reader that used
+        /// the box would float every desk-top object 8 px above the wood.
+        ///
+        /// `nil` for every other role, and for a `desk` in a manifest older than
+        /// the measurement. `RoomScene` falls back to the box top in that case,
+        /// which is the right answer for five of the seven desks that ship and is
+        /// the answer the room drew before this key existed.
+        public let surfaceY: Int?
 
         public struct Box: Sendable, Hashable {
             public let x: Int, y: Int, width: Int, height: Int
@@ -1021,7 +1037,12 @@ public struct Manifest: Sendable, Hashable {
         return PropRole(
             file: file,
             contentBox: PropRole.Box(x: x, y: y, width: w, height: h),
-            animation: propAnimation(entry["animation"]))
+            animation: propAnimation(entry["animation"]),
+            // Absent in an older manifest and absent on every role but `desk`.
+            // Not defaulted to the box height here: the fallback is a *drawing*
+            // decision and belongs where the drawing happens, so that a reader
+            // of this type can still tell "measured 24" from "nobody measured".
+            surfaceY: entry["surface_y"] as? Int)
     }
 
     /// A `{frames, fps, loop}` entry. `nil` for anything that is not one,

@@ -6999,3 +6999,189 @@ SceneFixtures.swift` (`expectedGatedTestCount` 80 → 83, with the count's own
 derivation documented); `docs/04-ART-DIRECTION.md` and
 `docs/ADR-006-the-desk-says-the-work.md` (the gap recorded as closed, in both
 places that documented it as open). `assets/manifest.json` untouched.
+
+---
+
+## ADR-006 steps 2 and 4 — the model and the binding. The desk says the work.
+
+The payoff step: everything before it declared parts and nothing was on screen.
+`WorkKind`, the two-signal derivation, the tally, the gate, the dwell floor, one
+new `SpriteIntent`, and one node per seated character that draws it.
+
+**The maintainer retuned the threshold mid-build and that is the largest thing
+in this entry.** Their words: *"it doesn't need real data, the screen isn't
+going to be big enough or have enough resolution for that. just needs to be a
+prop on the table."* ADR-006 §3 tuned `≥ 3` and `≥ 2×` on the premise that the
+object is a claim a person might rely on, and predicted 22 of 27 desks bare. It
+is furniture, so a rule that abstains four times in five is the wrong rule. Two
+things came with the steer and were kept: abstention has to stay **reachable**,
+and stability matters **more** at a lower floor, not less.
+
+**What shipped, all three numbers named and testable in `WorkTally`:**
+`adoptionFloor = 1` (one observed call furnishes a bare desk),
+`replacementFloor = 2` (one stray call cannot overturn an occupied one),
+`majorityRatio = 2` (and a challenger must double what the incumbent scored this
+turn). The 2:1 majority is §3's own and it *moved*: top-against-runner-up became
+challenger-against-the-thing-it-would-replace, which is the comparison actually
+being made at a change.
+
+**`observedVotes` is what the lower floor cost.** A floor of 1 without it lets a
+*description* furnish a desk — an agent dispatched to "read the logs" would get
+a paper stack before doing anything. So the opening claim is admissible as a
+vote and inadmissible as the only vote. It is still worth exactly one real call,
+so §3 item 1's argument survives intact: an agent told to plan that is in fact
+editing files ties its brief on the second edit and beats it on the third.
+
+**The corpus, measured, not predicted** (`DeskObjectCorpusTests`, which prints
+the whole table on every run and asserts the counts exactly):
+
+| | ADR's proposal | shipped |
+|---|---:|---:|
+| agents furnished / 27 | 5 | **26** |
+| bare desks | 22 | **1** |
+| `setDeskObject` intents | 5 | **28** |
+| of which replacements | 0 | **2** |
+| worst character | 1 change | **2** |
+| tightest gap between two changes | n/a | **52.2 s** |
+
+By kind: `running` 13, `research` 9, `coordinating` 4, **`authoring` 0**.
+
+**The one abstention is `idle-notification`'s main agent** — it appears and never
+opens a classifiable call. `onlyAnAgentWithNoClassifiableCallAtAllKeepsABareDesk`
+asserts both directions, so "abstention is reachable" is a measurement rather
+than a hope: every bare desk had zero classifiable calls and every furnished one
+had at least one.
+
+**Stability: the floor was never what was holding it.** 28 sets for 26
+characters is 26 first appearances and two corrections — both a subagent that
+read a file in one turn and ran commands in the next, 52 s apart. What holds it
+are the replacement margin and the turn-scoped tally, neither of which moved.
+And the arithmetic bound is *logarithmic*, which was not obvious going in: votes
+only accumulate within a turn, so each successive change must double the count
+that beat it last time. 128 adversarially arranged calls produce **seven**
+changes (`theVoteRuleAloneBoundsChangesWithinATurnLogarithmically`). The room
+would be stable here with no clock at all; `SceneDirector.deskObjectDwell = 4 s`
+is what stops the seven landing inside one second, and it is the *looser* of the
+two bounds.
+
+**Turn scoping — the question the brief asked me to answer.** ADR-006 §5d planned
+for the main agent having one tally for its whole life, because it was written
+before `50a385d` added `turnChanged(agent:hasTurn:)`. That degradation is dead
+text: `Stop` clears the main agent's votes exactly as `SubagentStop` clears a
+subagent's, one `endTally(for:)` for both casts, and no agent receives both
+deltas. It is load-bearing in a way §5d could not predict — at the retuned floor
+the incumbent starts every turn with zero votes of its own, so what stops the
+first call of a new turn rearranging furniture is `replacementFloor`, not the
+scoping. The two hold each other up.
+
+**`WorkKind.init?(badge:)` is still a total function of the committed
+`ToolBadge`, checked rather than assumed.** `badge(forTool:)` is total (its
+`default` is `questionMark`), the enum has seven cases, five map and **two
+abstain** — `questionMark` because guessing furniture for an unrecognised tool is
+the guess the question mark exists to refuse, `plug` because an `mcp__*` tool's
+substrate is unknown by name and a desk object stands for as long as it is true
+where a held object lives for one call.
+
+**The opening claim is seeded lazily and that is not tidiness.** `agentTasked` is
+retroactive by construction — the dispatching `PostToolUse` carries the child's
+task and lands *behind* the `SubagentStart` that seated it — so a claim seeded at
+the turn's opening event would miss the description for every subagent in
+`fixtures/`, which is all of them.
+
+**Drawing.** `RoomScene` gains one node per seated character, created **hidden
+and textureless at spawn** beside `placeStation` and retired with it. A kind that
+changes swaps a texture, an anchor, a size and a position on a node that is
+already in the tree — never a rebuild. It lives outside `propNodes`, exactly as
+station furniture does and for the same reason (per-character furniture, count
+decided by how many agents turned up), so `noPropNodeIsEverRebuiltAcrossAnyFixture
+Replay` still means what it says and `DeskObjectSceneTests.noDeskObjectNodeIsEver
+RebuiltAcrossAnyFixtureReplay` is rule 1's check for the slot it cannot see. That
+test also pins that the two corpus replacements really did exercise the
+texture-swap path.
+
+**Placement, in scene pixels at every seat of every theme**
+(`everyDeskObjectStandsOnItsOwnDeskAndOutsideItsCharactersColumn`): left edge at
+`seat + 16` — derived from `characters.canvas.width / 2`, not written down as 16
+— right edge inside the desk's own footprint, bottom edge on
+`RoomLayout.deskSurfacePosition(seat:surfaceHeightAboveFloor:)` at the desk's own
+measured `surface_y`. `Manifest.PropRole.surfaceY` decodes the key `84be10f`
+measured; `DeskSurfaceTests` still reads the raw bytes on purpose, so a decoding
+bug and a measurement bug cannot cancel out.
+
+**Two things the render found that no argument would have.**
+1. **The three sourced roles are declared only under `room`, and no theme
+   declares them.** Without a fallback to the root room's binding, three of the
+   four kinds would draw nothing in every themed room — which is every room the
+   app opens. `everyThemeDrawsEveryKindEvenThoughNoneDeclaresTheRoles` pins it,
+   including the premise (that no theme declares them), so a theme that ever
+   binds its own laptop turns the test red instead of silently winning.
+2. **The badge covers the object.** The badge slot sits beside the head, in the
+   same column band as the desk-top object, in the overlay z band — so while a
+   character wears a tool badge or an attention bubble, that bubble hides what is
+   on its desk. The precedence is the right way round and the occlusion is
+   transient, but it is a real cost, it is recorded in ADR-006 §5b, and it is
+   not visible from the geometry.
+
+**Render evidence, read rather than generated.** `four-subagents` (mission_control,
+t=6/12/20/40) and `three-subagents` (stage, t=5/10/25), `--render` only. At t=6
+MAIN carries the `pad` and the two subagents that have not yet made a
+classifiable call carry nothing — early, not instant. At t=40 the two subagents
+that moved to `Bash` carry monitors. In every crop the object stands on the desk
+surface, is entirely clear of the head (it starts where the character's canvas
+ends), and ends inside its own desk, four pixels short of the next station's
+prop. **One thing that looks like a bug and is not:** `papers` and `laptop` are
+angled art whose bottom row inks only 6 of 24 and 2 of 26 columns, so at 3x they
+read as resting at an angle rather than flush. Checked against the PNGs' own
+alpha rather than guessed; placement is content-box bottom-centre on the surface,
+the same convention every prop in the room uses, and a second alignment rule for
+one slot is the drift `place(prop:at:depthBias:)` exists to prevent. Recorded in
+`04-ART-DIRECTION.md`.
+
+**What I could not demonstrate, plainly.** `authoring` — the laptop, the
+maintainer's own leading example — **cannot fire anywhere in `fixtures/`**. All
+seventeen captures hold zero `Edit`, zero `Write`, zero `NotebookEdit`, zero
+`Grep` and zero `Glob`; they were built at M0 to exercise ingest and they
+exercise `sleep`, `touch` and reading a text file. It is unit-tested directly
+(`editingFilesPutsALaptopOnTheDesk`) and that is not the same as having seen it
+on captured data. No synthetic fixture was written and `fixtures/` was not
+touched. The capture that would close this was withdrawn by the maintainer as
+unnecessary, so this is a known, permanent gap in the *evidence* rather than a
+blocked task.
+
+**Not applied, by instruction: ADR-006 §6b's `CLAUDE.md` amendment.** The code
+now runs under it — `tool_name` feeds `WorkKind.init?(badge:)`, and
+`tool_input.description` on an `Agent` dispatch and no other tool feeds the
+lexicon, whose output is one of five closed values. All six of §6c's rules hold
+as written. If the amendment is refused, the half to remove is
+`WorkTally.seedOpeningClaim` and the lexicon; the observed half reads no new
+field at all and stands untouched. That decision is the maintainer's.
+
+**Central test seen RED first.** `mostAgentsInTheCorpusEndUpWithSomethingOnTheDesk`
+was written against ADR-006 §3a's own predicted numbers and failed on the first
+run with the real ones (26/27 against the asserted 24, and a different kind
+distribution), which is how the table above was obtained rather than assumed. A
+second bug it caught immediately: the first version of the abstention test read
+`director.deskObject` at end of run, when `SessionEnd` has departed almost
+everybody and every answer is `nil` — it reported 22 bare against 26 furnished in
+the same run. It now reads the intent stream.
+
+**Verification.** `swift build --build-tests -Xswiftc -warnings-as-errors` clean.
+`SPRITE_ROOM_REQUIRE_ART=1 swift test`: **745 tests / 71 suites, all green** (was
+704), art PRESENT, **89 art-dependent tests ran** (was 83;
+`SceneArt.expectedGatedTestCount` updated in the same change with its own
+derivation — six new gated tests, all in `DeskObjectSceneTests`, and the 34 other
+new tests deliberately ungated because a fresh clone should still check every
+number in §3). `python3 scripts/lint-palette.py` passes.
+`./.build/debug/spriteroom-replay --all`: 17 fixtures, zero open calls after the
+sweep. Not committed, per instruction.
+
+Files: `Sources/SpriteRoomScene/WorkKind.swift` (new);
+`SceneDirector.swift` (the intent, the per-agent tally, the settle pass);
+`RoomScene.swift` (the node, its placement, its retirement);
+`Manifest.swift` (`PropRole.surfaceY`, decoding a key the generator already
+wrote); `Tests/SpriteRoomSceneTests/DeskObjectTests.swift` (new, 40 tests);
+`SceneFixtures.swift`, `ThemeTests.swift`, `DeskSurfaceTests.swift`,
+`DeskTopObjectTests.swift` (counts and stale doc comments);
+`docs/ADR-006-the-desk-says-the-work.md`, `docs/04-ART-DIRECTION.md`,
+`docs/03-EVENT-MODEL.md`. `assets/manifest.json`, `scripts/`, `fixtures/` and
+`CLAUDE.md` untouched.

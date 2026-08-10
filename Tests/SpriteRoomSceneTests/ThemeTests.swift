@@ -603,7 +603,7 @@ enum ThemeFixtures {
     /// by something.
     static func stationed(count: Int) -> Manifest.Theme {
         let box = Manifest.PropRole.Box(x: 0, y: 0, width: 8, height: 8)
-        let role = Manifest.PropRole(file: "x", contentBox: box, animation: nil)
+        let role = Manifest.PropRole(file: "x", contentBox: box, animation: nil, surfaceY: nil)
         let station = Manifest.Station(desk: role, chair: role, prop: nil)
         var stations: [String: Manifest.Station] = [
             ThemeSelector.mainStationID: station,

@@ -2,11 +2,14 @@ import Foundation
 import Testing
 @testable import SpriteRoomScene
 
-/// ADR-006 SS1, SS2c, SS2d — the desk-top object *declarations* only.
+/// ADR-006 SS1, SS2c, SS2d — the desk-top object *declarations*.
 ///
-/// This step draws nothing and binds nothing: no `SceneDirector` code reads
-/// `room.props.roles.laptop`, `.papers` or `.pad`, exactly as `DeskSurfaceTests`
-/// pins that nothing read `surface_y` at its own step. What exists after it is
+/// **The step this file was written for drew nothing and bound nothing**; the
+/// step after it does both — `WorkKind.propRole` names these roles and
+/// `RoomScene` draws them, and `DeskObjectSceneTests` is where *placement* is
+/// checked. Everything here is still about the declarations themselves: the
+/// measurements, the width bound and the silhouettes, which is the half that
+/// has to keep holding whatever draws them. What exists after it is
 /// three more entries in `room.props.roles`, in the same `{file, content_box}`
 /// shape `desk`/`chair`/`board`/`plant` already have, plus the deliberate
 /// *absence* of a fourth — `running`'s desk monitor has no candidate single that

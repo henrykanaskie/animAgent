@@ -910,6 +910,25 @@ role nothing draws is an invitation for the scene to guess.
 > reads any of the three by name yet. The step that chooses which one an agent
 > is drawn with, if any, is separate and later.
 
+> **Bound.** That step landed. `WorkKind.propRole` names the role — `laptop`,
+> `papers`, `pad` — and `RoomScene` looks it up by name and never by filename, so
+> final art is still a manifest swap with no code change. Two facts about the
+> binding that are art direction rather than plumbing:
+>
+> - **The three roles are declared once, under `room`, and every theme inherits
+>   them.** No theme declares any of the three, so the scene falls back to the
+>   root room's binding; without that, three of the four kinds would draw nothing
+>   in every themed room, which is every room the app actually opens. If a theme
+>   ever wants its own laptop it declares one and it wins.
+> - **Placement is content-box bottom-centre on the desk's measured surface**,
+>   the same convention every other prop uses. For `laptop` and `papers` that
+>   means only the wedge's low corner touches the wood — 6 of 24 ink columns in
+>   `papers`'s bottom row, 2 of 26 in `laptop`'s — so at `3x` they read as
+>   *resting at an angle* rather than as a slab flush to the surface. That is the
+>   art's own silhouette, checked in a render before it was written down here,
+>   and it is not a placement error; a second alignment rule for one slot is the
+>   drift `RoomScene.place(prop:at:depthBias:)` exists to prevent.
+
 > **`running`'s gap is closed, and not by buying a fourth pack single —
 > `Bash` is the corpus's own most common tool (37 calls against `Read`'s 19,
 > ADR-006 §3b), so the bare desk would have been the *typical* picture rather
@@ -948,6 +967,13 @@ role nothing draws is an invitation for the scene to guess.
 > `running`'s desk object, exactly as nothing yet chooses `authoring`,
 > `research` or `coordinating`'s. This closes the vocabulary; a chooser is a
 > separate, later change.
+>
+> **The chooser landed.** `WorkKind.running` is the one kind whose `propRole` is
+> `nil`, and `RoomScene` draws `DeskMonitorArt.bitmap()` through
+> `TextureStore.texture(bitmap:key:)` for it — the same route `HeldObjectArt`
+> takes. It is also the **most common** desk object in the corpus (13 of 26
+> furnished characters), which is `Bash` being the most common tool, so the kind
+> the pack could not supply is the one most desks would have shown as bare.
 
 `SceneBitmaps.placeholderDesk` survives as the fallback for a manifest with no
 `desk` role, so the room still draws against an older manifest.

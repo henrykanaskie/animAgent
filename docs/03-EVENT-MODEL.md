@@ -689,6 +689,18 @@ Collapse aggressively; a user cannot distinguish twelve icons at `2x`.
 Unmapped tools get the question mark and are logged. Never invent a badge for a
 tool you do not recognise — the question mark is honest, a guess is not. [I1]
 
+**The same six classes now also feed a work kind** — `WorkKind.init?(badge:)`, a
+total function of the table above and of nothing else, which is what lets the
+desk-top object [ADR-006] read **no new payload field** for its observed half.
+`document` → `authoring`, `magnifier` and `globe` → `research`, `terminal` →
+`running`, `checklist` → `coordinating`; `plug` and `question mark` **abstain**,
+and an abstaining vote leaves the desk bare rather than guessing at furniture.
+One further field is read, for classification only and on no other tool:
+`tool_input.description` on an `Agent` dispatch — the same string the nameplate
+already draws, shortened, classified into one of five closed values by a keyword
+lexicon that abstains on ambiguity. It is worth exactly one vote and never the
+only one.
+
 ### The table is filled from the captures, not from imagination — M6d
 
 A live capture logged `unmapped tools: Monitor×1, SendMessage×2, ToolSearch×5`.

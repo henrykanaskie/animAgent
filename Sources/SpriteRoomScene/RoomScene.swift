@@ -560,6 +560,183 @@ public final class RoomScene: SKScene {
 
         stationFurniture[agent] = placed
         stationSeat[agent] = seat
+        stationDesks[agent] = station.desk
+    }
+
+    // MARK: The desk-top object [ADR-006]
+
+    /// One node per seated character, standing on its own desk. Empty until a
+    /// character is spawned and never rebuilt while it is on screen.
+    ///
+    /// **Outside `propNodes`, exactly as a station's furniture is**, and for the
+    /// same reason: `propNodes` is the *room's* furniture, the set §6 rule 1
+    /// promises is never rebuilt across a whole fixture replay, and how many
+    /// copies of it exist is decided at build time. This is per-character
+    /// furniture — it exists because an agent does — so it is created and retired
+    /// with the character, alongside `stationFurniture`. What rule 1's spirit
+    /// asks of it is checked by its own test
+    /// (`DeskObjectSceneTests.noDeskObjectNodeIsEverRebuiltAcrossAnyFixtureReplay`):
+    /// a kind that changes swaps a texture and never a node.
+    private var deskObjectNodes: [AgentRef: SKSpriteNode] = [:]
+
+    /// The desk-top objects currently on screen, flattened the same way
+    /// `furnitureForTesting(seat:)` flattens a station's. Hidden nodes — a
+    /// character whose desk is still bare — are omitted, so this answers "what is
+    /// on the desks" rather than "what nodes exist".
+    public func deskObjectsForTesting() -> [AgentRef: DrawnFurniture] {
+        var out: [AgentRef: DrawnFurniture] = [:]
+        for (agent, node) in deskObjectNodes where !node.isHidden {
+            out[agent] = DrawnFurniture(
+                path: deskObjectPaths[agent] ?? "",
+                x: Double(node.position.x), y: Double(node.position.y),
+                anchorX: Double(node.anchorPoint.x), anchorY: Double(node.anchorPoint.y),
+                width: Double(node.size.width), height: Double(node.size.height),
+                z: Double(node.zPosition))
+        }
+        return out
+    }
+
+    /// The manifest path behind each drawn desk object, or `""` for the one kind
+    /// whose art is authored rather than sourced. Node identity says an object
+    /// was placed; it says nothing about which picture.
+    private var deskObjectPaths: [AgentRef: String] = [:]
+
+    var deskObjectNodesForTesting: [AgentRef: SKSpriteNode] { deskObjectNodes }
+
+    /// **How far to the character's right a desk-top object's near edge stands**,
+    /// in seat-relative scene pixels. [ADR-006 §2c]
+    ///
+    /// Half the character canvas, which is the first column strictly outside a
+    /// seated character's own sprite — and `SeatedHead.clearance(nearEdgeX:)` is
+    /// unbounded from exactly there, measured against every seated frame the pack
+    /// ships. So an object standing at this edge **cannot cover a head pixel at
+    /// any height whatsoever**, which is why nothing in this file compares an
+    /// object's height against anything.
+    ///
+    /// Derived from the manifest rather than written down as 16, so a cast on a
+    /// different canvas moves it without anyone remembering to.
+    nonisolated static func deskObjectNearEdgeX(manifest: Manifest) -> Double {
+        Double(manifest.characters.canvas.width) / 2
+    }
+
+    /// **One depth step in front of the desk it stands on**, whichever way that
+    /// desk sorted.
+    ///
+    /// A quarter row rather than a half, so it lands strictly between the desk
+    /// and the next depth band either way: a desk drawn in front of the body
+    /// (`surfaceInFrontBias`) keeps its object in front of it, and one drawn
+    /// behind (`surfaceBehindBias`, which `library` and `mission_control` both
+    /// take) keeps its object in front of *it* and still behind the body. Nothing
+    /// about the body matters visually here — the object is outside the
+    /// character's own canvas by construction — but the two have to sort the same
+    /// way every frame rather than by dictionary order.
+    nonisolated static let deskObjectInFrontStep: CGFloat = 0.25
+
+    /// Creates a character's desk-object node, hidden and bare.
+    ///
+    /// Called from the spawn arm beside `placeStation`, so every seated character
+    /// has exactly one and it exists before any `setDeskObject` can arrive. It
+    /// carries no texture until a kind is adopted — a character whose work the
+    /// room cannot name keeps the plain desk the room has always drawn, and that
+    /// is the commonest case rather than an error path. [I1]
+    private func placeDeskObjectNode(for agent: AgentRef) {
+        guard deskObjectNodes[agent] == nil else { return }
+        let node = SKSpriteNode()
+        node.isHidden = true
+        world.addChild(node)
+        deskObjectNodes[agent] = node
+    }
+
+    /// Puts a kind on a character's desk, or leaves the desk bare when its art
+    /// will not load.
+    ///
+    /// **The node is reused and never rebuilt.** A kind that changes swaps the
+    /// texture, the anchor, the size and the position on the node that is already
+    /// there; nothing is added to the tree and nothing is removed from it. That
+    /// is ADR-002 §6 rule 1's discipline applied to a slot rule 1 does not cover,
+    /// and `noDeskObjectNodeIsEverRebuiltAcrossAnyFixtureReplay` is where it is
+    /// checked mechanically.
+    private func showDeskObject(_ kind: WorkKind, for agent: AgentRef) {
+        guard let node = deskObjectNodes[agent], let seat = seatOf[agent],
+              layout.isSeatable(seat), let art = deskObjectArt(kind) else { return }
+        // The desk this seat actually draws, which is a station's own when it has
+        // one and the theme's `desk` role otherwise. Stations fall back to that
+        // role when they declare no desk, and none in the shipped manifest does,
+        // so this resolves to the same object either way today — asked properly
+        // anyway, because a station that ever binds its own desk would otherwise
+        // put every object on it at the wrong height.
+        let desk = stationDesks[agent] ?? store.room.prop(Self.surfaceRole)
+        // `surface_y` is the measured plane; the box top is the fallback for a
+        // manifest that predates the measurement, and the placeholder's own
+        // height for a manifest with no desk role at all. [ADR-006 §2b]
+        let surfaceHeight = desk.map { Double($0.surfaceY ?? $0.contentBox.height) }
+            ?? Double(SceneBitmaps.placeholderDesk().height)
+        let surface = layout.deskSurfacePosition(
+            seat: seat, surfaceHeightAboveFloor: surfaceHeight)
+        let nearEdge = layout.seatPosition(seat).x
+            + Self.deskObjectNearEdgeX(manifest: store.manifest)
+
+        node.texture = art.texture
+        node.anchorPoint = art.anchor
+        node.size = art.size
+        node.position = CGPoint(x: nearEdge + art.contentWidth / 2, y: surface.y)
+        node.zPosition = Character.Layer.rowDepth(layout.deskPosition(seat).y)
+            + surfaceDepthBias(for: desk) + Self.deskObjectInFrontStep
+        node.isHidden = false
+        deskObjectPaths[agent] = art.path
+    }
+
+    /// **The desk `placeStation` actually drew for each character**, kept so that
+    /// the object standing on it is placed at *that* desk's surface rather than
+    /// at the theme desk's.
+    ///
+    /// `nil` for a character whose station named nothing, which keeps the
+    /// theme-wide pair — and the fallback in `showDeskObject` asks the theme for
+    /// the same role that pair was drawn from.
+    private var stationDesks: [AgentRef: Manifest.PropRole] = [:]
+
+    /// One kind's art, resolved through the manifest wherever the manifest has
+    /// it.
+    ///
+    /// **Three of the four are looked up by role name and never by filename**, so
+    /// final art drops in as a manifest swap with no code change. The lookup
+    /// prefers the theme's own binding and falls back to the root `room`'s: the
+    /// four desk-top objects are one vocabulary declared once, and no theme in
+    /// the shipped manifest declares them, so without the fallback three of the
+    /// four kinds would silently draw nothing in every themed room — which is
+    /// every room the app actually opens.
+    ///
+    /// `running` has no manifest entry at all and is drawn from `DeskMonitorArt`,
+    /// the way the badges, the nameplate and the held objects are drawn: there is
+    /// no source PNG for a manifest key to name.
+    private func deskObjectArt(_ kind: WorkKind)
+    -> (texture: SKTexture, anchor: CGPoint, size: CGSize, contentWidth: Double, path: String)? {
+        guard let role = kind.propRole else {
+            let bitmap = DeskMonitorArt.bitmap()
+            guard let texture = store.texture(bitmap: bitmap, key: kind.textureKey) else {
+                return nil
+            }
+            // The authored bitmap *is* its own content box — ink reaches every
+            // edge — so the canvas needs no anchor arithmetic.
+            return (texture, CGPoint(x: 0.5, y: 0),
+                    CGSize(width: bitmap.width, height: bitmap.height),
+                    Double(bitmap.width), "")
+        }
+        let themed = store.room.prop(role).map { ($0, store.room.propCanvas) }
+        let rooted = store.manifest.room.prop(role).map { ($0, store.manifest.room.propCanvas) }
+        guard let (prop, canvas) = themed ?? rooted,
+              let texture = store.texture(path: prop.file) else { return nil }
+        let anchor = prop.anchor(inCanvas: canvas)
+        return (texture, CGPoint(x: anchor.x, y: anchor.y),
+                CGSize(width: canvas.width, height: canvas.height),
+                Double(prop.contentBox.width), prop.file)
+    }
+
+    /// Takes a character's desk object down with the character.
+    private func retireDeskObject(for agent: AgentRef) {
+        deskObjectNodes.removeValue(forKey: agent)?.removeFromParent()
+        deskObjectPaths.removeValue(forKey: agent)
+        stationDesks.removeValue(forKey: agent)
     }
 
     /// Takes a character's station down and puts the empty desk back.
@@ -696,6 +873,11 @@ public final class RoomScene: SKScene {
             // once — there is no code path that could redraw it, which is §6
             // rule 2 enforced by there being nothing to enforce.
             placeStation(station, for: agent, at: seat)
+            // **Beside the station and after it**, because the object stands on
+            // the desk the station just drew and is depth-sorted against it. It
+            // goes up hidden and bare: a character whose work the room cannot
+            // name keeps the plain desk. [ADR-006 §3]
+            placeDeskObjectNode(for: agent)
             // **Straight up its own column, from the walkway.**
             // See `RoomLayout.entranceRoute(forSeat:)`: the walk-in used to run
             // one seat pitch sideways along the aisle, which is the one row
@@ -721,6 +903,13 @@ public final class RoomScene: SKScene {
 
         case let .setBadge(agent, selection):
             characters[agent]?.apply(badge: selection)
+
+        case let .setDeskObject(agent, kind):
+            // **Furniture, not a character channel.** It has no body state, no
+            // pose and no ambient loop, and it moves 0 px/s in every frame of its
+            // life — which is why ADR-006 needs no carve-out from I2 and proposes
+            // none. Nothing about the character it belongs to changes here.
+            showDeskObject(kind, for: agent)
 
         case let .setGated(agent, isGated):
             // The motion channel's third input, and the only one that takes
@@ -810,6 +999,7 @@ public final class RoomScene: SKScene {
                 ) { [weak self, weak character] in
                     self?.retire(character)
                     self?.retireStation(for: agent)
+                    self?.retireDeskObject(for: agent)
                 }
             case .report, .walkOff:
                 // No seat, or a self-report: nothing to walk to, so it just
@@ -829,6 +1019,7 @@ public final class RoomScene: SKScene {
                 ) { [weak self, weak character] in
                     self?.retire(character)
                     self?.retireStation(for: agent)
+                    self?.retireDeskObject(for: agent)
                 }
             }
 

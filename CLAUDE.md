@@ -101,6 +101,32 @@ From the hook payload's common input fields:
 Do not invent an identity scheme on top of these. Do not hash the transcript
 path. If attribution is ambiguous, the character does not appear.
 
+**Beyond identity: what an agent is doing.** The four fields above answer *which
+character this is*. Two further payload fields answer *what kind of work it has
+been doing*, and only these two are admitted for that purpose:
+
+- **`tool_name`** on `PreToolUse` — already the badge's key.
+- **`tool_input.description`**, on an `Agent` dispatch and on no other tool —
+  already the nameplate's text.
+
+The room may **classify** these two into a closed, total vocabulary whose
+unmatched case is *say nothing*. It may **echo** them only where a shipped
+feature already does. **No other field of `tool_input` is read for display** —
+not `prompt`, not `command`, not `file_path`, not `content`, not `query`, not
+`pattern`.
+
+Text from a payload is never written to disk, never sent anywhere, and never
+drawn except as an existing feature already draws it. A derived work kind
+chooses one furniture slot and nothing else: it may not choose a variant, a
+costume, a seat, an accent hue, a nameplate or a theme. If the classification is
+ambiguous, the room shows the plain desk — the same answer the identity model
+already gives when attribution is ambiguous. [ADR-006]
+
+The maintainer authorised this in wider terms than it takes — they said the app
+could "see a little bit into what the request and prompt is". It does not read
+the prompt. The narrower rule is the one that ships, because the two fields above
+were enough to answer the question and a field that is never read cannot leak.
+
 ---
 
 ## Stack

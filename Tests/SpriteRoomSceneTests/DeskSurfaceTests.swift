@@ -16,11 +16,13 @@ struct DeskSurfaceTests {
 
     /// The raw manifest, read as JSON rather than through `Manifest`.
     ///
-    /// `surface_y` is a new key this task adds; `Manifest.swift` does not
-    /// decode it (that is a later step's job, once something actually reads
-    /// it to draw). Reading the bytes directly is the same choice
-    /// `ManifestTests.authoredBadgesSayTheyAreAuthoredAndWhy` already makes for
-    /// a provenance/measurement key nothing in `Sources/` consumes yet.
+    /// `surface_y` was a new key when this file was written and `Manifest.swift`
+    /// did not decode it, "that being a later step's job, once something
+    /// actually reads it to draw". That step landed: `Manifest.PropRole.surfaceY`
+    /// decodes it and `RoomScene` places desk-top objects at it [ADR-006]. These
+    /// tests still read the bytes directly, deliberately — they are about what
+    /// the *generator measured*, so going through the decoder would let a
+    /// decoding bug and a measurement bug cancel out.
     static func rawManifest() throws -> [String: Any] {
         let url = SceneFixtures.repositoryRoot
             .appending(path: "assets").appending(path: "manifest.json")

@@ -50,6 +50,29 @@ public enum SpriteIntent: Sendable, Hashable {
     case setBody(agent: AgentRef, state: BodyState, facing: Facing)
     /// The badge layer. Only ever emitted when it actually changed. [criterion 6]
     case setBadge(agent: AgentRef, selection: BadgeSelection)
+    /// **What kind of work this character's desk says it has been doing.** Only
+    /// ever emitted when the drawn kind actually changes — the discipline
+    /// `setNameplate` already follows. [ADR-006 §5b]
+    ///
+    /// A **second furniture slot**, on the desk surface, keyed to the work; the
+    /// station keeps its own key (`agent_type`) and its own `let`. Two slots, two
+    /// keys, two tenses: the station is *what kind of worker this is* and never
+    /// moves, the badge is *what it is doing right now* and moves per call, and
+    /// this is *what kind of work this has been* and moves at most once per
+    /// `SceneDirector.deskObjectDwell`.
+    ///
+    /// **There is no take-down, and that is §4b made structural.** `kind` is not
+    /// optional and no value of this intent clears the desk: when a turn ends the
+    /// tally resets and the object stays, to be replaced only when a later turn's
+    /// tally clears the gate with a *different* kind. Clearing on `Stop` would
+    /// rearrange the furniture every time an agent finished something, which is a
+    /// furniture change carrying no news — and ADR-005 measured those intervals
+    /// at a 9.6 s median, so the room would spend all of them redecorating.
+    ///
+    /// The character's node is unaffected: this is furniture standing on the desk
+    /// beside it, outside its canvas by construction (`RoomScene
+    /// .deskObjectNearEdgeX(manifest:)`), so nothing here can cover a head.
+    case setDeskObject(agent: AgentRef, kind: WorkKind)
     /// **Whether this character is stopped at a permission gate.** Only ever
     /// emitted when it actually changed. [ADR-005 §7]
     ///
@@ -286,6 +309,49 @@ public struct SceneDirector: Sendable {
         /// `Stop`, `SubagentStop`, the answering `UserPromptSubmit` — arrives
         /// here as `gateChanged(isGated: false)`.
         var isGated = false
+        /// **The votes this agent has cast in the turn it is in.** [ADR-006 §3,
+        /// §4a]
+        ///
+        /// Reset at every turn boundary — `dormancyChanged(true)` for a subagent,
+        /// `turnChanged(false)` for the main thread — and **never** consulted for
+        /// anything but the desk object. It is per-agent state inside the
+        /// presentation, so every path that already removes a presentation reaps
+        /// it: departure, `SessionEnd`, the idle sweep, project switch, scene
+        /// rebuild. It adds no open state and no new reaping obligation. [I4]
+        var workTally = WorkTally()
+        /// Whether this turn's opening claim has been counted yet.
+        ///
+        /// The claim is seeded **lazily**, at the first settle of a turn, rather
+        /// than eagerly in each of the five arms that can open one. That is not
+        /// tidiness: `agentTasked` is retroactive by construction — the `Agent`
+        /// call's `PostToolUse` carries the child's task and arrives *behind* the
+        /// `SubagentStart` that seated it — so an eager seed at turn-open would
+        /// miss the description for every subagent in `fixtures/`, which is all
+        /// of them. Seeding where the tally is read instead means the claim is
+        /// counted the first time it exists and once per turn thereafter.
+        var openingClaimCounted = false
+        /// **What is drawn on this character's desk**, or `nil` for the bare
+        /// desk. Set from the tally and **never cleared** — §4b's whole argument:
+        /// the badge is present tense and goes out when the call closes, the desk
+        /// is dispositional and is as true between turns as during one.
+        var deskObject: WorkKind?
+        /// When `deskObject` was last set. The dwell floor is measured from here,
+        /// and it is an absolute instant rather than a frame budget for
+        /// `ClosingBeat.until`'s reason: a retracted panel stops rendering, and a
+        /// dwell counted in frames would freeze while hidden.
+        var deskObjectSetAt: Date?
+        /// **A change the tally has earned and the dwell floor has refused, so
+        /// far.**
+        ///
+        /// Without it the refusal would be permanent rather than a delay: votes
+        /// only arrive on deltas, so an agent whose last call of a turn earned a
+        /// change would never be looked at again and the change would be dropped
+        /// rather than deferred. This flag is what puts the character back in
+        /// `touched` on a later frame, in the same shape the closing beat's own
+        /// expiry sweep already does — and it is cleared the moment the change
+        /// lands or stops being earned, so it cannot keep a character permanently
+        /// in the frame-rate path.
+        var deskObjectDeferred = false
         /// ADR-003's closing beat: the badge that was on screen at the instant
         /// this agent's open-call set emptied by a real close, and when it comes
         /// down. `nil` almost always.
@@ -413,6 +479,36 @@ public struct SceneDirector: Sendable {
     /// it. A longer `D` is rejected in ADR-003 §13, not merely unchosen.
     public static let closingBeatDuration: TimeInterval = 0.5
 
+    /// `S` — **the shortest interval in which a character's desk object may
+    /// change twice.** [ADR-006 §4c]
+    ///
+    /// **4 s, and it is not a new number.** ADR-005 measured every standing
+    /// interval in `fixtures/` and found the minimum at 4.226 s, with none under
+    /// 4 s at all — the room's demonstrated human-scale floor. `S` is the largest
+    /// whole second not exceeding it, so nothing on a character changes faster
+    /// than the slowest channel already changes. The number was taken rather than
+    /// tasted, in the shape ADR-004 §4 took `LiveDriver.sweepInterval`.
+    ///
+    /// **Why a clock is needed when the tally already supplies hysteresis.**
+    /// Because tool calls are machine-scale: ADR-005 measured the median call at
+    /// 0.023 s with 71% under 375 ms, so an entire vote sequence can land inside
+    /// a quarter of a second. The vote rule bounds *how many* changes; only a
+    /// clock bounds *how fast*. It matters more since the adoption floor came
+    /// down, not less — a cheaper adoption is a top kind that changes hands more
+    /// easily, and flicker is the failure mode this channel has to be protected
+    /// from.
+    ///
+    /// **It is asymmetric on purpose.** A bare desk may be furnished the instant
+    /// the votes allow it; only a *replacement* waits. Appearing is the room
+    /// learning something and costs nothing to watch; changing is the room
+    /// correcting itself and is the loud event.
+    ///
+    /// **And it is not the fiction ADR-004 §2 rejects.** There the objection was
+    /// to a signal whose *content* came from `Date()`. Here the content is the
+    /// tally and the clock only *delays* a change that real events have already
+    /// earned. Delaying a true change is not asserting a false one.
+    public static let deskObjectDwell: TimeInterval = 4
+
     // MARK: Stored
 
     public let layout: RoomLayout
@@ -444,6 +540,10 @@ public struct SceneDirector: Sendable {
     /// `setNameplate` a character ever gets is one that says something the plate
     /// on screen does not.
     private var emittedNameplate: [AgentRef: NameplateText] = [:]
+    /// Not seeded at spawn, unlike `emittedBadge` and `emittedGated`: a character
+    /// walks in with a bare desk and `setDeskObject` has no value that means
+    /// "bare", so there is nothing to seed it with. The absence *is* the seed.
+    private var emittedDeskObject: [AgentRef: WorkKind] = [:]
     private var emittedScale: Int?
     /// Seeded at zero rather than `nil` so a room that never overflows never
     /// emits the intent at all — the same idiom as seeding `emittedBadge` with
@@ -579,6 +679,18 @@ public struct SceneDirector: Sendable {
         presentations[agent]?.closingBeat
     }
 
+    /// **What is standing on this character's desk**, or `nil` for the bare desk.
+    /// [ADR-006]
+    public func deskObject(_ agent: AgentRef) -> WorkKind? {
+        presentations[agent]?.deskObject
+    }
+
+    /// This agent's votes so far **in the turn it is in**. Read by tests; nothing
+    /// in the room draws it.
+    public func workTally(_ agent: AgentRef) -> WorkTally {
+        presentations[agent]?.workTally ?? WorkTally()
+    }
+
     // MARK: Apply
 
     /// One frame's worth of deltas in, one frame's worth of intents out.
@@ -625,6 +737,19 @@ public struct SceneDirector: Sendable {
                 presentations[agent]?.closingBeat = nil
                 note(&touched, agent)
             }
+        }
+
+        // A desk change the tally earned and the dwell floor refused. Same shape
+        // as the sweep above and for the same reason: it is a change that becomes
+        // due by the clock passing, on a frame that may carry no deltas at all.
+        // Almost no frame has one of these on any character, so the `contains`
+        // keeps the frame-rate path allocation-free. [ADR-006 §4c]
+        if presentations.contains(where: { $0.value.deskObjectDeferred }) {
+            let due = presentations
+                .filter { $0.value.deskObjectDeferred }
+                .keys
+                .sorted { (presentations[$0]?.seat ?? 0) < (presentations[$1]?.seat ?? 0) }
+            for agent in due { note(&touched, agent) }
         }
 
         for delta in deltas {
@@ -707,6 +832,14 @@ public struct SceneDirector: Sendable {
                 // this same batch. [ADR-005 §3]
                 presentations[agent]?.isInTurn = true
                 presentations[agent]?.openCalls[call.toolUseID] = call.toolName
+                // **One vote per `PreToolUse`, on the open rather than on the
+                // close.** [ADR-006 §6e, I3] The tally counts opens because that
+                // is what makes it a counter over events rather than a reading of
+                // "the current tool": an agent holding three calls at once has
+                // cast three votes and has no single current tool to read. An
+                // unmapped or `mcp__*` tool records nothing — abstention, never a
+                // guess. [I1]
+                presentations[agent]?.workTally.record(WorkKind(toolName: call.toolName))
                 note(&touched, agent)
 
             // **The two close paths are split here, and the beat is the first
@@ -791,6 +924,11 @@ public struct SceneDirector: Sendable {
                 // reached for one: `SubagentStop` carries an `agent_id` by
                 // construction and `Stop` never does. [ADR-005 §3]
                 presentations[agent]?.isInTurn = !isDormant
+                // **A subagent's turn boundary is a tally boundary.** [ADR-006
+                // §4a] The votes go and the desk object stays: the tally is about
+                // this turn's work and the object is about what this agent's desk
+                // is, which is as true between turns as during one. [§4b]
+                if isDormant { endTally(for: agent) }
                 note(&touched, agent)
 
             case let .gateChanged(agent, isGated):
@@ -828,6 +966,16 @@ public struct SceneDirector: Sendable {
                 // frame of it. A standing body asserts less than a seated one,
                 // not more.
                 presentations[agent]?.isInTurn = hasTurn
+                // **The main thread's turn boundary is its tally boundary**, the
+                // other half of the `dormancyChanged` arm above. [ADR-006 §4a]
+                //
+                // ADR-006 was written before this delta existed and its §5d
+                // planned for its absence: "subagents get per-turn tallies; the
+                // main agent gets one tally for its whole life". That degradation
+                // is not needed — `50a385d` shipped the boundary — so the main
+                // agent is scoped exactly like every subagent and §5d's fallback
+                // is dead text rather than the shipped behaviour.
+                if !hasTurn { endTally(for: agent) }
                 note(&touched, agent)
 
             case let .reportDelivered(agent):
@@ -845,6 +993,7 @@ public struct SceneDirector: Sendable {
                 emittedBadge.removeValue(forKey: agent)
                 emittedGated.removeValue(forKey: agent)
                 emittedNameplate.removeValue(forKey: agent)
+                emittedDeskObject.removeValue(forKey: agent)
                 // An agent that never had a seat was never spawned, so there is
                 // no node to walk off. It leaves the overflow count instead,
                 // which is the only thing that was ever showing it.
@@ -922,6 +1071,13 @@ public struct SceneDirector: Sendable {
                 costume: presentation.costume))
         }
 
+        // The desk object, before anything is emitted and for **every** touched
+        // character rather than only the seated ones. The tally is a fact about
+        // an agent and not about a seat, so an agent waiting in the overflow
+        // queue keeps counting; what it does not get is an intent, exactly as it
+        // gets no body and no badge.
+        for agent in touched { settleDeskObject(agent, at: now) }
+
         for agent in touched {
             // Nothing is emitted for an unseated agent, and the *memory* is left
             // alone with it. That is what makes a promotion correct: the agent
@@ -956,6 +1112,15 @@ public struct SceneDirector: Sendable {
             if emittedNameplate[agent] != plate {
                 emittedNameplate[agent] = plate
                 intents.append(.setNameplate(agent: agent, nameplate: plate))
+            }
+            // Beside the plate rather than beside the badge, because it belongs
+            // to the same half of the stream: the plate says what this character
+            // was sent to do and the desk says what it has been doing, and both
+            // are slower than anything below them. Ordering only; the scene
+            // applies the whole batch before the next frame. [ADR-006 §5b]
+            if let kind = presentation.deskObject, emittedDeskObject[agent] != kind {
+                emittedDeskObject[agent] = kind
+                intents.append(.setDeskObject(agent: agent, kind: kind))
             }
             let badge = presentation.badge
             let body = body(for: presentation, badge: badge)
@@ -1018,6 +1183,69 @@ public struct SceneDirector: Sendable {
         for agent in reported { presentations[agent]?.reportedThisBatch = false }
 
         return intents
+    }
+
+    // MARK: The desk object [ADR-006]
+
+    /// **A turn ended: the votes go, the object stays.** [ADR-006 §4a, §4b]
+    ///
+    /// One function for both casts' boundaries — `dormancyChanged(true)` is a
+    /// subagent's and `turnChanged(false)` is the main thread's, and no agent
+    /// ever receives both — so the two arms cannot drift into clearing different
+    /// things.
+    private mutating func endTally(for agent: AgentRef) {
+        presentations[agent]?.workTally.clear()
+        presentations[agent]?.openingClaimCounted = false
+    }
+
+    /// **Re-derives what stands on one character's desk**, and is the only place
+    /// `Presentation.deskObject` is written.
+    ///
+    /// Three things happen here, in order, and the last two are the ones with
+    /// arguments behind them:
+    ///
+    /// 1. **The opening claim is counted**, once per turn, the first time this
+    ///    runs with a description available. See `Presentation.openingClaimCounted`
+    ///    for why it is lazy rather than seeded at the turn's opening event.
+    /// 2. **The tally decides**, via `WorkTally.adopted(incumbent:)`, which never
+    ///    returns `nil` over a non-`nil` incumbent — so nothing here can take an
+    ///    object off a desk. [§4b]
+    /// 3. **The dwell floor rate-limits a *change* and never an appearance.**
+    ///    A refused change is remembered rather than dropped
+    ///    (`deskObjectDeferred`), so it lands when the floor expires rather than
+    ///    waiting for the agent's next event — which may never come.
+    ///
+    /// `now` is the frame's instant, passed in as a parameter exactly as
+    /// ADR-003's beat takes it, so this is testable without waiting and
+    /// replayable deterministically by the offscreen renderer.
+    private mutating func settleDeskObject(_ agent: AgentRef, at now: Date) {
+        guard var presentation = presentations[agent] else { return }
+        if !presentation.openingClaimCounted, presentation.isInTurn, let task = presentation.task {
+            // The room may **classify** the dispatch description into a closed,
+            // total vocabulary whose unmatched case is *say nothing*. It reads
+            // this field and `tool_name`, and no other field of `tool_input` —
+            // not `prompt`, not `command`, not `file_path`. [ADR-006 §6b]
+            presentation.workTally.seedOpeningClaim(WorkKind(dispatchDescription: task))
+            presentation.openingClaimCounted = true
+        }
+
+        let incumbent = presentation.deskObject
+        let adopted = presentation.workTally.adopted(incumbent: incumbent)
+        if adopted == incumbent {
+            presentation.deskObjectDeferred = false
+        } else if incumbent == nil {
+            presentation.deskObject = adopted
+            presentation.deskObjectSetAt = now
+            presentation.deskObjectDeferred = false
+        } else if let setAt = presentation.deskObjectSetAt,
+                  now.timeIntervalSince(setAt) >= Self.deskObjectDwell {
+            presentation.deskObject = adopted
+            presentation.deskObjectSetAt = now
+            presentation.deskObjectDeferred = false
+        } else {
+            presentation.deskObjectDeferred = true
+        }
+        presentations[agent] = presentation
     }
 
     // MARK: Policy
@@ -1218,6 +1446,11 @@ public struct SceneDirector: Sendable {
         emittedBody.removeValue(forKey: agent)
         emittedBadge.removeValue(forKey: agent)
         emittedNameplate.removeValue(forKey: agent)
+        // The character's node goes with its seat and so does the desk object
+        // standing beside it. The *tally* and the adopted kind stay on the
+        // presentation, so an evicted agent that is seated again brings its own
+        // desk back rather than starting from a bare one.
+        emittedDeskObject.removeValue(forKey: agent)
         touched.removeAll { $0 == agent }
         // An agent seated and evicted inside one batch was never spawned, so
         // there is no node to walk off and nothing to say about it at all. It
