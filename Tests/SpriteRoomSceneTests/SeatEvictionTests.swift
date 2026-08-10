@@ -169,10 +169,16 @@ struct SeatEvictionTests {
         #expect(director.overflowCount == 0)
     }
 
-    /// An idle agent is not a dormant one. `idle` means "between tool calls" and
-    /// the room has no licence to move a character for it — only
-    /// `dormancyChanged` says a subagent finished its turn. [I1/I2]
-    @Test func onlyDormancyGivesUpASeatAndMerelyBeingIdleDoesNot() {
+    /// An agent with nothing running is not a dormant one. Only
+    /// `dormancyChanged` says a subagent finished its turn, and only a finished
+    /// turn gives a seat up. [I1/I2]
+    ///
+    /// Since ADR-005 the distinction is visible on the body as well as in the
+    /// seating: an agent between two calls of one turn is *seated and still*,
+    /// and only a real turn boundary stands it up. The assertion below reads
+    /// `working` where it used to read `idle` for that reason — these six
+    /// characters have started and not stopped.
+    @Test func onlyDormancyGivesUpASeatAndMerelyHavingNothingOpenDoesNot() {
         var director = Self.director()
         var refs: [AgentRef] = []
         var deltas: [WorldDelta] = [
@@ -183,7 +189,8 @@ struct SeatEvictionTests {
             deltas.append(.agentAppeared(agent: agent, agentType: "worker", lifecycle: .spawning))
         }
         director.apply(deltas, at: Date(timeIntervalSince1970: 1000))
-        #expect(refs.allSatisfy { director.bodyState($0) == .idle })
+        #expect(refs.allSatisfy { director.bodyState($0) == .working })
+        #expect(refs.allSatisfy { director.openCallCount($0) == 0 })
 
         let live = Self.ref(99)
         let intents = director.apply([

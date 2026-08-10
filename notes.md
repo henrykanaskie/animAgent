@@ -5684,3 +5684,568 @@ dropped — nothing synthesised, nothing added to `fixtures/`).
 `Tests/SpriteRoomSceneTests/{RoomSceneTests,StationAndCostumeTests}.swift`,
 `docs/04-ART-DIRECTION.md`, `docs/ADR-002-themed-rooms.md`, this file.
 `NotchGeometry.PanelSize.room` is untouched — see the declined lever above.
+
+---
+
+## 2026-08-09 — The posture channel was never protected (ADR-005, design only)
+
+**Found.** The maintainer reported two things a week apart that turn out to be one
+defect: that the report handover is the only animation they ever see, and that
+"the sprites would be doing something for like 1 second then stopping, then
+resuming, then stopping". Both trace to `SceneDirector.swift:261`,
+`openCalls.isEmpty ? .idle : .working`, and to the fact that `idle` is a
+**standing** pose.
+
+Measured over all 17 fixtures and on the shipped offscreen renderer:
+
+- The median tool call is **0.023 s** and 71% are under 375 ms, the shortest
+  complete gesture the 8 fps grid can draw. Median *visible* seated stint:
+  **0.071 s**, 19 of 33 under half a second.
+- The seated→standing swap changes **4 924 px** on one character. One step of the
+  seated ambient loop changes **1 384**. So the room's loudest body event is 3.6×
+  the loudest thing a working character legitimately does, it fires twice per
+  call, and it carries nothing the badge does not already carry.
+- I2's strobe protection was closed on the *loop* at M7c and was never closed on
+  the *posture*. `01-PRD.md`'s "a 3 ms call simply never gets an ambient loop" is
+  true and was never true of the pose.
+
+**The measurement that decided the design.** Splitting the 40 idle gaps by whether
+a real turn boundary falls inside them: **37 are inside a turn** (median 2.02 s,
+max 26.38 s) and **3 straddle one** (14.99, 30.47, 32.71 s). The distributions
+**overlap on [14.99, 26.38]**, both examples in `four-subagents.jsonl`. So no hold
+duration `H` can classify both — which kills the ADR-003-shaped fix outright and
+was worth proving rather than suspecting.
+
+**The event separates them perfectly.** Keying posture to the turn
+(`UserPromptSubmit`/`SubagentStart`/`PreToolUse` → `Stop`/`SubagentStop`/
+`SessionEnd`/sweep) takes corpus-wide posture changes from **126 to 77** and takes
+the **minimum posture dwell from 3 ms to 4.226 s** — three orders of magnitude,
+with no timer, no constant and nothing to tune. Not one standing interval in the
+corpus is under four seconds. The reason is one sentence: tool calls are
+machine-scale events, turn boundaries are human-scale ones.
+
+Four fixtures get *more* posture changes and that is the other half of the fix:
+`denial-then-work` goes 1 → 6 because three turns of real work currently draw a
+motionless standing character for 157 s. `idle-notification` goes 0 → 2 because a
+turn that uses no tool is presently invisible on the body — M4's "an agent that was
+thinking was invisible", half-fixed and never finished.
+
+**A second, unrelated defect found while measuring.** `Character.ambientBadge`
+reads `currentBadge.badge` rather than `.drawn.badge`, so a call parked at a
+permission gate keeps playing the `terminal` phrase. Rendered on
+`concurrent-permission-gates` at t=20 s, with two subagents blocked on a human
+since t=6.45 and t=7.92: **3 760 px change every 125 ms, 250 ms period**. ADR-003 §1
+says a gated `Bash` "is not running" and that drawing `terminal` over it "asserts
+work that is not happening" — the badge layer obeys that and the body layer does
+not, in the one channel M7c measured as surviving `1x`. Gate lifetimes measured
+across the corpus: **9.43, 13.52, 34.05, 36.60, 37.76, 248.78 s**, plus two that
+never close in-stream. Holding `[settled]` for a gated agent costs no art, no
+manifest key and no carve-out — it removes motion, and nothing needs a licence to
+move less.
+
+**Two facts the scene throws away.** `grep -rn "outcome\|AbandonReason\|reconciled"
+Sources/SpriteRoomScene/` returns **nothing**: `CallOutcome.failed` and
+`.reconciled` are decoded, carried on `callClosed`, and drawn by no layer. Worth
+closing, but the corpus holds exactly **one** `PostToolUseFailure` in 17 fixtures,
+so it is n=1 evidence and it is not what "stuck" looks like — the gate is.
+
+**A framing error corrected.** `BodyState.swift` says `read` was dropped because
+the pack has no reading animation and that filling the gap "would be fiction under
+I1". The premise is true and the conclusion does not follow: I1 governs what
+*triggers* a behaviour, not who drew the pixels, and this repo authors art in code
+in four places already — `HeldObject.swift` says so in its own doc comment. That
+sentence has been read as a budget ceiling and it is not one.
+
+**A correction to the standing brief — and to an earlier draft of this note.**
+`RoomCamera.defaultComfortablePopulation` is `[2: 3]`, so **the room renders at
+`2x` up to three agents and `1x` from four**. The earlier claim that the table
+ships `[:]` and that every frame renders at `1x` was wrong; it came from a stale
+doc comment in `AmbientMotion.swift`, which has since been corrected. So a beat
+that only reads at `2x` is worth nothing **once the room is busy** — which is
+exactly when a person most needs to read it — rather than worth nothing outright.
+The ranking is unchanged: posture and motion survive `1x`; costumes (0.00%
+silhouette), held objects (~90 px inside a 20×16 torso) and stations do not.
+
+**Changed.** `docs/ADR-005-posture-carries-the-turn.md`, proposed. It amends
+`CLAUDE.md`'s I2 first sentence and restates ADR-003 §6 condition 1 in terms of the
+property that clause was protecting rather than the state name — both are the
+maintainer's to accept or reject, and the ADR falls if either is refused. No code in
+this change; `SceneDirector.swift` and `RoomScene.swift` are owned by other agents.
+
+**Evidence.** `spriteroom <fixture> --render --size 720x400 --at …` over
+`single-agent-simple`, `three-subagents` and `concurrent-permission-gates`; pixel
+diffs computed on the PNGs. No fixture was edited, port 8787 was not touched, and
+`--panel-render` was not used.
+
+---
+
+## Task #61 — the nameplate is one row
+
+**The instruction, verbatim, from the maintainer looking at the running app:**
+"the nameplates are still wrong, they take up too much space, should just have
+the summary of what they are doing in one or 2 words. and that's it." This
+reverses part of `2806f5c`, which had shipped four commits earlier.
+
+**Done.** The plate was three rows for a tasked agent — the shortened task on the
+accent band, `agent_type` on row two, the `agent_id` discriminator on row three,
+63 × 29 px. It is **63 × 11 px**: one accent band, edge to edge, carrying one
+line of at most ten glyphs. `NameplateText.headline`'s ladder is now the whole of
+the layout — task, else `agent_type`, else `lead` — and every rung is something
+the payload said. [I1]
+
+**Deleted rather than left lying about:** `NameplateText.subhead`, the row-stack
+arithmetic in `SceneBitmaps.nameplate`, `nameplateTagGlyphLimit`, `platePadY`,
+`plateFootY`, `SceneDirector.discriminator(_:)` and
+`nameplateDiscriminatorGlyphs`. `nameplateTypeGlyphLimit` and
+`nameplateTaskGlyphLimit` were two names for one number and are now
+`nameplateGlyphLimit`. `NameplateText.tag` went with the discriminator; `lead`
+stays, because the main agent and the overflow plate are the only things that
+reach the ladder's bottom rung.
+
+**What it cost, which is the part worth writing down.** The discriminator was
+doing real work — M5 added it because M4 watched three `general-purpose` plates
+render identically, with silhouette (M0, 7.3% of outline) and sampled accent hue
+(M2, all six inside a 30° arc) already refuted as identity channels. It is gone,
+so two characters the line cannot separate are **one plate**, pixel for pixel.
+The corpus was walked for every such pair and there is exactly one:
+`concurrent-permission-gates`'s `Touch file s1` and `Touch file s2`, both
+`TOUCH FIL…`. `three-subagents` gives `READ ALPH…`/`READ BETA…`/`READ DELT…` and
+`four-subagents` gives `READ ONE…`/`READ TWO…`/`READ THRE…`/`READ FOUR…`, all
+distinct; the other thirteen fixtures have one character each.
+`subagent-permission`'s only subagent also reads `TOUCH FIL…` (from `Touch a file
+via bash`) but has nobody to be confused with. Pinned by
+`everySimultaneousPlateCollisionInTheCorpusIsListed`,
+`twoNearlyIdenticalDispatchesNowShareAPlateEntirely` and
+`sameTypedSubagentsWithNoDispatchNowShareOnePlate` — three tests that assert the
+regression *exists*, so it stays a known property.
+
+**The freed width was not spent, and the reasoning is not the one I expected to
+write.** Widening the line looked free once it stopped sharing a plate with
+`GENERAL-P…` and a hex row. Two independent refusals:
+
+- the 65…95 px dead band is a property of the 32 px tile, not of the row count —
+  a plate of 65 and a plate of 95 buy the same three-tile pitch, so only ≤ 64 px
+  buys anything, and 63 is where the plate already is;
+- **eleven and twelve glyphs do not reach the collision anyway.**
+  `TOUCH FILE S1` needs thirteen; at eleven and twelve both dispatches clip to
+  `TOUCH FILE…` and still collide. Thirteen glyphs is an 81 px plate →
+  a four-tile, 128 px pitch → three seat columns no longer fit the 360 px a `2x`
+  frame gives. The only width that fixes the collision is the one that costs
+  `2x` at every population. So the answer is "no", and it is arithmetic rather
+  than caution.
+
+**The number another task is waiting on: the content band is 160.0 px.** Measured,
+not estimated — 96.0 px of room (two seat rows plus the walkway) + 51.0 px of
+badge slot above the feet + 13.0 px of plate below them, against 178 before this
+and against the 200 a `2x` view of the 720×400 panel gives. 40 px of headroom at
+`2x`; `3x` still needs 133 and does not fit.
+
+**One counter-intuitive knock-on, found by a failing test rather than by
+thinking.** `RoomLayout.minimumSeatSpacingTiles` borrows its horizontal margin
+from the row axis as `tile − plateHeight`, so a *shorter* plate asks for a
+*wider* gap: the plate width that would buy a two-tile pitch fell from 53 px to
+43. That also opened a band of hypothetical plate widths, **44…48 px**, at which
+the 96 px pitch the formula returns is two plates wide and a stagger would become
+arithmetically available — which
+`noStaggerCanInterleaveTheTwoSeatRowsAtAnyPlateWidth` asserted was impossible at
+every width from 33 up. Nothing in the room is in that band (the plate is 63 px
+and buys a pitch that is not two plates wide), so `RoomLayout.isBackRow`'s
+refutation stands; the test now names the exception instead of claiming a
+universal that is no longer true.
+
+**The overflow plate had to change and I chose which way.** It was built from the
+same two-row construction: count on the band, `MORE` beneath. With one row it
+would have become a bare `+4`, so it is `+4 MORE` on one line — both facts kept,
+the count leading because it is the half that differs. Eight glyphs at the worst
+count the room can hide.
+
+**Out of my declared scope, and named rather than smuggled.** The scope was
+`SceneBitmaps.swift`, `SceneDirector.swift`, `NameplateTests.swift`,
+`SceneDirectorTests.swift`. Four other files had to move because the shape they
+assert changed: `RoomSceneTests.swift` (two overflow-plate tests),
+`RoomCameraTests.swift` (the stagger claim above, plus the band's figures in a
+doc table), `RoomLayout.swift` (**doc comment only** — the 53 px threshold it
+states is a function of the plate height I changed), and `docs/05-MILESTONES.md`,
+whose nameplate criterion named three tests this change deleted.
+`RoomScene.swift` was **not** touched. Also corrected, at the manager's request,
+the last copy of "the room renders at `1x` always (`comfortablePopulation` is
+empty)" — it is in `SceneBitmaps.dormancyTab` and it has been false since
+`44e82f0`; the paragraph's conclusion survives on the narrower ground that `1x`
+is what a *busy* room draws at.
+
+**Evidence.** `spriteroom fixtures/four-subagents.jsonl --render … --size
+720x400 --at 30` and `fixtures/three-subagents.jsonl --at 6.8,20`, read as
+pictures. Five plates in the mission-control shot, one small band each, no dark
+rows; the `stage` shot at 6.8 s is the same at `2x`. No fixture was edited, port
+8787 was not touched, and `--panel-render` was not used.
+
+---
+
+## 2026-08-09 — The desk has a second slot, and it was empty all along (ADR-006, design only)
+
+**Brief.** The maintainer redefined the product mid-session: the sprites should
+show *what kind of work* they are doing — a laptop for coding, a clipboard for
+planning, a computer for verifying — and authorised reading task and prompt text
+to get it. The standing analysis framed it as a dilemma: stations are
+furniture-scale but keyed to `agent_type` (RIGHT SIZE, WRONG KEY); held objects
+are keyed per tool call but 12×10 px inside a 20×16 torso (RIGHT KEY, WRONG SIZE).
+The proposed fix was to rekey the station and make `Presentation.station` mutable.
+
+**The finding that changed the design: the room has a fourth furniture place and
+nothing is in it.** A station is desk + chair + one floor prop. The **top of the
+desk** is empty in all six themes at every seat. So the station does not have to
+move at all — `let` stays `let`, ADR-002 §6 rule 2 and
+`noPropNodeIsEverRebuiltAcrossAnyFixtureReplay` are untouched — and the work kind
+gets a **second slot with its own key and its own stability rule**. Two slots,
+two tenses: the station says *what kind of worker*, the desk object says *what
+kind of work this has been*, the badge says *what it is doing right now*.
+
+**The placement is provable, not eyeballed.** Re-ran `SeatedHead`'s algorithm over
+all 18 shipped seated frames: suffix clearance is 16 px for canvas columns 0–25,
+18 for 26–27, 26 for 28–29, 28 for 30–31, and **unbounded from column 32** — which
+is `nearEdgeX = +16`, the right edge of the character's own canvas. The desk
+occupies `+12…+44` and the next seat's prop starts at `+48`. So an object with its
+left edge at `+16` and width ≤ 28 sits inside the desk, outside the character, and
+clear of the neighbour, **at any height**. No new constant.
+
+**The desk-surface anchor is a mechanical measurement and it discriminates.**
+Rule: the topmost row inside the desk's `content_box` carrying an unbroken
+horizontal ink run ≥ 80% of the box width. Run over the default role and all six
+themes it gives surface heights of **24 px** (room default, `briefing`,
+`broadcast`, `office`, `stage`) and **36 px** (`library`, `mission_control`) —
+and for `library`, whose desk has an open book drawn on top, it correctly answers
+**36 rather than the box top's 44**. One generator rule, one manifest key.
+
+**The vocabulary is four kinds and an abstention**: `authoring` (laptop),
+`research` (paper stack), `running` (desk monitor), `coordinating` (upright pad),
+and the bare desk. Three independent ceilings land on four — four silhouette
+families fit a ≤ 28 px box at `1x`; each kind is decided by **tool name alone**;
+and the maintainer's own seven collapse (they described "verifying" and
+"running/building" as the same object). `WorkKind.init?(badge:)` is a **total
+function of the existing `ToolBadge`**, same shape as `HeldObject.init?(badge:)`,
+so the observed signal reads **no new payload field at all**.
+
+**The gate, and what it buys.** Opening claim from the dispatch description worth
+**one vote** (so two real tool calls tie an agent's own brief and three beat it);
+one vote per `PreToolUse`; adopt only when `votes[top] ≥ 3` **and**
+`votes[top] ≥ 2 × votes[runner-up]`; and once set, change no more often than
+**S = 4 s** — ADR-005's measured 4.226 s minimum posture dwell, taken rather than
+re-tasted. Station-object changes over all 17 fixtures:
+
+| rule | changes |
+|---|---:|
+| argmax, no gate, no dwell | **32** |
+| + margin gate | **5** |
+| + 4 s dwell floor | **5** |
+
+**27 agents appear; 5 earn an object; 22 keep the bare desk.** The five are
+`MAIN → coordinating` twice, `MAIN → running`, and two subagents — and both
+`coordinating` results are the maintainer's own "the main task giving
+instructions", arrived at with no lexicon involved.
+
+**The corpus cannot test the headline feature, and nobody had said so.** Full
+`PreToolUse` census over 17 fixtures: `Bash` 37, `Read` 19, `Agent` 10,
+`ToolSearch` 6, `SendMessage` 2, `Monitor` 1. **Zero `Edit`, zero `Write`, zero
+`Grep`, zero `Glob`, zero `Web*`.** All twelve file paths are `.txt` or `.sh` in
+one scratch directory. So `authoring` — the laptop, the thing asked for first —
+**cannot fire once anywhere in `fixtures/`**, and no threshold here has been tuned
+against a session that writes code. That is why the build order opens with a
+capture rather than a feature.
+
+**The constitutional ask came out smaller than the authorisation offered.** The
+app **already** reads `tool_input.description` on `Agent` dispatches and already
+draws it, shortened, on the nameplate [M7e]; the new act is *classifying* it,
+which is strictly less exposing than echoing it. And **file paths are declined** —
+they were wanted to separate frontend work, and `visual design` is the kind this
+ADR drops, so the field most likely to leak something is the one the design has no
+use for. Proposed amendment admits exactly `tool_name` and `Agent`'s
+`description`, and forbids `prompt`, `command`, `file_path`, `content`, `query`,
+`pattern` for display, disk or egress. **I2 is untouched and needs no third
+carve-out**: furniture has no body state and moves 0 px/s.
+
+**What cannot be honoured, said plainly.** The **painter** is not deliverable —
+no such pose in any pack, none composable from the six body states, and `apron` is
+a costume, which M7c measured at 0.00% silhouette. A design agent gets a laptop.
+The **addressing gesture** ("talking to the subagent") is not deliverable either;
+the substitute is `coordinating` on the desk, on top of the `checklist` badge and
+held `clipboard` that already fire on an open `Agent` call — a fact that has been
+shipping unnoticed precisely because those two channels are too small and too fast.
+
+**Inventory corrections.** (1) Singles **85–101 are not workbenches**: 85 is a low
+bench, 86–96 are floor rugs, 97 a framed picture, 98–100 the three plants already
+bound, 101 a rucksack. The desk-scale band is **120–179**, and it holds four open
+laptops (135/137/138/140, 26×40), two front laptops (136/139, 24×32), paper stacks
+(153 at 24×22; 154/155 larger), desk monitors with lit screens (130–134, ~30×30),
+a standing pad (179, 24×42) and six desk lamps (141–146). Every binding this ADR
+needs already exists in `assets/processed/` — **no authored pixels**. (2) M7e's
+note says nine of ten dispatches are `general-purpose`; counted from
+`tool_input.subagent_type` it is **eight**, the other two `Explore`.
+
+**Changed.** `docs/ADR-006-the-desk-says-the-work.md`, proposed. It amends
+`CLAUDE.md`'s identity model and nothing else; it is stacked on ADR-005 for the
+main agent's turn boundaries and degrades to "subagents get per-turn tallies, the
+main agent gets one" if ADR-005 is refused. No code in this change.
+
+**Evidence.** `spriteroom fixtures/four-subagents.jsonl --render --size 720x400
+--at 20` (five agents at `1x`; the twin-monitor stands are the most legible
+per-agent difference in the frame, which is the existing evidence that furniture
+reads at `1x`); contact sheets of singles 85–101, 120–179 and 180–239 rendered at
+2–3× and inspected; `SeatedHead` and the desk-surface rule recomputed from the
+shipped PNGs; all tallies replayed over `fixtures/` unmodified. No fixture was
+edited, port 8787 was not touched, `--panel-render` was not used, and nothing
+outside `docs/` and this file was written.
+
+---
+
+## Task #60 — the tables cut off the head of the sprite
+
+**The complaint, in one sentence a non-programmer would recognise:** the room
+decided how tall a desk may be by measuring to the **top** of a character's
+head instead of the **bottom** of it, so a desk that reached the eyes counted as
+"short enough to sit behind" and was drawn over the face.
+
+**What was actually wrong, and what was not.** The parent's brief listed four
+candidates. Measured:
+
+- **(a) "a station places more than one node and only `.desk` gets the bias" —
+  no, but the premise behind it was wrong in a more useful way.** The eleven
+  station content boxes quoted in the brief (`screens` 70, `main` 56, `n04` 76 …)
+  are the station **props** — the thing that stands one tile to the character's
+  *left* — not desks. **No station overrides `desk` at all**; every one inherits
+  the theme's `props.roles.desk`, which the manifest says in as many words. The
+  prop spans `x−48 … x−16` against a 32 px body canvas at `x−16 … x+16`, so it
+  cannot reach a head, and it is drawn at `seatDepthBias` (behind) anyway. Same
+  for the chair. **The only thing the room ever draws in front of a seated body
+  is the desk.**
+- **(b) z-ordering — no.** `Character.Layer.rowDepth` and the desk's `+0.5` do
+  exactly what they claim.
+- **(c) the chair, the board, or leftover empty-seat furniture — no.** All behind,
+  in every theme, at every seat, verified against `furnitureForTesting`.
+- **(d) "the content box height is not the quantity that decides whether art
+  reaches a face" — yes, and in two separate ways.** This was the parent's
+  favourite and it is right, with a second half nobody had named.
+
+**(d), first half: the guard compared against the wrong end of the head.**
+`RoomScene.seatedHeadClearance` was `canvas.height − head_top_px` = **44**, which
+is where the shortest variant's head *starts*. The rule read "44 px or under may
+go in front", so 44 px — the height at which a desk hides the head **completely**
+— was the last value that passed. Measured off the sit frames, the **chin** is at
+**16–18 px**. The manifest carries a head-top and no head-bottom, so a guard
+written from the manifest alone could only ever have had the crown to hand; the
+number had to be measured off the art or invented.
+
+**(d), second half: it is not a one-dimensional question at all.** A desk is
+centred `0.875 × tile` = **+28** to the character's right and anchored on its own
+content box, so a 32 px desk's near edge falls at **+12** and a 40 px desk's at
+**+8**. The seated silhouette is widest at the hair (reaching `+13` to `+15`) and
+narrowest at the chin (`+9`). So the honest limit is a **profile**: 26 px at
+`+12`, 16 px at `+8`. Collapsing it to one number means 16, which sends every desk
+in every theme behind the body and spends the near-edge cue — the only cue at
+32 px that a character is sitting *at* a desk rather than beside one — in the four
+themes that never had the defect.
+
+**Measured, per theme, over all six variants and all three sit frames:**
+
+| theme | desk box | near edge | clearance there | in front? | head pixels covered |
+|---|---|---:|---:|---|---:|
+| `room`/`office`/`briefing`/`broadcast`/`stage` | 32×24 | +12 | 26 | yes | **0** |
+| `library` | 32×44 | +12 | 26 | **no**, now | 8–36 px of hair on 5 of 6 variants |
+| `mission_control` | 40×36 | +8 | 16 | **no**, now | **68–136 px of face** on all 6 |
+
+`mission_control`'s desk put its top edge at eye level and its near edge through
+the nose, mouth and jaw. `library` is the theme this repository's own `cwd` hashes
+to, which is what the maintainer was looking at.
+
+**The commit note at `005cf5f` is now actively misleading and is corrected in
+place.** It concluded that after `1c0eeb3` re-cut both desks, "no desk any shipped
+theme binds takes this branch", making `surfaceBehindBias` a standing guard rather
+than a live rule. That was arithmetically true *of the rule as the rule was then
+written* — and the maintainer was looking at a desk drawn across a face while it
+was true. The check the note names as the thing that would notice,
+`everyStationFitsTheSeatItIsDrawnAt`, asserted `height <= shortestHead` and so
+enforced the defect rather than catching it. The branch is live now: two themes
+take it. (The note's other worry — that stations reach `surfaceDepthBias` by a
+second call path — is real and both call sites were already correct.)
+
+**Changed.**
+
+- `Sources/SpriteRoomScene/RoomScene.swift` — `surfaceDepthBias(deskHeight:
+  headClearance:)` is **unchanged and never had to change**; what is passed to it
+  did. `seatedHeadClearance` is now `seatedHeadClearance(nearEdgeX:)`, backed by a
+  new `SeatedHead` measured once per scene off the cast's own `working` frames at
+  `RoomLayout.seatedFacing`. `SeatedHead.neckRow` finds the head line as the first
+  row of the narrowest run below the silhouette's widest row — the pinch between
+  the hair and the shoulders — which lands at rows 46, 48, 46, 46, 46, 48 on
+  variants 06, 07, 09, 10, 17, 19. Two independent checks agree: drawn over the
+  sprites the line sits on the jaw, and all twelve shipped costumes (an outfit
+  clothes a torso, not a head) begin at row 46, 47 or 48. An unmeasurable head
+  answers 0, which sends every surface behind — a clearance we cannot measure is
+  not one we may assume.
+- `Tests/…/StationAndCostumeTests.swift` — `SeatedHeadOcclusionTests`, three
+  tests. One builds its own three-block figure and checks the measurement itself,
+  so the rule is still exercised on a checkout with no art. One pins the shipped
+  cast's chin and the two clearances (26 at `+12`, 16 at `+8`). One is the pixel
+  proof: for every theme, every station, every seat, it takes what the scene
+  *drew* — `furnitureForTesting`'s path, position, anchor, size and depth — and
+  composites every piece whose `z` beats the seated body's against every variant's
+  head mask. `everyStationFitsTheSeatItIsDrawnAt`'s stale prose and its
+  now-wrong `height <= shortestHead` assertion are corrected.
+- `Tests/…/SceneFixtures.swift` — `expectedGatedTestCount` 69 → **71**.
+- `docs/ADR-002-themed-rooms.md` — §14d's amendment is superseded on the number.
+
+**Seen red before it was seen green.** With only the caller reverted to the crown,
+`nothingTheRoomDrawsInFrontOfASeatedBodyCoversItsHead` fails with **22 distinct
+theme/piece/variant combinations** naming `library` and `mission_control`, each
+with the exact canvas rows and columns it covers. The other two tests measure independently and stay green,
+which is what they are for.
+
+**Evidence.** `spriteroom fixtures/four-subagents.jsonl --render --size 720x400
+--at 30` in all six themes, before and after, back to back in one tree: `office`,
+`briefing`, `broadcast`, `stage` are **byte-identical** (0 differing pixels — the
+near-edge cue is untouched where it was never a problem), `library` differs by 56
+pixels and `mission_control` by 708. `swift build --build-tests -Xswiftc
+-warnings-as-errors` clean; `SPRITE_ROOM_REQUIRE_ART=1 swift test` 636 tests
+green; `scripts/lint-palette.py` passes; `spriteroom-replay --all` replays all 17
+fixtures with zero open calls after the sweep. `--panel-render` was not used and
+port 8787 was not touched.
+
+**Left for whoever owns them.**
+
+- `docs/04-ART-DIRECTION.md`, the block quote at "Stations are art — M6h" that
+  begins *"The height half is fixed, and the fix is in the scene rather than in
+  the art"*, still states the old rule ("at or under the shortest head it is drawn
+  in front"). It is wrong in the same way ADR-002 §14d was. It was left alone
+  because another agent held that file open in the same session.
+- The real long-term repair is a **`head_bottom_px` beside `head_top_px`** in
+  `assets/manifest.json`, written by `scripts/build-manifest.py` off the sit
+  frames. `SeatedHead` measures at runtime because the manifest is not this
+  task's to edit; a declared datum would make the measurement reviewable in the
+  file where every other placement number already lives, and would let the scene
+  stop opening eighteen PNGs at build time.
+
+---
+
+## Task #64 — ADR-005 implemented: posture carries the turn
+
+**The instruction, from the maintainer watching the running app:** "the sprites
+would be doing something for like 1 second then stopping, then resuming, then
+stopping etc.. can that be fixed please". The defect was
+`SceneDirector.swift:261`, `openCalls.isEmpty ? .idle : .working`, with `idle` a
+**standing** pose out in the walkway.
+
+**Done.** `Presentation.isInTurn` replaces the open-call set as the body's key. It
+opens on `agentAppeared` (the agent's first consumed event — `UserPromptSubmit`
+for main, `SubagentStart` for a subagent), on any `callOpened`, and on
+`dormancyChanged(false)`; it closes on `dormancyChanged(true)` and on the
+departure that removes the presentation, which is every path `SessionEnd`, the
+idle sweep and eviction arrive by. No timer, no hold constant, no minimum
+duration, no queue — ADR-005 §2 proves no hold works, because the inside-turn and
+turn-straddling gap distributions overlap on [14.99, 26.38] s.
+
+**The motion did not move an inch, and that is the load-bearing half.**
+`AmbientMotion.sequence` gained an `openCalls:` parameter and returns
+`seatedStillSequence` — one held frame, `Beat.settled`, where every phrase begins
+and ends — for a seated body with an empty set. A character animates **iff** it
+holds an open call, keyed on the badge class exactly as before. Dead air moved
+0 px/s before this change and moves 0 px/s after it, so `04-ART-DIRECTION.md`'s
+1461 px/s ceiling, the six phrases, the lint and every prop price are untouched.
+
+**Measured, all 17 fixtures, deltas batched at 1/60 as the scene receives them**
+(`PostureTests.thePostureChannelIsOnTheTimescaleOfAGlance` prints the per-fixture
+table and pins the totals):
+
+| | before | after |
+|---|---:|---:|
+| posture changes | 95 | **40** |
+| shortest posture dwell | **0.017 s** (one frame) | **8.196 s** |
+
+Eleven of the seventeen now end at exactly one posture change: the character sits
+down when it appears and never moves again.
+
+**Three of ADR-005's own claims were wrong and are corrected in the ADR in
+place.** Two matter:
+
+- **`Stop` emits no delta**, and neither does a second `UserPromptSubmit`.
+  `WorldModel`'s `case .stop:` disarms the gate mark and returns; its own comment
+  and `03-EVENT-MODEL.md`'s `Stop` row both say it emits nothing, and
+  `spriteroom-replay fixtures/denial-then-work.jsonl` prints twenty deltas for
+  twenty-eight events with nothing from any of its three `Stop`s. So §3's claim
+  that every closer is "an event the model already emits" is false for the main
+  agent, and **the main character has no standing state inside a session**: it
+  sits at its first event and stands only when it leaves. A blind spot, not a
+  fiction — the room declines to draw a boundary it was not told about — but it
+  means `denial-then-work` 1 → 6, `idle-notification` 0 → 2, the 26 `Stop`s of
+  §8's bonus and §4's "standing = waiting on the human" for the main agent are
+  all contingent on a `turnEnded(agent:)` delta that does not exist. Same shape
+  and size as §7's `gateChanged`, held back for the same reason.
+- **The posture swap is 528 px, not 4 924.** The 4 924 figure is the whole-frame
+  change between `t=8.0` and `t=10.0` of one build, so it carries the badge
+  bubble coming down (3 128 px of it, reproduced exactly) and the seated loop's
+  phase as well as the pose. Rendering the same fixture at the same instant under
+  both rules with nothing else different: **528 px** at `2x`, against **1 384**
+  for one step of the seated ambient loop, which is also reproduced exactly. So
+  the arithmetic is the reverse of the ADR's headline — the posture swap is
+  **0.38× an ambient step, not 3.6×** — and the case for the fix rests on I1 and
+  on the dwell, both untouched. The head is a character's largest block and does
+  not move between the two poses, and the desk covers most of what does.
+
+**What it looks like.** `single-agent-simple` at `t=10` was a front-facing figure
+standing in the walkway with no badge; it is now a side view seated at the desk.
+`four-subagents` at `t=90` is the §4 table in one frame: four standing characters
+wearing `Z` and one seated `MAIN` — the tab and the body finally saying one
+thing, where before the `Z` sat over a body drawn identically to a working one.
+
+**Two guards moved from a state name onto the fact underneath it**, and both were
+about to become false rather than merely redundant:
+
+- `Character.heldObject` guarded on `currentState == .working`, which would now
+  put a book in the hands of a seated agent with nothing open. It reads
+  `currentBadge.count > 0` — the open-call set's size, carried on a value the
+  director already emits, `0` for every frame of an ADR-003 beat. The `working`
+  test stays as a *placement* rule: the hand anchor is measured on the `sit` row
+  and an object on a walking character would hang in the air.
+- `SceneDirector.body(for:badge:)` guarded the badge-keyed pose lookup the same
+  way and now guards on `!openCalls.isEmpty`. This is ADR-003 §2's third bullet
+  kept structurally rather than by policy.
+
+**ADR-003 §6 condition 1 restated, which is the one place this weakens a ratified
+ADR.** "The body is idle for the whole beat" named a state where it meant the
+property in its own next clause — *nothing on screen claims ongoing work*. It is
+now "the body asserts no ongoing work for any frame of the beat — it holds a
+single still frame and plays no ambient phrase". Strictly stronger in effect: the
+beat's body is seated and still, which asserts *less* than the standing pose it
+used to draw, and `theBodyAssertsNoOngoingWorkForEveryFrameOfTheBeat` now checks
+the frames the body plays, that no posture change is emitted at all, and that the
+pose lookup is not reached — on each of the thirty frames.
+
+**I2 amended in `CLAUDE.md`**, per ADR-005 §6, integrated with ADR-003's and
+ADR-004's clauses rather than appended as a third paragraph: the first sentence
+is now an *iff* about motion, and posture joins the badge slot and the pilot lamp
+as a thing governed separately. Also corrected `BodyState.swift`'s claim that
+authoring a missing animation "would be fiction under I1" — I1 governs what
+*triggers* a behaviour, not who drew the pixels, and this repo authors art in code
+in four places. That sentence had been read as a budget ceiling for the project's
+whole life.
+
+**One test is left failing and it is in a file I was told to stay out of.**
+`StationAndCostumeTests.aCostumeIsDrawnOnEveryStateTheBodyPlaysAndStaysInPhaseWithIt`
+applies `.working` to a character with no badge and then asserts the costume layer
+changes frame; under the new rule that body correctly holds one frame. The fix is
+two lines — `character.apply(badge: BadgeSelection.select(openToolNames: ["Bash"]))`
+before the phase loop — and with it applied in a scratch copy of this tree the
+whole suite is **642 tests green**. The same lines are in the file at HEAD, so
+this is my change and not the other agent's in-flight work.
+
+**Not done, deliberately:** ADR-005 §7, the permission-gate stillness. It needs a
+`gateChanged` delta in `SpriteRoomCore`. Nothing here makes it harder and one
+thing makes it easier: the motion is now a function of an explicit `openCalls`
+count rather than of the body state, so "a gated agent holds `settled`" is a
+third condition in one function instead of a new body state.
+
+**Evidence.** `spriteroom fixtures/single-agent-simple.jsonl --render … --size
+720x400 --at 8,10,12` and the same for `four-subagents`, plus `--at 90`, rendered
+from this tree and from a scratch copy with the single line
+`var body: BodyState` reverted, and diffed pixel for pixel at the same instants.
+`spriteroom-replay --all`: 17 fixtures, zero open calls after the sweep.
+`scripts/lint-palette.py` passes. No fixture was edited, port 8787 was not
+touched, and `--panel-render` was not used.

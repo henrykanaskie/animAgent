@@ -295,10 +295,17 @@ struct HeldObjectSceneTests {
         BadgeSelection.select(openToolNames: tools)
     }
 
-    /// **I2 on the body layer.** A character with no open call idles, and idle
-    /// hands are empty. This is the invariant the layer is most likely to be
-    /// asked to break, because a room full of people holding things looks busier
-    /// than a room full of people not.
+    /// **I2 on the body layer.** A character with no open call holds nothing.
+    /// This is the invariant the layer is most likely to be asked to break,
+    /// because a room full of people holding things looks busier than a room
+    /// full of people not.
+    ///
+    /// **The middle block is ADR-005 §5.** The guard used to be `currentState ==
+    /// .working`, which answered this question correctly only because `working`
+    /// *was* "the open-call set is non-empty". A character between two calls of
+    /// one turn is now seated — `working` by name, holding nothing — so the
+    /// guard moved onto the open-call count and this is where that is checked in
+    /// pixels rather than in policy.
     @Test(.enabled(if: SceneArt.isAvailable))
     func idleHandsAreEmpty() throws {
         let store = TextureStore(manifest: try SceneFixtures.manifest())
@@ -308,7 +315,13 @@ struct HeldObjectSceneTests {
         character.apply(badge: Self.working(["Bash"]))
         #expect(character.heldObjectForTesting == .console, "nothing was ever held")
 
+        // Seated, in a turn, with nothing running: the posture is unchanged and
+        // the hands empty on the same frame the badge does.
         character.apply(badge: .none)
+        #expect(character.state == .working, "this block is not testing what it claims")
+        #expect(character.heldObjectForTesting == nil,
+                "a seated character with no open call is holding something")
+
         character.apply(state: .idle, facing: .right, startingAt: 0)
         #expect(character.heldObjectForTesting == nil)
 
@@ -326,12 +339,16 @@ struct HeldObjectSceneTests {
 
     /// **ADR-003's closing beat reaches the badge slot and never the hands.**
     ///
-    /// The beat is defined as a glyph over an *idle* body — §6 condition 1, the
-    /// one the ADR says voids it if an implementer drops it. The hands are a
-    /// body-layer claim, so they follow the body and go empty at the close. This
-    /// falls out of the `working` guard rather than being a case handled beside
-    /// it, which is the same structural argument `SceneDirector.body(for:badge:)`
-    /// makes about the working-pose lookup.
+    /// The beat is defined as a glyph over a body that asserts no ongoing work —
+    /// §6 condition 1, the one the ADR says voids it if an implementer drops it,
+    /// as restated by ADR-005 §5. The hands are a body-layer claim about work in
+    /// progress, so they empty at the close with the motion.
+    ///
+    /// **This is the case the old guard would have got wrong.** A beat's body is
+    /// now seated — `working` by name — for every one of its 500 ms, so
+    /// `currentState == .working` would have put a book in the hands of an agent
+    /// whose `Read` had returned. The selection carries `count: 0` for every
+    /// frame of a beat, which is what the guard reads instead.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aClosingBeatLeavesTheHandsEmpty() throws {
         let store = TextureStore(manifest: try SceneFixtures.manifest())
@@ -340,13 +357,14 @@ struct HeldObjectSceneTests {
         character.apply(badge: Self.working(["Read"]))
         #expect(character.heldObjectForTesting == .book)
 
-        // What a beat looks like from this class: the open set emptied, so the
-        // body went idle, and the badge kept the glyph for D.
-        character.apply(state: .idle, facing: .right, startingAt: 0)
+        // What a beat looks like from this class: the open set emptied, the body
+        // stayed seated and stopped moving, and the badge kept the glyph for D.
         character.apply(badge: BadgeSelection.select(
             openToolNames: [String](), closingBeat: .magnifier))
+        #expect(character.state == .working, "the beat's body is the seated one")
         #expect(character.isBadgeVisible, "the beat is supposed to keep the glyph")
-        #expect(character.heldObjectForTesting == nil, "the beat put an object in idle hands")
+        #expect(character.frameSequenceForTesting == [0], "the body moved during a beat")
+        #expect(character.heldObjectForTesting == nil, "the beat put an object in the hands")
     }
 
     /// **Attention and dormancy empty the hands as well as the tool slot.**

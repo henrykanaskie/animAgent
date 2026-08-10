@@ -100,7 +100,8 @@ struct AmbientMotionPolicyTests {
             // And what it plays is the shipped loop in order, which is what this
             // app drew before the motion channel existed.
             #expect(AmbientMotion.sequence(
-                for: badge, state: .working, frameCount: Self.seatedFrameCount) == [0, 1, 2])
+                for: badge, state: .working, openCalls: 1,
+                frameCount: Self.seatedFrameCount) == [0, 1, 2])
         }
     }
 
@@ -110,10 +111,15 @@ struct AmbientMotionPolicyTests {
     ///
     /// `idle` is excluded here and pinned by `anIdleBodyHoldsOneFrame` instead —
     /// it plays no phrase either, but it no longer plays the shipped loop.
+    ///
+    /// The open call is what makes this test about the *state*: since ADR-005 a
+    /// character can be seated with none, and a phrase is refused for that
+    /// reason instead of this one.
     @Test func noStateButWorkingPlaysAPhrase() {
         for state in BodyState.allCases where state != .working && state != .idle {
             for badge in ToolBadge.allCases {
-                let sequence = AmbientMotion.sequence(for: badge, state: state, frameCount: 6)
+                let sequence = AmbientMotion.sequence(
+                    for: badge, state: state, openCalls: 1, frameCount: 6)
                 #expect(sequence == Array(0..<6),
                         "\(state.rawValue) under \(badge.rawValue) is not the shipped loop")
             }
@@ -127,17 +133,57 @@ struct AmbientMotionPolicyTests {
     /// move more than 2 px, so the assertion is `[0]` rather than "less than".
     ///
     /// The badge loop matters because the two channels are deliberately allowed
-    /// to disagree — an `ADR-003` closing beat is a tool glyph over an idle body,
-    /// and a dormant character wears a tab over one. Neither may put the body
-    /// back in motion, because the body is the channel I2 makes truthful for
-    /// every frame.
+    /// to disagree — an `ADR-003` closing beat is a tool glyph over a body that
+    /// is not working, and a dormant character wears a tab over one. Neither may
+    /// put the body back in motion, because the body is the channel I2 makes
+    /// truthful for every frame.
+    ///
+    /// The open-call loop is ADR-005's addition: a standing character with an
+    /// open call is unreachable in the live stream — a `PreToolUse` opens the
+    /// turn that seats it — but this function is total and a state nothing can
+    /// produce is still a state something may ask for.
     @Test func anIdleBodyHoldsOneFrame() {
         for frameCount in 1...10 {
             for badge in ToolBadge.allCases.map({ Optional($0) }) + [nil] {
-                #expect(AmbientMotion.sequence(
-                    for: badge, state: .idle, frameCount: frameCount) == [0],
-                        "idle under \(badge?.rawValue ?? "no badge") moved")
+                for openCalls in [0, 1, 3] {
+                    #expect(AmbientMotion.sequence(
+                        for: badge, state: .idle, openCalls: openCalls,
+                        frameCount: frameCount) == [0],
+                            "idle under \(badge?.rawValue ?? "no badge") moved")
+                }
             }
+        }
+    }
+
+    /// **And so does a seated body with no open call.** [ADR-005 §3]
+    ///
+    /// This is the same claim on the other posture, and it is the load-bearing
+    /// half of ADR-005: the posture moved off the open-call set and the *motion*
+    /// did not, so the dead air between two calls of one turn is now drawn
+    /// seated instead of standing and moves 0 px/s either way. If this fails,
+    /// the room has an ambient loop running with nothing open, which is the one
+    /// thing I2 exists to forbid — and it would be running under a character
+    /// that the badge layer correctly shows as doing nothing.
+    ///
+    /// The badge loop is what makes it exact. A closing beat leaves a `magnifier`
+    /// on screen with an empty set for 500 ms, and a phrase keyed off that glyph
+    /// would be a body asserting a read that has finished.
+    @Test func aSeatedBodyWithNoOpenCallHoldsOneFrame() {
+        for frameCount in 1...10 {
+            for badge in ToolBadge.allCases.map({ Optional($0) }) + [nil] {
+                #expect(AmbientMotion.sequence(
+                    for: badge, state: .working, openCalls: 0, frameCount: frameCount) == [0],
+                        "a seated character with no call moved under \(badge?.rawValue ?? "none")")
+            }
+        }
+        // The frame it holds is `settled`, which is where every phrase starts
+        // and ends, so a call opening or closing moves the body no pixels at
+        // all until the phrase itself does.
+        #expect(AmbientMotion.seatedStillSequence
+                == [AmbientMotion.Beat.settled.frameIndex(inFrameCount: 3)])
+        for badge in ToolBadge.allCases where AmbientMotion.phrase(for: badge) != nil {
+            #expect(AmbientMotion.phrase(for: badge)?.first == .settled,
+                    "\(badge.rawValue) does not start where a still body already is")
         }
     }
 
@@ -147,8 +193,19 @@ struct AmbientMotionPolicyTests {
     /// froze would be a character sliding across the floor.
     @Test func everyStateWithAnEventBehindItStillAnimates() {
         for state in BodyState.allCases where state != .idle {
-            #expect(AmbientMotion.sequence(for: nil, state: state, frameCount: 6).count == 6,
+            #expect(AmbientMotion.sequence(
+                for: nil, state: state, openCalls: 1, frameCount: 6).count == 6,
                     "\(state.rawValue) lost its frames")
+        }
+        // `walk`, `spawn`, `depart` and `deliver` each *are* an event being
+        // told, so they keep every frame whether or not a call is open — a
+        // character that stopped mid-stride because its `Read` returned would
+        // slide across the floor. Only the two resting postures answer to the
+        // open-call set. [ADR-005 §3]
+        for state in BodyState.allCases where state != .idle && state != .working {
+            #expect(AmbientMotion.sequence(
+                for: nil, state: state, openCalls: 0, frameCount: 6).count == 6,
+                    "\(state.rawValue) froze when the open-call set emptied")
         }
     }
 
@@ -161,7 +218,7 @@ struct AmbientMotionPolicyTests {
         for frameCount in 1...8 {
             for badge in ToolBadge.allCases {
                 let sequence = AmbientMotion.sequence(
-                    for: badge, state: .working, frameCount: frameCount)
+                    for: badge, state: .working, openCalls: 1, frameCount: frameCount)
                 #expect(!sequence.isEmpty)
                 for index in sequence {
                     #expect(index >= 0 && index < frameCount,
@@ -373,30 +430,44 @@ struct AmbientMotionSceneTests {
                 "the phrase restarted from its own beginning instead of continuing")
     }
 
-    /// **I2 on the motion layer: a character with no open call does not play a
-    /// phrase, and neither does one inside `ADR-003`'s closing beat.**
+    /// **I2 on the motion layer, on a real character: a body with no open call
+    /// plays no phrase, in either posture, and neither does one inside
+    /// `ADR-003`'s closing beat.**
     ///
-    /// The beat is a glyph over an *idle* body — the condition `ADR-003` §6 says
-    /// voids it if an implementer drops it — so a lingering `terminal` must not
-    /// reach this channel. It cannot, structurally: the sequence is a function
-    /// of the body state, and the body is `idle` for every frame of a beat.
+    /// The beat is a glyph over a body that asserts no ongoing work — the
+    /// condition `ADR-003` §6 says voids it if an implementer drops it, as
+    /// restated by ADR-005 §5 — so a lingering `terminal` must not reach this
+    /// channel. It could not before because the body was `idle` for every frame
+    /// of a beat; it cannot now because the sequence is a function of the
+    /// open-call count, which is `0` for every frame of a beat. **That is the
+    /// substitution ADR-005 makes, checked here in the frames the node plays
+    /// rather than in the policy that chose them.**
     @Test(.enabled(if: SceneArt.isAvailable))
-    func anIdleBodyPlaysTheShippedLoopEvenUnderALingeringGlyph() throws {
+    func aBodyWithNoOpenCallPlaysNoPhraseEvenUnderALingeringGlyph() throws {
         let store = TextureStore(manifest: try SceneFixtures.manifest())
         let character = Self.character(store)
 
         character.apply(state: .idle, facing: .right, startingAt: 0)
-        let idleSequence = character.frameSequenceForTesting
-        #expect(idleSequence == Array(0..<idleSequence.count))
+        #expect(character.frameSequenceForTesting == [0], "the standing body moved")
 
-        // The beat's shape: the open set emptied, so `BadgeSelection.select`
-        // reaches `closingBeat` and the slot still shows `terminal` — over a
-        // body the director has already put back to `idle`.
+        // The beat's shape as the room now draws it: the open set emptied, so
+        // `BadgeSelection.select` reaches `closingBeat` and the slot still shows
+        // `terminal` — over a body that is **seated** and has stopped moving,
+        // because the turn did not end when the call did.
+        character.apply(state: .working, facing: .right, startingAt: 0)
         character.apply(badge: BadgeSelection.select(openToolNames: [], closingBeat: .terminal))
         #expect(character.badgeSelection.badge == .terminal, "the beat is not set up")
-        #expect(character.frameSequenceForTesting == idleSequence,
-                "a closing beat changed how the body moves")
+        #expect(character.state == .working, "the beat's body is the seated one")
+        #expect(character.frameSequenceForTesting == [0],
+                "a closing beat put the seated body back in motion")
         #expect(character.heldObjectForTesting == nil, "a closing beat filled the hands")
+
+        // And the same body with a call open does move, so the assertions above
+        // are about the empty set rather than about a character that could not
+        // animate at all.
+        character.apply(badge: BadgeSelection.select(openToolNames: ["Bash"]))
+        #expect(character.frameSequenceForTesting.count > 1,
+                "the seated body cannot move at all, so this test proves nothing")
     }
 
     /// **A call parked at a permission gate keeps its work phrase**, and that is

@@ -93,14 +93,14 @@ rule. It creates the session and its main agent and has no other effect.
 | Event | Effect on the world |
 |---|---|
 | `SessionStart` | **Unreachable over HTTP — do not build on it.** The event is real and fires on every session (`source: startup` / `clear`, plus `model` on startup), but 2.1.224 never delivers it to a `type: "http"` hook, and this app registers nothing else. Keep the decode so the name is recognised rather than counted unhandled; the handler will not run. `session_title` does not exist in the payload — the field list here was wrong. |
-| `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is idle, because nothing has been called yet. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] |
+| `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is **seated and still** — at its desk, running nothing — because a prompt is the start of a turn and nothing has been called yet [ADR-005]. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] A *second* prompt emits no delta, because the agent already exists; see the `Stop` row. |
 | `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. **Not once per agent** — a background subagent resumed with `SendMessage` emits a second one ~20 ms after that call's `PreToolUse`. Creation stays idempotent for that reason, and for a **known** `agent_id` this event is the *revival* path: it returns a dormant character to `active` **in place**, emitting `dormancyChanged(isDormant: false)` and nothing else. No second character, no second seat, no re-spawn walk — the one visible change is the `sleep` badge coming down. |
 | `PreToolUse` | Open a call keyed by `tool_use_id`. Character enters/keeps working. |
 | `PostToolUse` | Close that `tool_use_id`. |
 | `PostToolUseFailure` | Close that `tool_use_id`, flagged failed. Fires *instead of* `PostToolUse`, never alongside it; the message is in `error`, not `tool_response`. |
 | `PostToolBatch` | Close every `tool_use_id` in `tool_calls[]`. A primary close path, not a sweep — see below. |
-| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → **returns to its seat and goes `dormant`**, wearing the `sleep` badge. Emits `reportDelivered` and then `dormancyChanged(isDormant: true)`. It does **not** depart: this is a turn boundary, not a death, and the agent can be resumed. Its open calls are abandoned (`.agentStopped`) and its permission-gate mark is disarmed — the turn completed, so nothing is pending. See "`SubagentStop` is a turn boundary, not a death" below. |
-| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. **It needs no dormancy of its own** — checked, not assumed: `Stop` emits no delta and sets no lifecycle, and the main agent departs only on `SessionEnd` and the idle sweep, so it already stays in the room across a turn boundary, which is the whole of what dormancy buys a subagent. Marking it dormant would also be the weaker claim, since `Stop` fires once per assistant message stream and several times in one user turn. |
+| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → **returns to its seat, stands up and goes `dormant`**, wearing the `sleep` badge. Emits `reportDelivered` and then `dormancyChanged(isDormant: true)`. **`dormancyChanged` is the one turn boundary the delta stream carries**, so it is what ends the seated posture — the `Z` tab and the body now say one thing instead of a tab sitting over a body that disagrees with it [ADR-005 §3]. It does **not** depart: this is a turn boundary, not a death, and the agent can be resumed. Its open calls are abandoned (`.agentStopped`) and its permission-gate mark is disarmed — the turn completed, so nothing is pending. See "`SubagentStop` is a turn boundary, not a death" below. |
+| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. **It needs no dormancy of its own** — checked, not assumed: `Stop` emits no delta and sets no lifecycle, and the main agent departs only on `SessionEnd` and the idle sweep, so it already stays in the room across a turn boundary, which is the whole of what dormancy buys a subagent. Marking it dormant would also be the weaker claim, since `Stop` fires once per assistant message stream and several times in one user turn. **This is the one place ADR-005 asks for something the model does not have.** §3 closes the seated posture on `Stop` for the main agent; a scene fed only deltas cannot see it, so what ships seats the main character at its session's first event and stands it up only when it leaves. That is a blind spot, not a fiction — the room declines to draw a boundary it was not told about — and closing it means emitting a `turnEnded(agent:)` delta here, on the same footing as `dormancyChanged`: a change, never a repeat, replayed by `ProjectRegistry` across a project switch. Not done; a second module is a second concern. |
 | `PermissionRequest` | **An agent-level marker, and nothing else.** Records for that agent: a permission gate is open, plus the set of `tool_use_id`s it held open at that instant. No join by name, no join by recency, no `tool_use_id` read from the event — it carries none. Emits no delta and does not clear the attention badge. See "The interactively denied tool call" below. |
 | `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
 | `Notification` | Raises an attention badge; emits `attentionChanged`. Badge only — no body animation exists for this and repurposing one would be fiction. [I1] Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and **no `agent_id`, not even when the gate belongs to a subagent** — so it names no character, and which one it badges is decided by the rule under "Who the badge lands on" below. |
@@ -719,8 +719,15 @@ refutes. The order between them, and against the tool badge, is under
 
 > When an agent's open-call set becomes empty **by a real close**, the badge that
 > was on screen at that instant remains for `D` and then clears. The `×N` is
-> suppressed for the whole beat. **The body goes idle at the close and is idle
-> for every frame of the beat.** Nothing else ever lingers.
+> suppressed for the whole beat. **The body stops moving at the close and
+> asserts no ongoing work for any frame of the beat** — one still frame, no
+> ambient phrase. Nothing else ever lingers.
+
+That middle sentence read "the body goes idle at the close and is idle for every
+frame of the beat" until ADR-005, which moved the posture off the open-call set:
+the body during a beat is now seated and **still** rather than standing, which
+asserts less rather than more, and the ongoing-work claim lives wholly in the
+motion. ADR-003 §6 condition 1 carries the argument and is the ratified text.
 
 It exists because three of the six tool classes were structurally unobservable:
 across a measured 224 s session, `magnifier` had 16 calls totalling 0.11 s and
@@ -740,12 +747,13 @@ Four things about it are rules rather than details:
   splits the two close paths for this reason and no other.
 - **The body carries tense; the badge carries kind.** `agent is working ⟺
   !openCalls.isEmpty` is unchanged and the ambient loop still ends with the
-  call, to the frame. An idle character under a `magnifier` bubble reads "not
-  working; the last thing was a read", which is true. Holding the body in
-  `working` for the beat would assert an agent still reading, which is false,
+  call, to the frame — it is a statement about the **motion**, which is where
+  ADR-005 left it. A still character under a `magnifier` bubble reads "not
+  working; the last thing was a read", which is true. Letting the body claim
+  ongoing work for the beat would assert an agent still reading, which is false,
   and `ADR-003` §6 declares itself void — not degraded — if an implementation
   does it. The precedent is already in the room: the attention badge has no body
-  state at all, and the dormancy `Z` sits over an idle body.
+  state at all.
 - **It is scene-side.** `WorldModel` knows nothing about it. The call really
   closed; holding it open in the true layer would be fiction in the one place
   that may not have any, would lie to the reaper, and would break the replay
@@ -874,9 +882,53 @@ layer rather than a new rule:
   interleave. [I3] The phase is not reset by the swap: every phrase is on the
   same 125 ms grid, so a class change lands on a step boundary and the body
   continues into the new schedule rather than restarting.
-- **Only a `working` body plays one.** [I2] `walk`, `idle`, `deliver`, `spawn`
-  and `depart` are untouched, and an ADR-003 closing beat cannot reach this
-  channel because its body is `idle` for every frame by definition.
+- **Only a body with an open call plays one.** [I2] `walk`, `deliver`, `spawn`
+  and `depart` are untouched — each of them *is* a real event being told, so it
+  plays as authored whatever the open-call set says. `idle` holds one frame, and
+  since ADR-005 so does a **seated** body whose open-call set is empty: the
+  posture says *in a turn*, the motion says *running something*, and they are
+  different questions. An ADR-003 closing beat cannot reach this channel because
+  the open-call set is empty for every frame of it by definition.
+
+### The posture is keyed by the turn — ADR-005
+
+The section above answers *how a working character moves*. This one answers
+*where the character is*, and the two were one question until ADR-005 separated
+them.
+
+> **A character is seated from any event this app consumes for that agent until
+> that agent's turn ends. It stands only when it has no turn in progress.**
+
+`working` is the seated pose at the desk and `idle` is a **standing** pose out in
+the walkway, so the choice between them asserts whether the agent is at its
+workstation. Keying it on the open-call set — which is what shipped from M0 to
+ADR-005 — put that assertion on the timescale of a syscall: the median tool call
+in `fixtures/` is 23 ms and the median gap between two calls of one turn is
+2.35 s, so a character sat down for milliseconds and stood in the walkway for
+seconds, twice per call, and the room asserted that an agent got up 1.3 s after a
+`Read`. Nothing said that happened. [I1]
+
+Seated opens on `UserPromptSubmit` (main), `SubagentStart` (subagent) and any
+`PreToolUse`. Seated closes on `SubagentStop` (`dormancyChanged`), `SessionEnd`,
+departure and the idle sweep — and on `Stop` for the main agent, **which the
+model does not emit**; see the `Stop` row above for what that costs and what
+would close it. There is no timer, no hold constant and no minimum duration: the
+state is an interval between two real events, the same shape dormancy already is.
+
+What the room says afterwards:
+
+| picture | means | channel |
+|---|---|---|
+| seated, **moving** | a tool call is open, of this badge class | motion |
+| seated, still | in a turn; between calls, thinking | posture |
+| standing, still | no turn in progress — finished, or not started | posture |
+| standing + `Z` tab | turn over, subagent, still assigned | posture + badge, agreeing |
+| walking | spawn, report, depart, eviction | unchanged |
+
+Measured over all 17 fixtures, deltas batched a frame at a time as the scene
+receives them: posture changes **95 → 40**, and the shortest interval between two
+posture changes of one character **0.017 s → 8.196 s**. The motion budget is
+untouched — a still seated character moves 0 px/s, exactly as a standing one did.
 
 **A motion asserts exactly what the badge asserts and nothing more** — *this
 agent's lowest-ordinal open call is of this class* — because it is keyed on the
@@ -1065,7 +1117,10 @@ It is on the **agent** volatility band [ADR-002 §6], decided at spawn from
 in a `let`. There is no `setCostume` and there must not be one: a character that
 changed clothes because a later `agentAppeared` carried a type we did not have
 the first time would be changing *who it is* under the user's eye, which is M5's
-argument for the always-on nameplate suffix applied to a second channel.
+argument for the always-on nameplate suffix applied to a second channel. (The
+suffix itself no longer ships — the plate is one row — but the argument for
+deciding identity once, at spawn, is what outlived it and it is what binds
+here.)
 
 **Exact match, no case folding, no trimming.** `agent_type` is the user's own
 string, and this app does not invent normalisations of those — the same decision
@@ -1212,30 +1267,41 @@ therefore loses its description with its call and the child is linked with no
 task, which is the fallback and not a bug. Pending links are held in
 `SessionState`, so `SessionEnd` and the 30-minute sweep take them too.
 
-**The nameplate draws it, on the accent band.** `SceneDirector.taskLine(_:)`
-shortens the description to the plate's ten glyphs — drop the function words,
-join what is left, clip mid-word, and **end in `…` unless every word survived**
-— and `NameplateText.headline` is the ladder that puts it on the band: the task
-if there is one, else the `agent_type`, else the name. The type is not dropped;
-it moves to a row of its own under the band, above the `agent_id` discriminator,
-taking the plate from 21 px to 29 px for the agents that have a task. It went to
-the band because in this corpus the type is where the room's agents *agree* —
-nine of the ten dispatches are `general-purpose` — and the task is where they
-differ.
+**The nameplate draws it, and the nameplate is nothing else.**
+`SceneDirector.taskLine(_:)` shortens the description to the plate's ten glyphs
+— drop the function words, join what is left, clip mid-word, and **end in `…`
+unless every word survived** — and `NameplateText.headline` is the ladder that
+puts it on the band: the task if there is one, else the `agent_type`, else the
+name. The task went to the band because in this corpus the type is where the
+room's agents *agree* — nine of the ten dispatches are `general-purpose` — and
+the task is where they differ.
+
+> **The plate was three rows when this section was written and it is one row
+> now.** The maintainer, at the running app: *"the nameplates are still wrong,
+> they take up too much space, should just have the summary of what they are
+> doing in one or 2 words. and that's it."* So the `agent_type` row and the
+> `agent_id` discriminator row are gone, and 63 × 29 px became **63 × 11**. The
+> type is still the ladder's second rung — an agent whose dispatch we never saw
+> shows it — but it is drawn only when there is no task above it, and the
+> discriminator is not produced at all.
 
 The ten real descriptions render as `TOUCH FIL…` (twice), `READ ONE…`,
 `READ TWO…`, `READ THRE…`, `READ FOUR…`, `TOUCH FIL…`, `READ ALPH…`,
 `READ BETA…` and `READ DELT…`. Ten glyphs is two short words, so the two
-`Touch file s1`/`s2` dispatches collapse onto one headline and the discriminator
-row is what still separates those characters — which is the second reason it
-survived the change.
+`Touch file s1`/`s2` dispatches in `concurrent-permission-gates` collapse onto
+one line — and with the discriminator row gone **those two characters now carry
+identical plates**. That is a real loss of S4 and the price of the instruction
+above; `everySimultaneousPlateCollisionInTheCorpusIsListed` enumerates every
+colliding pair in `fixtures/`, and that is the only one. A wider line would not
+buy it back: `TOUCH FILE S1` needs thirteen glyphs and the seat pitch cannot
+afford them.
 
-An agent with no task keeps the two-row plate byte for byte: no empty row and no
-placeholder, because a slot shown empty invites the viewer to guess what was in
-it. [I1] Because `agentTasked` lands after the character is seated, the scene
-learns it through `SpriteIntent.setNameplate`, which redraws the plate texture;
-the node is anchored at its top edge, so the new row grows downward and nothing
-already drawn moves.
+An agent with no task shows its `agent_type` on the same one row: no empty row
+and no placeholder, because a slot shown empty invites the viewer to guess what
+was in it. [I1] Because `agentTasked` lands after the character is seated, the
+scene learns it through `SpriteIntent.setNameplate`, which redraws the plate
+texture; the plate does not change shape, so the update is one line being
+replaced rather than a plate growing under a character already on screen.
 
 `ProjectRegistry` stores and replays it, because a task learned while a project
 was off screen must survive the switch — the same reason it replays
@@ -1329,9 +1395,9 @@ nothing else, and a dormant subagent departs only at `SessionEnd` or the
 30-minute idle sweep — so over one ordinary session the seven filled with
 sleepers and stayed that way. A strictly serial ten-subagent run, one worker at
 a time, drew the main agent and six characters **all wearing the `Z`**, the
-oldest of them finished three minutes earlier, over a plate reading `+4`; and
-the single agent that was actually working at that instant was inside that `+4`
-and off screen. That is S5 failing at the plainest session shape there is.
+oldest of them finished three minutes earlier, over a plate reading `+4 MORE`;
+and the single agent that was actually working at that instant was inside that
+`+4` and off screen. That is S5 failing at the plainest session shape there is.
 
 Nothing above is retracted. *Stays visible* and *outranks a working agent for a
 seat* are separable claims and only the second was doing damage:

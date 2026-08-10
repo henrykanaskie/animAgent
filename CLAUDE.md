@@ -28,25 +28,35 @@ prevent.
 data does not say it happened, the room does not show it. When you cannot
 represent something truthfully, show nothing.
 
-**I2 — Ambient only inside an open tool call.** A character idles unless it has
-at least one open tool call. Inside one, it runs an ambient loop for as long as
-the call lasts. Never fill dead air with invented activity.
+**I2 — Ambient only inside an open tool call.** A character runs an ambient loop
+**if and only if** it holds at least one open tool call, and runs it for as long
+as the call lasts. Never fill dead air with invented activity.
 
-**This governs the body of a character.** Two slots are governed separately and
-may carry a fact the body does not, each ratified by its own ADR and each
-already shipped:
+**This governs motion.** Three things are governed separately and may carry a
+fact the motion does not, each ratified by its own ADR and each already shipped:
 
+- a character's **posture** — seated at its station, or standing — which traces
+  to the turn boundaries the hook stream carries, holds a single still frame in
+  either case, and may never move a pixel that an open call has not licensed
+  [ADR-005];
 - the **badge slot**, which may hold an attention or sleep state, or a bounded
-  beat after a call closes — provided the body is truthful for every frame of it
-  [ADR-003];
+  beat after a call closes — provided the body asserts no ongoing work for any
+  frame of it [ADR-003];
 - the **pilot lamp**, which is not a character, traces to a measured fact about
   this process, and **says nothing about any agent** [ADR-004].
 
-Both carve-outs are narrow on purpose, and the second is void if its third
-condition is dropped: a lamp that beat on real hook traffic would be an
+All three carve-outs are narrow on purpose, and the third is void if its own
+third condition is dropped: a lamp that beat on real hook traffic would be an
 activity-keyed motion channel competing with the cast, which is the thing I2
 exists to prevent. Nothing here licenses a character animating without an open
 call.
+
+The first sentence used to read "a character idles unless it has at least one
+open tool call", which named a *state* where it meant a *motion*. `idle` is a
+standing pose, so that reading had a character leave its desk for the 2.35 s
+median gap between two calls of one turn and come back for the 23 ms median call
+— an assertion no event supports. ADR-005 is the amendment; it changes nothing
+about when a body may move.
 
 **I3 — State is keyed by `tool_use_id`, not by agent.** Tool calls run in
 parallel; one agent can hold several at once. Agent state is a *set* of open

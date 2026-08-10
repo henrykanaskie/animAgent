@@ -84,12 +84,17 @@ struct AttentionBadgeTests {
         #expect(!intents.contains { if case .setBody = $0 { return true } else { return false } })
         #expect(director.bodyState(agent) == .working)
 
-        // And an idle character stays idle rather than gaining a pose.
+        // And a character with no call open keeps the posture it had rather
+        // than gaining a pose. Under ADR-005 that posture is seated — the
+        // notification is a fact about the human, not evidence that the agent's
+        // turn started or ended — and the body is still, which is what says
+        // nothing is running.
         var idle = Self.director()
         _ = idle.apply([.agentAppeared(agent: agent, agentType: nil, lifecycle: .active)])
         let idleIntents = idle.apply([
             .attentionChanged(agent: agent, attention: .idlePrompt)])
-        #expect(idle.bodyState(agent) == .idle)
+        #expect(idle.bodyState(agent) == .working)
+        #expect(idle.openCallCount(agent) == 0)
         #expect(!idleIntents.contains {
             if case .setBody = $0 { return true } else { return false }
         })

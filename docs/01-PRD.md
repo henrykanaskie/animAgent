@@ -108,7 +108,21 @@ S5 is still the real one. The others are how you get there.
 ## Failure modes to design against
 
 - **The strobe.** Fast tool calls producing sub-frame animation. Handled by
-  I2/I3: state has duration, so a 3 ms call simply never gets an ambient loop.
+  I2/I3 **on the motion channel**: state has duration, so a 3 ms call simply
+  never gets an ambient loop.
+
+  **The posture channel was unprotected until ADR-005, and this line is why
+  nobody noticed.** The sentence above is true of the *loop* and was never true
+  of the *pose*: `idle` is a standing pose, `working` is the seated one, and the
+  body swapped between them on the same edge with no minimum duration. So a 3 ms
+  call got no ambient loop and did get two posture changes 3 ms apart, and
+  between two calls of one turn the room drew the agent standing in the walkway
+  for the 2.35 s median gap. Measured over `fixtures/`, the shortest interval
+  between two posture changes of one character was **one frame**; it is now
+  **8.196 s**, because the posture traces to the turn boundary rather than to the
+  call. The rule that fixed it introduced no timer and no minimum duration —
+  which is the same discipline this bullet describes, applied to the channel it
+  had missed.
 - **The ghost.** A character stuck working after its session died. See I4.
 - **The mush.** Too many agents, sprites scaled below legibility. See I6; at the
   `1x` floor the room has seven seats and cannot honestly have more — 96 px of

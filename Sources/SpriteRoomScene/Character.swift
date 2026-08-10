@@ -143,12 +143,14 @@ public final class Character: SKNode {
     private var frames: [SKTexture] = []
     /// Which frame of `frames` each step of the loop draws. [`AmbientMotion`]
     ///
-    /// The identity sequence for every state except `working`, and for a
-    /// `working` character whose badge class is `questionMark` or absent — so a
-    /// character walking, idling, delivering or running an unmapped tool plays
-    /// exactly the animation this app has always played. For the six mapped
-    /// classes it is the class's phrase over the seated art's two positions,
-    /// which is the whole of the motion channel.
+    /// The identity sequence for every state except `idle` and `working`, and
+    /// for a `working` character with an open call whose badge class is
+    /// `questionMark` or absent — so a character walking, delivering or running
+    /// an unmapped tool plays exactly the animation this app has always played.
+    /// For the six mapped classes it is the class's phrase over the seated art's
+    /// two positions, which is the whole of the motion channel. For a character
+    /// holding no call it is one frame, standing or seated, and that is I2 held
+    /// on the channel that carries it. [ADR-005 §3]
     private var frameSequence: [Int] = []
     private var framesPerSecond: Double = 8
     private var framesLoop = true
@@ -487,26 +489,38 @@ public final class Character: SKNode {
 
     /// The object this character is holding, or `nil`.
     ///
-    /// Two guards, and each one is an invariant rather than a preference:
+    /// Three guards. Two are invariants and the third is geometry, and keeping
+    /// them apart is the point — **the hands are full if and only if the
+    /// open-call set is non-empty and the badge slot is showing a tool**
+    /// [ADR-005 §5]:
     ///
-    /// - **The body must be `working`.** [I2] A held object is a body-layer
-    ///   claim, so it lives and dies with the ambient loop: a character with no
-    ///   open call idles empty-handed, and an ADR-003 closing beat — whose whole
-    ///   definition is a badge over an *idle* body — puts nothing in the hands.
-    ///   That falls out of this guard rather than being a case handled beside
-    ///   it, which is the same structural argument `SceneDirector.body(for:
-    ///   badge:)` makes for the working-pose lookup.
+    /// - **There must be an open call.** [I2] A held object is a body-layer
+    ///   claim about work in progress. This used to read `currentState ==
+    ///   .working` and got the same answer for free, because `working` *was*
+    ///   "the open-call set is non-empty". ADR-005 broke that identity: a
+    ///   character between two calls of one turn is seated, and seated is
+    ///   `working` by name, so the old guard would now put a book in the hands
+    ///   of an agent running nothing. The guard therefore moved onto the fact —
+    ///   `count` is the size of the open-call set on every selection the
+    ///   director emits, including `0` for an ADR-003 closing beat, which is how
+    ///   a lingering badge still puts nothing in the hands.
     /// - **The badge slot must actually be showing a tool.** `drawn.badge` is
     ///   `nil` while `attention` or `sleep` owns the slot, so a call parked at a
     ///   permission gate empties the hands as well as the badge. That is the
     ///   stricter of the two readings available and it is the one ADR-003 §1
     ///   argues for: a gated `Bash` **is not running**, so drawing the tool over
-    ///   it asserts work that is not happening. The body still animates, because
-    ///   I2 keys it on the open set alone and that is not this layer's to
-    ///   change; the hands do not add a second assertion on top. [I1]
+    ///   it asserts work that is not happening.
+    /// - **The body must be in the seated pose**, and this one is not a claim
+    ///   about the data at all: `seatedHandCentre` is a measurement of the `sit`
+    ///   row's hand box and of nothing else. There is no per-frame anchor for
+    ///   the walk cycle, so an object on a walking character would hang in the
+    ///   air beside it. A character can hold calls while it walks — a spawn and
+    ///   a `PreToolUse` in one batch — so this is reachable, and it is a
+    ///   *placement* rule rather than a truth rule. [04-ART-DIRECTION]
     ///
     /// `questionMark` yields no object at all — see `HeldObject.init(badge:)`.
     private var heldObject: HeldObject? {
+        guard currentBadge.count > 0 else { return nil }
         guard currentState == .working else { return nil }
         guard let badge = currentBadge.drawn.badge else { return nil }
         return HeldObject(badge: badge)
@@ -553,6 +567,22 @@ public final class Character: SKNode {
     /// working-pose lookup on two different keys.
     private var ambientBadge: ToolBadge? { currentBadge.badge }
 
+    /// **How many tool calls this character is holding, which is the one fact
+    /// that decides whether its body moves.** [I2, ADR-005 §3]
+    ///
+    /// It comes off the badge selection because the selection already carries
+    /// it: `count` is the size of the open-call set, exactly, on every value
+    /// `SceneDirector` emits — it is what the `×N` chip annotates, it is `0` for
+    /// every frame of an ADR-003 closing beat, and it is unaffected by
+    /// `attention` or `sleep` taking the slot. So the scene needs no new intent
+    /// and no second channel to know it.
+    ///
+    /// Reading it here rather than inferring it from `currentState` is the whole
+    /// of ADR-005's effect on this class. Before it, `working` meant "the set is
+    /// non-empty" and the two were the same question; now `working` means
+    /// "seated, in a turn" and only this one answers *is anything running*.
+    private var openCallCount: Int { currentBadge.count }
+
     /// Recomputes the phrase without touching `stateStartedAt`.
     ///
     /// **The phase is deliberately not reset.** This class's contract is that a
@@ -563,7 +593,8 @@ public final class Character: SKNode {
     private func refreshAmbient() {
         guard !frames.isEmpty else { return }
         frameSequence = AmbientMotion.sequence(
-            for: ambientBadge, state: currentState ?? .idle, frameCount: frames.count)
+            for: ambientBadge, state: currentState ?? .idle, openCalls: openCallCount,
+            frameCount: frames.count)
     }
 
     /// The frame indices this character is playing, for tests that check the
@@ -671,7 +702,8 @@ public final class Character: SKNode {
         // 0 is what keeps the body and the costume on one index from the first
         // frame rather than from the second.
         frameSequence = AmbientMotion.sequence(
-            for: ambientBadge, state: state, frameCount: textures.count)
+            for: ambientBadge, state: state, openCalls: openCallCount,
+            frameCount: textures.count)
         let firstIndex = frameSequence.first ?? 0
         framesPerSecond = max(1, store.frameRate(variant: agentVariant, state: state))
         framesLoop = store.loops(variant: agentVariant, state: state)

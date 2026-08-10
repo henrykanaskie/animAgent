@@ -126,10 +126,31 @@ public enum SpriteIntent: Sendable, Hashable {
 /// one `spawnCharacter` and one `setBody(.working)`, never an `idle` that is
 /// overwritten a microsecond later.
 ///
-/// **Animate state, not events.** A character is `working` while its open-call
-/// set is non-empty and `idle` otherwise. Nothing here reacts to the *arrival*
-/// of an event, which is why a 3 ms `Read` and a four-minute `Bash` both render
+/// **Animate state, not events.** Nothing here reacts to the *arrival* of an
+/// event, which is why a 3 ms `Read` and a four-minute `Bash` both render
 /// correctly with no queue and no minimum-duration hack. [I2/I3]
+///
+/// Two states, on two channels, and ADR-005 is the whole of the difference
+/// between them:
+///
+/// - **motion** — a character animates if and only if its open-call set is
+///   non-empty, keyed on the badge class [`AmbientMotion`];
+/// - **posture** — a character is seated (`working`) while it has a turn in
+///   progress and standing (`idle`) otherwise [`Presentation.isInTurn`].
+///
+/// **What this implementation cannot yet say, named rather than left to be
+/// discovered.** ADR-005 §3 closes the turn on `Stop` for the main agent, and
+/// `WorldModel` emits **no delta at all** for `Stop` — `03-EVENT-MODEL.md` says
+/// so in as many words and `spriteroom-replay` over `denial-then-work` shows a
+/// stream with four prompts and three `Stop`s in it and not one delta from any
+/// of them. Nor does a second `UserPromptSubmit` emit one, since the main agent
+/// already exists by then. So the three turn boundaries this scene can see are
+/// `dormancyChanged`, departure and a rebuild, and all three are subagent or
+/// session events: **the main character sits down at its session's first event
+/// and stands up only when it leaves.** That is a blind spot rather than a
+/// fiction — the room declines to draw a boundary it was not told about — and
+/// closing it is one `turnEnded(agent:)` delta in `SpriteRoomCore`, which is a
+/// second module and a separate change.
 public struct SceneDirector: Sendable {
 
     // MARK: Per-character state
@@ -236,29 +257,54 @@ public struct SceneDirector: Sendable {
         /// replay harness's no-orphaned-state property. [ADR-003 §13]
         var closingBeat: ClosingBeat?
 
-        /// **The body carries tense.** [ADR-003 §1]
+        /// **Whether this agent has a turn in progress**, which is the whole of
+        /// what the posture channel says. [ADR-005 §3]
         ///
-        /// It reads `openCalls` and nothing else — not `attention`, not
-        /// `isDormant`, and **not `closingBeat`**. That last omission is the
-        /// load-bearing one and it is enforced here rather than asserted
-        /// elsewhere: ADR-003 is *void*, not degraded, if the body is held in
-        /// `working` for the beat, because an idle body under a `magnifier`
-        /// bubble reads "not working; the last thing was a read" — which is
-        /// true — while a `working` body under it asserts the agent is still
-        /// reading, which is false. There is no expression below that could
-        /// make the beat visible on the body, which is why the guarantee lives
-        /// in this property and not in a rule someone has to keep.
+        /// It is an interval between two real events, the same shape
+        /// `isDormant` is, and it is opened and closed in `apply(_:at:)` — see
+        /// the `.agentAppeared`, `.callOpened` and `.dormancyChanged` arms,
+        /// which are the only three places it moves.
         ///
-        /// **The body does not change for attention, and it does not change for
-        /// dormancy either.** The pack ships no animation for "waiting on a
-        /// human" and none for "finished a turn" — M6b cut the `sleep` row and
-        /// measured it as a head on a pillow drawn for a top-down bed — and
-        /// repurposing an unrelated one would be fiction. In both cases the
-        /// badge is the whole representation. A character blocked at a
-        /// permission gate still has an open call and so is still `working`; a
-        /// dormant one has none and so is `idle`. Both are what the data says.
-        /// [I1/I2]
-        var body: BodyState { openCalls.isEmpty ? .idle : .working }
+        /// **It is not a second copy of `openCalls`.** A turn contains many
+        /// calls and the gaps between them: over `fixtures/` the median tool
+        /// call is 23 ms and the median gap between two calls of one turn is
+        /// 2.35 s, so keying the posture to the call put the room's loudest
+        /// channel on the timescale of a syscall. The distinction is only
+        /// legible because the events are different events.
+        ///
+        /// **[I4] It needs no reaper of its own.** It is a field of a
+        /// presentation that `agentDeparted` removes, and `SessionEnd`, the
+        /// idle sweep and eviction all arrive as that delta or as a rebuild.
+        var isInTurn = false
+
+        /// **The body carries tense, and the tense it carries is the turn.**
+        /// [ADR-005 §3]
+        ///
+        /// `working` is the seated pose and `idle` is a **standing** one, so
+        /// this property decides whether the room asserts that an agent is at
+        /// its workstation. It used to read `openCalls.isEmpty`, which made
+        /// that assertion track a syscall: a character sat down for the 23 ms of
+        /// a `Read` and stood in the walkway for the seconds between calls, and
+        /// the swap changes 4 924 px against 1 384 for one step of the seated
+        /// ambient loop — the loudest body event in the room, firing twice per
+        /// call, saying something no event said.
+        ///
+        /// **Motion is unchanged, to the frame.** A character animates if and
+        /// only if it holds an open tool call; that rule now lives wholly in
+        /// `AmbientMotion.sequence(for:state:openCalls:frameCount:)`, keyed on
+        /// the same badge class it always was. A seated character with an empty
+        /// set holds one still frame and moves 0 px/s, which is exactly what a
+        /// standing one did. So this changes *which still frame is drawn in dead
+        /// air* and nothing else about the motion budget. [I2, ADR-005 §6]
+        ///
+        /// It reads `isInTurn` and nothing else — not `openCalls`, not
+        /// `attention`, not `isDormant` (which closes the turn where it is set
+        /// rather than being consulted here), and **not `closingBeat`**.
+        ///
+        /// **The body does not change for attention.** The pack ships no
+        /// animation for "waiting on a human" and repurposing an unrelated one
+        /// would be fiction; the badge is the whole representation.
+        var body: BodyState { isInTurn ? .working : .idle }
         /// **The badge carries kind.** The beat is passed in as the slot's
         /// lowest-precedence source; `BadgeSelection.select` reaches it only
         /// when the open set is empty.
@@ -452,13 +498,22 @@ public struct SceneDirector: Sendable {
     /// glyph is about the *badge*, and the body is about the work.
     ///
     /// **During an ADR-003 closing beat the `guard` below returns first.** The
-    /// badge argument may name a class; the resting state is `idle` because the
-    /// open set is empty, so the lookup into `workingPoses` is never reached and
-    /// a lingering glyph cannot put a working pose on an idle character. That is
+    /// badge argument may name a class; the open set is empty, so the lookup
+    /// into `workingPoses` is never reached and a lingering glyph cannot put a
+    /// badge-keyed working pose on a character that has stopped. That is
     /// ADR-003 §2's third bullet, held structurally.
+    ///
+    /// **The second condition is the fact, not the state name.** [ADR-005 §5]
+    /// It used to be enough that the resting state was `working`, because the
+    /// resting state was `openCalls.isEmpty ? .idle : .working` and so said the
+    /// same thing. Under ADR-005 a seated-and-still character *is* `working` by
+    /// name with an empty set, so the guard has moved onto the set itself —
+    /// the same correction `Character.heldObject` needed and for the same
+    /// reason. A pose that a badge class selects is a claim about the work being
+    /// done, and there is no work being done.
     func body(for presentation: Presentation, badge: BadgeSelection) -> BodyState {
         let resting = presentation.body
-        guard resting == .working else { return resting }
+        guard resting == .working, !presentation.openCalls.isEmpty else { return resting }
         let named = badge.badge.flatMap { workingPoses[$0.manifestKey] }
             ?? workingPoses[Manifest.Characters.defaultPoseKey]
         return named.flatMap(BodyState.init(rawValue:)) ?? resting
@@ -540,7 +595,20 @@ public struct SceneDirector: Sendable {
                         costume: ThemeSelector.costume(
                             agentID: agent.agent.subagentID,
                             agentType: agentType,
-                            in: costumes))
+                            in: costumes),
+                        // **A character exists because an event for it arrived,
+                        // and an event for it arriving means it is in a turn.**
+                        // For the main agent that event is its session's first
+                        // — a `UserPromptSubmit`, or the `PreToolUse` of a
+                        // session we attached to mid-flight. For a subagent it
+                        // is `SubagentStart`. Both are the openers ADR-005 §3
+                        // names, and this is where they land. [ADR-005 §3]
+                        //
+                        // On the project-switch reconstruction path this arm
+                        // replays first and a dormant agent's
+                        // `dormancyChanged(true)` follows in the same batch, so
+                        // a sleeper comes back standing.
+                        isInTurn: true)
                     // A character that has just walked in wears no badge, so
                     // "set the badge to none" is an instruction to do nothing.
                     // Seeding the memory here is what keeps the badge-change
@@ -569,6 +637,14 @@ public struct SceneDirector: Sendable {
                 // restarted, so the normal rule resumes and the open set decides
                 // the glyph. [ADR-003 §3]
                 presentations[agent]?.closingBeat = nil
+                // **Any `PreToolUse` opens the turn.** An agent doing something
+                // is in one, and this is also the revival path for a character
+                // whose `SubagentStart` we never saw. It is almost always
+                // already true — the turn opened at the agent's first event —
+                // and the one shape that needs it is a dormant subagent resumed
+                // by a `SendMessage`, whose `dormancyChanged(false)` arrives in
+                // this same batch. [ADR-005 §3]
+                presentations[agent]?.isInTurn = true
                 presentations[agent]?.openCalls[call.toolUseID] = call.toolName
                 note(&touched, agent)
 
@@ -643,6 +719,19 @@ public struct SceneDirector: Sendable {
                     presentations[agent]?.dormantSince = isDormant ? now : nil
                 }
                 presentations[agent]?.isDormant = isDormant
+                // **The turn boundary, and the only one the delta stream
+                // carries.** `dormancyChanged` *is* `SubagentStop` for a
+                // subagent — the model's own name for "this one finished a turn
+                // and is still assigned" — so the posture and the `Z` tab now
+                // say the same thing on the same frame instead of the tab
+                // sitting over a body that disagrees with it. A revival is the
+                // same fact inverted and seats the character again.
+                //
+                // **The main agent's `Stop` has no delta**, so the main
+                // character has no standing state inside a session; it sits at
+                // its first event and stands only when it leaves. See
+                // `SceneDirector`'s own note. [ADR-005 §3]
+                presentations[agent]?.isInTurn = !isDormant
                 note(&touched, agent)
 
             case let .reportDelivered(agent):

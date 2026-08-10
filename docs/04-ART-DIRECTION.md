@@ -219,8 +219,8 @@ other, and of the remaining two, one shows no skin or eyes in the head band
 
 | State | Source row | Frames per direction | Notes |
 |---|---|---|---|
-| `idle` | row 1 `idle` | 6 | standing, not at a desk. 4 directions. |
-| `working` | row 4 `sit` | 3 | side-view sitting. The desk pose. **Right and left only** — see below. |
+| `idle` | row 1 `idle` | 6 | standing, not at a desk. 4 directions. **No turn in progress** — see below. |
+| `working` | row 4 `sit` | 3 | side-view sitting. The desk pose: **a turn is in progress**. **Right and left only** — see below. |
 | `walk` | row 2 `walk` | 6 | the full pack ships a real walk cycle. The old note about slowing a `run` down does not apply — that was the free sampler. |
 | `deliver` | row 10 `gift` | 10 | a handing-over animation. Exactly the `SubagentStop` beat. Does not loop. |
 
@@ -263,6 +263,32 @@ That is **six** body states in the manifest — `idle`, `working`, `walk`,
 read as six until someone sources a reading pose.
 
 Frame rate 8 fps throughout.
+
+### What `idle` and `working` mean since ADR-005
+
+**`idle` is not what a character between two tool calls draws.** It was, from M0
+until ADR-005, and that was the loudest untruth in the room: `idle` is a standing
+pose out in the walkway, the median tool call is 23 ms and the median gap between
+two calls of one turn is 2.35 s, so the room drew an agent getting up from its
+desk 1.3 s after a `Read` and sitting back down 1.4 s later. No event said so.
+[I1]
+
+The two states are now keyed on the **turn**, and the *motion over them* is what
+carries the open-call set:
+
+| picture | means |
+|---|---|
+| `working`, moving | a tool call is open, of this badge class |
+| `working`, one held frame | in a turn; between calls, thinking |
+| `idle`, one held frame | no turn in progress — finished, or not started |
+
+**The motion budget below is untouched by that change and this sentence is the
+reason.** A character with no open call held one frame before ADR-005 and holds
+one frame after it — `AmbientMotion.idleSequence` and
+`AmbientMotion.seatedStillSequence` are both a single index — so the room moves
+**0 px/s** in dead air either way. What changed is which still frame is drawn,
+not how much anything moves. The 1461 px/s ceiling, the six phrases, the lint and
+every prop price are unaffected.
 
 The pack also ships `sleep`, `phone`, `push cart`, `pick up`, `lift`, `throw`,
 `hit`, `punch`, `stab`, `grab gun`, `gun idle`, `shoot` and `hurt`. None of them
@@ -729,6 +755,69 @@ hypothetical `claude-code-runner` — are separated by it too, which is a second
 job it turned out to be doing all along. What changed is its size, not its
 presence.
 
+### The plate is one row — M7f
+
+**The two sections above describe a plate that no longer exists.** Their
+*reasoning* is intact and is why the following is a loss rather than a
+simplification; their *layout* is superseded here, and so is M7e's, which added a
+third row carrying the shortened task and took the plate to 63 × 29.
+
+The maintainer, looking at the running app:
+
+> "the nameplates are still wrong, they take up too much space, should just have
+> the summary of what they are doing in one or 2 words. and that's it."
+
+So the plate is **one row: 63 × 11 px**, an accent band edge to edge carrying one
+line of ten glyphs. The line is a ladder — the shortened task if a dispatch gave
+us one, the `agent_type` if not, `MAIN` for the main agent — and every rung is
+something the payload said. [I1]
+
+| | band | row 2 | row 3 | plate |
+|---|---|---|---|---|
+| M5 | discriminator, 2× | `agent_type`, 1× | — | 63 × 26 |
+| M7d | `agent_type`, 1× | discriminator, 1× | — | 63 × 21 |
+| M7e | task, 1× | `agent_type`, 1× | discriminator, 1× | 63 × 29 |
+| **M7f** | **task or type, 1×** | — | — | **63 × 11** |
+
+**What it costs, named rather than discovered.** The discriminator is not
+produced at all now, so two characters the line cannot separate are one plate:
+`fixtures/concurrent-permission-gates.jsonl` dispatches `Touch file s1` and
+`Touch file s2`, both shorten to `TOUCH FIL…`, and nothing but the seat tells
+them apart. Two untasked subagents of one type are the same case. This is S4
+failing for exactly the reason M5 fixed it, reintroduced knowingly and pinned by
+`twoNearlyIdenticalDispatchesNowShareAPlateEntirely` and
+`everySimultaneousPlateCollisionInTheCorpusIsListed`, which enumerates every
+colliding pair in the corpus — there is one.
+
+**A wider line does not buy it back, and this was measured before it was
+refused.** The freed height looked like it should pay for more glyphs, since the
+line no longer shares a width with `GENERAL-P…` and a hex row. It does not:
+
+- The dead band is unchanged. A pitch is whole 32 px tiles, so every plate width
+  in 65…95 buys the same three-tile pitch as 95 — only ≤ 64 px buys anything, and
+  63 is where the plate already is.
+- Eleven and twelve glyphs do not reach the collision anyway: `TOUCH FILE S1`
+  needs **thirteen**, and at eleven or twelve both dispatches clip to
+  `TOUCH FILE…`. Thirteen glyphs is an 81 px plate, which
+  `RoomLayout.minimumSeatSpacingTiles` prices at a four-tile pitch — three seat
+  columns then span more than the 360 px a `2x` frame gives, so the one width
+  that fixes the collision is the one that costs `2x` for every room.
+
+**What the accent gains.** The band was the top 11 px of a 29 px plate and is now
+the whole of an 11 px one, so every pixel of a plate that is not a glyph is the
+character's assigned hue. The hue channel — six hues 60° apart, lint-enforced,
+the one identity channel M0 and M2 did not refute — is louder than it was, which
+is the only compensation available for the text the plate stopped carrying.
+
+**The height, which is a budget other things spend.** `maximumNameplateHeight`
+fell 29 → **11**, so the camera's content band fell **178 → 160 px** against the
+200 a `2x` view of the 720×400 panel gives: 96 px of room (two seat rows and the
+walkway), 51 px of badge slot above the feet, 13 px of plate below them. It also
+moved a number in `RoomLayout.minimumSeatSpacingTiles`, in the counter-intuitive
+direction: that formula borrows its horizontal margin from the row axis, so a
+shorter plate asks for a *wider* gap and the width that would buy a two-tile
+pitch went from 53 px down to 43.
+
 ## Typography
 
 Confirmed: **no font ships with either pack** — no `.ttf`, no `.otf`, nothing
@@ -962,7 +1051,8 @@ composition change, and it is not this one.
 > time.
 >
 > That did not matter while the band was 300 px, because there was nothing to
-> spend. M6f took the band to 170 (178 once the plate grew a task row) and the
+> spend. M6f took the band to 170 (178 once the plate grew a task row, 160 once
+> M7f took the plate to one row) and the
 > surplus reappeared **below** the room — 131 px of bare floor under the lowest
 > nameplate at `1x`, a third of the panel, of which 90 px was not floor the room
 > owns but `drawnRows` overscan. `RoomScene.cameraY` now centres the strip the
@@ -1898,15 +1988,15 @@ its first would measure a cut that never plays.
 than over the poses a side-view room actually draws. `idle` up is a back view and
 this room may never show it. Taking it anyway makes the ceiling stricter, and a
 stricter number produced by a mechanical rule is worth more than a looser one
-produced by a judgement about which frames get drawn. `idle` is also the right
-family to take it from on the merits: I2 says a character idles unless it holds
-an open tool call, so an idling character is the quietest thing the cast can
-legitimately be while still on screen, and the room has to be under *that*.
+produced by a judgement about which frames get drawn. `idle` was also the right
+family to take it from on the merits *as I2 then read*: a character idled unless
+it held an open tool call, so an idling character was the quietest thing the cast
+could legitimately be while still on screen, and the room had to be under *that*.
 
 **That last sentence stopped being true in M7 and the number did not move with
-it.** The room no longer plays the idle loop: an idle body holds one frame, so an
-idling character moves **0 px/s**, and the ceiling is now derived from an
-animation the scene never draws. Nothing mechanical broke — 1461 px/s is a
+it.** The room no longer plays the idle loop: a character with no open call holds
+one frame — standing or, since ADR-005, seated — so it moves **0 px/s**, and the
+ceiling is now derived from an animation the scene never draws. Nothing mechanical broke — 1461 px/s is a
 property of the *sheet*, `scripts/lint-palette.py` measures it there, and it
 still passes on all six themes — but the argument behind it now reads
 differently: it bounds props against *the quietest thing the cast's art
@@ -2543,16 +2633,25 @@ still the layer that carries tool identity** and this does not replace it.
 
 ### The rule
 
-> A character holds an object exactly while its **body is `working`** and the
-> **badge slot is showing a tool glyph**. The object is that badge's class.
+> A character holds an object exactly while its **open-call set is non-empty**
+> and the **badge slot is showing a tool glyph**. The object is that badge's
+> class.
 
 Both halves are load-bearing:
 
-- The body condition is I2 on the character layer: no open call, no ambient
-  loop, empty hands. It also disposes of ADR-003's closing beat for free — a
-  beat is by definition a glyph over an *idle* body, so the guard returns before
-  the object is chosen, the same structural argument `SceneDirector.body(for:
-  badge:)` makes about the working-pose lookup.
+- The first condition is I2 on the character layer: no open call, no ambient
+  loop, empty hands. It also disposes of ADR-003's closing beat for free — the
+  set is empty for every frame of a beat, so the guard returns before the object
+  is chosen, the same structural argument `SceneDirector.body(for:badge:)` makes
+  about the working-pose lookup.
+
+  It read *"its body is `working`"* until ADR-005, which got the same answer for
+  free while `working` **was** "the open-call set is non-empty". It is not that
+  any more — a character between two calls of one turn is seated — so the
+  condition is now written on the fact it always meant. The seated *pose* is
+  still required, for a reason that is geometry rather than truth: the hand
+  anchor is measured on the `sit` row and nothing else, so an object on a walking
+  character would hang in the air beside it.
 - The badge condition means `attention` and `sleep` empty the hands, because
   both take the slot away from the tool. A call parked at a permission gate is
   not running, and the room must not assert the work in a second, larger channel
@@ -3190,11 +3289,13 @@ them agree — within **375 to 875 ms** of watching, worst pair `magnifier` agai
 ### What it does not do, and this is the honest half
 
 **A motion is only as visible as the call is long.** [I2] There is no closing
-beat for the body: ADR-003 §2 makes the body idle for every frame of the badge's
-beat and declares itself void otherwise, and `CLAUDE.md`'s I2 clause permits the
-badge to carry a fact the body does not *provided the body is truthful for every
-frame*. So this channel inherits ADR-003's exposure problem and cannot inherit
-its fix. On the same 224 s capture:
+beat for the body: ADR-003 §6 condition 1 requires the body to assert no ongoing
+work for any frame of the badge's beat and declares itself void otherwise, and
+`CLAUDE.md`'s I2 clause permits the badge to carry a fact the body does not
+*provided the body is truthful for every frame*. ADR-005 left that untouched —
+during a beat the character is seated and **still**, which asserts less than the
+standing frame it used to draw. So this channel inherits ADR-003's exposure
+problem and cannot inherit its fix. On the same 224 s capture:
 
 | class | calls | total open s | median s | calls ≥ 250 ms |
 |---|---:|---:|---:|---:|

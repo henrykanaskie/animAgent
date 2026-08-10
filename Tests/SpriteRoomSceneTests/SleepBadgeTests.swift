@@ -111,19 +111,39 @@ struct SleepBadgeTests {
         #expect(!director.badge(agent).isSleeping)
     }
 
-    /// Dormancy says nothing about the body. The pack's `sleep` **body** row is
-    /// a head on a pillow drawn from above for compositing onto a top-down bed
-    /// — M6b cut it and measured it — so on a character sitting side-on it is a
-    /// floating head. The badge is the whole representation. [I1]
-    @Test func dormancyNeverChangesTheBody() {
+    /// **Dormancy stands the character up, and it is the only thing in the delta
+    /// stream that can.** [ADR-005 §3]
+    ///
+    /// This test used to be `dormancyNeverChangesTheBody`, and the claim it was
+    /// making was true of the room it was written in: the body was keyed on the
+    /// open-call set, `SubagentStop` abandons every call in the same batch that
+    /// sets dormancy, so the body was already `idle` and the `Z` changed
+    /// nothing. That was the tab agreeing with the body by coincidence rather
+    /// than by construction — and between two calls of one turn the same body
+    /// state was drawn for an agent that was working.
+    ///
+    /// `dormancyChanged` *is* `SubagentStop`, which is a turn boundary, so it is
+    /// exactly the event that ends the seated state. The `Z` now sits over a
+    /// character that has stood up, and the two channels say one thing.
+    ///
+    /// **No new body state.** The pack's `sleep` **body** row is a head on a
+    /// pillow drawn from above for compositing onto a top-down bed — M6b cut it
+    /// and measured it — so on a character sitting side-on it is a floating
+    /// head. What dormancy selects is the standing pose the room already has.
+    @Test func dormancyStandsTheCharacterUpAndRevivalSeatsItAgain() {
         var director = Self.director()
         let agent = Self.ref()
         _ = director.apply([.agentAppeared(agent: agent, agentType: "Explore", lifecycle: .active)])
-        #expect(director.bodyState(agent) == .idle)
+        #expect(director.bodyState(agent) == .working, "a started subagent is in a turn")
 
-        let intents = director.apply([.dormancyChanged(agent: agent, isDormant: true)])
-        #expect(!intents.contains { if case .setBody = $0 { return true } else { return false } })
+        let asleep = director.apply([.dormancyChanged(agent: agent, isDormant: true)])
+        #expect(asleep.contains { if case .setBody(_, .idle, _) = $0 { return true } else { return false } })
         #expect(director.bodyState(agent) == .idle)
+        #expect(director.badge(agent).isSleeping, "the tab and the body must say one thing")
+
+        let awake = director.apply([.dormancyChanged(agent: agent, isDormant: false)])
+        #expect(awake.contains { if case .setBody(_, .working, _) = $0 { return true } else { return false } })
+        #expect(director.bodyState(agent) == .working)
         #expect(BodyState(rawValue: "sleep") == nil, "a dormant body state was added")
     }
 

@@ -6,14 +6,25 @@ import SpriteRoomCore
 /// ADR-003's closing beat: when an agent's open-call set empties by a real
 /// close, the badge already on screen stays for `D` and then clears.
 ///
-/// **The first test in this file is the one the ADR stands or falls on.** §6
-/// condition 1 says the document is *void*, not degraded, if an implementer
-/// holds the body in `working` for the beat — an idle body under a `magnifier`
-/// bubble reads "not working; the last thing was a read", which is true, while a
-/// `working` body under it asserts the agent is still reading, which is false.
-/// So the body is checked on **every frame** of the beat rather than at its
-/// ends, and it is checked through both channels the scene has: the state the
-/// director would draw, and every `setBody` intent it emitted.
+/// **The first test in this file is the one the ADR stands or falls on**, and
+/// ADR-005 §5 restated it. §6 condition 1 used to say the document is *void*,
+/// not degraded, if an implementer holds the body in `working` for the beat.
+/// That was a statement about a *state name* which stood in for the property it
+/// was protecting, named in ADR-003's own next clause — *so nothing on screen
+/// claims ongoing work*. Under turn-scoped posture the body during a beat is
+/// seated and **still**, which is `working` by name and asserts strictly less
+/// than the standing frame it used to draw: the ongoing-work claim has moved
+/// wholly into the motion channel, and the motion stops at the close, to the
+/// frame. So the condition now reads:
+///
+/// > 1. **The body asserts no ongoing work for any frame of the beat** — it
+/// >    holds a single still frame and plays no ambient phrase — so nothing on
+/// >    screen claims the work is continuing.
+///
+/// The first test checks exactly that, on **every frame** of the beat rather
+/// than at its ends, through all three channels the scene has: the sequence the
+/// body will play, the `setBody` intents emitted, and the pose the badge might
+/// have selected.
 struct ClosingBeatTests {
 
     static func director(workingPoses: [String: String] = [:]) -> SceneDirector {
@@ -37,21 +48,30 @@ struct ClosingBeatTests {
 
     // MARK: The condition the whole thing rests on
 
-    /// **The body is `idle` for every frame of the beat.** [ADR-003 §6 item 1]
+    /// **The body asserts no ongoing work for any frame of the beat.**
+    /// [ADR-003 §6 item 1, as restated by ADR-005 §5]
     ///
     /// Stepped at 1/60 across the whole 500 ms — thirty frames — rather than
-    /// sampled at the ends, because "the body went idle and came back" and "the
-    /// body stayed idle" have the same endpoints and only one of them is the
+    /// sampled at the ends, because "the body moved and stopped again" and "the
+    /// body never moved" have the same endpoints and only one of them is the
     /// ADR.
     ///
-    /// The director is given a `workingPoses` table naming a seated pose for
-    /// `magnifier`. That table is empty in the shipped manifest, so a beat that
-    /// wrongly reached the pose lookup would be invisible today and would become
-    /// visible on the day somebody fills it in. Naming a pose here is what makes
-    /// "the lookup is not reached" a thing this test can see: if the body ever
-    /// resolved through the badge during the beat it would come back `sitB`, and
-    /// it never does.
-    @Test func theBodyIsIdleForEveryFrameOfTheBeat() {
+    /// Three channels, because the claim is about what is on screen rather than
+    /// about a state name:
+    ///
+    /// 1. **the sequence the body plays** is one held frame, which is the
+    ///    ongoing-work claim itself and the only one that survives `1x`;
+    /// 2. **no `setBody` intent is emitted at all**, which is stronger than the
+    ///    rule this replaces — the posture does not move on the close, so the
+    ///    badge now lingers over a character that has not moved instead of over
+    ///    one that stood up on the same frame;
+    /// 3. **the badge-keyed pose lookup is not reached.** The director is given
+    ///    a `workingPoses` table naming `sit_b` for `magnifier`. That table is
+    ///    empty in the shipped manifest, so a beat that wrongly reached the
+    ///    lookup would be invisible today and would become visible on the day
+    ///    somebody fills it in. If the body ever resolved through the badge
+    ///    during the beat it would come back `sitB`, and it never does.
+    @Test func theBodyAssertsNoOngoingWorkForEveryFrameOfTheBeat() {
         var director = Self.director(workingPoses: ["magnifier": "sit_b",
                                                     "default": "sit_b"])
         let agent = Self.ref(.mainThread)
@@ -60,6 +80,7 @@ struct ClosingBeatTests {
             .callOpened(agent: agent, call: Self.call("a", "Read")),
         ], at: Self.origin)
         #expect(director.bodyState(agent) == .working, "the call is open; the body works")
+        #expect(Self.playedFrames(director, agent) > 1, "the working body was not moving to start with")
 
         let closedAt = Self.origin.addingTimeInterval(0.006)
         var bodies: [BodyState] = []
@@ -69,7 +90,9 @@ struct ClosingBeatTests {
         ) {
             if case let .setBody(_, state, _) = intent { bodies.append(state) }
         }
-        #expect(bodies == [.idle], "the body did not go idle at the instant of the close")
+        #expect(bodies.isEmpty, "the close moved the posture: \(bodies)")
+        #expect(Self.playedFrames(director, agent) == 1,
+                "the body kept moving after the call that licensed the motion closed")
 
         // Indexed rather than accumulated: repeated `+= 1/60` in a double
         // drifts, and at a real `Date`'s magnitude the drift is larger than the
@@ -81,7 +104,11 @@ struct ClosingBeatTests {
                 if case let .setBody(_, state, _) = intent { bodies.append(state) }
             }
             // Every frame of the beat, and the frame it clears on.
-            #expect(director.bodyState(agent) == .idle,
+            #expect(Self.playedFrames(director, agent) == 1,
+                    "the body played \(Self.playedFrames(director, agent)) frames at +\(elapsed) s")
+            #expect(director.openCallCount(agent) == 0,
+                    "the open set was not empty at +\(elapsed) s, so this proves nothing")
+            #expect(director.bodyState(agent) == .working,
                     "the body was \(String(describing: director.bodyState(agent))) at +\(elapsed) s")
             // …and the beat really is still up for every frame before the last,
             // so the assertion above is not being made about an empty slot.
@@ -92,16 +119,26 @@ struct ClosingBeatTests {
         }
 
         #expect(frames == 30, "a 500 ms beat is thirty frames at 60 Hz; stepped \(frames)")
-        #expect(bodies.allSatisfy { $0 == .idle },
-                "a body state other than idle was emitted during the beat: \(bodies)")
+        #expect(bodies.isEmpty, "a posture change was emitted during the beat: \(bodies)")
         // And the beat really was up for the frames just asserted on, so the
         // loop above was not asserting about an empty slot.
         #expect(director.badge(agent).badge == nil, "the beat outlived D")
     }
 
+    /// How many distinct frames the body plays for what the director currently
+    /// says — the composition `Character` performs, off the two values the
+    /// director emits. `1` is a still body.
+    static func playedFrames(_ director: SceneDirector, _ agent: AgentRef) -> Int {
+        guard let state = director.bodyState(agent) else { return 0 }
+        return AmbientMotion.sequence(
+            for: director.badge(agent).badge, state: state,
+            openCalls: director.openCallCount(agent), frameCount: 3).count
+    }
+
     /// The same guarantee stated as the structural fact underneath it: the beat
-    /// lives in a field `Presentation.body` does not read, so there is no input
-    /// by which it could reach the body.
+    /// lives in a field `body(for:badge:)` guards against with the open-call set
+    /// rather than with a state name, so a lingering glyph has no input by which
+    /// it could select a pose. [ADR-005 §5]
     @Test func aBeatDoesNotSelectAWorkingPose() {
         var director = Self.director(workingPoses: ["magnifier": "sit_b",
                                                     "default": "sit_b"])
@@ -115,8 +152,9 @@ struct ClosingBeatTests {
             at: Self.origin)
 
         #expect(director.badge(agent).badge == .magnifier, "the beat is up")
-        #expect(director.bodyState(agent) == .idle,
+        #expect(director.bodyState(agent) == .working,
                 "the badge selected a seated working pose during a beat")
+        #expect(director.bodyState(agent)?.rawValue != "sit_b")
     }
 
     // MARK: The beat itself
@@ -216,7 +254,11 @@ struct ClosingBeatTests {
             at: Self.origin)
         #expect(director.closingBeat(agent) == nil)
         #expect(director.badge(agent).badge == nil, "an abandon left a badge on screen")
-        #expect(director.bodyState(agent) == .idle)
+        // The motion stops with the call; the posture does not move, because a
+        // reap is our blind spot closing rather than the agent going anywhere.
+        // [ADR-005 §3]
+        #expect(Self.playedFrames(director, agent) == 1)
+        #expect(director.bodyState(agent) == .working)
     }
 
     /// A duplicate close — `PostToolBatch` re-reports ids a `PostToolUse`

@@ -5,9 +5,19 @@ import Foundation
 /// # Why motion, and why this is the last channel left
 ///
 /// Three detail channels shipped before this one and all three were measured at
-/// the only zoom that ships. `RoomCamera.comfortablePopulation` is empty by the
-/// maintainer's decision, so `scale(forPopulation:)` returns `minimumScale` in
-/// every configuration and the room renders at `1x`, always. At `1x`:
+/// `1x`, which was the only zoom that shipped when they were written.
+///
+/// **That is no longer true and the correction matters.** `44e82f0` set
+/// `RoomCamera.defaultComfortablePopulation` to `[2: 3]`, so a room of one to
+/// three agents now renders at `2x` and only a fourth agent drops it to `1x`.
+/// This comment previously read "the room renders at `1x`, always" and a design
+/// agent reasoning from it concluded that a beat which reads only at `2x` is
+/// worth *nothing* rather than *nothing above three agents* — which is a
+/// different and much weaker claim.
+///
+/// The ranking below survives the correction, because `1x` is still where the
+/// room lands whenever it is busy, and busy is when a person most needs to read
+/// it. At `1x`:
 ///
 /// - **costumes** measure a 0.00% closest-pair silhouette difference — a value
 ///   and hue channel inside an unchanged outline [04-ART-DIRECTION, M6h];
@@ -104,11 +114,15 @@ import Foundation
 /// # What this does not do, stated before anyone hopes otherwise
 ///
 /// **A motion is only as visible as the call is long, and I2 says so.** The body
-/// is `working` exactly while the open-call set is non-empty, and there is no
-/// closing beat for the body — `ADR-003` §2 makes the body idle for every frame
-/// of the badge's beat and declares itself void if an implementation does
-/// otherwise, and `CLAUDE.md`'s I2 clause says the badge slot may carry a fact
-/// the body does not *provided the body is truthful for every frame*.
+/// **moves** exactly while the open-call set is non-empty, and there is no
+/// closing beat for the body — `ADR-003` §2 requires that the body assert no
+/// ongoing work for any frame of the badge's beat and declares itself void if an
+/// implementation does otherwise, and `CLAUDE.md`'s I2 clause says the badge
+/// slot may carry a fact the body does not *provided the body is truthful for
+/// every frame*. ADR-005 moved the posture off the open-call set and left this
+/// sentence exactly where it was: during a beat the character is seated and
+/// **still**, which asserts less than the standing frame it used to draw, not
+/// more.
 ///
 /// So this channel inherits the exposure problem `ADR-003` measured and cannot
 /// inherit its fix. Over that document's 224 s capture, per class, total seconds
@@ -196,8 +210,14 @@ public enum AmbientMotion {
     /// | 8AB | dormant | 123,480 |
     ///
     /// The idle body out-moved a working one. Motion is the channel that
-    /// survives `1x` — `RoomCamera.comfortablePopulation` is empty, so nothing
-    /// else does — and it was carrying no busy/idle signal at all.
+    /// survives `1x` — and `1x` is where the room lands from four agents up,
+    /// which is exactly when a person needs to read it — and it was carrying no
+    /// busy/idle signal at all.
+    ///
+    /// This sentence used to justify itself with "`comfortablePopulation` is
+    /// empty, so nothing else does". That stopped being true at `44e82f0`, which
+    /// turned `2x` on for up to three agents; see the correction at the head of
+    /// this file. The conclusion stands on the narrower ground above.
     ///
     /// **The art cannot fix this from the other end.** The type note above
     /// re-derives it: the seated pack row holds *two* positions, 2 px of
@@ -222,20 +242,50 @@ public enum AmbientMotion {
     /// `notes.md` for the one channel that could.
     public static let idleSequence = [0]
 
-    /// The frame indices a character plays, given what its badge says and how
-    /// many frames its current animation has.
+    /// **A seated character with no open call holds one frame too.** [ADR-005 §3]
     ///
-    /// `idle` is `idleSequence` — one held frame, see above. `nil` badge,
-    /// `questionMark`, or any other non-`working` state yields the identity
-    /// sequence, which is byte-for-byte what this app drew before this file
-    /// existed.
+    /// This is the sentence above, applied on the day the seated pose stopped
+    /// meaning *executing* and started meaning *at its workstation, in a turn*.
+    /// The rule I2 defends did not move an inch: a character animates **if and
+    /// only if** it holds an open tool call. What moved is which still frame the
+    /// dead air is drawn with — a standing one before, a seated one now — and
+    /// the amplitude of that dead air is 0 px/s either way, so
+    /// `04-ART-DIRECTION.md`'s motion budget is untouched by ADR-005 and this is
+    /// where that is true rather than merely claimed.
+    ///
+    /// It is frame 0 of the *seated* animation, which is `Beat.settled` — the
+    /// position every phrase already begins and ends on. So a call opening finds
+    /// the body exactly where its phrase starts, and a call closing leaves it
+    /// exactly where the phrase left it: the motion stops, and nothing jumps.
+    public static let seatedStillSequence = [Beat.settled.frameIndex(inFrameCount: 2)]
+
+    /// The frame indices a character plays, given what its badge says, whether
+    /// it holds any open call, and how many frames its current animation has.
+    ///
+    /// - `idle` — standing, which under ADR-005 means *no turn in progress* —
+    ///   is `idleSequence`, one held frame.
+    /// - `working` with an **empty** open-call set is `seatedStillSequence`, one
+    ///   held frame. Seated and still: in a turn, between calls, thinking.
+    /// - `working` with an open call is the badge class's phrase, or the
+    ///   identity sequence for `questionMark` and for `nil` — the shipped loop,
+    ///   byte for byte what this app drew before this file existed.
+    /// - every other state is the identity sequence. `walk`, `spawn`, `depart`
+    ///   and `deliver` each *are* a real event being told, so they play as
+    ///   authored whatever the open-call set says.
+    ///
+    /// - Parameter openCalls: how many tool calls this character is holding.
+    ///   **The fact, not a state name** — this is the one input that decides
+    ///   whether the body moves, and it is passed in rather than inferred from
+    ///   `state`, because since ADR-005 the state name no longer carries it.
     public static func sequence(
-        for badge: ToolBadge?, state: BodyState, frameCount: Int
+        for badge: ToolBadge?, state: BodyState, openCalls: Int, frameCount: Int
     ) -> [Int] {
         guard frameCount > 0 else { return [0] }
         if state == .idle { return idleSequence }
         let identity = Array(0..<frameCount)
-        guard state == .working, let phrase = phrase(for: badge) else { return identity }
+        guard state == .working else { return identity }
+        guard openCalls > 0 else { return seatedStillSequence }
+        guard let phrase = phrase(for: badge) else { return identity }
         return phrase.map { $0.frameIndex(inFrameCount: frameCount) }
     }
 }

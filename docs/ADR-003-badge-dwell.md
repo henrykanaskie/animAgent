@@ -189,15 +189,23 @@ Decided above and restated here as the rule an implementer follows.
 
 **Not persisting, and not negotiable:**
 
-- **The body.** `Presentation.body` stays `openCalls.isEmpty ? .idle : .working`.
-  The ambient loop ends with the call. I2 is honoured to the letter, and §7 is
-  therefore a clarification.
+- **The body's motion.** The ambient loop ends with the call, to the frame. I2 is
+  honoured to the letter, and §7 is therefore a clarification.
+
+  This read *"`Presentation.body` stays `openCalls.isEmpty ? .idle : .working`"*
+  until ADR-005, which is the same claim written in terms of an expression that
+  no longer exists. The body state is now keyed on the turn and the *motion* is
+  keyed on the open-call set — `AmbientMotion.sequence(for:state:openCalls:
+  frameCount:)` returns a single held frame for an empty set — so the sentence
+  that mattered is unchanged and the implementation detail under it moved.
 - **The `×N`.** It annotates the open set. See §5.
 - **The working pose.** `characters.poses.working` is keyed by badge class
-  [ADR-002 §5a], and the body is `idle` during the beat, so the pose lookup is not
-  reached. The table ships empty so nothing is visible either way today, but the
-  rule must be stated before it is filled: **the pose follows the body, not the
-  badge.** A lingering `magnifier` must never select a seated working pose.
+  [ADR-002 §5a], and the open-call set is empty during the beat, so the pose
+  lookup is not reached — `SceneDirector.body(for:badge:)` guards on the set
+  rather than on the state name, for the reason ADR-005 §5 gives. The table ships
+  empty so nothing is visible either way today, but the rule must be stated
+  before it is filled: **the pose follows the work, not the badge.** A lingering
+  `magnifier` must never select a seated working pose.
 
 ---
 
@@ -384,7 +392,9 @@ outlives its character, survives a rebuild, or stacks.
 conclusion.** It is not a violation *if and only if* all of these hold, and if any
 one is dropped in implementation it becomes one:
 
-1. The body is idle for the whole beat, so nothing on screen claims ongoing work.
+1. **The body asserts no ongoing work for any frame of the beat** — it holds a
+   single still frame and plays no ambient phrase — so nothing on screen claims
+   the work is continuing.
 2. The beat is bounded and short enough that "just now" is true.
 3. The beat traces to a real event — a real close of a real call — and to no other.
    Abandons are excluded for exactly this reason (§3).
@@ -393,9 +403,29 @@ one is dropped in implementation it becomes one:
    adds a glyph after work, never removes one during it.
 
 Condition 1 is the load-bearing one. **If an implementer finds it inconvenient and
-holds the body in `working` for the beat, this ADR is void** — not "degraded", void.
-That version is the lie in the PRD's list, and the ADR that permits it would have to
-argue against I1 rather than within it.
+lets the body claim ongoing work for the beat, this ADR is void** — not
+"degraded", void. That version is the lie in the PRD's list, and the ADR that
+permits it would have to argue against I1 rather than within it.
+
+**Condition 1 was restated by ADR-005 §5, and this is what changed and what did
+not.** It used to read *"the body is idle for the whole beat"*, and it declared
+this ADR void if an implementation held the body in `working`. That named a
+**state** where it meant a **property**, and the property is the one written in
+its own next clause: *so nothing on screen claims ongoing work*. The two came
+apart when ADR-005 moved the posture off the open-call set: during a beat the
+character is now seated and **still**, which is `working` by state name and
+asserts strictly *less* than the standing pose it used to draw — the standing
+pose said the agent had left its desk, which no event ever said. The
+ongoing-work claim now lives wholly in the motion channel, and the motion stops
+at the close, to the frame, which is exactly what §2 below demanded and could
+only get by borrowing the posture channel to say it.
+
+So the condition is unchanged in force and stronger in effect: it is now checked
+in the frames the body plays rather than in the name of the state it is in
+(`ClosingBeatTests.theBodyAssertsNoOngoingWorkForEveryFrameOfTheBeat`). A
+by-product is that the badge no longer lingers over a character that stood up on
+the same frame the glyph was held for — two channels that used to disagree about
+one instant now agree.
 
 **What I cannot defend.** A viewer whose learned reading of the badge is "working
 now" is misled for up to 500 ms per idle transition, regardless of what the body
@@ -405,6 +435,12 @@ claim it is zero.
 ---
 
 ## 7. I2 — clarification, not amendment, and the distinction is load-bearing
+
+**This section quotes I2 as it read in 2026-08 and reasons against that text.**
+ADR-005 has since amended the first sentence — it is an *iff* about motion now,
+and posture is governed separately — so read what follows as the argument that
+was made rather than as the current invariant. Nothing in the conclusion moves:
+I2 was never about the badge slot, and it still is not.
 
 > **I2 — Ambient only inside an open tool call.** A character idles unless it has at
 > least one open tool call. Inside one, it runs an ambient loop for as long as the
@@ -486,8 +522,10 @@ Small, and deliberately in one module.
 Tests, in `SpriteRoomSceneTests`, all with injected time:
 
 - A 6 ms call on an idle agent produces a badge for `D` and then none.
-- The body is `.idle` for every frame of the beat, and the working-pose lookup is
-  not reached.
+- The body asserts no ongoing work for every frame of the beat — it plays a
+  single held frame, no posture change is emitted, and the working-pose lookup is
+  not reached. (This read "the body is `.idle` for every frame"; ADR-005 §5
+  restated it, and §6 condition 1 above carries the argument.)
 - A call closing into a non-empty set arms no beat.
 - `.callAbandoned` arms no beat, including when it empties the set.
 - Badge-change count per character over `fixtures/three-subagents.jsonl` is equal to
@@ -675,6 +713,13 @@ tree; none of these is touched here.
   what it *means*. If the maintainer disagrees that it is a clarification, that
   disagreement is the whole decision and the ADR should be rejected rather than
   amended.
+
+  **Applied, in the shape ADR-005 left it.** The clause is in `CLAUDE.md` as a
+  bullet under "This governs motion", reading *"provided the body asserts no
+  ongoing work for any frame of it"* — §6 condition 1's wording rather than
+  §7's earlier "provided the body is truthful for every frame". The two say the
+  same thing; the later one says it in terms of the property rather than of a
+  state name, which is the distinction ADR-005 §5 turned out to need.
 - **`01-PRD.md`** — the strobe failure mode. "Handled by I2/I3: state has duration,
   so a 3 ms call simply never gets an ambient loop" stays, with an addition:
   *"That protection is on the **body**, and it is why the badge channel was empty
