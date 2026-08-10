@@ -6249,3 +6249,199 @@ from this tree and from a scratch copy with the single line
 `spriteroom-replay --all`: 17 fixtures, zero open calls after the sweep.
 `scripts/lint-palette.py` passes. No fixture was edited, port 8787 was not
 touched, and `--panel-render` was not used.
+
+---
+
+## 2026-08-10 — ADR-006 step 1: the desk-surface anchor
+
+**Scope.** ADR-006 §2b/§2c, step 1 only — the measurement and the placement
+accessor, no art, nothing drawn. `scripts/build-manifest.py`,
+`assets/manifest.json`, `Sources/SpriteRoomScene/RoomLayout.swift`, one new
+test file, `docs/ADR-006-the-desk-says-the-work.md`.
+
+**Reproduced the ADR's seven numbers independently before touching anything.**
+Ran the §2b rule — the topmost row inside `content_box` carrying an unbroken
+ink run ≥ 80% of the box width — in a scratch Python script over the desk
+singles for the room default and all six themes. All seven matched the ADR's
+table exactly: 24 px for `room`, `briefing`, `broadcast`, `office`, `stage`; 36
+for `library` and `mission_control`. `library`'s desk (a wooden desk with a
+book drawn on it, box top-height 44) correctly answers 36, not 44 — the rule
+finds the slab under the book. `mission_control`'s slab row turns out to equal
+its own box top (both give 36), which is worth flagging: the ADR's §9 item 4
+groups `library` and `mission_control` together as "the two desks whose
+surface is not their box top", but only `library` actually differs from its
+box top by this measurement — `mission_control`'s bare equipment table has no
+object on it, so its topmost row already clears the 80% run. Not touched;
+noted for whoever picks up §9.
+
+**Built the rule as `desk_surface_height(path, box)` in `build-manifest.py`**,
+next to `content_box`. It writes a new `surface_y` key (height above the
+floor, `(box.y + box.h) - slab_row`, not the raw image row — that's what
+`RoomLayout` needs and what `content_box`'s own bottom-centre-on-the-floor
+convention already establishes) onto the `desk` role only, in both
+`room.props.roles.desk` and every `themes.sets.*.props.roles.desk`. Path count
+before and after: 3269 → 3269, unchanged. `git diff assets/manifest.json` is
+14 changes across 7 desk roles (one `surface_y` line and one prose-note
+sentence each) — read line by line before writing.
+
+**`RoomLayout.deskSurfacePosition(seat:surfaceHeightAboveFloor:)`** added
+beside `deskPosition(_:)`. Pure arithmetic, same shape
+`contentBand(badgeTopAboveFeet:plateDropBelowFeet:)` already takes its
+manifest-measured heights in: `RoomLayout` has no file access, so the height
+is a parameter, not a lookup. Returns the desk's bottom-centre anchor raised
+by the given height; same `x`. Nothing is placed on it and no depth-sort rule
+was written — the ADR bundles "the depth rule" into step 1's owner line, but
+there is nothing yet to depth-sort against an empty surface, and the task's
+own instruction was explicit that this step places no object. Deferred to the
+step that draws one.
+
+**The ADR names two forward references in quotes; only one was built here.**
+`"RoomLayout.deskSurfacePosition(seat:)"` (§8 step 1) is now backticked —
+`DocumentedSymbolTests.everySymbolTheDocumentsQualifyExists` checks that a
+backticked `Type.member` resolves to a real declaration, and it now does.
+`"SpriteIntent.setDeskObject(agent:kind:)"` (§5b) is **not** backticked: it is
+step 3+'s work kind object, nothing named `setDeskObject` exists yet, and
+backticking it would both misrepresent the state of the code and fail that
+same test. The task instruction said to convert "the ADR's two quoted forward
+references" — flagging rather than doing the second one, per the standing
+instruction to report rather than act on a contentious call.
+
+**`head_bottom_px` (ADR-005's implementing agent's suggestion) — not taken.**
+Out of scope for this task's instructions beyond "your call"; declining
+because `RoomScene.SeatedHead` and its runtime measurement are owned by the
+agent working `Sources/SpriteRoomScene/Character.swift` /
+`SceneDirector.swift` right now, and adding a manifest key that nothing reads
+yet would be the same kind of premature binding step 1 explicitly avoided for
+the desk object itself. Flagging for whoever owns that file next, not acting.
+
+**Tests** (`Tests/SpriteRoomSceneTests/DeskSurfaceTests.swift`, 8 new): the
+manifest carries all 7 desk surfaces and they match the ADR's table exactly;
+`library`'s is the slab under the book, not the box top (`content_box.h == 44`,
+`surface_y == 36`, and they must never be equal); every surface is inside its
+own content box (`0 < surface_y <= content_box.h`); `deskSurfacePosition` is
+deterministic, sits directly above `deskPosition`'s own anchor raised by
+exactly the given height, and is never below that anchor for any of the seven
+measured heights.
+
+**Verification, in a repo under concurrent edit.** Two other agents were live
+in `Sources/SpriteRoomCore/`, `Character.swift`, `AmbientMotion.swift` and
+`SceneDirector.swift` (a permission-gate feature) for the whole of this task;
+several `swift build`/`swift test` runs hit transient "input file was modified
+during the build" errors and one transient `SceneDirectorTests` failure
+(`noCharacterIsLeftGatedOnceTheReaperHasHadItsSay`) unrelated to anything
+touched here. None of it is this change — confirmed by `git status` naming
+exactly the files that agent owns, none of them mine. Final clean run:
+`swift build --build-tests -Xswiftc -warnings-as-errors` succeeds,
+`SPRITE_ROOM_REQUIRE_ART=1 swift test` is 661 tests / 61 suites green,
+`scripts/lint-palette.py` passes, `spriteroom-replay --all` is 17 fixtures with
+zero open calls after the sweep. Nothing in this change is drawn or rendered;
+`--panel-render` was never used and port 8787 was not touched.
+
+---
+
+## Task #65 — ADR-005 §7: a blocked character stops moving
+
+**The defect, in the room's own terms.** An agent stopped at a permission prompt
+is genuinely blocked and can do nothing until a human clicks. It was playing the
+busiest animation in the room. A gated `Bash` is still an *open call*, so
+`AmbientMotion` handed it `terminal` — `S R`, 250 ms period, the fastest schedule
+the 8 fps grid allows — and the stuck agent read as the hardest-working one, in
+the one channel M7c measured as the only one that survives `1x`.
+
+**Reproduced before touching anything**, `spriteroom --render`, 720x400, on
+`fixtures/concurrent-permission-gates.jsonl` with two subagents blocked since
+t=6.45 and t=7.92: **3 760 px change between t=20.00 and t=20.125**, and
+t=20.00 vs t=20.25 pixel-identical — the 250 ms period, exactly as ADR-005 §7
+states it. Afterwards t=20.00, 20.125, 20.25, 25.00 and 30.00 are all
+pixel-identical: **0 px/frame**. `three-subagents` renders byte-identically
+before and after at t=10, 20, 30, 40, so nothing ungated moved.
+
+**The central test was seen RED against unmodified HEAD** in a throwaway
+worktree, which is worth recording as a procedure rather than a claim:
+`PermissionGateStillnessTests` deliberately uses no API this change adds, so it
+compiles and runs against the old code. It reported both blocked characters
+drawing `[0, 2]` over a second, with its three non-vacuity assertions (seated,
+one open call, `terminal`) passing beside it.
+
+**What was built.**
+
+- `WorldDelta.gateChanged(agent:isGated:)`, on `dormancyChanged`'s footing — a
+  `Bool`, a change and never a repeat. `AgentSnapshot.isGated` is the standing
+  value. The *marked set* still never leaves the model: it decides deadlines, it
+  names no gated call because the event names none, and a scene given it could
+  only guess. [I3]
+- `ProjectRegistry` absorbs and replays it, as it replays parent, task,
+  attention and dormancy. This is the one with the widest window to be wrong in:
+  two of the corpus's nine gates outlive their own streams.
+- `SpriteIntent.setGated` — **its own intent**, not a field on `BadgeSelection`.
+  That was the design call worth arguing. Riding on the badge selection would
+  have been smaller and would have needed no `RoomScene` edit at all, but it
+  puts a fact the badge layer must ignore inside the value that *is* the badge
+  layer, and leaves the room with two representations of one gate, one drawn and
+  one not, for a later reader to conflate. The gate stops the *motion*, which is
+  neither the posture nor the slot. One case in `RoomScene.apply`, two lines,
+  named here because the task asked for it to be named.
+- `AmbientMotion.sequence` gained the third condition §7 asks for and no new
+  body state — the committed code keys motion on an explicit open-call count
+  rather than on the body state, exactly as dd01102's implementer predicted.
+
+**§7's "it reaps for free" was true of the mark and false of the delta, and that
+is the finding of this task.** Every path that ends a gate already cleared the
+mark by construction, because it lives inside `AgentState` — the existing
+`nothingIsMarkedOnceEveryFixtureHasFinished` proves it over all seventeen
+captures. But the scene does not hold the mark; it holds whatever the last
+`gateChanged` told it. A clear that happens inside the model without emitting one
+leaves a character still forever, frozen by a fact the model has already dropped
+— I4's character that types forever with the sign flipped. So the five
+gate-ending paths emit the clear explicitly (marked call closed, marked call
+abandoned, `Stop`, `SubagentStop`, the answering `UserPromptSubmit`) and
+departure deliberately does not, because the `agentDeparted` beside it removes
+the character the fact was about. That obligation is now checked on the *stream*
+rather than on the model: nine gates open across the corpus, nine close.
+
+**Two measurements in §7 came back different and are corrected in place.** There
+are **nine** gates in `fixtures/`, not eight, and their lifetimes as the shipped
+delta stream draws them — raise to clear — are 7.8, 11.5, 31.8, 31.8, 36.7, 55.4
+and 247.6 s, plus two that no event in their stream closes at all. Same shape,
+same conclusion: long, glanceable, and previously wrong for all of it.
+
+**And one thing nobody predicted: no capture ends a gate by departure.**
+`SessionEnd` and the idle sweep abandon the agent's open calls first, and
+abandoning a *marked* call disarms through the same `removeCall` every close path
+uses, so the clear always beats the departure into the stream. The departure
+ending is reachable only for a gate whose marked set is empty — legal, and in no
+capture. The branch is kept for the shape and the test pins the count at 0 so
+that a capture which does produce it becomes a conversation rather than a
+surprise.
+
+**The stillness does not depend on the bubble, and one existing test asserted
+the opposite.** `AmbientMotionSceneTests.aGatedCallKeepsItsGaitAndLosesOnlyIts
+Hands` argued that a gated body keeps its phrase because I2 keys the body on the
+open-call set. That is true about the set and was wrong about the room. It is now
+`aGatedCallStopsMovingAndTheBubbleIsNotWhatStopsIt` and carries three characters:
+ungated moves, **bubble-alone moves** (a `Notification` can name an agent with no
+gate at all), gated is still. The bubble arrives 6.0 s after the gate opens, so
+for those six seconds the stillness is the only signal there is.
+
+**Docs corrected in the same change:** `03-EVENT-MODEL.md`'s `PermissionRequest`
+row ("Emits no delta" — the line the task named), its `Stop` and `SubagentStop`
+rows, the attention-badge section's "keeps whatever body its open-call set says",
+the ambient-loop section (a fifth rule), the denied-call rules 2 and 3, and the
+reaping section (the stream obligation above). ADR-005 §7 is marked BUILT with
+the corrections attached. Two doc claims that would have been quietly wrong were
+checked instead of copied: **no `Stop` in the corpus closes a gate** (every
+captured gate ends at the approving close, the answering prompt, or the reaper),
+and the `Stop` row's "emits no delta" needed narrowing rather than deleting.
+
+**Verification, in a repo under concurrent edit.** The art-direction agent was
+live in `RoomLayout.swift`, `assets/manifest.json` and `scripts/build-manifest.py`
+throughout, and at one point their in-flight `DeskSurfaceTests.swift` did not
+compile, so the first full runs were done in a `git worktree` at HEAD holding
+only this change — which is also what produced the RED baseline and the before
+renders. Final runs in the real tree, with both changes present:
+`swift build --build-tests -Xswiftc -warnings-as-errors` clean,
+`SPRITE_ROOM_REQUIRE_ART=1 swift test` 661 tests / 61 suites green (and
+`SPRITE_ROOM_REQUIRE_WINDOW_SERVER=1` green for the panel suites),
+`scripts/lint-palette.py` exit 0, `spriteroom-replay --all` 17 fixtures with zero
+open calls after the sweep. `--panel-render` was never used and port 8787 was not
+touched.

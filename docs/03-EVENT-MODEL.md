@@ -93,15 +93,15 @@ rule. It creates the session and its main agent and has no other effect.
 | Event | Effect on the world |
 |---|---|
 | `SessionStart` | **Unreachable over HTTP — do not build on it.** The event is real and fires on every session (`source: startup` / `clear`, plus `model` on startup), but 2.1.224 never delivers it to a `type: "http"` hook, and this app registers nothing else. Keep the decode so the name is recognised rather than counted unhandled; the handler will not run. `session_title` does not exist in the payload — the field list here was wrong. |
-| `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is **seated and still** — at its desk, running nothing — because a prompt is the start of a turn and nothing has been called yet [ADR-005]. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] A *second* prompt emits no delta, because the agent already exists; see the `Stop` row. |
+| `UserPromptSubmit` | Creates the session and its main-thread agent, and **nothing else**. The character it draws is **seated and still** — at its desk, running nothing — because a prompt is the start of a turn and nothing has been called yet [ADR-005]. Consumed for one reason: without it the main character does not exist until the session's first tool call, so a turn spent thinking draws an empty room. [I2] A *second* prompt emits no delta, because the agent already exists — unless it is answering that agent's permission gate, which clears the mark and emits `gateChanged(isGated: false)`; see the `Stop` row and "The interactively denied tool call". |
 | `SubagentStart` | Create agent under `agent_id`. Character spawns beside the anchor. Carries `agent_id` and `agent_type`, nothing else. **Not once per agent** — a background subagent resumed with `SendMessage` emits a second one ~20 ms after that call's `PreToolUse`. Creation stays idempotent for that reason, and for a **known** `agent_id` this event is the *revival* path: it returns a dormant character to `active` **in place**, emitting `dormancyChanged(isDormant: false)` and nothing else. No second character, no second seat, no re-spawn walk — the one visible change is the `sleep` badge coming down. |
 | `PreToolUse` | Open a call keyed by `tool_use_id`. Character enters/keeps working. |
 | `PostToolUse` | Close that `tool_use_id`. |
 | `PostToolUseFailure` | Close that `tool_use_id`, flagged failed. Fires *instead of* `PostToolUse`, never alongside it; the message is in `error`, not `tool_response`. |
 | `PostToolBatch` | Close every `tool_use_id` in `tool_calls[]`. A primary close path, not a sweep — see below. |
-| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → **returns to its seat, stands up and goes `dormant`**, wearing the `sleep` badge. Emits `reportDelivered` and then `dormancyChanged(isDormant: true)`. **`dormancyChanged` is the one turn boundary the delta stream carries**, so it is what ends the seated posture — the `Z` tab and the body now say one thing instead of a tab sitting over a body that disagrees with it [ADR-005 §3]. It does **not** depart: this is a turn boundary, not a death, and the agent can be resumed. Its open calls are abandoned (`.agentStopped`) and its permission-gate mark is disarmed — the turn completed, so nothing is pending. See "`SubagentStop` is a turn boundary, not a death" below. |
-| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed. Still emits nothing. **It needs no dormancy of its own** — checked, not assumed: `Stop` emits no delta and sets no lifecycle, and the main agent departs only on `SessionEnd` and the idle sweep, so it already stays in the room across a turn boundary, which is the whole of what dormancy buys a subagent. Marking it dormant would also be the weaker claim, since `Stop` fires once per assistant message stream and several times in one user turn. **This is the one place ADR-005 asks for something the model does not have.** §3 closes the seated posture on `Stop` for the main agent; a scene fed only deltas cannot see it, so what ships seats the main character at its session's first event and stands it up only when it leaves. That is a blind spot, not a fiction — the room declines to draw a boundary it was not told about — and closing it means emitting a `turnEnded(agent:)` delta here, on the same footing as `dormancyChanged`: a change, never a repeat, replayed by `ProjectRegistry` across a project switch. Not done; a second module is a second concern. |
-| `PermissionRequest` | **An agent-level marker, and nothing else.** Records for that agent: a permission gate is open, plus the set of `tool_use_id`s it held open at that instant. No join by name, no join by recency, no `tool_use_id` read from the event — it carries none. Emits no delta and does not clear the attention badge. See "The interactively denied tool call" below. |
+| `SubagentStop` | Agent enters `.reporting` → walks to anchor → delivers → **returns to its seat, stands up and goes `dormant`**, wearing the `sleep` badge. Emits `reportDelivered` and then `dormancyChanged(isDormant: true)`. **`dormancyChanged` is the one turn boundary the delta stream carries**, so it is what ends the seated posture — the `Z` tab and the body now say one thing instead of a tab sitting over a body that disagrees with it [ADR-005 §3]. It does **not** depart: this is a turn boundary, not a death, and the agent can be resumed. Its open calls are abandoned (`.agentStopped`) and its permission-gate mark is disarmed — the turn completed, so nothing is pending — which emits `gateChanged(isGated: false)` ahead of the report beat when a gate was open. See "`SubagentStop` is a turn boundary, not a death" below. |
+| `Stop` | Main agent pauses. **Not** "turn over" — it fires once per assistant message stream, several times in one user turn when async subagents wake the main thread. Never treat it as end-of-session or as a reap trigger. It **disarms** that agent's permission-gate mark (below): the turn completed, so it emits `gateChanged(isGated: false)` — and only when there was a gate to close. **No `Stop` in the corpus closes one**: every captured gate ends at the approving close, at the answering `UserPromptSubmit`, or at the reaper, so all 26 of them still emit nothing. The path is ADR-001 (d) rule 2's second half and is kept for the same reason that rule is. That is not the turn boundary §3 wants: it says nothing about the turn, it releases a body that was being held still [ADR-005 §7]. **It needs no dormancy of its own** — checked, not assumed: `Stop` sets no lifecycle and emits nothing but that gate clear, and the main agent departs only on `SessionEnd` and the idle sweep, so it already stays in the room across a turn boundary, which is the whole of what dormancy buys a subagent. Marking it dormant would also be the weaker claim, since `Stop` fires once per assistant message stream and several times in one user turn. **This is the one place ADR-005 asks for something the model does not have.** §3 closes the seated posture on `Stop` for the main agent; a scene fed only deltas cannot see it, so what ships seats the main character at its session's first event and stands it up only when it leaves. That is a blind spot, not a fiction — the room declines to draw a boundary it was not told about — and closing it means emitting a `turnEnded(agent:)` delta here, on the same footing as `dormancyChanged`: a change, never a repeat, replayed by `ProjectRegistry` across a project switch. Not done; a second module is a second concern. |
+| `PermissionRequest` | **An agent-level marker.** Records for that agent: a permission gate is open, plus the set of `tool_use_id`s it held open at that instant. No join by name, no join by recency, no `tool_use_id` read from the event — it carries none. Emits **`gateChanged(isGated: true)`**, a change and never a repeat, and does not clear the attention badge. It used to emit nothing at all, on the grounds that a marker is not a fact about the room; the *marked set* is not and still never leaves the model, but *being stopped at a gate* is — it is the only answer this app has to "is any agent stuck", and the body holds still for all of it [ADR-005 §7]. Nine gates open across the seventeen captures and they are long: measured from this delta to its clear, 7.8 / 11.5 / 31.8 / 31.8 / 36.7 / 55.4 / 247.6 s, plus two that no event in their stream ever closes and only the reaper ends. See "The interactively denied tool call" below. |
 | `SessionEnd` | Close every open call in the session. All characters leave. [I4] Observed `reason`s: `prompt_input_exit`, `clear`. **Not** "the process is exiting" — `/clear` ends a session and the same process continues under a new `session_id`. |
 | `Notification` | Raises an attention badge; emits `attentionChanged`. Badge only — no body animation exists for this and repurposing one would be fiction. [I1] Verified at M0c: `notification_type` is exactly `permission_prompt` ("Claude needs your permission") or `idle_prompt` ("Claude is waiting for your input"). Carries no `tool_use_id` and **no `agent_id`, not even when the gate belongs to a subagent** — so it names no character, and which one it badges is decided by the rule under "Who the badge lands on" below. |
 
@@ -132,10 +132,20 @@ never been captured. M0c captured it, both values are real, and M0b had already
 sourced a real `attention` badge from the pack, so the design in this document
 became implementable without inventing anything.
 
-**The badge is the whole representation.** There is no body state for "waiting
-on a human" — the pack ships none, and the six body states are fixed. A
-character blocked at a permission gate keeps whatever body its open-call set
-says: `working` if it holds calls, `idle` if it does not. [I1/I2]
+**The badge is the whole representation of the *notification*.** There is no
+body state for "waiting on a human" — the pack ships none, and the six body
+states are fixed. A character blocked at a permission gate keeps whatever body
+its posture says: seated, because it is in a turn, at its desk. [I1/I2]
+
+What it does **not** keep is its motion. Since ADR-005 §7 an agent with an open
+permission-gate mark holds one still frame and plays no phrase — see "the
+ambient loop is keyed by badge class" below. That is a different channel and a
+different fact: the gate mark arms on `PermissionRequest` and names its agent,
+the badge is raised by a `Notification` 6.0 s later that names nobody. For those
+six seconds the stillness is the only thing the room says about a blocked agent,
+so the two compose rather than duplicate — the bubble says *the room needs you*,
+the stillness says *and this one is getting nothing done meanwhile*. Neither
+depends on the other.
 
 `badges.states.attention` in `assets/manifest.json`, **not** `badges.map` —
 `map` is keyed by `ToolBadge` and every one of its keys is required, while
@@ -490,9 +500,18 @@ synthetic one.
    already holds. **No join is performed** — not by name, not by recency — so
    none can be performed wrongly. [I3]
 2. **Disarm.** Any close of any call in the marked set (the approve path: the
-   gated call closes normally), or a `Stop` (the turn completed).
+   gated call closes normally), or a `Stop` (the turn completed). Also
+   `SubagentStop`, which is a `Stop` read for a subagent.
+
+   Arming and disarming each emit `gateChanged` — a change, never a repeat —
+   and nothing else about the mark leaves the model. That delta is what holds a
+   blocked character still [ADR-005 §7]; the *marked set* still drives deadlines
+   and nothing else, and is still never drawn from, because nothing in the event
+   names the gated call.
 3. **Shorten.** A `UserPromptSubmit` for that same agent while the mark is still
-   set pulls every still-open marked call's deadline in to `now + G`.
+   set pulls every still-open marked call's deadline in to `now + G`, and spends
+   the mark — so it disarms, by rule 2, and the character moves again at the
+   moment the human answered rather than 60 s later when the reaper catches up.
    **Shortened, not closed.** The reaper still does the closing and still emits
    `.callAbandoned`; the character just returns to idle.
 
@@ -602,6 +621,21 @@ paths: `SessionEnd`, the agent's departure, and the idle sweep. It is held
 *inside* the agent's own state rather than in a table beside it, so all three
 clear it by construction — a parallel store would be one more thing to remember
 to clear, which is one more thing to leak.
+
+**Since it drives a delta, the *stream* has to balance too, and that is a
+second obligation rather than the same one.** A scene told `gateChanged(true)`
+and never told anything else holds a character still forever, which is I4's
+character-that-types-forever with the sign flipped — and it would be frozen by a
+fact the model itself had already dropped. So every path that clears the mark
+emits the clear: a marked call closing (the approve path) or being abandoned
+(the reaper), `Stop`, `SubagentStop`, and the `UserPromptSubmit` that answers the
+dialog. Departure is the one exception and needs no clear, because the
+`agentDeparted` beside it removes the character the fact was about — exactly the
+division `dormancyChanged` already makes. Checked over all seventeen captures by
+`PermissionGateTests.everyGateThatOpensIsClosedOrItsCharacterLeaves`, which
+walks the delta stream rather than the model: nine gates open, nine close, and
+the two in `concurrent-permission-gates` that outlive their streams are closed
+by the sweeps.
 
 **Dormancy added a fourth path, and it had to.** A subagent that stops now keeps
 its `AgentState` instead of having it deleted, so departure no longer clears the
@@ -889,6 +923,20 @@ layer rather than a new rule:
   posture says *in a turn*, the motion says *running something*, and they are
   different questions. An ADR-003 closing beat cannot reach this channel because
   the open-call set is empty for every frame of it by definition.
+- **And a body at a permission gate plays none, even holding calls** — ADR-005
+  §7, the third and last thing that stops the body and the only one that takes
+  motion *away*. A gated `Bash` is an open call, so this channel played
+  `terminal` over it — `S R`, 250 ms, the busiest row in the table above — and
+  the one agent in the room that could not proceed read as the hardest-working
+  one. Measured on `fixtures/concurrent-permission-gates.jsonl` at t=20 s, two
+  subagents blocked since t=6.45 and t=7.92: **3 760 px changed every 125 ms
+  before, 0 after** (`spriteroom --render`, 720x400, t=20.00 / 20.125 / 20.25). The badge layer never had this bug (see "attention outranks
+  every tool badge", reason 2: a call parked at a gate *is not running*); this
+  is that sentence applied to the body. It needs no carve-out from I2, because
+  removing motion needs no licence, and no art, because a gated agent returns
+  the same one-element sequence `idle` already does. The fact arrives as
+  `gateChanged`; it is **not** keyed on the attention badge, which lands 6.0 s
+  later and can be raised on an agent with no gate at all.
 
 ### The posture is keyed by the turn — ADR-005
 

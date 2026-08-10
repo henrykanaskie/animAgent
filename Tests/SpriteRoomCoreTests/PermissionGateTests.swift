@@ -166,9 +166,13 @@ import Testing
         let gate = try entry(entries, "PermissionRequest")
         let deltas = await model.ingest(try #require(gate.event), at: gate.receivedAt)
 
-        // A marker is not a fact about the room. It draws nothing and it must
-        // leave the delta stream alone. [I1]
-        #expect(deltas.isEmpty)
+        // **One delta, and it carries the `Bool` and nothing else.** This read
+        // `deltas.isEmpty` until ADR-005 §7, on the grounds that "a marker is not
+        // a fact about the room". The *marked set* is not; being stopped at a
+        // gate is, it is the only answer this app has to "is any agent stuck",
+        // and the body holds still for as long as it lasts. The set itself still
+        // does not leave the model. [I3]
+        #expect(deltas == [.gateChanged(agent: main, isGated: true)])
         #expect(await model.permissionGateMark(main) == [Self.deniedCall])
     }
 
@@ -200,7 +204,11 @@ import Testing
         let second = try entry(entries, "PermissionRequest", skipping: 1)
         let deltas = await model.ingest(
             try #require(second.event), at: second.receivedAt)
+        // And it is silent, because this agent's gate was already open: a change,
+        // never a repeat. The re-arm behind it does re-snapshot the *marked set*,
+        // and that is interior. [ADR-005 §7]
         #expect(deltas.isEmpty)
+        #expect(await model.permissionGateMark(main) != nil)
         #expect(await model.snapshot().agent(main)?.attention == .permissionPrompt)
     }
 
@@ -276,9 +284,16 @@ import Testing
         let stop = try entry(entries, "Stop")
         let deltas = await model.ingest(
             try #require(stop.event), at: gateAt.addingTimeInterval(1))
-        // `Stop` still emits nothing and still changes nothing visible.
-        #expect(deltas.isEmpty)
+        // **`Stop` emits exactly one thing now, and only when there was a gate to
+        // close.** It is not ADR-005 §3's missing `turnEnded` and says nothing
+        // about the turn: it releases a body that was held still, which is the
+        // fact this `Stop` genuinely carries.
+        #expect(deltas == [.gateChanged(agent: main, isGated: false)])
         #expect(await model.permissionGateMark(main) == nil)
+
+        // A second `Stop` says nothing, because there is no gate left to close.
+        #expect(await model.ingest(
+            try #require(stop.event), at: gateAt.addingTimeInterval(2)).isEmpty)
 
         // And a prompt afterwards therefore shortens nothing.
         let prompt = try entry(entries, "UserPromptSubmit", skipping: 1)
@@ -634,6 +649,7 @@ import Testing
 
         let model = WorldModel()
         var reachedStop = false
+        var stopDeltas: [WorldDelta] = []
         for entry in entries {
             guard let event = entry.event else { continue }
             // Drop only this agent's gated `PreToolUse`, so its mark arms over
@@ -641,13 +657,20 @@ import Testing
             // abandon path cannot disarm.
             if case let .preToolUse(_, tool, _) = event.kind,
                tool == "Bash", event.agentID == gated.agent { continue }
-            await model.ingest(event, at: entry.receivedAt)
+            let deltas = await model.ingest(event, at: entry.receivedAt)
             if event.kind.name == "SubagentStop", event.agentID == gated.agent {
                 reachedStop = true
+                stopDeltas = deltas
                 break
             }
         }
         #expect(reachedStop, "the fixture no longer stops this subagent")
+        // And it says so, ahead of the report beat it rides with: the turn is
+        // over, so the gate is over, so the body may move again — which for this
+        // character means the walk to its parent it is about to play.
+        // [ADR-005 §7]
+        #expect(stopDeltas.map(\.tag)
+            == ["gateChanged", "reportDelivered", "dormancyChanged"])
 
         // Dormant, in the room, and carrying nothing.
         #expect(await model.snapshot().agent(gated)?.lifecycle == .dormant)
@@ -664,6 +687,152 @@ import Testing
         #expect(await model.snapshot().agent(stillGated)?.attention == .permissionPrompt)
         #expect(await model.snapshot().agent(gated)?.attention == nil)
         #expect(await model.snapshot().agent(main)?.attention == nil)
+    }
+
+    // MARK: The delta [ADR-005 §7]
+
+    /// **The approve path closes the gate, and the delta says so before the
+    /// close it rode in on.**
+    ///
+    /// This is the ordinary release: the human clicks yes, the gated call's own
+    /// `PostToolUse` arrives, and `removeCall` disarms. The order — gate clear,
+    /// then `callClosed` — is the one `clearsAttention` already reads in: the
+    /// wait ended, then the work did.
+    @Test func theApprovingCloseClearsTheGateAndSaysSo() async throws {
+        let (entries, main) = try permissionPrompt()
+        let model = WorldModel()
+        try await feed(model, entries, through: "PermissionRequest", skipping: 1)
+
+        let close = try entry(entries, "PostToolUse")
+        let deltas = await model.ingest(try #require(close.event), at: close.receivedAt)
+        #expect(deltas.map(\.tag) == ["gateChanged", "callClosed"])
+        #expect(deltas.first == .gateChanged(agent: main, isGated: false))
+        #expect(await model.permissionGateMark(main) == nil)
+        #expect(await model.snapshot().agent(main)?.isGated == false)
+    }
+
+    /// **The deny path closes it too, at the prompt that answers the dialog.**
+    ///
+    /// Rule 3 shortens deadlines and closes nothing, so before this delta
+    /// existed there was no moment at which anything downstream learned the human
+    /// had answered "no" — the character would have gone on standing still until
+    /// the reaper abandoned the call 60 s later. The prompt is the answer, so the
+    /// gate ends there.
+    @Test func theAnsweringPromptClearsTheGate() async throws {
+        let (entries, main) = try permissionPrompt()
+        let model = WorldModel()
+        try await feed(model, entries, through: "PermissionRequest")
+
+        let prompt = try entry(entries, "UserPromptSubmit", skipping: 1)
+        let deltas = await model.ingest(try #require(prompt.event), at: prompt.receivedAt)
+        #expect(deltas.contains(.gateChanged(agent: main, isGated: false)))
+        #expect(await model.permissionGateMark(main) == nil)
+        // Shortened, never closed: the call is still open and still that agent's.
+        #expect(await model.snapshot().agent(main)?.openCalls.count == 1)
+        // And the abandon that follows 60 s later emits no second clear — the
+        // gate closed once, at the answer.
+        let orphan = try #require(await model.snapshot().agent(main)?.openCalls.first)
+        let swept = await model.sweep(at: orphan.deadline)
+        #expect(!swept.contains { $0.tag == "gateChanged" })
+    }
+
+    /// **A reaped gated call clears it as well**, which is the path that has to
+    /// hold when the human never answers at all: the deadline expires, the call
+    /// is abandoned, and the same `removeCall` disarms. Otherwise a character
+    /// frozen by a gate would stay frozen with nothing left to unfreeze it —
+    /// I4's *types forever* with the sign flipped.
+    @Test func abandoningAGatedCallClearsTheGate() async throws {
+        let (entries, main) = try permissionPrompt()
+        let model = WorldModel(reaper: Reaper(sessionIdleTimeout: 24 * 60 * 60))
+        try await feed(model, entries, through: "PermissionRequest")
+        let orphan = try #require(await model.snapshot().agent(main)?.openCalls.first)
+
+        let swept = await model.sweep(at: orphan.deadline)
+        #expect(swept.map(\.tag) == ["gateChanged", "callAbandoned"])
+        #expect(swept.first == .gateChanged(agent: main, isGated: false))
+        #expect(await model.snapshot().agent(main)?.isGated == false)
+    }
+
+    /// **[I4] Every gate that opens in every fixture is closed, or its character
+    /// leaves.** The balance check, over all seventeen captures and both sweeps.
+    ///
+    /// §7 claims the mark reaps for free because it lives inside `AgentState`.
+    /// That is true of the *mark* and it is `nothingIsMarkedOnceEveryFixtureHas
+    /// Finished` below that checks it. It is **not** automatically true of the
+    /// delta stream, which is what the scene actually holds: a scene told
+    /// `gateChanged(true)` and never told anything else draws a character frozen
+    /// forever, and it would be frozen by a fact the model had already forgotten.
+    /// So this walks the stream instead of the model, and the only two
+    /// acceptable endings for an open gate are a `gateChanged(false)` and an
+    /// `agentDeparted`.
+    ///
+    /// It also pins the corpus: **nine gates open across the seventeen files**,
+    /// and two of them are still open when their stream ends — the pair in
+    /// `concurrent-permission-gates`, one of which never sees a human at all.
+    ///
+    /// Both of those two are nonetheless closed by a `gateChanged(false)` rather
+    /// than by their character walking out, and that is worth recording because
+    /// it was not the expected answer: the idle sweep ends the session, ending
+    /// the session abandons the agent's open calls, and abandoning a *marked*
+    /// call disarms the mark through the same `removeCall` every other close
+    /// path uses. The departure ending is therefore reachable only for a gate
+    /// whose marked set is empty or already closed, which no capture contains —
+    /// so `closedByDeparture` is 0 and the branch is kept for the shape rather
+    /// than for the corpus.
+    @Test func everyGateThatOpensIsClosedOrItsCharacterLeaves() async throws {
+        var opened = 0
+        var closedByDeparture = 0
+
+        for name in Fixtures.all {
+            let (model, deltas, entries) = try await Fixtures.replay(name)
+            var gated: Set<AgentRef> = []
+
+            for delta in deltas {
+                switch delta {
+                case let .gateChanged(agent, isGated):
+                    if isGated {
+                        #expect(!gated.contains(agent),
+                                "\(name): \(agent) was told it was gated twice running")
+                        gated.insert(agent)
+                        opened += 1
+                    } else {
+                        #expect(gated.contains(agent),
+                                "\(name): \(agent) was ungated without ever being gated")
+                        gated.remove(agent)
+                    }
+                case let .agentDeparted(agent):
+                    if gated.remove(agent) != nil { closedByDeparture += 1 }
+                default:
+                    break
+                }
+            }
+
+            // The end of the stream is not the end of the world: two gates in
+            // the corpus are genuinely still open there, and the sweep that
+            // presumes a silent session dead is what takes them.
+            let last = try #require(entries.last?.receivedAt)
+            for delta in await model.sweep(
+                at: last.addingTimeInterval(Reaper().sessionIdleTimeout + 1)) {
+                switch delta {
+                case let .gateChanged(agent, isGated) where !isGated:
+                    gated.remove(agent)
+                case let .agentDeparted(agent):
+                    if gated.remove(agent) != nil { closedByDeparture += 1 }
+                default:
+                    break
+                }
+            }
+
+            #expect(gated.isEmpty, Comment(rawValue:
+                "\(name): \(gated.count) character(s) left stopped at a permission gate after"
+                + " every close path and both sweeps — a character frozen forever [I4]"))
+        }
+
+        #expect(opened == 9, "the corpus's gate count moved: \(opened)")
+        #expect(closedByDeparture == 0, Comment(rawValue:
+            "\(closedByDeparture) gate(s) ended by their character leaving rather than by a"
+            + " clear — true and legal, but no capture produced that shape before, so the"
+            + " marked-set-is-empty path has become reachable and wants a look"))
     }
 
     /// A departing character takes it too. The mark lives inside the agent's

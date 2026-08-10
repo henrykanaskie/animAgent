@@ -347,7 +347,7 @@ public actor WorldModel {
             // subagent's result reaches the main thread as a synthetic prompt
             // and two calls in `three-subagents` are genuinely still running
             // when one arrives. The mark is what tells the two apart.
-            answerPermissionGate(ref: ref, at: now)
+            answerPermissionGate(ref: ref, at: now, into: &deltas)
 
         case .subagentStart:
             ensureAgent(ref, agentType: event.agentType, lifecycle: .spawning, into: &deltas)
@@ -400,27 +400,41 @@ public actor WorldModel {
             goDormant(ref: ref, into: &deltas)
 
         case .permissionRequest:
-            // ADR-001 (d) rule 1. An agent-level marker and nothing else: it
-            // opens no call, closes no call, emits no delta, and names no
-            // `tool_use_id` — it has none to name. What it records is this
-            // agent's open-call set at this instant, which the model already
-            // holds. That performs no join, so it cannot join wrongly. [I3]
+            // ADR-001 (d) rule 1. An agent-level marker: it opens no call,
+            // closes no call, and names no `tool_use_id` — it has none to name.
+            // What it records is this agent's open-call set at this instant,
+            // which the model already holds. That performs no join, so it cannot
+            // join wrongly. [I3]
+            //
+            // **It emits one delta, and only the `Bool`.** It used to emit none
+            // at all, on the grounds that a marker is not a fact about the room.
+            // The marker is not; *being stopped at a gate* is, and it is the one
+            // fact in this model that answers "is any agent stuck" — so the body
+            // stops moving for as long as it holds, which is 9 to 249 s of the
+            // corpus's eight gates. The marked set stays interior for the
+            // original reason. [ADR-005 §7]
             if let owner = Self.gateOwner(of: event) {
-                armPermissionGate(ref: owner)
+                armPermissionGate(ref: owner, into: &deltas)
             }
 
         case .stop:
             // Fires once per assistant message stream — four times in one turn
             // in `three-subagents`. Not end-of-session, not a reap trigger, and
             // the character's idleness is already implied by an empty open-call
-            // set. Nothing to emit. [I1]
+            // set. [I1]
             //
             // ADR-001 (d) rule 2, second half: the turn completed, so whatever
             // the gate was waiting for is no longer pending. Disarming here is
             // what stops a mark left by an approved-then-finished turn being
-            // acted on by an unrelated prompt much later. It changes no visible
-            // state, so `Stop` still emits nothing.
-            disarmPermissionGate(ref: ref)
+            // acted on by an unrelated prompt much later.
+            //
+            // **So `Stop` is no longer silent in one case and is still silent in
+            // every other**: a `Stop` for an agent that was at a gate emits
+            // `gateChanged(isGated: false)` and puts a stopped character back in
+            // motion, and a `Stop` for an agent that was not — which is 25 of
+            // the corpus's 26 — emits nothing, exactly as before. This is not
+            // ADR-005 §3's missing `turnEnded`; it says nothing about the turn.
+            disarmPermissionGate(ref: ref, into: &deltas)
 
         case .sessionEnd:
             endSession(project: event.cwd, session: event.sessionID, into: &deltas)
@@ -554,7 +568,8 @@ public actor WorldModel {
                         parent: agentState.parent,
                         task: agentState.task,
                         openCalls: agentState.openCalls.values.sorted(),
-                        attention: agentState.attention))
+                        attention: agentState.attention,
+                        isGated: agentState.permissionGate != nil))
                 }
             }
         }
@@ -713,7 +728,13 @@ public actor WorldModel {
     /// unobserved one, and taking the later snapshot is the safe answer for it:
     /// the agent's open-call set as of the most recent thing we know it is
     /// blocked on.
-    private func armPermissionGate(ref: AgentRef) {
+    ///
+    /// **The delta is a change, never a repeat**, which is what the re-arm above
+    /// makes worth saying: re-snapshotting the marked set for an agent already
+    /// at a gate changes which calls a later prompt would shorten, and changes
+    /// nothing whatever about *whether* a gate is open. The scene is told the
+    /// second fact and only the second fact. [ADR-005 §7]
+    private func armPermissionGate(ref: AgentRef, into deltas: inout [WorldDelta]) {
         guard let state = projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] else {
             // No character to mark. Conjuring one out of a gate is not this
             // function's job, and `ensureSession` has already made the main
@@ -722,11 +743,29 @@ public actor WorldModel {
         }
         projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
             .permissionGate = Set(state.openCalls.keys)
+        if state.permissionGate == nil {
+            deltas.append(.gateChanged(agent: ref, isGated: true))
+        }
     }
 
     /// Rule 2. The gate is no longer pending, so nothing may act on the mark.
-    private func disarmPermissionGate(ref: AgentRef) {
-        projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.permissionGate = nil
+    ///
+    /// **Every path that clears the mark comes through here, and every one of
+    /// them now says so out loud** [I4]. There are five — a marked call closing
+    /// or being abandoned (`removeCall`), `Stop`, `SubagentStop`, and the
+    /// `UserPromptSubmit` that answers the dialog — and the sixth, departure,
+    /// deliberately does not: it deletes the whole `AgentState`, and the
+    /// `agentDeparted` riding with it takes the character the fact was about.
+    /// That is the same division `dormancyChanged` already makes.
+    ///
+    /// The guard is what keeps it a change rather than a repeat: disarming a
+    /// gate that was never armed is silent, which is the ordinary case — every
+    /// `Stop` in a session that saw no dialog, and every close of every call.
+    private func disarmPermissionGate(ref: AgentRef, into deltas: inout [WorldDelta]) {
+        guard projects[ref.project]?.sessions[ref.session]?
+            .agents[ref.agent]?.permissionGate != nil else { return }
+        projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.permissionGate = nil
+        deltas.append(.gateChanged(agent: ref, isGated: false))
     }
 
     /// Rule 3. A `UserPromptSubmit` reached an agent whose gate is still armed,
@@ -748,10 +787,10 @@ public actor WorldModel {
     /// sibling that legitimately runs past 60 s therefore reaps the sibling
     /// early, which is fiction. It needs a shape no capture contains, and it is
     /// ADR-001's one acknowledged hazard.
-    private func answerPermissionGate(ref: AgentRef, at now: Date) {
+    private func answerPermissionGate(ref: AgentRef, at now: Date, into deltas: inout [WorldDelta]) {
         guard let marked = projects[ref.project]?.sessions[ref.session]?
             .agents[ref.agent]?.permissionGate else { return }
-        defer { disarmPermissionGate(ref: ref) }
+        defer { disarmPermissionGate(ref: ref, into: &deltas) }
 
         for toolUseID in marked {
             guard let call = projects[ref.project]!.sessions[ref.session]!
@@ -769,10 +808,14 @@ public actor WorldModel {
 
     /// The marked set for one agent, or `nil` when the gate is disarmed.
     ///
-    /// Internal, not public. It drives no drawing and belongs in no delta — the
-    /// scene must never learn about it, because a marker is not a fact about
-    /// the room. It exists so the tests can assert the mark arms, disarms and
-    /// is reaped, rather than inferring all three from deadlines.
+    /// Internal, not public. **The *set* drives no drawing and belongs in no
+    /// delta** — it decides deadlines, it names no gated call because the event
+    /// names none, and a scene given it could only guess. Whether the gate is
+    /// open at all is a different question and it does leave, as
+    /// `WorldDelta.gateChanged`; `AgentSnapshot.isGated` is the same `Bool` as a
+    /// standing value. This accessor exists so the tests can assert the mark
+    /// arms, disarms and is reaped, rather than inferring all three from
+    /// deadlines.
     func permissionGateMark(_ ref: AgentRef) -> Set<ToolUseID>? {
         projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.permissionGate
     }
@@ -855,7 +898,12 @@ public actor WorldModel {
         // *empty* marked set — a legal snapshot — would otherwise carry an armed
         // gate into dormancy forever and be badged by a later `permission_prompt`
         // it has nothing to do with. [I1/I4]
-        disarmPermissionGate(ref: ref)
+        //
+        // The ordinary case is already disarmed by the `abandonAll` above, which
+        // removes marked calls; this catches the empty mark, and the delta it
+        // emits is suppressed for the ordinary case by `disarmPermissionGate`'s
+        // own change-not-repeat guard.
+        disarmPermissionGate(ref: ref, into: &deltas)
         let wasDormant =
             projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!.lifecycle == .dormant
         setLifecycle(.dormant, ref: ref)
@@ -945,7 +993,7 @@ public actor WorldModel {
         _ toolUseID: ToolUseID, ref: AgentRef, outcome: CallOutcome,
         into deltas: inout [WorldDelta]
     ) -> OpenCall? {
-        guard let call = removeCall(toolUseID, ref: ref) else { return nil }
+        guard let call = removeCall(toolUseID, ref: ref, into: &deltas) else { return nil }
         deltas.append(.callClosed(
             agent: ref, toolUseID: toolUseID, toolName: call.toolName, outcome: outcome))
         return call
@@ -955,7 +1003,7 @@ public actor WorldModel {
         _ toolUseID: ToolUseID, ref: AgentRef, reason: AbandonReason,
         into deltas: inout [WorldDelta]
     ) {
-        guard let call = removeCall(toolUseID, ref: ref) else { return }
+        guard let call = removeCall(toolUseID, ref: ref, into: &deltas) else { return }
         abandonedCount += 1
         deltas.append(.callAbandoned(
             agent: ref, toolUseID: toolUseID, toolName: call.toolName, reason: reason))
@@ -984,13 +1032,21 @@ public actor WorldModel {
     /// approve path: the gated call closes normally, so the human said yes and
     /// no later prompt may shorten anything. Abandonment counts too — a call
     /// already reaped is not one a deadline change could still help.
-    private func removeCall(_ toolUseID: ToolUseID, ref: AgentRef) -> OpenCall? {
+    ///
+    /// The `gateChanged(isGated: false)` that disarm now emits lands **ahead of**
+    /// the `.callClosed` or `.callAbandoned` its caller appends, which is the
+    /// order `clearsAttention` already reads in: the wait ended, then the work
+    /// did. Both are in one batch, so nothing on screen depends on it; the delta
+    /// stream is easier to read for it.
+    private func removeCall(
+        _ toolUseID: ToolUseID, ref: AgentRef, into deltas: inout [WorldDelta]
+    ) -> OpenCall? {
         guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else {
             return nil
         }
         if projects[ref.project]!.sessions[ref.session]?.agents[ref.agent]?
             .permissionGate?.contains(toolUseID) == true {
-            disarmPermissionGate(ref: ref)
+            disarmPermissionGate(ref: ref, into: &deltas)
         }
         return projects[ref.project]!.sessions[ref.session]!.agents[ref.agent]!
             .openCalls.removeValue(forKey: toolUseID)

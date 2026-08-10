@@ -249,6 +249,43 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// the turn is over from the instant `SubagentStop` arrives, and the walk is
     /// the room saying so.
     case dormancyChanged(agent: AgentRef, isDormant: Bool)
+    /// This character is, or is no longer, **stopped at a permission gate** —
+    /// ADR-001 (d)'s marker, which until ADR-005 §7 left the model in no form at
+    /// all.
+    ///
+    /// **It is the answer to "is any agent stuck", and the only one the hook
+    /// stream can give.** A gate is an interval and a long one: measured
+    /// lifetimes across `fixtures/` are 9.43, 13.52, 34.05, 36.60, 37.76 and
+    /// 248.78 s, plus two that never close in their stream at all. The scene
+    /// spends it holding the body still, because a call parked at a gate is not
+    /// running and a phrase over it asserts work that is not happening — the
+    /// same sentence ADR-003 §1 already used to keep the *badge* layer from
+    /// drawing `terminal` over a gated `Bash`. [I1, ADR-005 §7]
+    ///
+    /// **Not the same fact as `attentionChanged`, and it must not be folded into
+    /// it.** The `Notification` that raises attention arrives **6.0 s after** the
+    /// `PermissionRequest` that arms this — four measured occurrences, 6.014 /
+    /// 6.006 / 6.032 / 6.016 s — so for those six seconds this is the only
+    /// signal there is. It also names its agent outright, where a `Notification`
+    /// carries no `agent_id` and has to be attributed through these very marks.
+    ///
+    /// **A *change*, never a repeat**, exactly as `dormancyChanged` and
+    /// `attentionChanged` are: a second `PermissionRequest` for an
+    /// already-marked agent re-snapshots the marked call set — see
+    /// `WorldModel.armPermissionGate` — but says nothing new about *whether* a
+    /// gate is open, so it emits nothing. The marked set itself is interior and
+    /// deliberately absent from this delta: it exists to decide deadlines, it
+    /// names no gated call (the event carries none), and nothing downstream may
+    /// draw from it. [I3]
+    ///
+    /// **Reapable, with no deadline of its own** [I4]. The mark is a field of
+    /// `AgentState`, so the paths that end a character take it with them; the
+    /// paths that end only the *gate* — a marked call closing or being
+    /// abandoned, `Stop`, `SubagentStop`, and the `UserPromptSubmit` that
+    /// answers it — each emit this delta with `false`. Departure does not, for
+    /// the same reason `dormancyChanged(false)` is not emitted there: the
+    /// `agentDeparted` behind it removes the character the fact belonged to.
+    case gateChanged(agent: AgentRef, isGated: Bool)
     case populationChanged(project: String, count: Int)
 
     public var description: String {
@@ -273,6 +310,8 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
             return "attentionChanged \(agent) \(attention.map(String.init(describing:)) ?? "cleared")"
         case let .dormancyChanged(agent, isDormant):
             return "dormancyChanged  \(agent) \(isDormant ? "dormant" : "awake")"
+        case let .gateChanged(agent, isGated):
+            return "gateChanged      \(agent) \(isGated ? "gated" : "clear")"
         case let .populationChanged(project, count):
             let leaf = project.split(separator: "/").last.map(String.init) ?? project
             return "populationChanged \(leaf)=\(count)"
@@ -310,6 +349,20 @@ public struct AgentSnapshot: Sendable, Hashable {
     /// Orthogonal to `openCalls`: a character can be working *and* blocked at a
     /// permission gate, which is exactly what a denied `Bash` looks like.
     public let attention: AttentionKind?
+    /// **Whether this agent is stopped at a permission gate** — ADR-001 (d)'s
+    /// marker, armed by `PermissionRequest`. The transition is carried by
+    /// `WorldDelta.gateChanged`; this field is the standing value.
+    ///
+    /// The marked `tool_use_id` set behind it stays interior: it decides
+    /// deadlines and nothing else, and it names no gated call because the event
+    /// names none. This is the whole of what may leave the model. [I3]
+    ///
+    /// It is on the snapshot so that the mark's reaping can be *checked* from
+    /// outside the actor rather than inferred from deadlines — an agent left
+    /// gated after `SessionEnd` or the idle sweep is orphaned open state of
+    /// exactly the kind I4 exists to catch, and a character frozen forever is
+    /// the same class of failure as one that types forever.
+    public let isGated: Bool
 
     /// An agent is working if and only if its open-call set is non-empty. [I2]
     public var isWorking: Bool { !openCalls.isEmpty }

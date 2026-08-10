@@ -63,6 +63,8 @@ struct ProjectRegistryTests {
             return .attentionChanged(agent: moved(agent), attention: attention)
         case let .dormancyChanged(agent, isDormant):
             return .dormancyChanged(agent: moved(agent), isDormant: isDormant)
+        case let .gateChanged(agent, isGated):
+            return .gateChanged(agent: moved(agent), isGated: isGated)
         case .populationChanged:
             return .populationChanged(project: project, count: 0)
         }
@@ -99,6 +101,8 @@ struct ProjectRegistryTests {
             return .attentionChanged(agent: moved(agent), attention: attention)
         case let .dormancyChanged(agent, isDormant):
             return .dormancyChanged(agent: moved(agent), isDormant: isDormant)
+        case let .gateChanged(agent, isGated):
+            return .gateChanged(agent: moved(agent), isGated: isGated)
         case .populationChanged:
             return delta
         }
@@ -334,7 +338,7 @@ struct ProjectRegistryTests {
         for delta in rebuilt {
             switch delta {
             case .agentAppeared, .agentLinked, .agentTasked, .attentionChanged,
-                 .dormancyChanged, .callOpened, .populationChanged:
+                 .dormancyChanged, .gateChanged, .callOpened, .populationChanged:
                 continue
             default: Issue.record("reconstruction emitted \(delta)")
             }
@@ -356,6 +360,64 @@ struct ProjectRegistryTests {
         // behind it.
         #expect(!rebuilt.contains { if case .dormancyChanged(_, false) = $0 { return true }
                                     return false })
+    }
+
+    /// **A character stopped at a permission gate is still stopped after a
+    /// project switch.** [ADR-005 §7]
+    ///
+    /// The same rule as dormancy and attention, and the one with the widest
+    /// window to be wrong in: measured gate lifetimes run to 248.78 s and two of
+    /// the corpus's eight never close at all, so a gate is very likely to still
+    /// be open when the user comes back to the project. A fresh `SceneDirector`
+    /// starts every presentation ungated, so without the replay the switch would
+    /// put a blocked agent's body back into the busiest phrase in the room —
+    /// the exact fiction ADR-005 §7 removes, reintroduced by a menu click.
+    ///
+    /// `concurrent-permission-gates` is the fixture because it is the one that
+    /// ends with gates outstanding: two subagents, one released at t=38.263 and
+    /// one never released.
+    @Test func aGatedCharacterIsStillGatedAfterAProjectSwitch() async throws {
+        var registry = ProjectRegistry()
+        let all = try await Self.deltas("concurrent-permission-gates", project: "/work/alpha")
+        // Everything up to the first departure, so there is a live roster with a
+        // gate still open on it.
+        let live = Array(all.prefix(while: { delta in
+            if case .agentDeparted = delta { return false }
+            return true
+        }))
+        #expect(live.contains { if case .gateChanged(_, true) = $0 { return true }; return false },
+                "the fixture no longer opens a gate before anybody leaves")
+        registry.absorb(live, at: Self.t0)
+
+        let rebuilt = registry.reconstruct("/work/alpha")
+        let stopped = rebuilt.compactMap { delta -> AgentRef? in
+            guard case let .gateChanged(agent, true) = delta else { return nil }
+            return agent
+        }
+        // Exactly the agents whose last word was `gated`, and no others: the
+        // first subagent's gate is released inside this prefix by the approve
+        // path, and a released gate must not be replayed.
+        var expected: Set<AgentRef> = []
+        for delta in live {
+            guard case let .gateChanged(agent, isGated) = delta else { continue }
+            if isGated { expected.insert(agent) } else { expected.remove(agent) }
+        }
+        #expect(!expected.isEmpty, "nothing was still gated, so this checked nothing")
+        #expect(Set(stopped) == expected,
+                "the reconstruction lost \(expected.subtracting(stopped)) gate(s)")
+
+        // And it never says the opposite. Ungated is the default a fresh
+        // director already holds; restating it would be a delta with no fact
+        // behind it. [I1]
+        #expect(!rebuilt.contains { if case .gateChanged(_, false) = $0 { return true }
+                                    return false })
+
+        // The character it names is one the reconstruction really drew.
+        let appeared = Set(rebuilt.compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta else { return nil }
+            return agent
+        })
+        #expect(expected.isSubset(of: appeared))
     }
 
     @Test func reconstructionIsDeterministic() async throws {

@@ -559,13 +559,25 @@ public final class Character: SKNode {
     /// The body is not that layer. `SceneDirector.body(for:badge:)` already
     /// reads the tool class straight through an attention override, on the
     /// grounds that "the attention glyph is about the *badge*, and the body is
-    /// about the work", and I2 keys the body on the open-call set alone. A
-    /// character blocked at a gate is still holding those calls, so it is still
-    /// `working`, and the phrase it plays is the one its calls name. Reading
-    /// `drawn` here would silently change *how a working body moves* on a signal
-    /// that has nothing to do with the work — and it would put the body and the
-    /// working-pose lookup on two different keys.
+    /// about the work", and the phrase is keyed on the class of the work.
+    /// Reading `drawn` here would silently change *how a working body moves* on
+    /// a signal about the slot — and it would put the body and the working-pose
+    /// lookup on two different keys.
+    ///
+    /// **ADR-005 §7 stops a gated body moving, and it is emphatically not this
+    /// line that does it.** The two look interchangeable and are not. The
+    /// attention bubble is a *badge* state that arrives 6.0 s late and can be
+    /// raised on an agent with no gate at all (`idle_prompt`); the gate is a
+    /// *fact about the agent* that `WorldDelta.gateChanged` names outright, from
+    /// the instant it opens. So the stillness is keyed on `isGated` — see
+    /// `refreshAmbient` — and this stays what it was, which is why a gated
+    /// character resumes its own class's phrase the moment the human answers.
     private var ambientBadge: ToolBadge? { currentBadge.badge }
+
+    /// **Whether this character is stopped at a permission gate**, from
+    /// `SpriteIntent.setGated`. While it holds, the body plays no phrase.
+    /// [ADR-005 §7]
+    private var isGated = false
 
     /// **How many tool calls this character is holding, which is the one fact
     /// that decides whether its body moves.** [I2, ADR-005 §3]
@@ -583,6 +595,25 @@ public final class Character: SKNode {
     /// "seated, in a turn" and only this one answers *is anything running*.
     private var openCallCount: Int { currentBadge.count }
 
+    /// **The gate opened or closed on this character.** While it is open the
+    /// body holds `settled` and plays no phrase — it is blocked on a human and
+    /// getting nothing done, and the busiest animation in the room was the one
+    /// it used to play. [ADR-005 §7]
+    ///
+    /// Idempotent, and it never touches `stateStartedAt`: like a badge change,
+    /// a gate is an event arriving and this class does not restart a running
+    /// loop for one. The frame it stops on is `settled`, which is where every
+    /// phrase begins and ends, so nothing jumps in either direction.
+    public func setGated(_ gated: Bool) {
+        guard gated != isGated else { return }
+        isGated = gated
+        refreshAmbient()
+    }
+
+    /// Whether the gate is on, for tests that check the fact rather than the
+    /// frames it produces.
+    public var isGatedForTesting: Bool { isGated }
+
     /// Recomputes the phrase without touching `stateStartedAt`.
     ///
     /// **The phase is deliberately not reset.** This class's contract is that a
@@ -594,7 +625,7 @@ public final class Character: SKNode {
         guard !frames.isEmpty else { return }
         frameSequence = AmbientMotion.sequence(
             for: ambientBadge, state: currentState ?? .idle, openCalls: openCallCount,
-            frameCount: frames.count)
+            isGated: isGated, frameCount: frames.count)
     }
 
     /// The frame indices this character is playing, for tests that check the
@@ -702,7 +733,7 @@ public final class Character: SKNode {
         // 0 is what keeps the body and the costume on one index from the first
         // frame rather than from the second.
         frameSequence = AmbientMotion.sequence(
-            for: ambientBadge, state: state, openCalls: openCallCount,
+            for: ambientBadge, state: state, openCalls: openCallCount, isGated: isGated,
             frameCount: textures.count)
         let firstIndex = frameSequence.first ?? 0
         framesPerSecond = max(1, store.frameRate(variant: agentVariant, state: state))

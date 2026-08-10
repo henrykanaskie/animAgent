@@ -124,6 +124,12 @@ struct ProjectRegistry: Sendable {
         /// From `.attentionChanged`. Same reason as `parent`: it is live state,
         /// so a switch back to this project must not lose it.
         var attention: AttentionKind?
+        /// From `.gateChanged`: this agent is stopped at a permission gate.
+        /// Same reason as `attention`, and with more of it — measured gate
+        /// lifetimes run from 9.43 s to 248.78 s and two of the corpus's eight
+        /// never close at all, so it is the fact in this record most likely to
+        /// still be true when the user switches back. [ADR-005 §7]
+        var isGated = false
     }
 
     private struct ProjectState: Sendable {
@@ -194,6 +200,13 @@ struct ProjectRegistry: Sendable {
                 // than stored twice. Does not touch population — a dormant
                 // agent is still in the room, which is the whole point of it.
                 states[project]?.agents[agent]?.lifecycle = isDormant ? .dormant : .active
+            case let .gateChanged(agent, isGated):
+                // Live state, same as `attention` and `dormancy` and for the
+                // same reason: an agent stopped at a dialog while you were
+                // looking at another project is still stopped when you come
+                // back, and its body must still be still. Does not touch
+                // population — a gated agent is in the room, and stuck in it.
+                states[project]?.agents[agent]?.isGated = isGated
             case .reportDelivered, .populationChanged:
                 break
             }
@@ -307,6 +320,16 @@ struct ProjectRegistry: Sendable {
             if state.lifecycle == .dormant {
                 deltas.append(.dormancyChanged(agent: ref, isDormant: true))
             }
+            // And a character stopped at a permission gate must still be
+            // stopped, for the identical reason and with a longer window in
+            // which to be wrong: a fresh `SceneDirector` starts every
+            // presentation ungated, so without this line switching away and
+            // back would put a blocked agent's body back in motion — the exact
+            // fiction ADR-005 §7 exists to remove, reintroduced by a menu
+            // click. The delta is a real one the registry really absorbed. [I1]
+            if state.isGated {
+                deltas.append(.gateChanged(agent: ref, isGated: true))
+            }
         }
         for ref in roster.keys.sorted() {
             guard let state = roster[ref] else { continue }
@@ -366,6 +389,7 @@ extension WorldDelta {
         case let .reportDelivered(agent): return agent.project
         case let .attentionChanged(agent, _): return agent.project
         case let .dormancyChanged(agent, _): return agent.project
+        case let .gateChanged(agent, _): return agent.project
         case let .populationChanged(project, _): return project
         }
     }

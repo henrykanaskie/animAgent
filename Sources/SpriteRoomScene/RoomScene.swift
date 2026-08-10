@@ -697,6 +697,12 @@ public final class RoomScene: SKScene {
         case let .setBadge(agent, selection):
             characters[agent]?.apply(badge: selection)
 
+        case let .setGated(agent, isGated):
+            // The motion channel's third input, and the only one that takes
+            // motion away. Nothing else in the scene reads it: the posture and
+            // the slot are unchanged for a blocked agent. [ADR-005 §7]
+            characters[agent]?.setGated(isGated)
+
         case let .deliverReport(agent, anchorSeat):
             guard let character = characters[agent], let seat = seatOf[agent],
                   // Nobody walks over to themselves. The anchor resolves to the

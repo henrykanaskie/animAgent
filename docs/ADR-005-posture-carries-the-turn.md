@@ -3,6 +3,10 @@
 **Status: ACCEPTED** 2026-08-09, and implemented in the same change (task #64).
 The maintainer accepted §6's amendment to I2 and §5's restatement of ADR-003 §6
 condition 1; both are applied in `CLAUDE.md` and `docs/ADR-003-badge-dwell.md`.
+**§7 was deliberately held back from that change** — it needs a delta in
+`SpriteRoomCore`, and a second module is a second concern — and was built in
+task #65; see the note at the head of §7 for what shipped, what was re-measured
+and the one claim it makes that turned out to need paying for.
 Author: `planner`, task #63/#64. Written against Claude Code 2.1.224,
 `fixtures/` as committed, and the scene as committed at HEAD.
 
@@ -392,6 +396,35 @@ clear on top of that.
 
 ## 7. The second moment: a blocked character stops moving
 
+**BUILT** (task #65), as specified and with no rule changed. The measurements
+below reproduced exactly: 3 760 px every 125 ms at t=20 with a 250 ms period,
+t=20.00 and t=20.25 pixel-identical. Afterwards t=20.00, 20.125, 20.25, 25.00
+and 30.00 are all pixel-identical to each other — **0 px/frame** — and the
+ungated fixtures render byte-identically to before (`three-subagents` at t=10,
+20, 30, 40).
+
+What shipped, and the three places it differs from the sketch below:
+
+- `WorldDelta.gateChanged(agent:isGated:)` exists, on `dormancyChanged`'s
+  footing, replayed by `ProjectRegistry` across a project switch. `PermissionRequest`
+  emits the raise; the *five* clears are a marked call closing, a marked call
+  being abandoned, `Stop`, `SubagentStop`, and the `UserPromptSubmit` that
+  answers the dialog.
+- The scene carries it on **its own intent**, `SpriteIntent.setGated`, rather
+  than on the badge selection: the gate stops the motion, and motion is neither
+  the posture nor the slot. `AmbientMotion.sequence` gained the third condition
+  §7 asks for and no new body state, exactly as predicted.
+- **"It reaps for free" was true of the mark and not of the delta**, which is the
+  one claim below that had to be paid for rather than inherited. See the
+  correction under the last bullet.
+
+Two numbers in this section were re-derived and one is different. The gate
+lifetimes measured *as the shipped delta stream draws them* — raise to clear,
+over all seventeen captures — are **7.8, 11.5, 31.8, 31.8, 36.7, 55.4 and
+247.6 s, plus two that no event in their stream closes at all**, and there are
+**nine** gates rather than eight. The conclusion is unchanged and the shape is
+the same: this is a long, glanceable, frequently-wrong state.
+
 Ranked second, and it is the answer to "whether any agent is stuck".
 
 **Today the room asserts the opposite of the truth here.** `Character.ambientBadge`
@@ -430,12 +463,42 @@ The rule:
   cleared by `SessionEnd`, departure, the idle sweep, `Stop`, `SubagentStop` and
   any close of a marked call. [I4]
 
+  > **CORRECTION (task #65, on implementing this).** *True of the mark, and not
+  > of the delta, and the difference is the whole of what a new delta costs.*
+  > Every path listed does clear the mark by construction, and
+  > `PermissionGateTests.nothingIsMarkedOnceEveryFixtureHasFinished` already
+  > checked it. But the scene does not hold the mark; it holds whatever the last
+  > `gateChanged` told it. A clear that happens inside the model without emitting
+  > one leaves a character still forever, frozen by a fact the model has already
+  > dropped — I4's character that types forever with the sign flipped. So each of
+  > the five gate-ending paths emits the clear explicitly, and **departure
+  > deliberately does not**, because the `agentDeparted` beside it removes the
+  > character the fact was about; that is the same division `dormancyChanged`
+  > makes. The obligation is checked on the *stream* rather than on the model, by
+  > `everyGateThatOpensIsClosedOrItsCharacterLeaves` over all seventeen captures
+  > and by `noCharacterIsLeftGatedOnceTheReaperHasHadItsSay` over the four gated
+  > ones after the idle sweep. Nine gates open, nine close.
+  >
+  > One thing found while checking it, recorded because it was not the expected
+  > answer: **no capture ends a gate by departure**. `SessionEnd` and the idle
+  > sweep abandon the agent's open calls first, and abandoning a *marked* call
+  > disarms through the same `removeCall` every other close path uses — so the
+  > clear always beats the departure to the stream. The departure ending is
+  > reachable only for a gate whose marked set is empty, which is legal and which
+  > no capture contains.
+
 **The one cost, stated.** `PermissionRequest` currently emits no delta at all
 (`03-EVENT-MODEL.md`, "An agent-level marker, and nothing else… Emits no delta").
 This needs a `gateChanged(agent:isGated:)` delta on the same footing as
 `dormancyChanged` — a `Bool`, a change never a repeat — and `ProjectRegistry` must
 replay it across a project switch as it replays the other three. That is the only
 model-side change in this document.
+
+*Built as described.* The doc line quoted above is corrected in the same change,
+along with the `Stop` and `SubagentStop` rows and the ambient-loop section. The
+`ProjectRegistry` replay is the one with the widest window to be wrong in — two
+of the nine gates outlive their streams — and it is pinned by
+`aGatedCharacterIsStillGatedAfterAProjectSwitch`.
 
 ## 8. The other candidates, ranked, with the ones I think are bad ideas named
 
@@ -541,6 +604,11 @@ beat, for free, as a side effect of the fix the maintainer asked for.
    delta is a new reaping obligation. It is answered structurally — the mark lives
    inside `AgentState` — but it is the one place this change reaches into
    `SpriteRoomCore`.
+
+   *This was the right thing to worry about and the structural answer was not
+   sufficient.* See the correction in §7: the mark reaps by construction, the
+   **delta stream** does not, and the five clears are emitted explicitly for that
+   reason. Built and checked on the stream (task #65).
 6. **The camera runs at `2x` up to three agents and `1x` from four.**
    `RoomCamera.defaultComfortablePopulation` is `[2: 3]`, so
    `scale(forPopulation:)` returns `2` for a room of one to three characters and
@@ -622,6 +690,11 @@ except the last, which is another agent's.**
   gains the posture rule; the `Stop` row gains "stands the main character up"; the
   `PermissionRequest` row gains `gateChanged`; the closing-beat section's "the body
   goes idle at the close" is restated.
+
+  The `PermissionRequest` half was done in task #65, with the `Stop` and
+  `SubagentStop` rows, the attention-badge section, the ambient-loop section and
+  the reaping section. The `Stop` row's "stands the main character up" is still
+  outstanding and still waiting on `turnEnded`.
 - **`docs/04-ART-DIRECTION.md`** — "Body states": `idle` is no longer what a
   character between two tool calls draws. The motion-budget section is *untouched*
   and should say so explicitly, since this change moves 0 px/s in dead air.

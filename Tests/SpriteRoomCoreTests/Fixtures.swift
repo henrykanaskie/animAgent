@@ -179,6 +179,7 @@ extension WorldDelta {
         case .reportDelivered: return "reportDelivered"
         case .attentionChanged: return "attentionChanged"
         case .dormancyChanged: return "dormancyChanged"
+        case .gateChanged: return "gateChanged"
         case .populationChanged: return "populationChanged"
         }
     }
@@ -195,6 +196,7 @@ extension WorldDelta {
         case let .reportDelivered(agent): return agent
         case let .attentionChanged(agent, _): return agent
         case let .dormancyChanged(agent, _): return agent
+        case let .gateChanged(agent, _): return agent
         case .populationChanged: return nil
         }
     }

@@ -921,13 +921,25 @@ import Testing
         // marks the agent, which is interior state and not a fact about the
         // room. Nothing in this sequence moved when the ADR was implemented,
         // and that is the point of writing it down.
+        // The four `gateChanged` are two open/close pairs, and where each one
+        // falls is the whole of ADR-005 §7: the gate opens **6 s before** the
+        // `Notification` that badges it, so for those six seconds the body
+        // holding still is the only thing the room says about a blocked agent.
+        // The denied gate closes at the user's next prompt (the answer was no,
+        // and the prompt is the answer); the approved one closes on the
+        // `PostToolUse` that closes its call, ahead of the `callClosed` it rode
+        // in with.
         "permission-prompt": [
             "agentAppeared", "populationChanged",   // UserPromptSubmit
             "callOpened",                           // Bash, about to be denied
+            "gateChanged",                          // PermissionRequest, ~16 ms later
             "attentionChanged",                     // Notification, 6 s after the gate
             "attentionChanged",                     // cleared by the user's next prompt
+            "gateChanged",                          // and answered by it [ADR-001 (d) rule 3]
             "callOpened",                           // Bash, about to be approved
+            "gateChanged",                          // its own PermissionRequest
             "attentionChanged", "attentionChanged", // raised, then cleared by its own close
+            "gateChanged",                          // the approving close disarms the mark
             "callClosed",
             "callAbandoned",                        // the denied call, at SessionEnd
             "agentDeparted", "populationChanged",
@@ -947,9 +959,15 @@ import Testing
         // permission gates and one idle stretch. `idle_prompt` fires per
         // stretch, not per session — this fixture is the capture that refuted
         // the "exactly once" claim.
+        // The two `gateChanged` bracket the denial: armed 13 ms after the
+        // `PreToolUse` at t=3.138, cleared by the user's next prompt at
+        // t=34.984 — which is also what shortens the orphan's deadline. The
+        // character is still for those 31.8 s and moves again at the answer,
+        // 60 s before the reaper closes the call it was blocked on.
         "denial-then-work": [
             "agentAppeared", "populationChanged",
-            "callOpened", "attentionChanged", "attentionChanged",
+            "callOpened", "gateChanged", "attentionChanged", "attentionChanged",
+            "gateChanged",
             "callOpened", "callClosed",
             "attentionChanged", "attentionChanged",
             "callOpened", "callClosed",

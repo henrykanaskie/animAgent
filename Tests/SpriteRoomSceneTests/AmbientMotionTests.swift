@@ -187,6 +187,61 @@ struct AmbientMotionPolicyTests {
         }
     }
 
+    /// **And so does a body stopped at a permission gate, whatever it holds
+    /// open.** [ADR-005 §7]
+    ///
+    /// The third and last thing that stops the body, and the only one of the
+    /// three that takes away motion this room was previously drawing. The badge
+    /// loop is the point: a gated `Bash` is `terminal`, the busiest schedule in
+    /// the table, and it played it. The open-call loop is the other half — a
+    /// gated agent is holding those calls, which is exactly why the open-call
+    /// set could not answer this question by itself.
+    @Test func aBodyStoppedAtAPermissionGateHoldsOneFrame() {
+        for frameCount in 1...10 {
+            for badge in ToolBadge.allCases.map({ Optional($0) }) + [nil] {
+                for openCalls in [0, 1, 5] {
+                    #expect(AmbientMotion.sequence(
+                        for: badge, state: .working, openCalls: openCalls, isGated: true,
+                        frameCount: frameCount) == [0],
+                            "a gated character moved under \(badge?.rawValue ?? "no badge")")
+                }
+            }
+        }
+        // It holds `settled`, the same frame the two other still cases hold, so
+        // a gate opening or closing moves the body no pixels at all until the
+        // phrase itself does.
+        #expect(AmbientMotion.gatedStillSequence == AmbientMotion.seatedStillSequence)
+        #expect(AmbientMotion.gatedStillSequence
+                == [AmbientMotion.Beat.settled.frameIndex(inFrameCount: 3)])
+
+        // And the same inputs without the gate do move, for every mapped class —
+        // so the rule above is the gate's doing and not a phrase table that
+        // resolved to one frame.
+        for badge in ToolBadge.allCases where AmbientMotion.phrase(for: badge) != nil {
+            #expect(AmbientMotion.sequence(
+                for: badge, state: .working, openCalls: 1, isGated: false,
+                frameCount: 3).count > 1, "\(badge.rawValue) does not move ungated either")
+        }
+    }
+
+    /// **A gate never freezes a told event.** `walk`, `spawn`, `depart` and
+    /// `deliver` each *are* an event being told, so they play as authored — a
+    /// character that stopped mid-stride because a dialog opened would slide
+    /// across the floor. Reachable in one batch: `SubagentStop` clears the gate
+    /// and starts the report walk together.
+    @Test func aGateFreezesNoStateThatIsAnEventBeingTold() {
+        for state in BodyState.allCases where state != .idle && state != .working {
+            #expect(AmbientMotion.sequence(
+                for: .terminal, state: state, openCalls: 1, isGated: true,
+                frameCount: 6).count == 6,
+                    "\(state.rawValue) froze at a permission gate")
+        }
+        // And a standing character is already one held frame, so the gate adds
+        // nothing there and takes nothing away.
+        #expect(AmbientMotion.sequence(
+            for: .terminal, state: .idle, openCalls: 1, isGated: true, frameCount: 6) == [0])
+    }
+
     /// The states that are a *told event* keep every frame the artist drew. The
     /// idle loop was the one animation in the room with no event behind it, and
     /// it is the only one that went. Nothing here is a preference: a walk that
@@ -470,31 +525,64 @@ struct AmbientMotionSceneTests {
                 "the seated body cannot move at all, so this test proves nothing")
     }
 
-    /// **A call parked at a permission gate keeps its work phrase**, and that is
-    /// the one place this layer deliberately parts company with the hands.
+    /// **A call parked at a permission gate stops, and the attention bubble is
+    /// not what stops it.** [ADR-005 §7]
     ///
-    /// The hands go empty because an object is a second, larger assertion on top
-    /// of a glyph the badge layer is correctly refusing to draw. The body is not
-    /// that layer: I2 keys it on the open-call set alone, the character really
-    /// is still holding those calls, and `SceneDirector.body(for:badge:)` already
-    /// reads the tool class straight through an attention override for exactly
-    /// this reason. A phrase that fell back to neutral under `attention` would
-    /// put the body and the working-pose lookup on two different keys.
+    /// This test used to be named `aGatedCallKeepsItsGaitAndLosesOnlyItsHands`
+    /// and asserted the opposite of its first half. The argument it carried —
+    /// I2 keys the body on the open-call set, a gated agent is still holding
+    /// those calls, so it is still working — is *true about the set* and was
+    /// wrong about the room: a call parked at a dialog is not running, which is
+    /// ADR-003 §1's own sentence for refusing to draw `terminal` over it, and
+    /// the body was drawing the fastest phrase in the table over the one agent
+    /// in the room that could not proceed.
+    ///
+    /// **The three characters here are the whole of the distinction**, and the
+    /// middle one is why the gate needed a delta of its own:
+    ///
+    /// - **ungated, `Bash` open** — moves, and holds a console;
+    /// - **the bubble alone** — moves. A `Notification` can name an agent with
+    ///   no gate at all (`idle_prompt`, and a `permission_prompt` that no mark
+    ///   could attribute), so the bubble is not evidence of a block. It empties
+    ///   the hands, because that is a claim about the badge slot;
+    /// - **gated** — still, whatever the slot shows. The bubble arrives 6.0 s
+    ///   after the gate opens, so for those six seconds this is the only signal
+    ///   there is.
     @Test(.enabled(if: SceneArt.isAvailable))
-    func aGatedCallKeepsItsGaitAndLosesOnlyItsHands() throws {
+    func aGatedCallStopsMovingAndTheBubbleIsNotWhatStopsIt() throws {
         let store = TextureStore(manifest: try SceneFixtures.manifest())
         let ungated = Self.character(store)
         Self.working(ungated, tools: ["Bash"])
 
+        let bubbleOnly = Self.character(store)
+        bubbleOnly.advance(to: 0)
+        bubbleOnly.apply(state: .working, facing: .right, startingAt: 0)
+        bubbleOnly.apply(badge: BadgeSelection.select(
+            openToolNames: ["Bash"], attention: .permissionPrompt))
+
         let gated = Self.character(store)
         gated.advance(to: 0)
         gated.apply(state: .working, facing: .right, startingAt: 0)
-        gated.apply(badge: BadgeSelection.select(
-            openToolNames: ["Bash"], attention: .permissionPrompt))
+        gated.apply(badge: BadgeSelection.select(openToolNames: ["Bash"]))
+        gated.setGated(true)
 
-        #expect(gated.frameSequenceForTesting == ungated.frameSequenceForTesting,
-                "the gate changed how the body moves")
-        #expect(gated.heldObjectForTesting == nil, "the gate left something in the hands")
+        #expect(ungated.frameSequenceForTesting.count > 1, "the ungated body does not move")
+        #expect(bubbleOnly.frameSequenceForTesting == ungated.frameSequenceForTesting,
+                "the attention bubble alone changed how the body moves")
+        #expect(gated.frameSequenceForTesting == [0],
+                "a character stopped at a permission gate is still playing a phrase")
+
+        // The hands are the badge layer's business and are unmoved by this: the
+        // gate empties nothing the bubble did not already empty, and it empties
+        // nothing on a character whose slot still shows its tool.
         #expect(ungated.heldObjectForTesting == .console)
+        #expect(bubbleOnly.heldObjectForTesting == nil, "the bubble left something in the hands")
+        #expect(gated.heldObjectForTesting == .console)
+
+        // Answering the dialog puts the body straight back into its own class's
+        // phrase — no new badge, no new state, nothing else to re-send.
+        gated.setGated(false)
+        #expect(gated.frameSequenceForTesting == ungated.frameSequenceForTesting,
+                "the body did not resume when the gate cleared")
     }
 }

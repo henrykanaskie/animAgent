@@ -50,6 +50,23 @@ public enum SpriteIntent: Sendable, Hashable {
     case setBody(agent: AgentRef, state: BodyState, facing: Facing)
     /// The badge layer. Only ever emitted when it actually changed. [criterion 6]
     case setBadge(agent: AgentRef, selection: BadgeSelection)
+    /// **Whether this character is stopped at a permission gate.** Only ever
+    /// emitted when it actually changed. [ADR-005 §7]
+    ///
+    /// A third channel beside `setBody` and `setBadge`, and it is its own intent
+    /// rather than a field on either of them for the reason §7 gives: the gate
+    /// stops the **motion**, and motion is neither the posture (`setBody`
+    /// carries `working` throughout — a blocked agent is at its desk, in a turn)
+    /// nor the slot (`setBadge` carries whatever the badge layer decided, which
+    /// is the tool glyph for the first six seconds and the attention bubble
+    /// after). Folding it into `BadgeSelection` would put a fact the badge layer
+    /// must ignore inside the value that *is* the badge layer, and give the room
+    /// two representations of one gate — one drawn, one not — for a later reader
+    /// to conflate.
+    ///
+    /// It carries no marked call set. Nothing in the payload names the gated
+    /// call, so there is nothing truthful to name here. [I3]
+    case setGated(agent: AgentRef, isGated: Bool)
     /// The `SubagentStop` choreography, and **a round trip**: step into the
     /// aisle, walk to the anchor, `deliver`, walk back, sit down again.
     ///
@@ -134,9 +151,14 @@ public enum SpriteIntent: Sendable, Hashable {
 /// between them:
 ///
 /// - **motion** — a character animates if and only if its open-call set is
-///   non-empty, keyed on the badge class [`AmbientMotion`];
+///   non-empty *and it is not stopped at a permission gate*, keyed on the badge
+///   class [`AmbientMotion`, ADR-005 §7];
 /// - **posture** — a character is seated (`working`) while it has a turn in
 ///   progress and standing (`idle`) otherwise [`Presentation.isInTurn`].
+///
+/// The gate is on the first of those and on neither of the others: a blocked
+/// agent is at its desk (posture unchanged) wearing whatever the badge layer
+/// decided (slot unchanged), and it is **still**.
 ///
 /// **What this implementation cannot yet say, named rather than left to be
 /// discovered.** ADR-005 §3 closes the turn on `Stop` for the main agent, and
@@ -246,6 +268,24 @@ public struct SceneDirector: Sendable {
         /// dormancy removes an agent from the room by itself, and an agent that
         /// has been asleep for an hour in a quiet room keeps its seat forever.
         var dormantSince: Date?
+        /// From `.gateChanged`: this character is stopped at a permission gate,
+        /// waiting on a human. **Orthogonal to `attention` and to `openCalls`,
+        /// and it is the reason both of those were insufficient.**
+        ///
+        /// Not `attention`: the `Notification` that raises the bubble arrives
+        /// 6.0 s after the `PermissionRequest` that sets this, so a stillness
+        /// keyed on the bubble would leave the room asserting hard work through
+        /// the first six seconds of every block. Not `openCalls`: a gated call
+        /// *is* open — that is the whole defect — so the set says the agent is
+        /// working while the human is the only thing that can move it.
+        ///
+        /// **[I4] It needs no reaper of its own**, for the same structural
+        /// reason `isInTurn` does not: it is a field of a presentation that
+        /// `agentDeparted` removes, and every path that ends the gate without
+        /// ending the character — a marked call closing or being abandoned,
+        /// `Stop`, `SubagentStop`, the answering `UserPromptSubmit` — arrives
+        /// here as `gateChanged(isGated: false)`.
+        var isGated = false
         /// ADR-003's closing beat: the badge that was on screen at the instant
         /// this agent's open-call set emptied by a real close, and when it comes
         /// down. `nil` almost always.
@@ -391,6 +431,10 @@ public struct SceneDirector: Sendable {
     /// keeps the badge from being re-set with the value it already has.
     private var emittedBody: [AgentRef: BodyState] = [:]
     private var emittedBadge: [AgentRef: BadgeSelection] = [:]
+    /// Seeded at spawn with `false`, the same idiom as `emittedBadge`'s `.none`,
+    /// so a character that is never gated — which is every character in fifteen
+    /// of the seventeen fixtures — never receives the intent at all.
+    private var emittedGated: [AgentRef: Bool] = [:]
     /// Seeded at spawn with the plate `spawnCharacter` carried, so the only
     /// `setNameplate` a character ever gets is one that says something the plate
     /// on screen does not.
@@ -463,6 +507,11 @@ public struct SceneDirector: Sendable {
 
     public func badge(_ agent: AgentRef) -> BadgeSelection {
         presentations[agent]?.badge ?? .none
+    }
+
+    /// Whether this character is stopped at a permission gate. [ADR-005 §7]
+    public func isGated(_ agent: AgentRef) -> Bool {
+        presentations[agent]?.isGated ?? false
     }
 
     public func bodyState(_ agent: AgentRef) -> BodyState? {
@@ -616,6 +665,13 @@ public struct SceneDirector: Sendable {
                     // agent can appear idle — `UserPromptSubmit` creates the
                     // main character before its first tool call. [criterion 6]
                     emittedBadge[agent] = BadgeSelection.none
+                    // A character that has just walked in is not at a dialog,
+                    // and `Character` is built ungated, so "set gated to false"
+                    // is an instruction to do nothing. On the project-switch
+                    // reconstruction path a `gateChanged(true)` follows in the
+                    // same batch for an agent that really is blocked, and this
+                    // seeding is what makes that one intent rather than none.
+                    emittedGated[agent] = false
                     appeared.append(agent)
                 } else if let agentType {
                     presentations[agent]?.agentType = agentType
@@ -734,6 +790,23 @@ public struct SceneDirector: Sendable {
                 presentations[agent]?.isInTurn = !isDormant
                 note(&touched, agent)
 
+            case let .gateChanged(agent, isGated):
+                // **Nothing but the motion.** It takes no badge — the slot is
+                // the attention bubble's business and that arrives six seconds
+                // later on its own delta — and it takes no posture: a blocked
+                // agent is at its workstation with a turn in progress, which is
+                // exactly what `working` means since ADR-005 §3, and standing it
+                // up would assert that it walked away from a dialog it is
+                // stopped at. What changes is that the body stops moving.
+                // [ADR-005 §7]
+                //
+                // It does **not** cancel a closing beat. The two cannot coexist:
+                // a beat exists only while the open set is empty, and the mark
+                // is disarmed by the close of any marked call — so by the time a
+                // beat could be armed the gate that named its calls is gone.
+                presentations[agent]?.isGated = isGated
+                note(&touched, agent)
+
             case let .reportDelivered(agent):
                 guard presentations[agent] != nil else { break }
                 presentations[agent]?.reportedThisBatch = true
@@ -747,6 +820,7 @@ public struct SceneDirector: Sendable {
                 assignedVariants.removeValue(forKey: agent)
                 emittedBody.removeValue(forKey: agent)
                 emittedBadge.removeValue(forKey: agent)
+                emittedGated.removeValue(forKey: agent)
                 emittedNameplate.removeValue(forKey: agent)
                 // An agent that never had a seat was never spawned, so there is
                 // no node to walk off. It leaves the overflow count instead,
@@ -870,6 +944,15 @@ public struct SceneDirector: Sendable {
             if emittedBadge[agent] != badge {
                 emittedBadge[agent] = badge
                 intents.append(.setBadge(agent: agent, selection: badge))
+            }
+            // Behind the badge, because the badge is what the phrase is keyed
+            // on: a character that opens a gated call in one batch learns its
+            // class and then that it is not to play it, rather than the reverse.
+            // Both land before the next frame, so this orders the stream and
+            // nothing else. [ADR-005 §7]
+            if emittedGated[agent] != presentation.isGated {
+                emittedGated[agent] = presentation.isGated
+                intents.append(.setGated(agent: agent, isGated: presentation.isGated))
             }
         }
 

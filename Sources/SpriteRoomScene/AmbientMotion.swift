@@ -114,8 +114,8 @@ import Foundation
 /// # What this does not do, stated before anyone hopes otherwise
 ///
 /// **A motion is only as visible as the call is long, and I2 says so.** The body
-/// **moves** exactly while the open-call set is non-empty, and there is no
-/// closing beat for the body — `ADR-003` §2 requires that the body assert no
+/// **moves** exactly while the open-call set is non-empty and no permission gate
+/// is open on it [ADR-005 §7], and there is no closing beat for the body — `ADR-003` §2 requires that the body assert no
 /// ongoing work for any frame of the badge's beat and declares itself void if an
 /// implementation does otherwise, and `CLAUDE.md`'s I2 clause says the badge
 /// slot may carry a fact the body does not *provided the body is truthful for
@@ -259,32 +259,82 @@ public enum AmbientMotion {
     /// exactly where the phrase left it: the motion stops, and nothing jumps.
     public static let seatedStillSequence = [Beat.settled.frameIndex(inFrameCount: 2)]
 
+    /// **A character stopped at a permission gate holds one frame too.**
+    /// [ADR-005 §7]
+    ///
+    /// This is the third and last thing that stops the body, and it is the only
+    /// one of the three that removes motion the room was previously drawing.
+    ///
+    /// **The defect it fixes was the room asserting the opposite of the truth.**
+    /// A `Bash` parked at a dialog is still an *open call*, so until now it kept
+    /// playing `terminal` — `S R`, a 250 ms period, the busiest schedule in the
+    /// table above. Measured on `fixtures/concurrent-permission-gates.jsonl` at
+    /// t=20 s, with two subagents blocked on a human since t=6.45 and t=7.92:
+    /// **3 760 px changing every 125 ms** on each of them. The stuck agents were
+    /// the two busiest-looking characters in the room, in the one channel this
+    /// file's own note measures as the only one that survives `1x`.
+    ///
+    /// The badge layer never had this bug — `BadgeSelection.isAttention` refuses
+    /// to draw `terminal` over a gated `Bash` because "a call parked at a
+    /// permission gate is not running", which is ADR-003 §1's sentence. This is
+    /// that sentence applied to the body.
+    ///
+    /// **It needs no carve-out from I2 and no new art.** It removes motion, and
+    /// nothing needs a licence to move less; it returns the same one-element
+    /// shape `idleSequence` and `seatedStillSequence` already are, so it draws
+    /// zero new pixels and adds no manifest key.
+    ///
+    /// **It does not depend on the attention bubble and must not be made to.**
+    /// The `Notification` that raises the bubble arrives 6.0 s *after* the
+    /// `PermissionRequest` that arms the gate (four measured occurrences), so
+    /// for those six seconds the stillness is the only signal there is. The two
+    /// compose rather than duplicate: the bubble says *the room needs you*, the
+    /// stillness says *and this one is getting nothing done meanwhile*.
+    public static let gatedStillSequence = seatedStillSequence
+
     /// The frame indices a character plays, given what its badge says, whether
-    /// it holds any open call, and how many frames its current animation has.
+    /// it holds any open call, whether it is stopped at a permission gate, and
+    /// how many frames its current animation has.
     ///
     /// - `idle` — standing, which under ADR-005 means *no turn in progress* —
     ///   is `idleSequence`, one held frame.
     /// - `working` with an **empty** open-call set is `seatedStillSequence`, one
     ///   held frame. Seated and still: in a turn, between calls, thinking.
-    /// - `working` with an open call is the badge class's phrase, or the
-    ///   identity sequence for `questionMark` and for `nil` — the shipped loop,
-    ///   byte for byte what this app drew before this file existed.
+    /// - `working` **at a permission gate** is `gatedStillSequence`, one held
+    ///   frame, whatever the badge class says and however many calls are open.
+    ///   Seated and still: blocked on a human, getting nothing done.
+    /// - `working` with an open call and no gate is the badge class's phrase, or
+    ///   the identity sequence for `questionMark` and for `nil` — the shipped
+    ///   loop, byte for byte what this app drew before this file existed.
     /// - every other state is the identity sequence. `walk`, `spawn`, `depart`
     ///   and `deliver` each *are* a real event being told, so they play as
-    ///   authored whatever the open-call set says.
+    ///   authored whatever the open-call set or the gate says. A character
+    ///   cannot be walking and blocked at the same instant in the live stream,
+    ///   and if it were, the walk is the event being told and the gate is a
+    ///   state — the told event wins, exactly as it does over the open-call set.
     ///
     /// - Parameter openCalls: how many tool calls this character is holding.
     ///   **The fact, not a state name** — this is the one input that decides
     ///   whether the body moves, and it is passed in rather than inferred from
     ///   `state`, because since ADR-005 the state name no longer carries it.
+    /// - Parameter isGated: whether this character has an open permission-gate
+    ///   mark — `WorldDelta.gateChanged`. Defaulted to `false` so that every
+    ///   caller who has nothing to say about a gate says nothing, which is the
+    ///   ungated case and is what this function always assumed.
     public static func sequence(
-        for badge: ToolBadge?, state: BodyState, openCalls: Int, frameCount: Int
+        for badge: ToolBadge?, state: BodyState, openCalls: Int, isGated: Bool = false,
+        frameCount: Int
     ) -> [Int] {
         guard frameCount > 0 else { return [0] }
         if state == .idle { return idleSequence }
         let identity = Array(0..<frameCount)
         guard state == .working else { return identity }
         guard openCalls > 0 else { return seatedStillSequence }
+        // Third, and after the open-call test rather than before it only because
+        // the two agree: a gated agent with an empty set is still and a gated
+        // agent holding five calls is still, and the empty case has the older
+        // reason. [ADR-005 §7]
+        guard !isGated else { return gatedStillSequence }
         guard let phrase = phrase(for: badge) else { return identity }
         return phrase.map { $0.frameIndex(inFrameCount: frameCount) }
     }

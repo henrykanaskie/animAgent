@@ -260,7 +260,16 @@ enum SceneArt {
     /// against every variant's head. The third builds its own figure out of three
     /// blocks and checks the measurement itself, so the rule that decides the
     /// depth is still exercised on a checkout with no art.
-    static let expectedGatedTestCount = 71
+    ///
+    /// 72 with ADR-005 §7's stillness at a permission gate:
+    /// `PermissionGateStillnessTests.aCharacterStoppedAtAPermissionGateHoldsOne
+    /// Frame` replays a fixture into a real scene and reads the *texture* each
+    /// blocked character is wearing, sixty times a second for a second. Without
+    /// the pack a `Character` never enters a body state at all, so it would
+    /// assert one held frame about a character that was holding none. The rule
+    /// itself — the third condition in `AmbientMotion.sequence` — is checked
+    /// ungated in `AmbientMotionPolicyTests`, which a fresh clone still runs.
+    static let expectedGatedTestCount = 72
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

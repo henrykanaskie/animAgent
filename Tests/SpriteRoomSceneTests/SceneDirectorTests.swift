@@ -193,6 +193,117 @@ struct SceneDirectorTests {
         }
     }
 
+    // MARK: The permission gate — ADR-005 §7
+
+    /// **The gate is its own channel, and it moves neither of the other two.**
+    ///
+    /// A blocked character is seated (it is in a turn, at its desk — standing it
+    /// up would say it walked away from a dialog it is stopped at) and wears
+    /// whatever the badge layer decided (its tool glyph for the first six
+    /// seconds, the attention bubble after). What changes is that it stops
+    /// moving, and `setGated` is the only intent that says so.
+    @Test func aGateEmitsItsOwnIntentAndMovesNeitherTheBodyNorTheBadge() {
+        var director = Self.director()
+        let agent = Self.ref(.mainThread)
+        _ = director.apply([
+            .agentAppeared(agent: agent, agentType: nil, lifecycle: .active),
+            .callOpened(agent: agent, call: Self.call("a", "Bash")),
+        ])
+
+        let intents = director.apply([.gateChanged(agent: agent, isGated: true)])
+        #expect(intents == [.setGated(agent: agent, isGated: true)])
+        #expect(director.isGated(agent))
+        #expect(director.bodyState(agent) == .working, "the gate stood the character up")
+        #expect(director.badge(agent).badge == .terminal, "the gate took the badge down")
+        #expect(director.badge(agent).count == 1, "the gate closed the call")
+
+        // A change, never a repeat, on the same suppression memory every other
+        // channel uses.
+        #expect(director.apply([.gateChanged(agent: agent, isGated: true)]).isEmpty)
+        #expect(director.apply([.gateChanged(agent: agent, isGated: false)])
+            == [.setGated(agent: agent, isGated: false)])
+        #expect(!director.isGated(agent))
+    }
+
+    /// **A character that is never gated is never told about a gate**, which is
+    /// every character in fifteen of the seventeen fixtures. The memory is
+    /// seeded at spawn, exactly as `emittedBadge` is seeded with `.none`.
+    @Test func anUngatedRoomEmitsNoGateIntents() async throws {
+        for name in ["three-subagents", "four-subagents", "single-agent-simple"] {
+            var director = Self.director()
+            var gates = 0
+            for batch in try await SceneFixtures.batchedDeltas(name) {
+                for intent in director.apply(batch) {
+                    if case .setGated = intent { gates += 1 }
+                }
+            }
+            #expect(gates == 0, "\(name) emitted \(gates) gate intents and holds no gate")
+        }
+    }
+
+    /// **[I4] Nobody is left gated once the reaper has had its say.** The
+    /// scene-side half of the balance the model keeps: a `setGated(true)` that is
+    /// never answered is a character frozen forever, which is the sign-flipped
+    /// twin of the character that types forever.
+    ///
+    /// **The sweep is part of the test rather than an afterthought**, because two
+    /// of the corpus's gates are still open when their event stream ends — the
+    /// pair in `concurrent-permission-gates`, one of which never sees a human at
+    /// all. A character stopped at a dialog nobody ever answered is *correctly*
+    /// still at the end of the stream; what may not happen is for it to be still
+    /// after the session has been presumed dead. So this drives the model
+    /// itself, and then the 30-minute idle sweep, which is exactly the two
+    /// stages `LiveDriver` runs.
+    @Test func noCharacterIsLeftGatedOnceTheReaperHasHadItsSay() async throws {
+        var everGated = 0
+        for name in ["concurrent-permission-gates", "permission-prompt",
+                     "subagent-permission", "denial-then-work"] {
+            let entries = try HookLog.load(contentsOf: SceneFixtures.url(name))
+            let model = WorldModel()
+            var director = Self.director()
+            var gated: Set<AgentRef> = []
+
+            func consume(_ deltas: [WorldDelta], at now: Date) {
+                for intent in director.apply(deltas, at: now) {
+                    switch intent {
+                    case let .setGated(agent, isGated):
+                        if isGated { gated.insert(agent); everGated += 1 }
+                        else { gated.remove(agent) }
+                    // **An exit is an ending too, and it is the one the corpus
+                    // actually takes.** The model clears the gate and departs
+                    // the agent in one batch — the idle sweep abandons the
+                    // marked call, which disarms — and the director suppresses
+                    // the clear for a character it is removing in the same
+                    // frame, because there is no body left to unfreeze. The
+                    // node goes with the walk-off.
+                    case let .exitCharacter(agent, _):
+                        gated.remove(agent)
+                    default:
+                        break
+                    }
+                }
+            }
+
+            for entry in entries {
+                guard let event = entry.event else { continue }
+                consume(await model.ingest(event, at: entry.receivedAt), at: entry.receivedAt)
+            }
+            let last = try #require(entries.last?.receivedAt)
+            let after = last.addingTimeInterval(Reaper().sessionIdleTimeout + 1)
+            consume(await model.sweep(at: after), at: after)
+
+            #expect(gated.isEmpty, Comment(rawValue:
+                "\(name): \(gated.count) character(s) still stopped at a permission gate after"
+                + " the idle sweep — a character frozen forever [I4]"))
+            // And nothing is holding a gated presentation either, which is the
+            // same claim read off the director rather than off its output.
+            for agent in director.seats.keys {
+                #expect(!director.isGated(agent), "\(name): \(agent) is still gated")
+            }
+        }
+        #expect(everGated >= 4, "the gated fixtures stopped producing gates: \(everGated)")
+    }
+
     // MARK: Badge — criterion 3
 
     /// **The close no longer takes the badge down at the close.** ADR-003 leaves
