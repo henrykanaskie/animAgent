@@ -252,7 +252,15 @@ enum SceneArt {
     /// `theSlotTopIsOnePixelAboveTheHighestHeadInTheCast` reads the manifest and
     /// `theSlotAndTheCountChipStayOutOfTheNeighbouringColumn` reads `RoomLayout`
     /// — so a fresh clone still checks the number this change exists to produce.
-    static let expectedGatedTestCount = 69
+    ///
+    /// 71 when the desks stopped covering faces: two of `SeatedHeadOcclusionTests`'s
+    /// three need the pack, because where a seated head ends is a fact about the
+    /// sit frames and the manifest does not record it. One pins the shipped cast's
+    /// chin; the other composites what the scene drew at every seat of every theme
+    /// against every variant's head. The third builds its own figure out of three
+    /// blocks and checks the measurement itself, so the rule that decides the
+    /// depth is still exercised on a checkout with no art.
+    static let expectedGatedTestCount = 71
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

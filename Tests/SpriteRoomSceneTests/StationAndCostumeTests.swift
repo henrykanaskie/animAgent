@@ -517,7 +517,10 @@ struct StationContractTests {
             .compactMap { manifest.characters.variant($0)?.headTopPx }
             .map { manifest.characters.canvas.height - $0 }
         let shortestHead = try #require(heads.min())
-        #expect(shortestHead == 44, "the shortest head moved; the desk limit is derived from it")
+        // Pinned because it is the number this check used to take for the desk
+        // limit and no longer does. It is where a head *starts*; `SeatedHead`
+        // measures where one *ends*, which is the number that was wanted.
+        #expect(shortestHead == 44, "the shortest head's crown moved")
 
         // **It used to check only what a station DECLARES, and that is why the
         // room drew over every face in `library` for a milestone.** A station
@@ -527,22 +530,28 @@ struct StationContractTests {
         // the station *says*. Two themes bound a desk that failed both:
         // `library`'s was 56×70 and `mission_control`'s 44×36.
         //
-        // **Both were re-cut at `1c0eeb3` and the sentence above is history.**
-        // `library` is now **32×44** and `mission_control` **40×36**, so every
-        // desk the room draws is inside both limits and the height branch below
-        // is never taken by shipped art. The check stays because it binds what a
-        // theme *could* bind, and it is the reason the numbers here are quoted
-        // in the past tense — a prose dimension is not a backticked identifier,
-        // so `DocumentedSymbolTests` cannot see it go stale and this comment had
-        // to be corrected by hand.
+        // **Both were re-cut at `1c0eeb3`, and the sentence that stood here
+        // afterwards was wrong in a way worth keeping.** It read: `library` is
+        // now 32×44 and `mission_control` 40×36, so every desk is inside the
+        // limit and the height branch is never taken by shipped art. That was
+        // arithmetically true of the rule as the rule was then written, and the
+        // maintainer was looking at a `mission_control` desk drawn across a
+        // character's nose while it was true. `shortestHead` is where a head
+        // *starts* — its crown, 44 px up — so "44 px or less may go in front"
+        // was the guard's own sentence read upside down: 44 px is the height at
+        // which a surface hides the head **completely**. The chin is at 16–18.
         //
-        // The height limit is now enforced by the scene instead of asserted
-        // against art nobody may edit here: `RoomScene.surfaceDepthBias` puts a
-        // desk taller than the shortest head **behind** the body rather than in
-        // front of it, so it cannot reach a face whatever a theme binds. That is
-        // what this checks, over every desk any theme can put at a seat, and it
-        // fails against a scene that resolves the depth by a constant.
+        // The limit is not this number any more and is not a single number at
+        // all — see `SeatedHeadOcclusionTests`, which measures it off the sit
+        // frames and per column, because a desk's near edge falls at `+12` or
+        // `+8` from the seat and the seated silhouette is a different height at
+        // each. What survives here is the *shape* of the check, over every desk
+        // any theme can put at a seat: whichever branch the scene takes, the two
+        // depths still have to sort in one order.
+        let cast = SeatedHead(
+            frames: RoomScene.seatedFrames(manifest: manifest, facing: layout.seatedFacing))
         var deskCount = 0
+        var inFront = 0
         for (id, room) in try Self.everyTheme(manifest) {
             var desks: [(String, Manifest.PropRole)] = []
             if let inherited = room.prop(RoomScene.surfaceRole) {
@@ -553,12 +562,19 @@ struct StationContractTests {
             }
             for (label, desk) in desks {
                 deskCount += 1
+                // The scene's own two functions, called the way the scene calls
+                // them, so this cannot pass against a room that draws otherwise.
+                // Without art on disk `cast` is empty and the clearance is 0 —
+                // an unmeasurable head is not a head to assume.
+                let clearance = cast?.clearance(
+                    nearEdgeX: RoomScene.surfaceNearEdgeX(of: desk, layout: layout)) ?? 0
                 let bias = RoomScene.surfaceDepthBias(
-                    deskHeight: desk.contentBox.height, headClearance: shortestHead)
+                    deskHeight: desk.contentBox.height, headClearance: clearance)
                 if bias > 0 {
-                    #expect(desk.contentBox.height <= shortestHead, Comment(rawValue:
+                    inFront += 1
+                    #expect(desk.contentBox.height <= clearance, Comment(rawValue:
                         "\(id)/\(label): a \(desk.contentBox.height)px desk is drawn in front"
-                        + " of a head that starts \(shortestHead)px up"))
+                        + " of a body that has \(clearance)px of clear space at that x"))
                 } else {
                     #expect(bias < RoomScene.seatDepthBias, Comment(rawValue:
                         "\(id)/\(label): the desk goes behind the body but not behind the"
@@ -567,6 +583,15 @@ struct StationContractTests {
             }
         }
         #expect(deskCount >= 12, "only \(deskCount) desks were examined")
+        // Without art the clearance is 0 and every desk goes behind, which is the
+        // conservative branch and is correct — but it would also make the branch
+        // above vacuous, so it is only pinned where the art can be read.
+        if SceneArt.isAvailable {
+            #expect(inFront > 0, """
+                every desk in every theme went behind the body. The near-edge cue \
+                is gone from the whole product; the guard is too tight, not too loose.
+                """)
+        }
 
         // **The width limit is not enforceable from here and is bounded
         // instead.** A desk is centred on `deskPosition`, so its right edge
@@ -647,6 +672,10 @@ struct StationContractTests {
     /// Read out of `fixtures/` rather than written down, because a list written
     /// down is a list that stops being true. `fixtures/` is tracked in git, so
     /// this runs on a fresh clone with no art.
+    /// **Also `SeatedHeadOcclusionTests`' way of covering every station** — the
+    /// types the manifest translates are the only way to reach a named station,
+    /// and a station nobody can be seated at is a station this suite would test
+    /// in the abstract while the room drew something else.
     static func agentTypesInFixtures() throws -> Set<String> {
         let directory = SceneFixtures.repositoryRoot.appending(path: "fixtures")
         var found: Set<String> = []
@@ -835,6 +864,14 @@ struct CostumeTests {
         // In phase: the layer's texture changes on exactly the frames the body's
         // does, over a full loop of the seated pose.
         character.apply(state: .working, facing: .right, startingAt: 0)
+        // **An open call, because after ADR-005 `working` alone no longer moves.**
+        // The posture is keyed to the turn and the motion to the open-call set, so
+        // a seated character with an empty set correctly holds one frame — which
+        // is the whole fix, and it would make this test's premise unreachable.
+        // What the test is actually about is whether the costume stays in phase
+        // with a body that *is* animating, so it has to give the body a reason to
+        // animate.
+        character.apply(badge: BadgeSelection.select(openToolNames: ["Bash"]))
         var seen: Set<ObjectIdentifier> = []
         var frames = 0
         for step in 0..<24 {
@@ -965,6 +1002,353 @@ struct CostumeContractTests {
                 #expect(FileManager.default.fileExists(atPath: manifest.url(path).path),
                         "costume \(id) names \(path), which is not on disk")
             }
+        }
+    }
+}
+
+// MARK: - The tables must not cut the head off the sprite
+
+/// **The maintainer's complaint, made mechanical: "the tables cut off the head
+/// of the sprite".**
+///
+/// The room draws a desk at every seat and, since ADR-002, a station's own desk
+/// under whoever is sitting there. A desk short enough to sit at is drawn *in
+/// front of* the body on purpose — at 32 px the only cue that a character is
+/// sitting **at** a desk rather than beside one is whether its near edge crosses
+/// the body — and `RoomScene.surfaceDepthBias(deskHeight:headClearance:)` is the
+/// guard that keeps the crossing off the face.
+///
+/// The guard was passed `canvas.height − head_top_px`, which is where a head
+/// *starts*: 44 px above the feet on the shortest of the cast. So it read "a
+/// 44 px desk may go in front", and 44 px is the height at which a desk covers a
+/// head **entirely**. `mission_control` binds a 40×36 desk and `library` a
+/// 32×44, both drawn at every seat by `buildRoom` whether anyone is sitting
+/// there or not, and both went in front.
+///
+/// **These tests are about pixels, because nothing else could see it.** Every
+/// assertion in `everyStationFitsTheSeatItIsDrawnAt` passed the whole time: the
+/// desk was declared, placed, anchored, sized and depth-sorted correctly, and
+/// the branch it took was the branch the rule asked for. Counts, positions and
+/// ids agree with a desk drawn across a face. Only the picture disagrees.
+@MainActor
+struct SeatedHeadOcclusionTests {
+
+    // MARK: The measurement
+
+    /// **Where the head line comes from, on art this test draws itself.**
+    ///
+    /// No pack, no manifest, no cast — a figure assembled here out of three
+    /// blocks so the property being claimed is separable from the six sprites it
+    /// happens to hold for. A wide head, a narrow neck, a narrower torso:
+    /// `SeatedHead.neckRow` has to find the pinch, and the clearance it reports
+    /// has to be the head's **bottom** and has to differ column by column.
+    ///
+    /// **The figure is shaped the way this art is shaped, and that is the
+    /// measurement's one precondition stated out loud:** the head is the widest
+    /// part of a seated body here, because the hair is. A figure whose torso were
+    /// wider would have no pinch below its widest row and is answered "all head",
+    /// which sends every surface behind it — the conservative reading, and the
+    /// one to keep for art this cannot interpret.
+    ///
+    /// 32×64 like the real canvas: head 20 wide on rows 10…29, neck 4 wide on
+    /// rows 30…31, torso 12 wide on rows 32…63. So the chin is row 29, whose own
+    /// bottom edge is `64 − 1 − 29` = **34 px** above the feet, and that is what a
+    /// surface standing under the head may reach.
+    @Test func theHeadLineIsTheSilhouettesOwnPinchNotTheTopOfTheCanvas() throws {
+        var figure = Bitmap(width: 32, height: 64)
+        let ink = Bitmap.RGBA(20, 20, 20, 255)
+        figure.fill(x: 6, y: 10, w: 20, h: 20, ink)    // head, columns 6…25
+        figure.fill(x: 14, y: 30, w: 4, h: 2, ink)     // neck, columns 14…17
+        figure.fill(x: 10, y: 32, w: 12, h: 32, ink)   // torso, columns 10…21
+
+        #expect(SeatedHead.neckRow(of: figure) == 30, """
+            the head line was not found at the pinch. It is the first row of the \
+            narrowest run below the widest row, and on this figure that is row 30.
+            """)
+
+        let head = try #require(SeatedHead(frames: [figure]))
+        #expect(head.canvasWidth == 32)
+        #expect(head.canvasHeight == 64)
+        #expect(head.framesMeasured == 1)
+        #expect(head.headPixelCount == 20 * 20)
+
+        // Under the head, a surface may reach the chin's own bottom edge and no
+        // further. **Not the crown**, which is 20 px higher and is the kind of
+        // number the shipped room was using.
+        #expect(head.clearance(nearEdgeX: 0) == 34)
+        #expect(head.clearance(nearEdgeX: -16) == 34)
+        // Right of the head, there is nothing to cover: full canvas height. The
+        // head's last column is 25, whose right edge is at x = +10 from the centre.
+        #expect(head.clearance(nearEdgeX: 10) == 64, """
+            a surface standing clear of the head to the right was still limited \
+            by it. The profile is being read as a bounding box.
+            """)
+        // And a near edge landing inside a column covers the whole of it.
+        #expect(head.clearance(nearEdgeX: 9) == 34)
+        #expect(head.clearance(nearEdgeX: 9.5) == 34, "a near edge inside a column must cover it")
+        // The torso is not head: a surface may cross it to any height the chin
+        // allows, which is what keeps the near-edge cue.
+        #expect(head.clearance(nearEdgeX: 6) == 34)
+
+        // A blank frame is not a head.
+        #expect(SeatedHead.neckRow(of: Bitmap(width: 32, height: 64)) == nil)
+        #expect(SeatedHead(frames: [Bitmap(width: 32, height: 64)]) == nil)
+        #expect(SeatedHead(frames: []) == nil)
+
+        // A figure that never narrows below its widest row is all head, and a
+        // surface may not stand in front of it at all.
+        var slab = Bitmap(width: 32, height: 64)
+        slab.fill(x: 8, y: 8, w: 16, h: 56, ink)
+        #expect(SeatedHead.neckRow(of: slab) == 64)
+        #expect(try #require(SeatedHead(frames: [slab])).clearance(nearEdgeX: 0) == 0)
+    }
+
+    /// The same measurement over the cast that ships. Pinned, so a re-cut sprite
+    /// or a change of cast is reported rather than silently moving the limit that
+    /// decides whether the room draws over a face.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theShippedCastsChinIsWhereTheDesksAreMeasuredAgainst() throws {
+        let manifest = try SceneFixtures.manifest()
+        let layout = RoomLayout()
+        let frames = RoomScene.seatedFrames(manifest: manifest, facing: layout.seatedFacing)
+        #expect(frames.count == 18, "six variants of three sit frames were expected")
+        let head = try #require(SeatedHead(frames: frames))
+        #expect(head.framesMeasured == 18)
+
+        // The two desk widths any theme ships, and the two answers they get. A
+        // 32 px desk's near edge falls at +12 and a 40 px desk's at +8; the
+        // silhouette is 26 px clear at the first and 16 at the second, because
+        // the hair is wide and the chin is not.
+        #expect(head.clearance(nearEdgeX: 12) == 26)
+        #expect(head.clearance(nearEdgeX: 8) == 16)
+        // Monotone: standing further right can only ever be safer.
+        for x in stride(from: -16.0, through: 15.0, by: 1) {
+            #expect(head.clearance(nearEdgeX: x) <= head.clearance(nearEdgeX: x + 1),
+                    "the profile is not monotone at x = \(x)")
+        }
+
+        // And the crown is emphatically not the answer. 44 is what the room used
+        // to compare against — the *shortest* variant's head-above-feet, which is
+        // the largest `head_top_px` — and at every x it is above the clearance,
+        // which is the whole defect in one line.
+        let crown = manifest.characters.variants.values
+            .map { manifest.characters.canvas.height - $0.headTopPx }.min() ?? 0
+        #expect(crown == 44)
+        #expect(head.clearance(nearEdgeX: 12) < crown)
+        #expect(head.clearance(nearEdgeX: 8) < crown)
+    }
+
+    // MARK: The proof
+
+    /// **Nothing the room draws in front of a seated body covers its head — over
+    /// every theme, every station, every variant and every frame of the sit
+    /// loop.**
+    ///
+    /// It reads what the scene *drew*: `RoomScene.furnitureForTesting(seat:)`
+    /// reports each piece's path, position, anchor, size and depth, so the
+    /// arithmetic under test is the scene's own placement rather than a
+    /// re-derivation of it that could agree with itself while disagreeing with
+    /// the picture. A piece is "in front" when its `zPosition` is greater than
+    /// the seated character's, which is the same comparison SpriteKit makes.
+    ///
+    /// It fails loudly against the shipped code as of `005cf5f`: `library` covers
+    /// hair on five of six variants and `mission_control` covers 68–136 pixels of
+    /// face on all six, the desk's top edge landing at eye level.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func nothingTheRoomDrawsInFrontOfASeatedBodyCoversItsHead() throws {
+        let manifest = try SceneFixtures.manifest()
+        let layout = RoomLayout()
+        let masks = try Self.headMasks(manifest, facing: layout.seatedFacing)
+        #expect(masks.count == 18, "the cast's seated frames did not load")
+
+        var violations: Set<String> = []
+        var piecesChecked = 0
+        var inFrontChecked = 0
+        var themesChecked = 0
+
+        for (themeID, _) in try StationContractTests.everyTheme(manifest) {
+            themesChecked += 1
+            let id: String? = themeID == "room" ? nil : themeID
+            for batch in try Self.stationBatches(manifest, themeID: id, layout: layout) {
+                let scene = RoomScene(manifest: manifest, themeID: id)
+                scene.setViewport(CGSize(width: 720, height: 400))
+                var director = SceneDirector(manifest: manifest, themeID: id)
+                let cast = StationSceneTests.cast(batch.count + 1)
+                var deltas: [WorldDelta] = [
+                    .agentAppeared(agent: cast[0], agentType: nil, lifecycle: .active),
+                ]
+                for (index, type) in batch.enumerated() {
+                    deltas.append(.agentAppeared(
+                        agent: cast[index + 1], agentType: type, lifecycle: .spawning))
+                }
+                scene.apply(director.apply(deltas))
+
+                for seat in 0..<layout.seatCapacity {
+                    let origin = layout.seatPosition(seat)
+                    let bodyZ = Double(Character.Layer.rowDepth(origin.y))
+                    for piece in scene.furnitureForTesting(seat: seat) {
+                        piecesChecked += 1
+                        guard piece.z > bodyZ else { continue }
+                        inFrontChecked += 1
+                        for path in Self.framesOf(piece.path, in: manifest, themeID: id) {
+                            guard let art = try? PixelImage.bitmap(
+                                contentsOf: manifest.url(path)) else { continue }
+                            for mask in masks {
+                                let hit = Self.headPixelsCovered(
+                                    head: mask, at: origin, canvas: manifest.characters.canvas,
+                                    by: art, piece: piece)
+                                guard hit.count > 0 else { continue }
+                                // Keyed without the seat: every seat draws the
+                                // same furniture, so seven copies of one line is
+                                // an unreadable failure rather than a fuller one.
+                                violations.insert("""
+                                      \(themeID): \(path.split(separator: "/").last ?? "") \
+                                    covers up to \(hit.count)px of variant \(mask.variant)'s \
+                                    head (canvas rows \(hit.minRow)…\(hit.maxRow), \
+                                    columns \(hit.minColumn)…\(hit.maxColumn))
+                                    """)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pinned on both sides. A walk that stopped finding furniture, or one
+        // that never found a piece in front of a body, would report exactly the
+        // clean run this is meant to distinguish from — and "nothing is in front
+        // of anybody" is itself a defect, because the near-edge cue is the reason
+        // the in-front branch exists.
+        #expect(themesChecked >= 7, "only \(themesChecked) rooms were dressed")
+        #expect(piecesChecked >= 140, "only \(piecesChecked) pieces of furniture were examined")
+        #expect(inFrontChecked >= 30, """
+            only \(inFrontChecked) pieces were drawn in front of a body. Either the \
+            walk found nothing, or every desk in the product has gone behind the \
+            character and the near-edge cue is gone.
+            """)
+        let reported = violations.sorted().prefix(12)
+        #expect(violations.isEmpty, Comment(rawValue: """
+            \(violations.count) theme/piece/variant combination(s) draw furniture \
+            over a seated character's head:
+            \(reported.joined(separator: "\n"))
+            \(violations.count > reported.count ? "  …and \(violations.count - reported.count) more" : "")
+            A surface drawn in front of the body may cross it and may not reach \
+            the face. `RoomScene.seatedHeadClearance(nearEdgeX:)` is the limit, \
+            and it is the head's chin rather than its crown.
+            """))
+    }
+
+    // MARK: Machinery
+
+    /// One variant's seated frame, with its head band already resolved.
+    struct HeadMask {
+        let variant: String
+        let frame: Bitmap
+        /// First row that is not head.
+        let neck: Int
+    }
+
+    static func headMasks(_ manifest: Manifest, facing: Facing) throws -> [HeadMask] {
+        var masks: [HeadMask] = []
+        for id in manifest.characters.orderedVariantIDs {
+            guard let variant = manifest.characters.variant(id),
+                  let animation = variant.animation(.working),
+                  let paths = animation.frames(facing: facing) else { continue }
+            for path in paths {
+                guard let frame = try? PixelImage.bitmap(contentsOf: manifest.url(path)),
+                      let neck = SeatedHead.neckRow(of: frame) else { continue }
+                masks.append(HeadMask(variant: id, frame: frame, neck: neck))
+            }
+        }
+        return masks
+    }
+
+    /// Which head pixels of `head`, seated at `origin`, a piece of furniture
+    /// covers.
+    ///
+    /// **Both rectangles are placed the way SpriteKit places them** — bottom-left
+    /// from the node's own anchor, size and position, all of which
+    /// `DrawnFurniture` carries out of the live scene — so this cannot invent an
+    /// overlap by using a different convention from the renderer. A character is
+    /// bottom-centre-anchored on its seat by `RoomScene`, which is where the
+    /// second rectangle comes from.
+    static func headPixelsCovered(
+        head: HeadMask, at origin: ScenePoint, canvas: Manifest.Size,
+        by art: Bitmap, piece: RoomScene.DrawnFurniture
+    ) -> (count: Int, minRow: Int, maxRow: Int, minColumn: Int, maxColumn: Int) {
+        let bodyLeft = origin.x - Double(canvas.width) / 2
+        let bodyTop = origin.y + Double(canvas.height)
+        let artLeft = piece.x - piece.anchorX * piece.width
+        let artTop = piece.y - piece.anchorY * piece.height + piece.height
+
+        var count = 0
+        var minRow = Int.max, maxRow = Int.min, minColumn = Int.max, maxColumn = Int.min
+        for row in 0..<min(head.neck, head.frame.height) {
+            for column in 0..<head.frame.width where head.frame.at(column, row).a > 0 {
+                // The pixel's own cell in scene coordinates, then the same cell
+                // read out of the piece.
+                let sceneX = bodyLeft + Double(column)
+                let sceneTop = bodyTop - Double(row)
+                let artColumn = Int((sceneX - artLeft).rounded())
+                let artRow = Int((artTop - sceneTop).rounded())
+                guard artColumn >= 0, artColumn < art.width,
+                      artRow >= 0, artRow < art.height,
+                      art.at(artColumn, artRow).a > 0 else { continue }
+                count += 1
+                minRow = min(minRow, row); maxRow = max(maxRow, row)
+                minColumn = min(minColumn, column); maxColumn = max(maxColumn, column)
+            }
+        }
+        return (count, minRow, maxRow, minColumn, maxColumn)
+    }
+
+    /// Every frame behind a drawn piece, not only the one on the node.
+    ///
+    /// `DrawnFurniture` carries frame 0; an animated role's other frames sit in
+    /// the same canvas and are anchored by the same union content box, so they
+    /// land in the same place and have to be checked too. A guard that clears
+    /// frame 0 of a swinging prop and nothing else clears one twelfth of it.
+    static func framesOf(_ path: String, in manifest: Manifest, themeID: String?) -> [String] {
+        var found: Set<String> = [path]
+        let room = manifest.room(theme: themeID)
+        var roles: [Manifest.PropRole] = []
+        for role in [RoomScene.surfaceRole, RoomScene.seatRole,
+                     RoomScene.backdropRole, RoomScene.accentRole] {
+            if let prop = room.prop(role) { roles.append(prop) }
+        }
+        for stationID in room.orderedStationIDs {
+            guard let station = room.station(stationID) else { continue }
+            roles += [station.desk, station.chair]
+            if let prop = station.prop { roles.append(prop) }
+        }
+        for role in roles where role.file == path {
+            found.formUnion(role.animation?.frames ?? [])
+        }
+        return found.sorted()
+    }
+
+    /// Agent types that between them reach **every station the theme binds**,
+    /// chunked to fit the room.
+    ///
+    /// A station is only reachable by the `agent_type` the manifest translates,
+    /// so the batches are built out of `stationRoles` rather than out of station
+    /// ids — testing a station the resolver cannot reach would be testing
+    /// something the room never draws. `main` arrives with the main thread, which
+    /// every batch carries, and `default` with a type nothing translates.
+    static func stationBatches(_ manifest: Manifest, themeID: String?, layout: RoomLayout)
+    throws -> [[String]] {
+        let room = manifest.room(theme: themeID)
+        var representative: [String: String] = [:]     // station id → agent type
+        for (type, station) in room.stationRoles where representative[station] == nil {
+            representative[station] = type
+        }
+        // Plus one type nothing translates, which is how `default` is reached.
+        var types = representative.values.sorted()
+        types.append("no-such-agent-type-\(themeID ?? "room")")
+
+        let perRoom = max(1, layout.seatCapacity - 1)   // the main thread takes one
+        return stride(from: 0, to: types.count, by: perRoom).map {
+            Array(types[$0..<min($0 + perRoom, types.count)])
         }
     }
 }

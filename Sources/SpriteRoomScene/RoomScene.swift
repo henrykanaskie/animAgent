@@ -319,40 +319,116 @@ public final class RoomScene: SKScene {
     /// and a room whose characters have no faces cannot be read at all. Losing a
     /// depth cue costs less than losing the character.
     ///
-    /// **Those two numbers are history now, and the tense matters.** `1c0eeb3`
-    /// re-cut both: `library` is **32×44** and `mission_control` **40×36**, and
-    /// 44 is exactly `seatedHeadClearance`. So no desk any shipped theme binds
-    /// takes this branch — the room draws every one of them in front of the body
-    /// and the near-edge cue survives everywhere. That makes the rule a standing
-    /// guard against art nobody has bound yet rather than a description of what
-    /// the room does, which is a weaker claim than the paragraph above made and
-    /// is the true one. It is not dead code and must not be deleted as such:
-    /// deleting it restores the defect the moment a theme binds a tall desk, and
-    /// `everyStationFitsTheSeatItIsDrawnAt` is what would notice.
+    /// **The paragraph above was corrected once and is now corrected again, and
+    /// the second correction is the interesting one.** `1c0eeb3` re-cut both
+    /// desks — `library` to **32×44** and `mission_control` to **40×36** — and
+    /// the note that stood here concluded that no desk any shipped theme binds
+    /// took this branch, so the rule was a standing guard rather than a live one.
+    /// That conclusion was arithmetically correct *about the rule as written* and
+    /// wrong about the room: the maintainer's `mission_control` desk was drawn in
+    /// front of the body with its top edge at eye level, across the nose, the
+    /// mouth and the jaw, which is the defect the paragraph above says this
+    /// constant exists to prevent. The branch is **live** — `library` and
+    /// `mission_control` both take it now — and what changed is not the art but
+    /// the number the rule compares against. See `seatedHeadClearance(nearEdgeX:)`.
     nonisolated static let surfaceBehindBias: CGFloat = -0.5
 
-    /// Which of the two a desk of this height gets. `headClearance` is how far
-    /// above its own feet the shortest variant's head starts — 44 px on the
-    /// shipped cast — so anything at or under it can be drawn in front without
-    /// reaching a face.
+    /// Which of the two a desk of this height gets. `headClearance` is how tall a
+    /// surface standing at this desk's own near edge may be before it covers a
+    /// head pixel — `seatedHeadClearance(nearEdgeX:)`, which measures it.
+    ///
+    /// **This function never changed and never had to.** What was passed to it
+    /// did: for six milestones `headClearance` was `canvas.height − head_top_px`,
+    /// which is how far above its feet the head *starts*. That is the head's top,
+    /// so it is the height at which a surface covers the head **completely**, and
+    /// passing it here read the guard's own sentence backwards.
     nonisolated static func surfaceDepthBias(deskHeight: Int, headClearance: Int) -> CGFloat {
         deskHeight <= headClearance ? surfaceInFrontBias : surfaceBehindBias
     }
 
-    /// How far above its own feet the **shortest** variant's head starts, from
-    /// the manifest rather than from a constant. The shortest, because a limit
-    /// that only holds for the tall half of the cast is not a limit.
-    var seatedHeadClearance: Int {
-        let characters = store.manifest.characters
-        let heads = characters.variants.values.map { characters.canvas.height - $0.headTopPx }
-        return heads.min() ?? characters.canvas.height
+    /// **How tall a surface may stand at a seat before it covers a face, as a
+    /// function of how far to the character's right its near edge falls.**
+    ///
+    /// Two things about this are corrections rather than refinements, and both
+    /// were rendered before they were written down.
+    ///
+    /// **It is the head's bottom, not its top.** `head_top_px` is the only head
+    /// datum the manifest carries and it is the *crown*: 44 px above the feet on
+    /// the shortest of the cast. The chin is at **16–18 px**. A 44 px desk drawn
+    /// in front does not "just reach" the head, it hides all of it.
+    ///
+    /// **And height alone does not decide it.** A desk is centred seven eighths
+    /// of a tile to the character's right, so a 32 px desk's near edge falls at
+    /// `+12` from the seat and a 40 px desk's at `+8`. The seated silhouette is
+    /// widest at the hair, rows that reach `+13` to `+15`, and narrowest at the
+    /// chin, which reaches only `+9`. So the answer is genuinely two-dimensional:
+    /// at `+12` a surface may stand **26 px** without touching a head, and at
+    /// `+8` only **16**. A single number for the whole cast would have to be 16,
+    /// which puts every desk in every theme behind the body and spends the
+    /// near-edge cue in four themes that never had the defect.
+    ///
+    /// Measured off the sit frames themselves, because nothing in the manifest
+    /// says where a head ends. `nil` — no cast, or art that will not load — is
+    /// answered `0`, which sends every surface behind: a clearance we cannot
+    /// measure is not a clearance we may assume.
+    func seatedHeadClearance(nearEdgeX: Double) -> Int {
+        guard let head = seatedHeadMeasurement else { return 0 }
+        return head.clearance(nearEdgeX: nearEdgeX)
     }
 
-    /// The bias for one desk, measured off its own content box.
+    /// Measured once per scene, off the art the scene is about to draw.
+    private lazy var seatedHeadMeasurement: SeatedHead? = SeatedHead(
+        frames: Self.seatedFrames(manifest: store.manifest, facing: layout.seatedFacing))
+
+    /// Every seated frame of every variant, as pixels.
+    ///
+    /// The **whole cast**, because a clearance that only holds for the short half
+    /// of it is not a clearance, and every **frame**, because the sit loop moves:
+    /// the third frame's head sits 2 px lower than the first's, and a rule
+    /// measured on frame 0 alone would be wrong for a third of every second.
+    ///
+    /// **One facing, and it is `RoomLayout.seatedFacing` rather than a choice
+    /// made here.** The two sit facings are pixel-exact mirrors, so measuring
+    /// both would put the hair's widest rows at *both* edges of the canvas and
+    /// hand every desk in the room the clearance of a character sitting the wrong
+    /// way round — which cost `office` its near-edge cue the first time this was
+    /// written. Every seated character in this room faces the same way, the
+    /// layout says which, and this asks it.
+    nonisolated static func seatedFrames(manifest: Manifest, facing: Facing) -> [Bitmap] {
+        var frames: [Bitmap] = []
+        for id in manifest.characters.orderedVariantIDs {
+            guard let variant = manifest.characters.variant(id),
+                  let animation = variant.animation(.working),
+                  let paths = animation.frames(facing: facing) else { continue }
+            for path in paths {
+                guard let bitmap = try? PixelImage.bitmap(contentsOf: manifest.url(path))
+                else { continue }
+                frames.append(bitmap)
+            }
+        }
+        return frames
+    }
+
+    /// The bias for one desk, measured off its own content box **and off where
+    /// the layout puts it**. The second half is what the height-only version
+    /// missed: the same 36 px desk clears every head at `+12` and covers six of
+    /// them at `+8`, and nothing about the desk's own box says which it is.
     private func surfaceDepthBias(for prop: Manifest.PropRole?) -> CGFloat {
         guard let prop else { return Self.surfaceInFrontBias }
         return Self.surfaceDepthBias(
-            deskHeight: prop.contentBox.height, headClearance: seatedHeadClearance)
+            deskHeight: prop.contentBox.height,
+            headClearance: seatedHeadClearance(nearEdgeX: Self.surfaceNearEdgeX(
+                of: prop, layout: layout)))
+    }
+
+    /// How far to the character's right a desk's near edge falls, in seat-relative
+    /// scene pixels. The desk is centred on `deskPosition` and anchored on its own
+    /// content box, so this is the layout's offset less half the box.
+    nonisolated static func surfaceNearEdgeX(
+        of prop: Manifest.PropRole, layout: RoomLayout
+    ) -> Double {
+        let centre = layout.deskPosition(0).x - layout.seatPosition(0).x
+        return centre - Double(prop.contentBox.width) / 2
     }
 
     /// The theme-wide desk and chair drawn at each seat at build time.
@@ -1008,5 +1084,121 @@ public final class RoomScene: SKScene {
         var seats = Array(seatOf.values)
         if !seats.contains(0) { seats.append(0) }
         return seats
+    }
+}
+
+/// **Where the seated cast's head is, measured off the sit frames.**
+///
+/// Nothing in `assets/manifest.json` answers this. `head_top_px` is the crown
+/// and there is no matching datum for the chin, so the number that decides
+/// whether a desk covers a face had to be either invented or measured, and this
+/// measures it. The sit frames are on disk, the scene already opens them to make
+/// textures, and reading their alpha is the same kind of act as reading a prop's
+/// `content_box` — a placement decided by the art rather than by a constant.
+///
+/// **It answers a profile, not a number.** A surface standing at a seat covers
+/// everything from the floor up to its own height, but only from its near edge
+/// rightward — and a seated head is not a rectangle. The hair is the widest part
+/// of the sprite and reaches `+13` to `+15` from the seat; the chin is the
+/// narrowest and reaches `+9`. So "how tall may a surface be" has a different
+/// answer at every x, and collapsing it to one number costs four themes their
+/// near-edge cue for a defect only two of them had.
+public struct SeatedHead: Sendable, Hashable {
+
+    public let canvasWidth: Int
+    public let canvasHeight: Int
+    /// How many frames went into it. Pinned by a test, because a measurement
+    /// taken over zero frames is indistinguishable in its output from a
+    /// measurement taken over the cast.
+    public let framesMeasured: Int
+    /// How many head pixels were found, for the same reason.
+    public let headPixelCount: Int
+
+    /// `suffixClearance[c]` — the tallest a surface whose near edge falls at or
+    /// left of canvas column `c` may be without covering a head pixel. Suffix-
+    /// minimised, so it is monotone: standing further right can only ever be
+    /// safer.
+    private let suffixClearance: [Int]
+
+    /// `nil` when there is nothing to measure — an empty cast, or art that will
+    /// not load. The caller answers that with the conservative branch rather than
+    /// with a guess.
+    public init?(frames: [Bitmap]) {
+        guard let first = frames.first, first.width > 0, first.height > 0 else { return nil }
+        let width = first.width, height = first.height
+        var perColumn = [Int](repeating: Int.max, count: width)
+        var pixels = 0
+        var measured = 0
+        for frame in frames where frame.width == width && frame.height == height {
+            guard let neck = Self.neckRow(of: frame) else { continue }
+            measured += 1
+            for y in 0..<min(neck, height) {
+                for x in 0..<width where frame.at(x, y).a > 0 {
+                    pixels += 1
+                    // The pixel's own bottom edge, in scene pixels above the feet:
+                    // a surface exactly this tall touches it without covering it.
+                    perColumn[x] = min(perColumn[x], height - 1 - y)
+                }
+            }
+        }
+        guard measured > 0, pixels > 0 else { return nil }
+        var suffix = perColumn
+        for index in stride(from: width - 2, through: 0, by: -1) {
+            suffix[index] = min(suffix[index], suffix[index + 1])
+        }
+        self.canvasWidth = width
+        self.canvasHeight = height
+        self.framesMeasured = measured
+        self.headPixelCount = pixels
+        self.suffixClearance = suffix
+    }
+
+    /// How tall a surface whose near edge falls `nearEdgeX` scene pixels to the
+    /// right of the seat may stand before it covers a head pixel.
+    ///
+    /// The column is taken with `floor`, so a near edge landing inside a column
+    /// counts as covering the whole of it. Partial coverage of a face pixel is
+    /// coverage.
+    public func clearance(nearEdgeX: Double) -> Int {
+        let column = Int((nearEdgeX + Double(canvasWidth) / 2).rounded(.down))
+        if column < 0 { return suffixClearance[0] }
+        if column >= canvasWidth { return canvasHeight }
+        return suffixClearance[column] == Int.max ? canvasHeight : suffixClearance[column]
+    }
+
+    /// **The first row of the sprite that is not head**, from the silhouette
+    /// alone.
+    ///
+    /// A seated character in this art is a head over a torso, and between them
+    /// the outline pinches: the widest rows are the hair, and the narrowest rows
+    /// below the hair are the neck and shoulders. So the neck is the first row of
+    /// the narrowest run below the widest row, and everything above it is head.
+    ///
+    /// Measured on the shipped cast this lands at rows **46, 48, 46, 46, 46, 48**
+    /// for variants 06, 07, 09, 10, 17 and 19 — chin height 16–18 px above the
+    /// feet. Two independent checks agree with it: drawn over the sprites the
+    /// line sits on the jaw, and every one of the twelve shipped costumes — an
+    /// outfit, which clothes a torso and not a head — begins at row 46, 47 or 48.
+    ///
+    /// `nil` for a blank frame. A frame whose widest row is its last is answered
+    /// with "all head", which is the conservative reading of art this cannot
+    /// interpret.
+    public static func neckRow(of frame: Bitmap) -> Int? {
+        var counts = [Int](repeating: 0, count: frame.height)
+        for y in 0..<frame.height {
+            var run = 0
+            for x in 0..<frame.width where frame.at(x, y).a > 0 { run += 1 }
+            counts[y] = run
+        }
+        let inked = counts.indices.filter { counts[$0] > 0 }
+        guard let lastInk = inked.last, let widest = counts.max(), widest > 0 else { return nil }
+        guard let lastWidest = counts.indices.last(where: { counts[$0] == widest })
+        else { return nil }
+        guard lastWidest < lastInk else { return lastInk + 1 }
+        var row = lastWidest
+        while row + 1 <= lastInk, counts[row + 1] <= counts[row] { row += 1 }
+        let narrowest = counts[row]
+        while row - 1 > lastWidest, counts[row - 1] == narrowest { row -= 1 }
+        return row
     }
 }

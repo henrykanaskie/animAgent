@@ -1200,6 +1200,40 @@ Two consequences the implementer of a future theme should hold:
   > 8 and the 2). The change is in `scripts/process-assets.py`'s theme table and
   > regenerated; `docs/04-ART-DIRECTION.md` carries the art reasoning.
 
+> ### The number in this amendment was the wrong end of the head, and the desks went on covering faces
+>
+> **Corrected 2026-08-09, task #60, after the maintainer reported "the tables cut
+> off the head of the sprite" against a live room.** Everything above about
+> *depth being a choice* stands and is the right frame. The **44** is wrong, and
+> the sentence "in front at or under the shortest head" is the defect stated as
+> if it were the fix.
+>
+> 44 px is `canvas.height − head_top_px`: where the shortest variant's head
+> **starts** — its crown. So "a 44 px desk may be drawn in front" says a desk may
+> stand from the floor to the top of the head, which is total occlusion, not
+> clearance. The chin is at **16–18 px**. Nothing in `assets/manifest.json`
+> records it; the manifest carries a head-top and no head-bottom, which is why a
+> guard written from the manifest alone could only have got this wrong.
+>
+> And **height alone was never the whole question.** A desk is centred seven
+> eighths of a tile to the character's right, so its near edge falls at `+12`
+> (a 32 px box) or `+8` (a 40 px box), while the seated silhouette is widest at
+> the hair — reaching `+13` to `+15` — and narrowest at the chin. A surface may
+> stand **26 px** at `+12` and only **16 px** at `+8`. One number for the cast
+> would have to be 16, which sends every desk in every theme behind the body and
+> spends the near-edge cue in the four themes that never had the defect.
+>
+> `RoomScene.seatedHeadClearance(nearEdgeX:)` is the limit now. It measures the
+> seated cast's own sit frames — `SeatedHead`, the head being everything above
+> the silhouette's pinch — and answers a profile rather than a number.
+> `SeatedHeadOcclusionTests` is the proof, and it is about pixels because nothing
+> else could see this: the desk was declared, placed, anchored, sized and
+> depth-sorted correctly the whole time, and took exactly the branch the rule
+> asked for. On the shipped art `mission_control`'s desk covered 68–136 px of
+> face on all six variants with its top edge at eye level, and `library`'s
+> covered hair on five; both now draw behind the body, and the other four themes
+> are pixel-identical to before.
+
 ## 14e. Amendment, 2026-08-09 — seven seats, and the eighth agent
 
 Nothing in this ADR says how many agents the room can hold, because §2c's
