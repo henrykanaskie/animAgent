@@ -171,6 +171,34 @@ THEMES = {
         (54, 54, "copier_on_counter"),
         (55, 75, "bookcase_tall"),
     ],
+    # Condominium is a stairwell set: 60 of its 86 props are flights of stairs
+    # in grey, wood and red carpet, with and without banisters. Useful as
+    # architecture rather than as furniture.
+    "interiors/condominium": [
+        (1, 22, "stairs_flight"),
+        (23, 24, "arrow_marker"),
+        (25, 62, "stairs_flight"),
+        (63, 70, "doormat"),
+        (71, 73, "parcel_box"),
+        (74, 75, "wall_sign"),
+        (76, 84, "mailbox_bank"),
+        (85, 86, "door_wood"),
+    ],
+    "interiors/ice_cream_shop": [
+        (1, 4, "display_rack"),
+        (5, 5, "scoop"),
+        (6, 11, "ice_cream_cart"),
+        (12, 15, "menu_board"),
+        (16, 19, "ice_cream_cone"),
+        (20, 25, "freezer_cabinet"),
+        (26, 73, "freezer_display_flavours"),
+        (74, 74, "sign_ice_cream"),
+        (75, 75, "counter_serving"),
+        (76, 77, "chair_cafe"),
+        (78, 79, "table_cafe_set"),
+        (80, 99, "dessert_serving"),
+        (100, 102, "counter_cafe"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -220,7 +248,7 @@ THEMES = {
 # a theme with no interesting props in it.
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
-               "birthday_party"]
+               "birthday_party", "condominium", "ice_cream_shop"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
