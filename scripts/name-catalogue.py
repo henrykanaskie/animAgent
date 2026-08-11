@@ -247,6 +247,30 @@ THEMES = {
         (115, 116, "rock_garden"),
         (117, 131, "table_low_with_cushion"),
     ],
+    "interiors/christmas": [
+        (1, 20, "christmas_tree"),
+        (21, 22, "gift_pile"),
+        (23, 23, "stone_small"),
+        (24, 33, "gift_box"),
+        (34, 53, "toy_present"),
+        (54, 58, "stocking"),
+        (59, 64, "wreath"),
+        (65, 66, "picture_framed_festive"),
+        (67, 68, "fireplace"),
+        (69, 76, "nutcracker"),
+        (77, 78, "christmas_tree_small"),
+        (79, 82, "banner_red"),
+        (83, 83, "toy_present"),
+        (84, 85, "reindeer_plush"),
+        (86, 87, "decoration_small"),
+        (88, 88, "throne_gold"),
+        (89, 90, "cushion_red"),
+        (91, 100, "rug_patterned"),
+        (101, 103, "snow_globe"),
+        (104, 112, "bread"),
+        (113, 120, "food_platter"),
+        (121, 123, "sweets"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -297,7 +321,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors"]
+               "japanese_interiors", "christmas"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
