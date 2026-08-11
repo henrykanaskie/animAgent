@@ -94,28 +94,6 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// Stable key for the texture cache, for the kind whose art is authored.
     var textureKey: String { "deskobject:" + rawValue }
 
-    /// **The same kind, in the character's hands rather than on its desk.**
-    ///
-    /// Total, and deliberately so: the desk slot may abstain because an empty
-    /// desk is a legible thing to be, but the hands are the *durable* slot now
-    /// and an abstention there is the flicker this mapping exists to end. A kind
-    /// that reached the tally at all has earned all four objects below.
-    ///
-    /// **No new art.** Four of `HeldObject`'s six already carry these meanings
-    /// — they were drawn for the tool classes that feed these very kinds, so the
-    /// picture a `research` agent holds is the book `Read` already put in its
-    /// hands. `console` and `globe` are the two that do not appear: `globe`'s
-    /// tools fold into `research` by `init?(badge:)` above, and `plug` abstains
-    /// from `WorkKind` entirely, so neither is reachable from here.
-    var heldObject: HeldObject {
-        switch self {
-        case .authoring: return .page
-        case .research: return .book
-        case .running: return .console
-        case .coordinating: return .clipboard
-        }
-    }
-
     // MARK: - The lexicon [ADR-006 §3 step 1, §6c rule 5]
 
     /// **The closed keyword lexicon, and the only free text this app

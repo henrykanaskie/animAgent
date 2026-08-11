@@ -329,25 +329,7 @@ enum SceneArt {
     /// `WorkKindLexiconTests`, `WorkTallyTests` and `DeskObjectDirectorTests` are
     /// this repository's own arithmetic. A fresh clone still checks every number
     /// in ADR-006 §3.
-    ///
-    /// 94 when the work kind reached the hands: five tests in
-    /// `HeldWorkObjectTests`, each of which builds a real `Character` and reads
-    /// what is actually in its hands, so without the pack they would assert
-    /// about a character with no textures and pass. They are the four rules the
-    /// change turns on — the hands staying full across a gap between two calls
-    /// of one turn (the reported bug), the turn's end emptying them with no
-    /// clearing code, the open call's own tool outranking the settled kind, and
-    /// an unrecognised tool falling back rather than blanking — plus the
-    /// permission gate keeping the work object while it drops the tool object,
-    /// which is the one place ADR-003 §1 and this layer have to be told apart.
-    ///
-    /// Two of that suite's seven are deliberately **not** gated, on the same
-    /// principle as ADR-006's: `everyWorkKindHoldsItsOwnDistinctObject` is a
-    /// mapping this repository owns, and
-    /// `theHandsAreFullForMostOfATurnRatherThanAlmostNoneOfIt` is the
-    /// measurement the change is judged on and reads the director, not the
-    /// scene. A fresh clone still gets both numbers.
-    static let expectedGatedTestCount = 94
+    static let expectedGatedTestCount = 89
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

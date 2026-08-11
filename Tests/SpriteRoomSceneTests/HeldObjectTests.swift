@@ -295,25 +295,21 @@ struct HeldObjectSceneTests {
         BadgeSelection.select(openToolNames: tools)
     }
 
-    /// **I2 on the body layer, for a character whose tally has not settled.** No
-    /// open call and no work kind means nothing in the hands. This is the
-    /// invariant the layer is most likely to be asked to break, because a room
-    /// full of people holding things looks busier than a room full of people
-    /// not.
+    /// **I2 on the body layer.** A character with no open call holds nothing.
+    /// This is the invariant the layer is most likely to be asked to break,
+    /// because a room full of people holding things looks busier than a room
+    /// full of people not.
     ///
-    /// **The precondition is load-bearing and is asserted below rather than
-    /// assumed.** Once a work kind settles, the middle block's answer changes by
-    /// design — a character between two calls of one turn holds what it has been
-    /// doing, which is `HeldWorkObjectTests`' subject and not this one's. Every
-    /// test in this suite was written before that half existed and kept passing
-    /// when it landed, precisely because none of them ever calls
-    /// `setWorkObject`. That is stated here so the next reader does not mistake
-    /// this file for full coverage of the layer.
+    /// **The middle block is ADR-005 §5.** The guard used to be `currentState ==
+    /// .working`, which answered this question correctly only because `working`
+    /// *was* "the open-call set is non-empty". A character between two calls of
+    /// one turn is now seated — `working` by name, holding nothing — so the
+    /// guard moved onto the open-call count and this is where that is checked in
+    /// pixels rather than in policy.
     @Test(.enabled(if: SceneArt.isAvailable))
     func idleHandsAreEmpty() throws {
         let store = TextureStore(manifest: try SceneFixtures.manifest())
         let character = Self.character(store)
-        #expect(character.workObjectForTesting == nil, "this suite's shared precondition")
 
         character.apply(state: .working, facing: .right, startingAt: 0)
         character.apply(badge: Self.working(["Bash"]))
@@ -348,16 +344,11 @@ struct HeldObjectSceneTests {
     /// as restated by ADR-005 §5. The hands are a body-layer claim about work in
     /// progress, so they empty at the close with the motion.
     ///
-    /// **This is the case the pre-ADR-005 guard would have got wrong.** A beat's
-    /// body is seated — `working` by name — for every one of its 500 ms, so
-    /// `currentState == .working` alone would have put a book in the hands of an
-    /// agent whose `Read` had returned. The selection carries `count: 0` for
-    /// every frame of a beat, which is what keeps the *tool* object off.
-    ///
-    /// The character here has no settled work kind, so the fallback yields
-    /// nothing and the hands are empty. A furnished character holds its kind
-    /// through a closing beat, which is the same claim the seated posture is
-    /// already making for the whole turn.
+    /// **This is the case the old guard would have got wrong.** A beat's body is
+    /// now seated — `working` by name — for every one of its 500 ms, so
+    /// `currentState == .working` would have put a book in the hands of an agent
+    /// whose `Read` had returned. The selection carries `count: 0` for every
+    /// frame of a beat, which is what the guard reads instead.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aClosingBeatLeavesTheHandsEmpty() throws {
         let store = TextureStore(manifest: try SceneFixtures.manifest())
@@ -376,19 +367,13 @@ struct HeldObjectSceneTests {
         #expect(character.heldObjectForTesting == nil, "the beat put an object in the hands")
     }
 
-    /// **Attention and dormancy empty the tool slot, and with no settled work
-    /// kind that empties the hands too.**
+    /// **Attention and dormancy empty the hands as well as the tool slot.**
     ///
     /// A call parked at a permission gate is not running — `ADR-003 §1` and the
-    /// `isAttention` note both turn on that — so the room must not assert *that
-    /// call* with a second, larger channel while the badge is correctly refusing
+    /// `isAttention` note both turn on that — so the room must not assert the
+    /// work with a second, larger channel while the badge is correctly refusing
     /// to. The body still animates, because I2 keys it on the open set alone and
     /// that is not this layer's to change.
-    ///
-    /// A character that *has* settled a kind falls back to it here instead of
-    /// going empty, which is a claim about the turn rather than about the gated
-    /// call: see `HeldWorkObjectTests
-    /// .aGatedCallKeepsTheWorkObjectAndDropsTheToolObject`.
     @Test(.enabled(if: SceneArt.isAvailable))
     func attentionAndDormancyEmptyTheHands() throws {
         let store = TextureStore(manifest: try SceneFixtures.manifest())

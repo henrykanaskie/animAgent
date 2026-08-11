@@ -908,14 +908,8 @@ public final class RoomScene: SKScene {
             // **Furniture, not a character channel.** It has no body state, no
             // pose and no ambient loop, and it moves 0 px/s in every frame of its
             // life — which is why ADR-006 needs no carve-out from I2 and proposes
-            // none.
+            // none. Nothing about the character it belongs to changes here.
             showDeskObject(kind, for: agent)
-            // **The same kind, in the same character's hands.** One tally, read
-            // once, delivered to both slots from one intent — so the desk and the
-            // hands cannot drift apart, and there is no second event to keep in
-            // step. The hands still move 0 px/s: this sets which picture the held
-            // node draws, never whether it animates. [I2]
-            characters[agent]?.setWorkObject(kind)
 
         case let .setGated(agent, isGated):
             // The motion channel's third input, and the only one that takes

@@ -518,78 +518,12 @@ public final class Character: SKNode {
     ///   a `PreToolUse` in one batch — so this is reachable, and it is a
     ///   *placement* rule rather than a truth rule. [04-ART-DIRECTION]
     ///
-    /// The work kind this character's tally has settled on, or `nil` before it
-    /// has settled on one. **This is the durable half of the hands.**
-    ///
-    /// Set from the same intent that furnishes the desk, so the object in the
-    /// hands and the object on the desk can never disagree — there is one tally
-    /// and it is read once.
-    private var workObject: HeldObject?
-
-    /// Binds the durable work kind. Idempotent, and refreshes on a real change
-    /// only, so a tally that re-settles on the kind it already had does not
-    /// touch the node.
-    func setWorkObject(_ kind: WorkKind?) {
-        let object = kind?.heldObject
-        guard object != workObject else { return }
-        workObject = object
-        refreshHeld()
-    }
-
-    /// The object this character is holding, or `nil`.
-    ///
-    /// **Two slots share one pair of hands, and the momentary one wins.**
-    ///
-    /// - While a call is genuinely open and the badge slot is showing a tool,
-    ///   the hands carry *that tool's* object, exactly as they always have.
-    /// - Otherwise the hands fall back to the turn's settled work kind.
-    ///
-    /// # Why the fallback exists [ADR-005 applied to this layer]
-    ///
-    /// The guard used to be `currentBadge.count > 0` and nothing else, on the
-    /// reasoning that a held object is a claim about work *in progress*. That
-    /// reasoning is sound and the measurement kills it anyway: a tool call has a
-    /// median duration of **0.023 s** and the gaps between calls in one turn are
-    /// **seconds**, so hands keyed to the open-call set are empty for almost the
-    /// whole of a turn. It is ADR-005 §2's finding about posture, on a layer
-    /// ADR-005 did not reach — and the room showed it, which is how it was
-    /// found: a maintainer watching a live session reported no objects at all.
-    ///
-    /// The fallback is **not** a claim the data did not make. `workObject` is
-    /// the settled output of the same tally that furnishes the desk, and the
-    /// desk has stood on it since ADR-006 with no fiction objection. Holding it
-    /// says *this is the kind of work this agent has been doing*, which is true
-    /// for as long as the tally says it is, and it says nothing whatever about
-    /// any individual call. [I1]
-    ///
-    /// # The three original guards, and what became of them
-    ///
-    /// - **Seated.** Unchanged and still first: `seatedHandCentre` is a
-    ///   measurement of the `sit` row's hand box and of nothing else, so an
-    ///   object on a walking character would hang in the air beside it. This is
-    ///   a *placement* rule, not a truth rule, and post-ADR-005 `.working` also
-    ///   means "inside a turn", which is exactly the window the durable object
-    ///   should be visible for. Turn ends, character stands, hands empty — with
-    ///   no clearing code, because this guard already says so.
-    /// - **An open call.** Demoted from a gate to a *preference*, per above.
-    /// - **The badge slot is showing a tool.** Also demoted. A call parked at a
-    ///   permission gate still empties the hands *of the tool object* — ADR-003
-    ///   §1 is right that a gated `Bash` is not running — but it now falls
-    ///   through to the work object rather than to nothing, because the agent is
-    ///   still an agent that has been running commands while it waits.
-    ///
-    /// **`questionMark` falls through rather than emptying.** `HeldObject
-    /// .init(badge:)` abstains on it [I1] and that abstention is preserved: the
-    /// room still refuses to guess a glyph for an unrecognised tool. What it no
-    /// longer does is let one unrecognised call blank a hand that the turn has
-    /// otherwise earned, which was a flicker with no meaning behind it.
+    /// `questionMark` yields no object at all — see `HeldObject.init(badge:)`.
     private var heldObject: HeldObject? {
+        guard currentBadge.count > 0 else { return nil }
         guard currentState == .working else { return nil }
-        if currentBadge.count > 0, let badge = currentBadge.drawn.badge,
-           let object = HeldObject(badge: badge) {
-            return object
-        }
-        return workObject
+        guard let badge = currentBadge.drawn.badge else { return nil }
+        return HeldObject(badge: badge)
     }
 
     /// Puts `heldObject` on screen. Called from the two places that can change
@@ -706,10 +640,6 @@ public final class Character: SKNode {
     /// What is in the hands, for tests that check the picture rather than the
     /// policy. `nil` when the hands are empty.
     public var heldObjectForTesting: HeldObject? { heldNode.isHidden ? nil : heldObject }
-
-    /// The durable half, so a test can state "no work kind has settled" as a
-    /// precondition rather than relying on it.
-    public var workObjectForTesting: HeldObject? { workObject }
     /// The held node's rectangle in the parent's coordinates. Read by the test
     /// that checks the object lands on the hands rather than beside them.
     public var heldRect: CGRect {
