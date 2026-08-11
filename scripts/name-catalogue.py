@@ -294,6 +294,37 @@ THEMES = {
         (155, 155, "perfume_bottle"),
         (156, 158, "shower_tray"),
     ],
+    "interiors/gym": [
+        (1, 63, "mat_exercise"),
+        (64, 67, "punching_bag"),
+        (68, 69, "speed_bag"),
+        (70, 72, "skipping_rope"),
+        (73, 81, "exercise_ball"),
+        (82, 86, "weight_rack"),
+        (87, 90, "barbell"),
+        (91, 97, "gym_machine"),
+        (98, 99, "dumbbell_stand"),
+        (100, 101, "radio"),
+        (102, 105, "weight_plate_stack"),
+        (106, 107, "kettlebell"),
+        (108, 113, "dumbbell"),
+        (114, 116, "locker"),
+        (117, 119, "mirror_wall"),
+        (120, 127, "exercise_ball"),
+        (128, 132, "mirror_wall"),
+        (133, 154, "dumbbell"),
+        (155, 163, "kettlebell"),
+        (164, 165, "weight_plate_stack"),
+        (166, 170, "dumbbell_rack"),
+        (171, 174, "weight_bench"),
+        (175, 183, "punching_bag"),
+        (184, 185, "radio"),
+        (186, 187, "treadmill"),
+        (188, 189, "exercise_bike"),
+        (190, 190, "locker"),
+        (191, 194, "weight_bench"),
+        (195, 209, "mat_exercise"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -344,7 +375,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas", "bathroom"]
+               "japanese_interiors", "christmas", "bathroom", "gym"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
