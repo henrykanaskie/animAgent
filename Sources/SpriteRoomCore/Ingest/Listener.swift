@@ -29,17 +29,27 @@ public final class HookListener: Sendable {
 
     private let listener: NWListener
     private let queue: EventQueue
+    /// Set only by `--record`. See `HookRecorder` for why it sits on the hot
+    /// path without doing work on it.
+    private let recorder: HookRecorder?
     private let dispatchQueue = DispatchQueue(
         label: "com.spriteroom.listener", qos: .userInitiated)
 
     /// - Parameter port: `0` asks the system for an ephemeral port; read the
     ///   assigned one back from `start()`.
-    public init(port: UInt16, queue: EventQueue, stats: IngestStats = IngestStats()) throws {
+    /// - Parameter recorder: optional capture of every raw body, for turning a
+    ///   live session into a `fixtures/`-shaped file. `nil` in normal use, and
+    ///   `nil` is the only value any shipped path passes.
+    public init(
+        port: UInt16, queue: EventQueue, stats: IngestStats = IngestStats(),
+        recorder: HookRecorder? = nil
+    ) throws {
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
             throw ListenerError.invalidPort(port)
         }
         self.queue = queue
         self.stats = stats
+        self.recorder = recorder
 
         let tcp = NWProtocolTCP.Options()
         tcp.noDelay = true
@@ -159,6 +169,12 @@ public final class HookListener: Sendable {
             stats.recordProbe()
             return
         }
+        // **Before decoding, and before the malformed check.** A capture that
+        // only held the bodies this version can parse would be useless for
+        // diagnosing the ones it cannot — which is the main thing a capture is
+        // for. `record` hands off to its own queue and does no I/O here, so I5
+        // holds. [HookRecorder]
+        recorder?.record(request.body)
         guard let event = HookEventDecoder.decode(request.body) else {
             stats.record(decoded: false, dropped: false)
             return

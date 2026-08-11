@@ -48,6 +48,9 @@ struct Options {
     /// Live mode: bind the listener and let real sessions drive the room.
     var live = false
     var port: UInt16 = 8787
+    /// `--record PATH`: live mode writes every raw hook body here, in
+    /// `fixtures/` shape, so a real session becomes a replayable capture.
+    var recordTo: URL?
     var hookAction: HookAction?
     /// Consent, given on the command line. Without it `--install-hooks`
     /// refuses to write.
@@ -98,6 +101,8 @@ func usage() -> String {
       (default)          drop the room out of the notch, replaying a fixture
       --live             bind the listener; real Claude Code sessions drive it
       --port N           listener port (default 8787; 0 asks for an ephemeral one)
+      --record PATH      live mode: write every hook body to PATH as .jsonl,
+                         in fixtures/ shape, so the session can be replayed
       --for S            live mode: quit after S seconds
       --install-hooks    write our block into ~/.claude/settings.json
       --remove-hooks     take it back out
@@ -159,6 +164,11 @@ func parse(_ arguments: [String]) -> Options? {
                 print("--port needs a number in 0...65535"); return nil
             }
             options.port = port
+        case "--record":
+            guard let value = next() else {
+                print("--record needs a path to write the capture to"); return nil
+            }
+            options.recordTo = URL(fileURLWithPath: value)
         case "--for":
             guard let value = next(), let seconds = Double(value), seconds > 0 else {
                 print("--for needs a positive number of seconds"); return nil
@@ -982,7 +992,10 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
     private func runLive(host: RoomHost, selector: ProjectSelector) async {
         let driver: LiveDriver
         do {
-            driver = try LiveDriver(port: options.port)
+            driver = try LiveDriver(port: options.port, recordTo: options.recordTo)
+            if let path = options.recordTo {
+                print("recording every hook body to \(path.path)")
+            }
         } catch {
             print("could not create the listener: \(error)")
             NSApp.terminate(nil)

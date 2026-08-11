@@ -38,10 +38,24 @@ final class LiveDriver {
     /// interval. [I4]
     static let sweepInterval: Duration = .seconds(1)
 
-    init(port: UInt16, capacity: Int = 1024) throws {
+    /// The capture, when `--record` asked for one. Held so `stop()` can flush
+    /// and close it, and so the caller can report the line count.
+    private(set) var recorder: HookRecorder?
+
+    /// - Parameter recordTo: writes every raw hook body to this path, in
+    ///   `fixtures/` shape. Opened here rather than lazily, so a path that
+    ///   cannot be written throws before the listener binds instead of after a
+    ///   session's events have gone missing.
+    init(port: UInt16, capacity: Int = 1024, recordTo: URL? = nil) throws {
         let queue = EventQueue(capacity: capacity)
         self.queue = queue
-        self.listener = try HookListener(port: port, queue: queue)
+        let recorder = try recordTo.map { url -> HookRecorder in
+            let recorder = HookRecorder(url: url)
+            try recorder.open()
+            return recorder
+        }
+        self.recorder = recorder
+        self.listener = try HookListener(port: port, queue: queue, recorder: recorder)
     }
 
     var counters: IngestCounters { listener.stats.counters }
@@ -97,6 +111,9 @@ final class LiveDriver {
         sweepTask?.cancel()
         queue.finish()
         listener.stop()
+        // After the listener, so nothing can arrive between the last write and
+        // the close and be lost from the capture.
+        recorder?.close()
     }
 
     /// Stops **only** the listener, leaving the heartbeat beating against a
