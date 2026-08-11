@@ -171,6 +171,26 @@ THEMES = {
         (54, 54, "copier_on_counter"),
         (55, 75, "bookcase_tall"),
     ],
+    "interiors/shooting_range": [
+        (1, 10, "bench_shooting"),
+        (11, 14, "control_panel"),
+        (15, 18, "target_paper"),
+        (19, 20, "pole"),
+        (21, 22, "rail_barrier"),
+        (23, 25, "gun_rest_rail"),
+        (26, 26, "rail_barrier"),
+        (27, 28, "control_box"),
+    ],
+    "interiors/birthday_party": [
+        (1, 8, "gift_box"),
+        (9, 11, "cake"),
+        (12, 14, "plate_stack"),
+        (15, 15, "confetti"),
+        (16, 16, "bunting"),
+        (17, 24, "balloon"),
+        (25, 25, "party_horn"),
+        (26, 29, "party_food"),
+    ],
     "interiors/fishing": [
         (1, 6, "tackle_box"),
         (7, 10, "bait_bag"),
@@ -199,7 +219,8 @@ THEMES = {
 # absent from this list has not been looked at, which is a different thing from
 # a theme with no interesting props in it.
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
-                "classroom_and_library", "fishing"]
+               "classroom_and_library", "fishing", "shooting_range",
+               "birthday_party"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
