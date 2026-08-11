@@ -132,7 +132,7 @@ THEMES = {
         (50, 52, "flipchart"),
         (53, 53, "mic_stand"),
         (54, 55, "poster_portrait"),
-        (57, 58, "backpack"),
+        (56, 58, "backpack"),
         (59, 59, "fire_extinguisher"),
         (60, 60, "curtain_red"),
     ],
@@ -221,6 +221,7 @@ THEMES = {
         (104, 106, "broom"),
         (107, 114, "fireplace"),
         (115, 120, "fire_grate"),
+        (121, 122, "firewood_rack"),
     ],
     "interiors/japanese_interiors": [
         (1, 16, "tatami_mat"),
@@ -699,6 +700,37 @@ THEMES = {
         (520, 522, "blind_window"), (523, 526, "sink_wall"), (527, 528, "bottle"),
         (529, 532, "syringe"),
     ],
+    # Kitchen opens with 90 wall segments rather than props: six paint colours
+    # and four wood finishes, each in nine sizes on a strict 9-sprite cycle.
+    # Many appliances appear twice, identical but for a trailing power cord;
+    # those pairs stay inside one range because the cord is not a new object.
+    "interiors/kitchen": [
+        (1, 54, "wall_painted"), (55, 90, "wall_wood"), (91, 120, "counter_wood"),
+        (121, 122, "cabinet_wall"), (123, 125, "cabinet_wall_glass"),
+        (126, 133, "counter_bar"), (134, 136, "sink_metal"), (137, 138, "soap_bar"),
+        (139, 140, "mat_floor"), (141, 146, "sink_metal"), (147, 147, "dish_rack"),
+        (148, 156, "oven"), (157, 157, "blender"), (158, 171, "fridge"),
+        (172, 176, "shaker_condiment"), (177, 180, "coffee_machine"),
+        (181, 182, "kettle"), (183, 184, "blender"), (185, 186, "coffee_machine"),
+        (187, 190, "microwave"), (191, 191, "water_dispenser"), (192, 194, "grill"),
+        (195, 198, "rice_cooker"), (199, 202, "apron"), (203, 206, "lamp_floor"),
+        (207, 208, "cutting_board"), (209, 209, "knife"), (210, 210, "food_chopped"),
+        (211, 212, "tomato"), (213, 213, "carrot"), (214, 214, "bread"),
+        (215, 216, "meat_raw"), (217, 226, "tablecloth_gold"),
+        (227, 236, "tablecloth_blue"), (237, 249, "tablecloth_check_blue"),
+        (250, 262, "tablecloth_check_red"), (263, 267, "glass_drink"),
+        (268, 271, "picture_framed"), (272, 279, "stool_wood"),
+        (280, 287, "chair_dining"), (288, 323, "table_wood"), (324, 339, "curtain"),
+        (340, 342, "table_console"), (343, 343, "mirror_wall"),
+        (344, 346, "table_console"), (347, 347, "mirror_wall"),
+        (348, 350, "table_console"), (351, 351, "mirror_wall"), (352, 367, "curtain"),
+        (368, 373, "chair_dining"), (374, 375, "place_setting"),
+        (376, 376, "utensil_rack"), (377, 377, "pot_rack"), (378, 378, "knife_rack"),
+        (379, 380, "serving_dish"), (381, 382, "plate"), (383, 390, "food_plate"),
+        (391, 392, "place_setting"), (393, 393, "glass_drink"),
+        (394, 394, "coffee_cup"), (395, 397, "glass_drink"), (398, 405, "food_pastry"),
+        (406, 408, "display_case_pastry"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -749,7 +781,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store", "museum", "grocery_store", "bedroom", "hospital"]
+               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store", "museum", "grocery_store", "bedroom", "hospital", "kitchen"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
@@ -782,6 +814,15 @@ def main():
                     entry["name"] = name
                     entry["identified_by"] = "rendered and inspected by eye, office_p0..p5"
                     named += 1
+        elif entry["group"] in ("roombuilder", "ui/sheets", "ui/modern"):
+            # These ship with descriptive filenames — Room_Builder_3d_walls,
+            # Modern_UI_Style_1, UI_thinking_emotes_animation. Stripping the
+            # boilerplate is all the naming they need, and it is honest about
+            # where the name came from.
+            entry["name"] = re.sub(r"^(Room_Builder_|Modern_UI_|UI_)|_?\d+x\d+$",
+                                   "", stem).strip("_").lower()
+            entry["identified_by"] = "the pack's own filename"
+            named += 1
         elif entry["group"] == "animated":
             entry["name"] = ANIMATED_STRIP.sub("", stem)
             entry["identified_by"] = "the pack's own filename"
