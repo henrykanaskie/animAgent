@@ -135,17 +135,43 @@ def take(src, rel, group, size, entries, stats, extra=None):
 
 
 def theme_singles(size, entries, stats):
-    """The 24 themed interiors, exploded into individual props."""
-    root = os.path.join(INTERIORS, "1_Interiors", size, "Theme_Sorter_Singles_" + size)
+    """The 24 themed interiors, exploded into individual props.
+
+    **Shadowless, and the choice is forced rather than aesthetic.**
+
+    The pack ships each theme's singles three times — default (baked shadow),
+    Black_Shadow and Shadowless — and the three do **not** share a numbering.
+    Measured across all 24 themes: nine disagree, some wildly. Classroom is 249
+    default against 75 shadowless; Music and Sport is 164 against 249; Birthday
+    Party 46 against 29. An index means a different picture in each set.
+
+    `scripts/contact-sheet.py` renders **Shadowless**, and contact sheets are how
+    every prop in this project gets identified — by eye, the method the manifest
+    records for `desk`. Importing one set and identifying against another would
+    attach names to the wrong props in nine themes, silently, with nothing to
+    catch it. So the import follows the identification tool.
+
+    It also happens to be the better source: `process-assets.py`'s room pass runs
+    `strip_shadow` over everything it imports, so the shadow was being thrown
+    away downstream anyway.
+    """
+    root = os.path.join(
+        INTERIORS, "1_Interiors", size, "Theme_Sorter_Shadowless_Singles_" + size)
     if not os.path.isdir(root):
         return
     for theme in sorted(os.listdir(root)):
         tdir = os.path.join(root, theme)
         if not os.path.isdir(tdir):
             continue
-        # "22_Museum_Singles_32x32" -> "museum"
+        # "22_Museum_Singles_Shadowless_32x32" -> "museum"
         name = theme.split("_", 1)[1] if "_" in theme else theme
-        for suffix in ("_Singles_" + size, "_SIngles_" + size, "_" + size):
+        # `19_Hospital_SIngles_Shadowless_32x32` is the pack's own typo, capital
+        # I and all. Matched explicitly rather than lower-cased first, because a
+        # case-insensitive strip would also eat a legitimate name ending in
+        # "singles".
+        for suffix in ("_Singles_Shadowless_" + size, "_SIngles_Shadowless_" + size,
+                       "_Shadowless_" + size, "_Singles_" + size,
+                       "_SIngles_" + size, "_" + size):
             if name.endswith(suffix):
                 name = name[: -len(suffix)]
                 break
