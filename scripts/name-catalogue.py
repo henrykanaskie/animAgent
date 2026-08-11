@@ -494,6 +494,53 @@ THEMES = {
         (315, 320, "food_display"),
         (321, 344, "food_plate"),
     ],
+    # Clothing store is mostly stock rather than furniture: roughly 300 of its
+    # 494 props are garments, hats and mannequins. The useful room pieces are the
+    # mirrors (160-170), the rails, the display benches and the shop signage.
+    "interiors/clothing_store": [
+        (1, 12, "mannequin_torso"),
+        (13, 47, "garment_top"),
+        (48, 55, "garment_small"),
+        (56, 70, "mannequin_stand"),
+        (71, 145, "garment_small"),
+        (146, 148, "mannequin_group"),
+        (149, 150, "shelf_shoe"),
+        (151, 156, "shoe"),
+        (157, 159, "folded_clothes"),
+        (160, 170, "mirror"),
+        (171, 183, "clothing_rail"),
+        (184, 192, "garment_top"),
+        (193, 195, "shelf_folded_clothes"),
+        (196, 207, "stock_box"),
+        (208, 215, "shop_sign"),
+        (216, 220, "poster_display"),
+        (221, 222, "stool"),
+        (223, 223, "curtain_changing"),
+        (224, 230, "rail_pole"),
+        (231, 232, "bench_shoe"),
+        (233, 245, "cap"),
+        (246, 254, "hat_display"),
+        (255, 257, "clothing_rail"),
+        (258, 262, "screen_divider"),
+        (263, 269, "dressing_table"),
+        (270, 273, "chair_ornate"),
+        (274, 277, "garment_top"),
+        (278, 280, "sofa_lounger"),
+        (281, 282, "shop_sign"),
+        (283, 286, "stool"),
+        (287, 292, "mannequin_head"),
+        (293, 400, "hat"),
+        (401, 420, "garment_trousers"),
+        (421, 422, "garment_top"),
+        (423, 434, "coat_stand"),
+        (435, 442, "display_bench"),
+        (443, 450, "shelf_folded_clothes"),
+        (451, 460, "mannequin_torso"),
+        (461, 470, "hat"),
+        (471, 487, "mannequin_head"),
+        (488, 489, "garment_costume"),
+        (490, 494, "garment_small"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -544,7 +591,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail"]
+               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
