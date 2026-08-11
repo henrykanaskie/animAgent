@@ -75,21 +75,27 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// **The `room.props.roles` key this kind's object is drawn from**, or `nil`
     /// for the one kind no pack single could supply.
     ///
-    /// Three of the four are pack art declared in `assets/manifest.json` in the
-    /// same `{file, content_box}` shape `desk` and `chair` have, so swapping the
-    /// manifest swaps the picture with no code change. `running` is `nil` and is
-    /// drawn by `DeskMonitorArt` instead: every candidate in the pack's own
-    /// desk-monitor band (singles 130–134) measures 30–32 px wide against the
-    /// 28 px placement bound, so there is no compliant single to name — see that
-    /// file for the whole account.
-    public var propRole: String? {
-        switch self {
-        case .authoring: return "laptop"
-        case .research: return "papers"
-        case .running: return nil
-        case .coordinating: return "pad"
-        }
-    }
+    /// **All four are now authored, so this is `nil` for every kind.**
+    ///
+    /// It used to name `laptop` (single 135), `papers` (153) and `pad` (179),
+    /// which are real pack depictions of the right objects and were rendered at
+    /// the panel's true size and found to be unreadable there: all three are
+    /// isometric, and a diagonal wedge loses its diagonal before it loses
+    /// anything else. `DeskWorkArt` has the measurement and the replacement.
+    ///
+    /// **The property is kept rather than deleted**, and it is not dead code:
+    /// it is the seam that lets final art arrive as a manifest swap with no code
+    /// change, which is the property `04-ART-DIRECTION.md` asks every art
+    /// binding to have. A kind that names a role again gets the pack path back
+    /// for free — `RoomScene.deskObjectArt` still prefers a named role over the
+    /// authored bitmap, and `everyKindFallsBackToAuthoredArtWhenNoRoleIsNamed`
+    /// checks both arms rather than only the one that ships.
+    ///
+    /// The three manifest roles are deliberately **left declared**. They cost
+    /// nothing, they keep `assets/manifest.json` reproducible from its
+    /// generator, and deleting a declaration because the scene stopped reading
+    /// it is how a manifest and its art drift apart.
+    public var propRole: String? { nil }
 
     /// Stable key for the texture cache, for the kind whose art is authored.
     var textureKey: String { "deskobject:" + rawValue }

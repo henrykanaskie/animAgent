@@ -294,13 +294,25 @@ struct WorkKindTests {
         #expect(tally.adopted(incumbent: nil) == nil)
     }
 
-    /// Every kind but one is drawn from a manifest role, and the exception is
-    /// the one the pack could not supply at the width bound.
-    @Test func threeKindsNameAManifestRoleAndTheFourthIsAuthored() {
-        #expect(WorkKind.authoring.propRole == "laptop")
-        #expect(WorkKind.research.propRole == "papers")
-        #expect(WorkKind.coordinating.propRole == "pad")
-        #expect(WorkKind.running.propRole == nil, "running gained a pack single; check the width bound")
+    /// **Every kind is authored now, and none names a manifest role.**
+    ///
+    /// It was three-from-the-pack and one authored until the three were rendered
+    /// at the panel's true size and found unreadable there — all isometric, and
+    /// a diagonal wedge loses its diagonal first. `DeskWorkArt` replaced them.
+    /// The roles are still declared in the manifest and `propRole` is still the
+    /// seam that would read them, so this pins the shipped state rather than
+    /// forbidding the arrangement.
+    @Test func everyKindIsAuthoredAndNamesNoManifestRole() {
+        for kind in WorkKind.allCases {
+            #expect(kind.propRole == nil, "\(kind.rawValue) names a pack role again")
+        }
+        // Each one still resolves to a picture, from one of the two authored
+        // sources — a kind that named nothing and drew nothing would be a bare
+        // desk that no rule asked for.
+        for kind in WorkKind.allCases {
+            let authored = DeskWorkArt.bitmap(kind) ?? DeskMonitorArt.bitmap()
+            #expect(authored.width > 0 && authored.height > 0, "\(kind.rawValue) draws nothing")
+        }
     }
 
     /// The roles named above are ones the manifest actually declares. This is
@@ -657,7 +669,11 @@ struct DeskObjectDirectorTests {
         let intents = director.apply(
             [.callOpened(agent: agent, call: Self.call("t1", "Edit"))], at: Self.at(1))
         #expect(Self.kinds(intents) == [.authoring])
-        #expect(WorkKind.authoring.propRole == "laptop")
+        // And the kind resolves to the authored laptop, whose silhouette steps
+        // outward at the hinge — the feature no other desk object has.
+        let laptop = try? #require(DeskWorkArt.bitmap(.authoring))
+        #expect(laptop != nil)
+        #expect(DeskWorkArt.design(.authoring) == DeskWorkArt.laptop)
     }
 
     // MARK: §4a — the tally is scoped to a turn
@@ -941,10 +957,18 @@ struct DeskObjectSceneTests {
         #expect(checked == 7 * 4 * 4, "the sweep did not cover every theme and kind")
     }
 
-    /// The ink width of one kind's art, from the manifest for the three sourced
-    /// kinds and from the authored bitmap for the fourth.
+    /// The ink width of one kind's art: the authored bitmap's own width for
+    /// every kind that names no role, and the manifest's content box for any
+    /// kind that names one.
+    ///
+    /// **This used to answer `DeskMonitorArt.canvasWidth` for every authored
+    /// kind**, which was true while the monitor was the only authored object and
+    /// silently wrong the moment it was not — it mis-measured the 26 px laptop
+    /// and paper stack by exactly 3 px and reported it as a placement bug.
     static func contentWidth(of kind: WorkKind, manifest: Manifest, themeID: String?) -> Double {
-        guard let role = kind.propRole else { return Double(DeskMonitorArt.canvasWidth) }
+        guard let role = kind.propRole else {
+            return Double(DeskWorkArt.bitmap(kind)?.width ?? DeskMonitorArt.canvasWidth)
+        }
         let room = manifest.room(theme: themeID)
         let prop = room.prop(role) ?? manifest.room.prop(role)
         return Double(prop?.contentBox.width ?? 0)

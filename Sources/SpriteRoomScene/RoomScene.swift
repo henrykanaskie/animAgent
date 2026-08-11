@@ -712,7 +712,10 @@ public final class RoomScene: SKScene {
     private func deskObjectArt(_ kind: WorkKind)
     -> (texture: SKTexture, anchor: CGPoint, size: CGSize, contentWidth: Double, path: String)? {
         guard let role = kind.propRole else {
-            let bitmap = DeskMonitorArt.bitmap()
+            // `running` is the monitor next door; the other three are
+            // `DeskWorkArt`. Both are authored and both are their own content
+            // box, so the arithmetic below is the same for either.
+            let bitmap = DeskWorkArt.bitmap(kind) ?? DeskMonitorArt.bitmap()
             guard let texture = store.texture(bitmap: bitmap, key: kind.textureKey) else {
                 return nil
             }
