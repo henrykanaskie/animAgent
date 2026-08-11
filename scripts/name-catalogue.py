@@ -222,6 +222,31 @@ THEMES = {
         (107, 114, "fireplace"),
         (115, 120, "fire_grate"),
     ],
+    "interiors/japanese_interiors": [
+        (1, 16, "tatami_mat"),
+        (17, 18, "stone_lantern"),
+        (19, 25, "stone_platform"),
+        (26, 33, "weapon_rack"),
+        (34, 34, "paper_lantern"),
+        (35, 38, "sake_set"),
+        (39, 40, "table_low"),
+        (41, 44, "cushion_zabuton"),
+        (45, 46, "brazier"),
+        (47, 47, "pot_round"),
+        (48, 55, "futon"),
+        (56, 58, "bonsai"),
+        (59, 60, "torii_gate"),
+        (61, 62, "shoji_screen"),
+        (63, 65, "post_wood"),
+        (66, 76, "shrine_cabinet"),
+        (77, 100, "futon"),
+        (101, 104, "stepping_stone"),
+        (105, 106, "hanging_scroll"),
+        (107, 110, "wood_slat"),
+        (111, 114, "figurine_pair"),
+        (115, 116, "rock_garden"),
+        (117, 131, "table_low_with_cushion"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -271,7 +296,8 @@ THEMES = {
 # a theme with no interesting props in it.
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
-               "birthday_party", "condominium", "ice_cream_shop", "living_room"]
+               "birthday_party", "condominium", "ice_cream_shop", "living_room",
+               "japanese_interiors"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
