@@ -541,6 +541,48 @@ THEMES = {
         (488, 489, "garment_costume"),
         (490, 494, "garment_small"),
     ],
+    # Museum is five zones laid end to end: ticketing (1-30), art gallery
+    # (86-130), natural history (163-255), antiquities and fossils (256-371),
+    # and gift shop (372-451).
+    "interiors/museum": [
+        (1, 2, "ticket_counter"), (3, 4, "counter_block"), (5, 9, "ticket_booth"),
+        (10, 10, "sign_hanging"), (11, 13, "ticket_window"), (14, 14, "counter_block"),
+        (15, 15, "ticket_window"), (16, 16, "ticket_kiosk"), (17, 17, "table_metal"),
+        (18, 18, "souvenir_stand"), (19, 24, "turnstile"), (25, 26, "security_scanner"),
+        (27, 27, "sign_wip"), (28, 30, "artefact_case"), (31, 35, "poster_shirt"),
+        (36, 36, "bench"), (37, 37, "display_table"), (38, 38, "case_frame"),
+        (39, 39, "display_table"), (40, 42, "table_metal"), (43, 50, "amphora"),
+        (51, 54, "vase_ceramic"), (55, 55, "display_table"),
+        (56, 63, "amphora_on_plinth"), (64, 64, "plinth"), (65, 66, "display_case"),
+        (67, 70, "vase_on_plinth"), (71, 85, "rope_barrier"), (86, 87, "picture_framed"),
+        (88, 88, "wall_plaque"), (89, 93, "frame_empty"), (94, 123, "painting_framed"),
+        (124, 127, "picture_hook"), (128, 128, "table_metal"),
+        (129, 130, "display_case_broken"), (131, 133, "lectern"),
+        (134, 142, "display_case"), (143, 154, "column"), (155, 162, "laser_sensor"),
+        (163, 176, "butterfly_case"), (177, 177, "step_wooden"),
+        (178, 178, "butterfly_case"), (179, 181, "butterfly_hanging"),
+        (182, 185, "lectern"), (186, 187, "specimen_rack"), (188, 193, "insect_case"),
+        (194, 194, "step_wooden"), (195, 197, "plant_potted"), (198, 199, "log"),
+        (200, 200, "branch"), (201, 201, "crate_wooden"), (202, 202, "log"),
+        (203, 208, "planter_box"), (209, 212, "specimen_rack"),
+        (213, 216, "plant_ground"), (217, 241, "rock"), (242, 243, "water"),
+        (244, 244, "food_bowl"), (245, 248, "plant_aquatic"), (249, 251, "flower"),
+        (252, 255, "beetle"), (256, 267, "statue"), (268, 269, "scroll_hanging"),
+        (270, 270, "exhibit_base"), (271, 271, "stone_tablet"),
+        (272, 272, "display_case"), (273, 275, "artefact_display"),
+        (276, 277, "statue_display"), (278, 282, "artefact_display"),
+        (283, 294, "artefact"), (295, 299, "artefact_on_plinth"),
+        (300, 304, "exhibit_platform"), (305, 306, "cave_painting"),
+        (307, 334, "display_case"), (335, 337, "mineral_specimen"),
+        (338, 339, "fossil"), (340, 341, "lectern"), (342, 345, "display_case"),
+        (346, 347, "exhibit_base"), (348, 357, "skeleton"),
+        (358, 361, "dinosaur_model"), (362, 363, "diorama_backdrop"),
+        (364, 365, "dinosaur_model"), (366, 371, "skeleton"),
+        (372, 377, "sign_souvenir"), (378, 386, "shop_shelf"), (387, 388, "pen_cup"),
+        (389, 396, "sign_exit"), (397, 416, "shirt_folded"), (417, 420, "shop_shelf"),
+        (421, 425, "souvenir_display"), (426, 435, "amphora_souvenir"),
+        (436, 443, "plush_dinosaur"), (444, 447, "book"), (448, 451, "shop_shelf"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -591,7 +633,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store"]
+               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store", "museum"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
