@@ -88,6 +88,69 @@ OFFICE = [
     (337, 339, "money_pile"),
 ]
 
+# The 24 themed interiors, keyed by catalogue group. Same method, same rules:
+# inclusive ranges over the pack's own numbering, and a name here means a
+# contact sheet was rendered and looked at.
+#
+# Progress is tracked in THEMES_DONE below — this is a long pass and it is meant
+# to survive being interrupted, so an absent theme means "not yet looked at"
+# rather than "nothing there".
+THEMES = {
+    "interiors/art": [
+        (1, 4, "pot_clay"),
+        (5, 11, "vase_ceramic"),
+        (12, 17, "paint_bucket"),
+        (18, 20, "paint_spill"),
+        (21, 21, "bonsai"),
+        (22, 22, "workbench_art"),
+        (23, 25, "workbench_art_with_palette"),
+        (26, 26, "workbench_art"),
+        (27, 29, "workbench_art_with_palette"),
+        (30, 33, "pottery_stand"),
+        (34, 34, "easel_blank"),
+        (35, 40, "easel_with_painting"),
+        (41, 46, "painting_framed"),
+    ],
+    "interiors/conference_hall": [
+        (1, 20, "stage_riser"),
+        (21, 24, "stage_edge"),
+        (25, 26, "lectern"),
+        (27, 27, "lectern_with_plant"),
+        (28, 28, "lectern_with_mic"),
+        (29, 30, "lectern_with_screen"),
+        (31, 32, "lectern_grey_with_mic"),
+        (33, 36, "stone_lump"),
+        (37, 39, "chair_conference"),
+        (40, 40, "step_ladder"),
+        (41, 41, "exit_sign_box"),
+        (42, 44, "pole"),
+        (45, 46, "lectern_wood"),
+        (47, 49, "shelf_edge"),
+        (50, 52, "flipchart"),
+        (53, 53, "mic_stand"),
+        (54, 55, "poster_portrait"),
+        (57, 58, "backpack"),
+        (59, 59, "fire_extinguisher"),
+        (60, 60, "curtain_red"),
+    ],
+    "interiors/television_and_film_studio": [
+        (1, 7, "film_camera_tripod"),
+        (8, 11, "studio_light_softbox"),
+        (12, 27, "green_screen"),
+        (28, 31, "armchair"),
+        (32, 34, "stool_round"),
+        (35, 40, "ceiling_rail"),
+        (41, 47, "monitor_wall_blank"),
+        (48, 53, "screen_broadcast"),
+        (54, 60, "desk_news"),
+    ],
+}
+
+# Themes whose contact sheets have been rendered and read end to end. A theme
+# absent from this list has not been looked at, which is a different thing from
+# a theme with no interesting props in it.
+THEMES_DONE = ["art", "conference_hall", "television_and_film_studio"]
+
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
 ANIMATED_STRIP = re.compile(r"^animated_|_\d+x\d+$")
@@ -123,6 +186,16 @@ def main():
             entry["name"] = ANIMATED_STRIP.sub("", stem)
             entry["identified_by"] = "the pack's own filename"
             named += 1
+        elif entry["group"] in THEMES:
+            m = re.search(r"_(\d+)$", stem)
+            if m:
+                index_no = int(m.group(1))
+                for lo, hi, name in THEMES[entry["group"]]:
+                    if lo <= index_no <= hi:
+                        entry["name"] = name
+                        entry["identified_by"] = "rendered and inspected by eye"
+                        named += 1
+                        break
 
     index["named"] = named
     with open(INDEX, "w") as fh:
