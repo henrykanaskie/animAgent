@@ -421,6 +421,58 @@ struct WorkTallyTests {
         return tally
     }
 
+    // MARK: Authoring precedence
+
+    /// **The reported case, as the numbers it was reported in.** A coding
+    /// session edits a few files and runs many commands to build and test them;
+    /// under pure counting that is `running` by a factor of thirteen, which is
+    /// why a maintainer watching a live session could not find a laptop.
+    @Test func aFewEditsOutrankManyCommands() {
+        let tally = Self.tally([.authoring: 3, .running: 40])
+        #expect(tally.count(.running) == 40, "the arithmetic under test is real")
+        #expect(tally.adopted(incumbent: nil) == .authoring)
+        // And it takes the desk off an established incumbent, which the majority
+        // ratio would otherwise refuse: 3 is not twice 40.
+        #expect(tally.adopted(incumbent: .running) == .authoring)
+        #expect(tally.adopted(incumbent: .research) == .authoring)
+    }
+
+    /// **One edit is an event, two is a habit.** The floor exists so that a
+    /// research agent saving a single note does not sit behind a laptop for the
+    /// rest of its life.
+    @Test func oneStrayEditDoesNotHijackTheTurn() {
+        #expect(Self.tally([.authoring: 1, .running: 40]).adopted(incumbent: nil) == .running)
+        #expect(Self.tally([.authoring: 2, .running: 40]).adopted(incumbent: nil) == .authoring)
+        #expect(WorkTally.authoringPrecedenceFloor == 2, "the floor moved without the reasoning")
+    }
+
+    /// **A brief cannot trigger it.** The rule reads observed calls only, so an
+    /// agent *told* to implement something still shows what it is actually
+    /// doing until it actually edits twice. [I1]
+    @Test func aDispatchDescriptionCannotClaimAuthoringPrecedence() {
+        // The claim alone: one authoring vote, zero observed.
+        let claimed = Self.tally([.running: 4], claim: .authoring)
+        #expect(claimed.observedCount(.authoring) == 0)
+        #expect(claimed.adopted(incumbent: nil) == .running)
+
+        // Even a claim plus one real edit is still one real edit.
+        let claimedAndOne = Self.tally([.authoring: 1, .running: 40], claim: .authoring)
+        #expect(claimedAndOne.count(.authoring) == 2, "the claim is still a vote")
+        #expect(claimedAndOne.observedCount(.authoring) == 1)
+        #expect(claimedAndOne.adopted(incumbent: nil) == .running)
+    }
+
+    /// Clearing a turn clears the observed counts with the votes. A tally that
+    /// forgot only half would let last turn's edits decide this turn.
+    @Test func clearingTheTurnForgetsObservedAuthoringToo() {
+        var tally = Self.tally([.authoring: 5])
+        #expect(tally.adopted(incumbent: nil) == .authoring)
+        tally.clear()
+        #expect(tally.observedCount(.authoring) == 0)
+        #expect(tally.observedVotes == 0)
+        #expect(tally.adopted(incumbent: .running) == .running, "a cleared tally changed the desk")
+    }
+
     /// **Nothing on a bare desk without at least one observed call.** The floor
     /// is one, so this is the whole of what stops the room furnishing a desk
     /// from a dispatch description alone.

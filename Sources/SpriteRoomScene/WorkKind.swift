@@ -253,6 +253,44 @@ public struct WorkTally: Sendable, Hashable {
     /// is the measurement.
     public static let majorityRatio = 2
 
+    /// **Observed `authoring` calls that outrank every other kind outright.**
+    ///
+    /// # The problem this fixes, in the shape it was reported
+    ///
+    /// A maintainer watching a live coding session said they could not see a
+    /// laptop. The classification was working exactly as specified and the
+    /// specification was wrong: the kind is decided by *how many* calls of each
+    /// kind fired, and a session that edits three files while running forty
+    /// commands to build and test them counts as `running` by a factor of
+    /// thirteen. Every real coding session has that shape. `authoring` was
+    /// therefore close to unreachable on live data — and the corpus had already
+    /// said so from the other direction, since no fixture contains a single
+    /// `Edit`, `Write`, `NotebookEdit`, `Grep` or `Glob`.
+    ///
+    /// # Why precedence rather than a weight
+    ///
+    /// A weight big enough to fix the reported case is about 15 — the number
+    /// that lets three edits beat forty commands — and "one edit is worth
+    /// fifteen shell commands" is not a claim anything measured. Precedence
+    /// states the actual belief instead: **changing a file is what an agent is
+    /// doing, and the commands around it are how it gets done.** Reading, running
+    /// and dispatching are all in service of the edit; the edit is the headline.
+    ///
+    /// # Why the floor is 2 and not 1
+    ///
+    /// At 1 a single incidental write hijacks the whole turn — a research agent
+    /// that saves one note would sit behind a laptop for the rest of its life.
+    /// Two observed edits is the smallest number that distinguishes *this agent
+    /// edits files* from *this agent wrote something down once*, and it is
+    /// deliberately the same shape as `replacementFloor`: one is an event, two is
+    /// a habit.
+    ///
+    /// **It reads `observed` and never `votes`**, so a dispatch description
+    /// saying "implement the parser" cannot trigger it. A brief is inference
+    /// about intent written before the agent acted; this rule is about what the
+    /// agent was seen to do. [ADR-006 §3 step 1, I1]
+    public static let authoringPrecedenceFloor = 2
+
     /// Votes per kind. Kinds with no votes are absent rather than zero.
     public private(set) var votes: [WorkKind: Int] = [:]
 
@@ -267,12 +305,21 @@ public struct WorkTally: Sendable, Hashable {
     /// acted [ADR-006 §3 step 1]; it is admissible as a vote and it is not
     /// admissible as the *only* vote. `adopted(incumbent:)` refuses to put
     /// anything on a bare desk until this is at least 1.
-    public private(set) var observedVotes = 0
+    public var observedVotes: Int { observed.values.reduce(0, +) }
+
+    /// The same count, **per kind**. Kept separately from `votes` because the
+    /// opening claim is in `votes` and must never be in here: the precedence
+    /// rule below turns on what an agent was *seen* to do, and letting a
+    /// dispatch description reach it would let a brief that says "implement"
+    /// outrank forty observed commands. [ADR-006 §3 step 1]
+    public private(set) var observed: [WorkKind: Int] = [:]
 
     public init() {}
 
     public var isEmpty: Bool { votes.isEmpty }
     public func count(_ kind: WorkKind) -> Int { votes[kind] ?? 0 }
+    /// Observed calls of one kind, excluding any opening claim.
+    public func observedCount(_ kind: WorkKind) -> Int { observed[kind] ?? 0 }
     /// Every vote cast this turn, including the opening claim.
     public var total: Int { votes.values.reduce(0, +) }
 
@@ -282,7 +329,7 @@ public struct WorkTally: Sendable, Hashable {
     public mutating func record(_ kind: WorkKind?) {
         guard let kind else { return }
         votes[kind, default: 0] += 1
-        observedVotes += 1
+        observed[kind, default: 0] += 1
     }
 
     /// **The opening claim: exactly one vote, and never the deciding one.**
@@ -304,7 +351,7 @@ public struct WorkTally: Sendable, Hashable {
     /// type does not know what is on the desk.
     public mutating func clear() {
         votes.removeAll()
-        observedVotes = 0
+        observed.removeAll()
     }
 
     /// **What the desk should show, given what is on it now.**
@@ -333,6 +380,9 @@ public struct WorkTally: Sendable, Hashable {
     /// .deskObjectDwell`, which this type knows nothing about: the counts are
     /// honest and the clock is what keeps them glanceable. [ADR-006 §4c]
     public func adopted(incumbent: WorkKind?) -> WorkKind? {
+        // **Step 0: editing files outranks counting calls.** [see
+        // `authoringPrecedenceFloor`]
+        if observedCount(.authoring) >= Self.authoringPrecedenceFloor { return .authoring }
         guard let top = votes.values.max(), top > 0 else { return incumbent }
         let leaders = votes.filter { $0.value == top }.map(\.key)
         let winner: WorkKind
