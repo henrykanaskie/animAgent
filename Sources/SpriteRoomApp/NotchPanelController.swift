@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SpriteKit
 
 /// Drives the panel: samples the pointer, asks `RevealPolicy` what should
 /// happen, and slides the window.
@@ -21,6 +22,9 @@ import Foundation
 final class NotchPanelController {
 
     let panel: NotchPanel
+    /// The room's view, kept only so the render loop can be stopped while the
+    /// panel is away. See `setRendering(_:)`.
+    private weak var roomView: SKView?
     private let size: PanelSize
     private let tuning: RevealPolicy.Tuning
     private var policy: RevealPolicy
@@ -68,6 +72,37 @@ final class NotchPanelController {
         contentView.autoresizingMask = [.width, .height]
         container.addSubview(contentView)
         panel.setFrame(geometry.hiddenPanelFrame(size: size).cgRect, display: false)
+        roomView = contentView as? SKView
+        // The panel starts retracted, so the room starts paused. Without this the
+        // first stretch of every run renders into nothing.
+        setRendering(false)
+    }
+
+    /// Starts and stops the room's render loop with the panel.
+    ///
+    /// **The claim this replaces was wrong, and the terminal said so.** `slide`
+    /// used to assert that "a hidden panel costs nothing — an off-screen
+    /// `SKView` stops rendering, an ordered-out one is not in the window list at
+    /// all". Ordering a window out does remove it from the window list; it does
+    /// not stop the view's display link. What it actually produces, once per
+    /// frame for as long as the panel is away — which is nearly all the time —
+    /// is:
+    ///
+    /// > `SKView: no drawables available for rendering. Skipping this frame.`
+    ///
+    /// A maintainer running `--live` reported it filling their terminal. It is a
+    /// log line rather than an error, but the work behind it is real: the room
+    /// was drawing every frame of every retracted minute for nobody.
+    ///
+    /// **Pausing is safe here specifically because ingest does not run on this
+    /// clock.** Deltas reach the scene from `LiveDriver` through
+    /// `SceneBinding.apply`, which is driven by the listener; `isPaused` stops
+    /// rendering and `SKAction` time and touches neither the director nor the
+    /// scene graph. A retracted room therefore keeps *arriving* at the right
+    /// state and simply stops drawing it, which is why the panel is correct on
+    /// the frame it reappears rather than catching up visibly.
+    private func setRendering(_ isOn: Bool) {
+        roomView?.isPaused = !isOn
     }
 
     // MARK: Lifecycle
@@ -112,6 +147,7 @@ final class NotchPanelController {
         _ = policy.forceRetract(at: now)
         panel.setFrame(geometry.hiddenPanelFrame(size: size).cgRect, display: false)
         panel.orderOut(nil)
+        setRendering(false)
     }
 
     // MARK: Sampling
@@ -171,13 +207,19 @@ final class NotchPanelController {
     /// shows a window without activating the app, the second is the exact call
     /// that would break I8. The panel is ordered in *before* the animation so
     /// the frames it travels through are real, and ordered out *after* a
-    /// retract so a hidden panel costs nothing — an off-screen `SKView` stops
-    /// rendering, an ordered-out one is not in the window list at all.
+    /// retract so a hidden panel is not in the window list at all.
+    ///
+    /// **Rendering is resumed before the reveal and stopped after the retract**,
+    /// in that order for the same reason the ordering is: the slide has to be
+    /// drawn, so the room must be live for the whole of it and may only stop
+    /// once the panel is actually gone. `setRendering(_:)` has the account of
+    /// why an ordered-out panel does not stop drawing by itself.
     private func slide(to target: PanelRect, duration: TimeInterval) {
         let revealing = policy.phase.isVisible
         if revealing, !panel.isVisible {
             panel.orderFrontRegardless()
         }
+        if revealing { setRendering(true) }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -188,6 +230,7 @@ final class NotchPanelController {
                 guard let self else { return }
                 if !self.policy.phase.isVisible {
                     self.panel.orderOut(nil)
+                    self.setRendering(false)
                 }
             }
         }
