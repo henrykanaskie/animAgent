@@ -87,9 +87,15 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// it is the seam that lets final art arrive as a manifest swap with no code
     /// change, which is the property `04-ART-DIRECTION.md` asks every art
     /// binding to have. A kind that names a role again gets the pack path back
-    /// for free — `RoomScene.deskObjectArt` still prefers a named role over the
-    /// authored bitmap, and `everyKindFallsBackToAuthoredArtWhenNoRoleIsNamed`
-    /// checks both arms rather than only the one that ships.
+    /// for free: `RoomScene.deskObjectArt` still prefers a named role over the
+    /// authored bitmap.
+    ///
+    /// **Only the authored arm is exercised by a test.** The role arm is
+    /// currently unreachable — nothing can name a role while this returns `nil`
+    /// for every kind — so there is no honest way to cover it without a seam
+    /// that exists only for the test. `everyKindIsAuthoredAndNamesNoManifestRole`
+    /// pins the shipped half instead, and this paragraph is the record that the
+    /// other half is untested rather than a claim that it is not.
     ///
     /// The three manifest roles are deliberately **left declared**. They cost
     /// nothing, they keep `assets/manifest.json` reproducible from its

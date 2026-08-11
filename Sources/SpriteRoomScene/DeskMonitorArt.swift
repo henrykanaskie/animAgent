@@ -24,22 +24,27 @@ import Foundation
 /// doubled onto whole pixels, checked by a test that measures rather than
 /// trusts.
 ///
-/// # What this file does **not** do
+/// # Who reads it
 ///
-/// It declares and measures the art. It does **not** add a `WorkKind` case, a
-/// chooser, a manifest entry, or a `SceneDirector` binding — ADR-006 §5a keeps
-/// the classifier in `SceneDirector`, owned elsewhere, and this task's brief is
-/// explicit that binding is out of scope. `DeskMonitorArtTests` proves the art
-/// is legible and placeable; nothing yet reads it.
+/// `RoomScene.deskObjectArt` does, for `running`. **That sentence used to read
+/// "nothing yet reads it"**, which was true only for the few hours between this
+/// file being written and the binding landing; it is recorded here because a
+/// stale "not wired up yet" is the kind of comment that makes a reader go
+/// looking for a bug that does not exist.
 ///
-/// **No manifest entry, on purpose — unlike `laptop`/`papers`/`pad`.** Those
-/// three are `{file, content_box}` declarations pointing at real pack PNGs, so
-/// the manifest is where the provenance lives. This object has no source PNG
-/// to point at — it is drawn by the scene, exactly like `HeldObjectArt`,
+/// This file still declares and measures the art and nothing else — no
+/// `WorkKind` case, no chooser, no classifier. ADR-006 §5a keeps that in
+/// `SceneDirector`.
+///
+/// **No manifest entry, on purpose.** This object has no source PNG to point at
+/// — it is drawn by the scene, exactly like `DeskWorkArt`, `HeldObjectArt`,
 /// `SceneBitmaps.nameplate` and the four authored badges, none of which carry a
 /// manifest entry either. A manifest key with no file behind it would be the
 /// thing M5c already refused for the placeholder badges: a declaration that
 /// outruns what is actually on disk.
+///
+/// `laptop`, `papers` and `pad` are still declared in the manifest and are now
+/// read by nothing — see `WorkKind.propRole` for why they are left there.
 enum DeskMonitorArt {
 
     // MARK: - Palette — the pack's own inks, not new colours

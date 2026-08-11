@@ -596,9 +596,11 @@ public final class RoomScene: SKScene {
         return out
     }
 
-    /// The manifest path behind each drawn desk object, or `""` for the one kind
-    /// whose art is authored rather than sourced. Node identity says an object
-    /// was placed; it says nothing about which picture.
+    /// The manifest path behind each drawn desk object. **Uniformly `""` since
+    /// all four kinds became authored** — it was `""` for `running` alone while
+    /// the other three were pack bindings. Kept because the role arm of
+    /// `deskObjectArt` still fills it if a kind ever names a role again. Node
+    /// identity says an object was placed; it says nothing about which picture.
     private var deskObjectPaths: [AgentRef: String] = [:]
 
     var deskObjectNodesForTesting: [AgentRef: SKSpriteNode] { deskObjectNodes }
@@ -698,17 +700,22 @@ public final class RoomScene: SKScene {
     /// One kind's art, resolved through the manifest wherever the manifest has
     /// it.
     ///
-    /// **Three of the four are looked up by role name and never by filename**, so
-    /// final art drops in as a manifest swap with no code change. The lookup
-    /// prefers the theme's own binding and falls back to the root `room`'s: the
-    /// four desk-top objects are one vocabulary declared once, and no theme in
-    /// the shipped manifest declares them, so without the fallback three of the
-    /// four kinds would silently draw nothing in every themed room — which is
-    /// every room the app actually opens.
+    /// **All four are authored, and the role arm below is currently
+    /// unreachable.** `WorkKind.propRole` returns `nil` for every kind, so every
+    /// call takes the `guard` branch and draws `DeskWorkArt` or, for `running`,
+    /// `DeskMonitorArt` — the way the badges, the nameplate and the held objects
+    /// are drawn.
     ///
-    /// `running` has no manifest entry at all and is drawn from `DeskMonitorArt`,
-    /// the way the badges, the nameplate and the held objects are drawn: there is
-    /// no source PNG for a manifest key to name.
+    /// It was three-from-the-pack and one authored until the three pack singles
+    /// were rendered at the panel's true size and found unreadable there: all
+    /// isometric, and a diagonal wedge loses its diagonal before anything else.
+    /// `DeskWorkArt` carries that measurement.
+    ///
+    /// **The role lookup is kept deliberately.** It is the seam that lets final
+    /// art arrive as a manifest swap with no code change, it prefers the theme's
+    /// own binding over the root `room`'s, and reinstating one kind's role is all
+    /// it takes to use it. `WorkKind.propRole` records that only the authored arm
+    /// is covered by a test.
     private func deskObjectArt(_ kind: WorkKind)
     -> (texture: SKTexture, anchor: CGPoint, size: CGSize, contentWidth: Double, path: String)? {
         guard let role = kind.propRole else {

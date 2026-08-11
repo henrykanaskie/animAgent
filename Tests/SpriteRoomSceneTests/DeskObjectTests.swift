@@ -536,9 +536,19 @@ struct WorkTallyTests {
     }
 
     /// **The maintainer's own honest case**: an agent told to plan that is in
-    /// fact editing files. The brief is worth one vote, so two edits tie it and
-    /// three beat it — and because the desk is bare at the start, the first edit
-    /// already furnishes it.
+    /// fact editing files.
+    ///
+    /// **Read the second edit carefully — it no longer wins for the reason this
+    /// test was written for.** The original rule was pure counting, so the brief
+    /// was worth one vote, two edits tied it and three beat it. Since
+    /// `authoringPrecedenceFloor`, the second *observed* edit takes the desk
+    /// outright and the arithmetic is never reached. The assertions are
+    /// unchanged and still correct; only the mechanism behind the last one
+    /// moved, and a test that passes for a different reason than its comment
+    /// claims is worth strictly less than one that says so.
+    ///
+    /// The 1–1 tie in the middle is still genuine tie-breaking, and it is still
+    /// what stops a brief furnishing a desk on its own. [I1]
     @Test func aBriefIsWorthExactlyOneRealCall() {
         var tally = WorkTally()
         tally.seedOpeningClaim(.coordinating)
