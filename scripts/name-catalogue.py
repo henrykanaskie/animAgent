@@ -271,6 +271,29 @@ THEMES = {
         (113, 120, "food_platter"),
         (121, 123, "sweets"),
     ],
+    "interiors/bathroom": [
+        (1, 14, "vanity_with_mirror"),
+        (15, 20, "sink_wall"),
+        (21, 56, "toilet"),
+        (57, 57, "toilet_broken"),
+        (58, 59, "plunger"),
+        (60, 60, "brush_pole"),
+        (61, 65, "shower_cubicle"),
+        (66, 73, "mirror_wall"),
+        (74, 81, "bath_mat"),
+        (82, 86, "shelf_toiletries"),
+        (87, 94, "washing_machine"),
+        (95, 100, "laundry_basket"),
+        (101, 108, "stool_with_towel"),
+        (109, 109, "notice"),
+        (110, 119, "bin"),
+        (120, 137, "cabinet_bathroom"),
+        (138, 140, "cotton_balls"),
+        (141, 150, "towel_rack"),
+        (151, 154, "sink_with_taps"),
+        (155, 155, "perfume_bottle"),
+        (156, 158, "shower_tray"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -321,7 +344,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas"]
+               "japanese_interiors", "christmas", "bathroom"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
