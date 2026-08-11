@@ -325,6 +325,38 @@ THEMES = {
         (191, 194, "weight_bench"),
         (195, 209, "mat_exercise"),
     ],
+    # Basement is a games-room set: pool tables, arcade cabinets, consoles and
+    # bar seating, with a swimming pool at 227.
+    "interiors/basement": [
+        (1, 3, "table_round"),
+        (4, 21, "cushion_pair"),
+        (22, 26, "sparkle"),
+        (27, 60, "cushion_pair"),
+        (61, 63, "vase_flowers"),
+        (64, 66, "crate_wood"),
+        (67, 69, "table_tennis_gear"),
+        (70, 75, "billiard_gear"),
+        (76, 81, "pool_table"),
+        (82, 84, "picnic_basket"),
+        (85, 102, "bar_counter"),
+        (103, 144, "stool_bar"),
+        (145, 156, "stool_round_top"),
+        (157, 162, "shelf_low"),
+        (163, 166, "tv_flat"),
+        (167, 180, "game_console"),
+        (181, 182, "console_retro"),
+        (183, 185, "panel"),
+        (186, 193, "surfboard"),
+        (194, 195, "tv_stand_composite"),
+        (196, 197, "fence_wood"),
+        (198, 203, "bean_bag"),
+        (204, 217, "armchair"),
+        (218, 224, "arcade_machine"),
+        (225, 226, "picture_small"),
+        (227, 228, "swimming_pool"),
+        (229, 232, "picture_small"),
+        (233, 240, "door"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -375,7 +407,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas", "bathroom", "gym"]
+               "japanese_interiors", "christmas", "bathroom", "gym", "basement"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
