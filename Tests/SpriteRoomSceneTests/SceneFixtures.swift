@@ -329,6 +329,20 @@ enum SceneArt {
     /// `WorkKindLexiconTests`, `WorkTallyTests` and `DeskObjectDirectorTests` are
     /// this repository's own arithmetic. A fresh clone still checks every number
     /// in ADR-006 §3.
+    ///
+    /// **Still 89 after the palette lint was wired in, and that is a known
+    /// under-count of exactly one.** `PaletteLintTests.theI7PaletteLintPasses`
+    /// is art-gated, but its trait reads
+    /// `.enabled(if: SceneArt.isAvailable && PaletteLintTests.hasPython)` — a
+    /// compound condition, because a machine with no `python3` has not broken
+    /// the palette and should skip rather than fail. `gatedTestCount` matches
+    /// the literal one-condition spelling, so it cannot see that test.
+    ///
+    /// Left as 89 rather than taught to parse expressions: the scan's value is
+    /// that it is dumb and therefore trustworthy, and a regex that understood
+    /// `&&` would be one more thing to be subtly wrong. Recorded here instead,
+    /// which is the honest trade — the notice under-reports by one, and this is
+    /// the paragraph that says so.
     static let expectedGatedTestCount = 89
 
     /// The notice, as a pure function of what was surveyed, so the two branches
