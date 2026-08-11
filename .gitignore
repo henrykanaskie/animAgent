@@ -21,3 +21,13 @@ DerivedData/
 
 __pycache__/
 *.pyc
+
+# Markdown is local-only. Only the root README is published: the design record
+# in docs/, the running log in notes.md, CLAUDE.md and the agent definitions all
+# stay on this machine. Nothing is deleted — `git rm --cached` untracks a file
+# and leaves it on disk, and these are still the working copies.
+#
+# `!/README.md` is anchored to the repository root on purpose. An unanchored
+# `!README.md` would re-include fixtures/README.md too.
+*.md
+!/README.md
