@@ -112,6 +112,9 @@ THEMES = {
         (41, 46, "painting_framed"),
     ],
     "interiors/conference_hall": [
+        (61, 62, "curtain_red"),
+        (63, 65, "door_blue"),
+        (66, 68, "projection_screen"),
         (1, 20, "stage_riser"),
         (21, 24, "stage_edge"),
         (25, 26, "lectern"),
@@ -142,14 +145,61 @@ THEMES = {
         (35, 40, "ceiling_rail"),
         (41, 47, "monitor_wall_blank"),
         (48, 53, "screen_broadcast"),
-        (54, 60, "desk_news"),
+        (54, 70, "desk_news"),
+        (71, 74, "script_papers"),
+        (75, 80, "backdrop_striped"),
+    ],
+    "interiors/classroom_and_library": [
+        (1, 4, "chair_school"),
+        (5, 6, "desk_school"),
+        (7, 24, "desk_school_with_book"),
+        (25, 26, "desk_reading_with_book"),
+        (27, 30, "chair_reading_green"),
+        (31, 31, "map_world"),
+        (32, 32, "chart_wall"),
+        (33, 33, "notice_board_cork"),
+        (34, 35, "globe"),
+        (36, 36, "blackboard_small"),
+        (37, 38, "pointer_stick"),
+        (39, 39, "blackboard_large"),
+        (40, 40, "lockers"),
+        (41, 42, "step_ladder"),
+        (43, 48, "shelf_library"),
+        (49, 49, "desk_with_papers"),
+        (50, 51, "desk_librarian_composite"),
+        (52, 53, "counter_wood"),
+        (54, 54, "copier_on_counter"),
+        (55, 75, "bookcase_tall"),
+    ],
+    "interiors/fishing": [
+        (1, 6, "tackle_box"),
+        (7, 10, "bait_bag"),
+        (11, 11, "bucket"),
+        (12, 14, "fishing_rod"),
+        (15, 15, "rod_rack"),
+        (16, 18, "landing_net"),
+        (19, 26, "chair_folding_camp"),
+        (27, 35, "cooler_box"),
+        (36, 40, "papers_small"),
+        (41, 43, "tackle_tray"),
+        (44, 45, "panel_grey"),
+        (46, 46, "knife"),
+        (47, 49, "fishing_lure"),
+        (50, 52, "picture_framed_seascape"),
+        (53, 53, "aquarium"),
+        (54, 57, "fish_dish"),
+        (58, 63, "counter_fish_display"),
+        (64, 70, "rod_rack_standing"),
+        (71, 74, "trolley_cart"),
+        (75, 77, "parasol"),
     ],
 }
 
 # Themes whose contact sheets have been rendered and read end to end. A theme
 # absent from this list has not been looked at, which is a different thing from
 # a theme with no interesting props in it.
-THEMES_DONE = ["art", "conference_hall", "television_and_film_studio"]
+THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
+                "classroom_and_library", "fishing"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
