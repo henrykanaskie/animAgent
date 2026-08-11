@@ -623,6 +623,29 @@ THEMES = {
         (464, 467, "stall_shelf"), (468, 469, "stall_market"),
         (470, 480, "bouquet_flower"), (481, 483, "radiator"),
     ],
+    # Bedroom repeats a 56-bed colourway block four times (side-left, side-right,
+    # front, double), each followed by drapes, with bunk beds wedged between.
+    # Non-bed props start at 301.
+    "interiors/bedroom": [
+        (1, 56, "bed"), (57, 62, "curtain"), (63, 118, "bed"), (119, 124, "curtain"),
+        (125, 139, "bunk_bed"), (140, 195, "bed"), (196, 216, "curtain"),
+        (217, 272, "bed_double"), (273, 300, "curtain"), (301, 315, "teddy_bear"),
+        (316, 321, "plush_bunny"), (322, 353, "doll"), (354, 380, "rug_plain"),
+        (381, 386, "rug_patterned"), (387, 389, "jack_o_lantern"),
+        (390, 391, "hanging_ornament"), (392, 416, "dresser"), (417, 419, "vase"),
+        (420, 420, "mirror_wall"), (421, 426, "window"), (427, 428, "picture_framed"),
+        (429, 432, "chest_of_drawers"), (433, 433, "picture_framed"),
+        (434, 451, "vase"), (452, 453, "picture_framed"), (454, 459, "toy_car"),
+        (460, 461, "toy_train"), (462, 465, "string_lights"), (466, 477, "skateboard"),
+        (478, 480, "picture_framed"),
+        # 481-504 are two-tier vendor stands with folded linens and hung garments;
+        # 505-507 the same frame with an awning and produce crates. The agent that
+        # identified these flagged the group as its least certain call — an
+        # alternative reading of 481-504 is a linen display shelf.
+        (481, 507, "market_stall"),
+        (508, 512, "figurine"), (513, 536, "wardrobe"), (537, 538, "bookcase_tall"),
+        (539, 539, "cabinet"), (540, 550, "table_lamp"), (551, 555, "light_glow"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -673,7 +696,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store", "museum", "grocery_store"]
+               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store", "museum", "grocery_store", "bedroom"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
