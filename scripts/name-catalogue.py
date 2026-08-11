@@ -646,6 +646,59 @@ THEMES = {
         (508, 512, "figurine"), (513, 536, "wardrobe"), (537, 538, "bookcase_tall"),
         (539, 539, "cabinet"), (540, 550, "table_lamp"), (551, 555, "light_glow"),
     ],
+    # Hospital is not purely a ward: 372-494 is a children's play area and
+    # 501-519 a morgue/autopsy block. Much of the set is colour-variant runs —
+    # 1-35 is five colourways of seven bed sprites, 72-101 five colours by six
+    # office-chair poses, 428-457 six colours by five child-chair poses.
+    "interiors/hospital": [
+        (1, 35, "hospital_bed"), (36, 36, "folder"), (37, 42, "printer"),
+        (43, 47, "clipboard"), (48, 48, "whiteboard"), (49, 49, "noticeboard"),
+        (50, 50, "poster"), (51, 51, "fire_alarm"), (52, 52, "fire_extinguisher"),
+        (53, 55, "cardboard_box"), (56, 65, "shelf_medical"), (66, 67, "column"),
+        (68, 68, "sign_restroom"), (69, 71, "plant_potted"),
+        (72, 101, "chair_office_swivel"), (102, 102, "picture_framed"),
+        (103, 104, "sign_cafe"), (105, 118, "vending_machine"),
+        (119, 119, "kiosk_touchscreen"), (120, 125, "tv_wall"),
+        (126, 140, "table_coffee"), (141, 158, "nightstand"),
+        (159, 167, "stanchion_rope"), (168, 171, "window"), (172, 177, "door"),
+        (178, 183, "hospital_bed"), (184, 189, "bed"), (190, 191, "light_ceiling"),
+        (192, 197, "cabinet_medical"), (198, 199, "chair_recliner"),
+        (200, 200, "stool"), (201, 202, "bottle"), (203, 205, "pill"),
+        (206, 207, "bottle"), (208, 209, "counter_medical"),
+        (210, 211, "lamp_surgical"), (212, 213, "skeleton_model"),
+        (214, 217, "room_divider"), (218, 219, "dispenser_soap"), (220, 220, "bench"),
+        (221, 221, "counter_reception"), (222, 222, "bench"),
+        (223, 223, "counter_reception"), (224, 224, "bench"),
+        (225, 225, "counter_reception"), (226, 226, "bench"),
+        (227, 227, "counter_reception"), (228, 230, "stool"), (231, 236, "iv_stand"),
+        (237, 238, "radiator"), (239, 240, "ct_scanner"), (241, 241, "poster"),
+        (242, 242, "sign_medical"), (243, 244, "sign_warning"),
+        (245, 246, "privacy_screen"), (247, 247, "stool"),
+        (248, 252, "picture_framed"), (253, 258, "bin"), (259, 264, "blind_window"),
+        (265, 270, "board_schedule"), (271, 271, "door_sliding"),
+        (272, 273, "switch_light"), (274, 274, "fire_alarm"), (275, 278, "locker"),
+        (279, 314, "wall_panel"), (315, 315, "workstation_xray"),
+        (316, 316, "lab_bench"), (317, 320, "chair_waiting"),
+        (321, 326, "table_surgical"), (327, 330, "surgical_robot"),
+        (331, 332, "machine_anesthesia"), (333, 337, "clock"), (338, 343, "locker"),
+        (344, 349, "cabinet_drawers"), (350, 357, "hospital_bed"), (358, 359, "table"),
+        (360, 371, "wheelchair"), (372, 372, "picture_framed"), (373, 373, "play_mat"),
+        (374, 374, "toy_block"), (375, 375, "toy_plush"), (376, 377, "rug_sun"),
+        (378, 381, "cabinet_kids"), (382, 385, "shelf_art_supply"),
+        (386, 393, "cabinet_kids"), (394, 397, "shelf_art_supply"),
+        (398, 401, "cabinet_kids"), (402, 407, "toy_box"), (408, 413, "toy_plush"),
+        (414, 419, "toy_figure"), (420, 425, "table_round"), (426, 427, "art_supply"),
+        (428, 457, "chair_kids"), (458, 459, "toy_stacking_ring"),
+        (460, 461, "cabinet_kids"), (462, 465, "toy_bin_animal"),
+        (466, 469, "toy_box_animal"), (470, 470, "cup_crayon"), (471, 471, "playdough"),
+        (472, 472, "crayon_scattered"), (473, 476, "easel_paper"),
+        (477, 490, "easel_chalkboard"), (491, 494, "chalk_drawing"),
+        (495, 497, "thermometer"), (498, 500, "window"), (501, 501, "table_autopsy"),
+        (502, 502, "morgue_drawer"), (503, 503, "table_autopsy"),
+        (504, 517, "patient_lying"), (518, 519, "body_covered"),
+        (520, 522, "blind_window"), (523, 526, "sink_wall"), (527, 528, "bottle"),
+        (529, 532, "syringe"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -696,7 +749,7 @@ THEMES = {
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
                "birthday_party", "condominium", "ice_cream_shop", "living_room",
-               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store", "museum", "grocery_store", "bedroom"]
+               "japanese_interiors", "christmas", "bathroom", "gym", "basement", "halloween", "music_and_sport", "jail", "clothing_store", "museum", "grocery_store", "bedroom", "hospital"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
