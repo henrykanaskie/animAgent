@@ -199,6 +199,29 @@ THEMES = {
         (80, 99, "dessert_serving"),
         (100, 102, "counter_cafe"),
     ],
+    "interiors/living_room": [
+        (1, 11, "cabinet_ornate"),
+        (12, 12, "string_lights"),
+        (13, 18, "plant_potted"),
+        (19, 26, "dresser_with_mirror"),
+        (27, 27, "table_lamp"),
+        (28, 28, "doily"),
+        (29, 36, "console_low"),
+        (37, 44, "wardrobe"),
+        (45, 47, "side_table"),
+        (48, 52, "fruit_basket"),
+        (53, 62, "sideboard"),
+        (63, 70, "nightstand"),
+        (71, 78, "table_lamp"),
+        (79, 88, "floor_lamp"),
+        (89, 91, "cabinet_display"),
+        (92, 93, "chair_dining"),
+        (94, 102, "firewood_pile"),
+        (103, 103, "cabinet_wood"),
+        (104, 106, "broom"),
+        (107, 114, "fireplace"),
+        (115, 120, "fire_grate"),
+    ],
     "interiors/shooting_range": [
         (1, 10, "bench_shooting"),
         (11, 14, "control_panel"),
@@ -248,7 +271,7 @@ THEMES = {
 # a theme with no interesting props in it.
 THEMES_DONE = ["art", "conference_hall", "television_and_film_studio",
                "classroom_and_library", "fishing", "shooting_range",
-               "birthday_party", "condominium", "ice_cream_shop"]
+               "birthday_party", "condominium", "ice_cream_shop", "living_room"]
 
 # The animated objects already carry meaning in their filenames; this only
 # strips the boilerplate so they sort and search alongside everything else.
