@@ -624,6 +624,12 @@ def grid(name, x0, y0, nx, ny, dx, dy, v0=0, flags=()):
 DESK = ("ink:64x38",)
 DESK_TOP = 38          # desk's back edge, above the floor point
 
+# Which of the six 32x42 `workstation_composite` entries have a *lit* screen.
+# Two of the six are drawn switched off, and a dark panel at panel size reads
+# as a broken monitor rather than as an idle one — the room is meant to look
+# staffed.
+LIT_RIGS = (0, 1, 3, 4)
+
 
 def on_desk(lift, ink=None):
     """Flags for a prop resting `lift` px up the desk it stands on.
@@ -695,23 +701,37 @@ def desk_pod(x, y, v=0, facing="down"):
     A chair is only emitted for a back-facing seat. Facing the camera, the
     chair is behind the desk and would be entirely hidden — drawing one there
     just puts a stray backrest through the desktop.
+
+    **The right half is dressed differently depending on which way the seat
+    faces, and that is not a flourish.** A camera-facing occupant *is* the
+    right half — their head and shoulders fill it. A back-facing one sits below
+    the desk and leaves it bare, which is why the first pass of these pods came
+    out looking like six half-empty tables. So the away-facing desk gets a
+    second screen where the person would otherwise have been.
     """
     out = [
         ("desk_corner_l", x, y, v % 5, DESK),
         # Rig on the desk's left half: ink 32 wide against a 64 wide slab, so
         # x-16 covers x-32..x-1 exactly. Base 16 px up the desk, screen
         # clearing the back edge by 20 px the way the pack's own GIF draws it.
-        ("workstation_composite", x - 16, y - 16, 6 + v % 6, on_desk(16, (32, 42))),
-        # 24x24 is the loose sheaf; the 32x42 entry is a filing tower and
-        # overhangs the desk's right edge by 6 px when centred at x+20.
-        ("paper_stack", x + 20, y - 14, v % 3, on_desk(14, (24, 24))),
+        ("workstation_composite", x - 16, y - 16, LIT_RIGS[v % 4],
+         on_desk(16, (32, 42))),
         ("coffee_cup", x + 2, y - 12, 0, on_desk(12)),
     ]
     if facing == "up":
-        # 22x42 is the narrow swivel seen from behind. The 32x44 entry is a
-        # wide-backed chair, and at this standoff its backrest covers the
-        # occupant's shoulders — an empty chair with a head floating over it.
-        out.append(("chair_office_swivel", x, y + 32, v * 7 % 6, ("ink:22x42",)))
+        out += [
+            ("workstation_composite", x + 16, y - 16, LIT_RIGS[(v + 1) % 4],
+             on_desk(16, (32, 42))),
+            # 24x24 is the loose sheaf; the 32x42 entry is a filing tower and
+            # overhangs the desk's right edge when centred this close to it.
+            ("paper_stack", x + 24, y - 10, v % 3, on_desk(10, (24, 24))),
+            # 22x42 is the narrow swivel seen from behind. The 32x44 entry is a
+            # wide-backed chair, and at this standoff its backrest covers the
+            # occupant's shoulders — an empty chair with a head over it.
+            ("chair_office_swivel", x, y + 32, v * 7 % 6, ("ink:22x42",)),
+        ]
+    else:
+        out.append(("paper_stack", x + 22, y - 14, v % 3, on_desk(14, (24, 24))))
     return out
 
 
@@ -739,8 +759,8 @@ def engineering():
               ("picture_framed", 280, 54, 3, ("flat",)),
               ("board_schedule", 340, 58, 2, ("flat",)),
               ("clock", 30, 52, 0, ("flat",))]
-    seats = [(74, 160, "down"), (190, 160, "up"), (306, 160, "down"),
-             (74, 300, "up"), (190, 300, "down"), (306, 300, "up")]
+    seats = [(76, 162, "down"), (200, 162, "up"), (324, 162, "down"),
+             (76, 306, "up"), (200, 306, "down"), (324, 306, "up")]
     for i, (sx, sy, f) in enumerate(seats):
         props += desk_pod(sx, sy, i, f)
     # Litter between the pods. Office_Design_2's lesson is that the gaps
@@ -748,19 +768,19 @@ def engineering():
     props += [("plant_potted", 24, 118, 2, ()),
               ("plant_potted", 24, 372, 5, ()),
               ("printer_desk_composite", 384, 190, 0, ()),
-              ("printer", 384, 248, 3, ()),
-              ("box_cardboard", 388, 300, 0, ()),
-              ("box_cardboard", 358, 316, 1, ()),
+              ("printer", 384, 250, 7, ("ink:30x36",)),
+              ("cabinet_drawers", 388, 300, 0, ()),
+              ("cabinet_drawers", 388, 340, 2, ()),
               ("water_cooler", 384, 366, 0, ()),
-              ("pc_tower", 30, 250, 3, ()),
-              ("pc_tower", 136, 340, 1, ()),
-              ("pc_tower", 252, 200, 2, ()),
-              ("bin", 132, 232, 0, ()),
-              ("bin", 250, 372, 1, ()),
-              ("box_cardboard", 24, 300, 2, ()),
+              ("pc_tower", 30, 250, 1, ("ink:26x44",)),
+              ("pc_tower", 136, 344, 0, ("ink:26x44",)),
+              ("pc_tower", 254, 206, 2, ("ink:26x44",)),
+              ("bin", 150, 250, 6, ()),
+              ("bin", 252, 374, 7, ()),
+              ("cabinet_drawers", 26, 302, 4, ()),
               ("plant_potted", 250, 118, 9, ()),
               ("plant_potted", 366, 118, 13, ()),
-              ("backpack", 120, 214, 0, ("flat",)),
+              ("backpack", 118, 226, 0, ("flat",)),
               ("backpack", 252, 356, 1, ("flat",))]
     # Meeting room: long table, chairs down both sides, screen on the face.
     #
@@ -779,35 +799,44 @@ def engineering():
     props += [("plant_potted", 442, 110, 8, ()),
               ("plant_potted", 690, 112, 12, ()),
               ("water_cooler", 688, 182, 0, ()),
-              ("printer", 442, 188, 5, ()),
+              ("printer", 444, 186, 6, ("ink:30x32",)),
               ("document_tray", 540, 148, 0, on_desk(26)),
               ("paper_stack", 574, 146, 0, on_desk(24, (24, 24))),
               ("coffee_cup", 500, 144, 0, on_desk(22)),
               ("coffee_cup", 596, 144, 0, on_desk(22))]
     # Break room: counters, cafe tables, sofa, vending.
-    props += [("noticeboard", 476, 250, 1, ("flat",)),
-              ("sign_cafe", 620, 246, 0, ("flat",))]
+    # The break room's north wall is 64 px of the panel's 400 and was carrying
+    # two objects. The pack's own rooms hang something every two tiles.
+    props += [("noticeboard", 456, 244, 1, ("flat",)),
+              ("clock", 508, 232, 0, ("flat",)),
+              ("sign_cafe", 640, 240, 0, ("flat",)),
+              ("poster", 676, 244, 0, ("flat",))]
     props += [("coffee_machine", 458, 300, 0, ()),
               ("coffee_machine", 490, 300, 3, ()),
               ("vending_machine", 684, 306, 2, ()),
               ("water_cooler", 646, 300, 0, ()),
               ("counter_wood", 540, 300, 0, ("ink:32x30",)),
               ("counter_wood", 572, 300, 1, ("ink:32x30",)),
-              # 62x48 is the two-seat sofa. 56x76 is an L-shaped corner unit
-              # and 26x76 a single armchair; both read as furniture debris in a
-              # break room this size.
-              ("sofa", 478, 382, 0, ("ink:62x48",)),
-              ("sofa", 656, 382, 5, ("ink:62x48",)),
-              # 40x36 is the bare coffee table; the rest of the family already
-              # has cups and magazines drawn on, which fight the ones placed.
-              ("table_coffee", 540, 358, 0, ("ink:40x36",)),
-              ("table_coffee", 616, 358, 4, ("ink:40x36",)),
-              ("chair_tub_lowback", 504, 356, 0, ()),
-              ("chair_tub_lowback", 578, 356, 1, ()),
-              ("chair_tub_lowback", 654, 356, 2, ()),
-              ("plant_potted", 444, 356, 15, ()),
-              ("coffee_cup", 540, 344, 0, on_desk(18)),
-              ("paper_stack", 616, 344, 0, on_desk(18, (24, 24)))]
+              ("microwave", 540, 292, 0, on_desk(22)),
+              ("kettle", 574, 290, 0, on_desk(20)),
+              ("fridge_white", 606, 302, 0, ()),
+              # **No sofas and no tub chairs here.** Both are in the pack and
+              # both were tried: at 1x the 62x48 sofa's checkered seat reads as
+              # a grate and the 32x36 tub chair reads as a washbasin. Legibility
+              # at the size the panel actually runs beats naming the right
+              # object, so the break room reuses the meeting room's vocabulary —
+              # a metal table with chairs round it, which reads at any size.
+              ("table_metal", 500, 356, 1, ("ink:40x34",)),
+              ("table_metal", 592, 356, 2, ("ink:48x40",)),
+              ("chair_conference", 470, 348, 0, ("ink:26x42",)),
+              ("chair_conference", 530, 348, 1, ("ink:26x42",)),
+              ("chair_conference", 560, 350, 0, ("ink:26x42",)),
+              ("chair_conference", 626, 350, 1, ("ink:26x42",)),
+              ("plant_potted", 444, 372, 15, ()),
+              ("bin", 662, 366, 7, ()),
+              ("coffee_cup", 500, 340, 0, on_desk(18)),
+              ("coffee_cup", 588, 342, 0, on_desk(20)),
+              ("paper_stack", 604, 342, 0, on_desk(20, (24, 24)))]
     cast = ("06", "07", "09", "10", "17", "19")
     people = [seat(cast[i], sx, sy, f)
               for i, (sx, sy, f) in enumerate(seats)]
@@ -920,23 +949,22 @@ def hospital():
                   ("patient_lying", x - 2, 298, 1 + i * 2, on_desk(8, (44, 36))),
                   ("nightstand", x + 46, 308, 9 + i * 4, ("ink:30x38",)),
                   ("iv_stand", x - 44, 302, 3 + i, IV),
-                  ("chair_office_swivel", x + 20, 330, 4 + i * 5, ())]
+                  ("chair_office_swivel", x + 20, 334, i, ("ink:22x42",))]
     props += [("privacy_screen", 350, 190, 0, ()),
               ("room_divider", 350, 330, 1, ()),
               ("cabinet_medical", 24, 210, 0, ()),
               ("shelf_medical", 24, 250, 2, ()),
               ("sink_wall", 350, 110, 0, ("flat",)),
               ("dispenser_soap", 350, 90, 0, ("flat",)),
-              ("bin", 320, 372, 1, ()),
+              ("bin", 320, 372, 6, ()),
               ("plant_potted", 24, 372, 1, ()),
               ("wheelchair", 360, 372, 3, ())]
     # Reception: counter, waiting chairs, notice board, vending.
     props += [("counter_reception", 440, 150, 0, ()),
               ("counter_reception", 504, 150, 2, ()),
               ("counter_medical", 568, 150, 0, ()),
-              ("chair_office_swivel", 470, 118, 12, ()),
-              ("chair_office_swivel", 540, 118, 18, ()),
-              ("printer", 620, 148, 5, ()),
+              ("plant_potted", 424, 122, 6, ()),
+              ("printer", 620, 148, 7, ("ink:30x36",)),
               ("noticeboard", 470, 58, 0, ("flat",)),
               ("board_schedule", 560, 58, 3, ("flat",)),
               ("tv_wall", 640, 58, 2, ("flat",)),
@@ -954,7 +982,7 @@ def hospital():
               ("chalk_drawing", 560, 250, 2, ("flat",)),
               ("poster", 640, 248, 0, ("flat",))]
     props += [("play_mat", 500, 320, 0, ("flat",)),
-              ("table_round", 590, 316, 1, ()),
+              ("table_round", 590, 320, 3, ("ink:54x54",)),
               ("chair_kids", 560, 316, 2, ()),
               ("chair_kids", 620, 316, 8, ()),
               ("chair_kids", 590, 336, 14, ()),
