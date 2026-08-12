@@ -79,15 +79,24 @@ The other half of the same class of bug is coordinates chosen against a room's
 5-tile room has 3 tiles of floor. `floor_of` reports anything standing outside
 one, which is how the figures on walls were found rather than guessed at.
 
-**Props have a facing, and the pack only draws one of them.** Every monitor
-in 12,279 props is face-on with its keyboard below, so it can only belong to
-someone sitting *below* it, facing away. `chair_conference` puts the backrest
-on the far side, for someone facing the camera; `chair_office_back` puts it
-nearest, for someone facing away. Get either wrong and you have people staring
-at the back of their own screen and sitting the wrong way round in their
-chairs — which is what the first four renders of these scenes did, and what
-made them read as almost-right rather than right. `desk_pod` and `chair`
-enforce both, and nothing places a chair or a screen except through them.
+**Props have a facing, and this pack draws only one of them.** Every monitor
+in 12,279 props is face-on with its keyboard below, so it belongs to someone
+sitting *below* it, facing away. Every office chair — `chair_conference`,
+`chair_office_front`, `chair_office_back`, `chair_office_swivel`,
+`chair_school`, `chair_kids` — is drawn with its backrest away from the viewer
+and its seat toward them, so it belongs to someone facing the camera.
+`front` and `back` are two chair *models*, not two viewpoints.
+
+Both facts are one-way, and both cost a room its credibility when ignored:
+people staring at the back of their own screen, and a conference table with
+two rows of chairs that were meant to face each other and instead face the
+same way. `desk_pod`, `table_with_seats` and `chair` enforce them; nothing
+places a chair or a screen except through those three.
+
+The consequence for tables is worth stating on its own: **an empty table gets
+chairs on its far side only.** The near side is undrawable. An *occupied* near
+seat is fine, because the occupant's body covers everything but a compact
+silhouette that has no orientation — which is what makes `desk_pod` work.
 
 # Why there is a linter in here
 
@@ -799,7 +808,7 @@ def check_continuity(rooms, placed):
     return out
 
 
-def report_hidden(items, size, floor=0.45):
+def report_hidden(items, size, floor=0.55):
     """Items whose ink is mostly painted over by whatever is drawn after them.
 
     **A prop that is drawn and then buried is a bug the eye cannot find**, and
@@ -908,6 +917,11 @@ def compose(spec, by_name, out_path):
     # two screens, a tray and an occupant is doing its job at 30% visible. So
     # anything carrying something is exempt; the rule is about props buried by
     # things that have no business on top of them.
+    # A support is *meant* to disappear under what stands on it, but only so
+    # far. Exempting it outright hid the thing this rule is best at finding:
+    # a conference table with 46 px chairs tucked against a 40 px top, which
+    # leaves a 26 px strip and reads as a table cut off at both ends. So a
+    # support gets a looser floor, not a free pass.
     carrying = set()
     for _, ox, oy, ow, _, okind, _os, _op in placed:
         if okind != "on":
@@ -919,7 +933,8 @@ def compose(spec, by_name, out_path):
                 carrying.add((name, fx, fy))
     for label, hx, hy, frac in report_hidden(items,
                                              (PLAN[0] * TILE, PLAN[1] * TILE)):
-        if (label, hx, hy) in carrying:
+        limit = 0.25 if (label, hx, hy) in carrying else 0.45
+        if frac >= limit:
             continue
         breaks_hidden.append("R7 %s@%d,%d is %d%% buried"
                              % (label, hx, hy, 100 - int(frac * 100)))
@@ -1037,30 +1052,37 @@ CHAIR_DROP = 38     # the chair's floor point, below the desk's
 
 
 def chair(x, y, v=0, facing="down", flags=()):
-    """A chair drawn the right way round for whoever sits in it.
+    """A chair, drawn the only way this pack draws one.
 
-    **Chairs are not symmetric and the pack does not let you pretend they
-    are.** `chair_office_swivel` and `chair_conference` are drawn with the
-    backrest on the *far* side and the seat toward the viewer, which is the
-    chair of somebody facing the camera. `chair_office_back` is the reverse:
-    the backrest is nearest, filling the sprite, and the seat is barely
-    visible — the chair of somebody facing away.
+    # There is no near-side chair, and that is a fact about the art
 
-    Using one for the other is subtle enough to survive several renders and
-    obvious once seen, which is the worst combination. It is also not
-    checkable by the linter, because both are 'a chair on a floor'. So the
-    only defence is that nothing places a chair except through here.
+    Every office chair in the pack — `chair_conference`, `chair_office_front`,
+    `chair_office_back`, `chair_office_swivel`, `chair_school`, `chair_kids` —
+    is drawn with its backrest away from the viewer and its seat and feet
+    toward them. `front` and `back` are two chair *models*, a padded one and a
+    mesh one, not two viewpoints; measuring the ink distribution of both puts
+    the mass in the same place.
 
-    Two more consequences worth stating, since they are the same rule:
+    So a chair reads as belonging to somebody **facing the camera**, and an
+    empty chair drawn on the near side of a table is drawn backwards. That is
+    what the meeting room looked like for four renders: two rows that were
+    supposed to face each other, both facing the same way.
 
-      * A table has chairs on both sides and they are **different art**. The
-        far row faces the camera, the near row faces away.
-      * A camera-facing desk gets no chair at all — it would be behind the
-        desk and entirely hidden.
+    Two consequences, and `table_with_seats` applies both:
+
+      * **An empty table gets chairs on its far side only.** The near side is
+        undrawable and a bare near edge reads as a table you walk up to.
+      * An *occupied* near seat is fine, because the occupant's body covers
+        the chair — only the compact silhouette below their shoulders shows,
+        and that has no orientation. `desk_pod` relies on this.
+
+    `facing` therefore selects the model rather than the viewpoint: the mesh
+    `chair_office_back` under an occupant, the lighter `chair_conference`
+    where the chair is seen bare.
     """
     if facing == "down":
-        return (("chair_conference", x, y, v % 2) + (("ink:26x42",) + flags,))
-    return (("chair_office_back", x, y, v % 4) + (("ink:32x46",) + flags,))
+        return ("chair_conference", x, y, v % 2, ("ink:26x42",) + flags)
+    return ("chair_office_back", x, y, v % 4, ("ink:32x46",) + flags)
 
 
 def seat(variant, x, y, facing="down"):
@@ -1072,6 +1094,53 @@ def seat(variant, x, y, facing="down"):
     if facing == "down":
         return (variant, "idle", "down", x + 8, y - SEAT_INSET)
     return (variant, "idle", "up", x, y + SEAT_STANDOFF)
+
+
+# A near-side chair is 42-46 px tall and a table top is 34-42, so a chair
+# tucked level with the table hides almost all of it. These are the two
+# clearances that keep a table looking like a table.
+FAR_TUCK = 4     # far chair's feet overlap the table's back edge by this
+NEAR_TUCK = 6    # near chair's head overlaps the table's front edge by this
+
+
+def table_with_seats(x, y, slabs=3, seats=(3, 0), v=0,
+                     name="table_metal", ink=(52, 40), pitch=52, chair_h=46):
+    """A table with chairs down both sides, laid out so the table survives.
+
+    # Why this is a function
+
+    The meeting room was hand-placed three times and came out wrong three
+    times, in the same way each time: the near chairs sat level with the
+    table, and since they are 46 px tall against a 40 px top they covered all
+    but a 26 px strip. The table read as cut off at both ends, which is
+    exactly what it was.
+
+    The arithmetic is not hard, it is just easy to skip. The top runs from
+    `y - ink[1]` to `y`. A far chair's *feet* belong on the back edge, so its
+    floor point is `y - ink[1] + FAR_TUCK`. A near chair's *head* belongs on
+    the front edge, so its floor point is `y + chair_h - NEAR_TUCK` — below
+    the table, not level with it. Doing it here means every scene gets it and
+    a new one cannot get it wrong by hand.
+
+    Note the vertical budget this implies: a table with two chair rows needs
+    `chair_h + ink[1] + chair_h - FAR_TUCK - NEAR_TUCK` px of floor, about 122
+    for the office kit. A room with a north wall gives 32 px per tile minus
+    64, so **six tiles is not enough for a table with two sides** and seven
+    is. That is why the meeting room is 7 tiles and the break room 5.
+    """
+    out = []
+    left = x - (slabs * pitch) // 2 + pitch // 2
+    for i in range(slabs):
+        out.append((name, left + i * pitch, y, v + i, ("ink:%dx%d" % ink,)))
+    far, near = seats
+    span = slabs * pitch
+    for i in range(far):
+        cx = x - span // 2 + span * (2 * i + 1) // (2 * far)
+        out.append(chair(cx, y - ink[1] + FAR_TUCK, v + i, "down"))
+    for i in range(near):
+        cx = x - span // 2 + span * (2 * i + 1) // (2 * near)
+        out.append(chair(cx, y + chair_h - NEAR_TUCK, v + i, "up"))
+    return out
 
 
 def desk_pod(x, y, v=0, facing="down"):
@@ -1113,7 +1182,7 @@ def desk_pod(x, y, v=0, facing="down"):
              on_desk(16, (32, 42))),
             ("workstation_composite", x + 16, y - 16, LIT_RIGS[(3 * v + 1) % 4],
              on_desk(16, (32, 42))),
-            chair(x, y + CHAIR_DROP, v, "up", ("seat",)),
+            chair(x, y + CHAIR_DROP, v // 2, "up", ("seat",)),
         ]
     else:
         out += [
@@ -1135,13 +1204,13 @@ def engineering():
     rooms = [
         Room("open plan", 0, 0, 13, 12, "concrete",
              doors=[("east", 8, 3)]),
-        # 6 tiles each. A room's floor is its rect minus the two tiles its
-        # north wall eats, so 6 tiles is 128 px of floor and 5 was 96 — not
-        # enough for a table with a chair row on each side, which is why the
-        # first draft put four of them on the break room's wall.
-        Room("meeting", 13, 0, 9, 6, "carpet",
-             doors=[("west", 3, 2)]),
-        Room("break", 13, 6, 9, 6, "plank", doors=[("west", 2, 3)]),
+        # A room's floor is its rect minus the two tiles its north wall eats.
+        # `table_with_seats` needs ~122 px for a table with both sides
+        # occupied, so the meeting room takes 7 tiles (160 px of floor) and
+        # the break room 5 (96 px), which is a kitchenette rather than a
+        # lounge. At 6 and 6 the conference table came out buried.
+        Room("meeting", 13, 0, 9, 7, "carpet", doors=[("west", 3, 2)]),
+        Room("break", 13, 7, 9, 5, "plank", doors=[("west", 2, 3)]),
     ]
     props = []
     # Open plan: whiteboard and chart on the north face, four desk pods.
@@ -1185,50 +1254,53 @@ def engineering():
     props += [("tv_wall", 566, 60, 1, ("flat",)),
               ("certificate", 648, 52, 0, ("flat",)),
               ("noticeboard", 484, 56, 0, ("flat",))]
-    props += row("table_metal", 522, 160, 2, 52, v0=0, dv=3,
-                 flags=("ink:52x40",))
-    props += [chair(512 + i * 26, 116, i, "down") for i in range(4)]
-    props += [chair(514 + i * 34, 192, i, "up") for i in range(3)]
+    props += table_with_seats(560, 176, slabs=3, seats=(4, 0), v=0)
     props += [("plant_potted", 442, 110, 8, ()),
               ("plant_potted", 690, 112, 12, ()),
               ("water_cooler", 688, 182, 0, ()),
-              ("printer", 444, 186, 6, ("ink:30x32",)),
-              ("document_tray", 522, 148, 0, on_desk(26)),
-              ("paper_stack", 574, 146, 0, on_desk(24, (24, 24))),
-              ("coffee_cup", 552, 146, 0, on_desk(24)),
-              ("coffee_cup", 588, 144, 0, on_desk(22))]
+              ("printer", 596, 216, 6, ("ink:30x32",)),
+              ("cabinet_drawers", 448, 214, 1, ()),
+              ("plant_potted", 500, 218, 8, ()),
+              ("box_cardboard", 636, 214, 1, ("ink:32x42",)),
+              ("box_cardboard", 664, 220, 0, ("ink:24x42",)),
+              ("document_tray", 508, 162, 0, on_desk(40)),
+              ("paper_stack", 560, 158, 0, on_desk(36, (24, 24))),
+              ("coffee_cup", 552, 152, 0, on_desk(30)),
+              ("coffee_cup", 610, 154, 0, on_desk(32))]
     # Break room: counters, cafe tables, sofa, vending.
     # The break room's north wall is 64 px of the panel's 400 and was carrying
     # two objects. The pack's own rooms hang something every two tiles.
-    props += [("noticeboard", 456, 244, 1, ("flat",)),
-              ("clock", 508, 232, 0, ("flat",)),
-              ("sign_cafe", 640, 240, 0, ("flat",)),
-              ("poster", 676, 244, 0, ("flat",))]
-    props += [("coffee_machine", 458, 300, 0, ()),
-              ("coffee_machine", 490, 300, 3, ()),
-              ("vending_machine", 672, 306, 0, ("ink:48x68",)),
-              ("water_cooler", 646, 300, 0, ()),
-              ("counter_wood", 540, 300, 0, ("ink:32x30",)),
-              ("counter_wood", 572, 300, 1, ("ink:32x30",)),
-              ("microwave", 540, 292, 0, on_desk(22)),
-              ("kettle", 574, 290, 0, on_desk(20)),
-              # **No sofas and no tub chairs here.** Both are in the pack and
-              # both were tried: at 1x the 62x48 sofa's checkered seat reads as
-              # a grate and the 32x36 tub chair reads as a washbasin. Legibility
-              # at the size the panel actually runs beats naming the right
-              # object, so the break room reuses the meeting room's vocabulary —
-              # a metal table with chairs round it, which reads at any size.
-              ("table_metal", 500, 356, 1, ("ink:40x34",)),
-              ("table_metal", 592, 356, 2, ("ink:48x40",)),
-              chair(474, 330, 0, "down"), chair(526, 330, 1, "down"),
-              chair(500, 382, 0, "up"),
-              chair(566, 332, 0, "down"), chair(620, 332, 1, "down"),
-              chair(592, 384, 1, "up"),
-              ("plant_potted", 444, 372, 15, ()),
-              ("bin", 662, 366, 7, ()),
-              ("coffee_cup", 500, 340, 0, on_desk(18)),
-              ("coffee_cup", 588, 342, 0, on_desk(20)),
-              ("paper_stack", 604, 342, 0, on_desk(20, (24, 24)))]
+    props += [("noticeboard", 462, 276, 1, ("flat",)),
+              ("clock", 520, 264, 0, ("flat",)),
+              ("sign_cafe", 616, 272, 0, ("flat",)),
+              ("poster", 636, 274, 0, ("flat",))]
+    # A 5-tile kitchenette: floor y 288-384. Appliances stand against the wall
+    # with their tops overlapping its face, which is how the pack draws them,
+    # and one small table sits clear of them.
+    #
+    # **No sofas and no tub chairs.** Both are in the pack and both were tried:
+    # at 1x the 62x48 sofa's checkered seat reads as a grate and the 32x36 tub
+    # chair reads as a washbasin. Legibility at the size the panel actually
+    # runs beats naming the right object.
+    props += [("coffee_machine", 462, 322, 0, ()),
+              ("coffee_machine", 494, 322, 3, ()),
+              # **The microwave and kettle stand on the floor, not on a
+              # counter.** `counter_wood`'s 32x30 piece is 30 px tall and
+              # anything set on it covers 24 of those 30, so the counter read
+              # as a smear under an appliance. In a galley this narrow the
+              # appliances are the run.
+              ("microwave", 540, 322, 0, ()),
+              ("kettle", 574, 320, 0, ()),
+              ("water_cooler", 618, 322, 0, ()),
+              ("vending_machine", 672, 328, 0, ("ink:48x68",)),
+              ("plant_potted", 682, 380, 4, ()),
+              ("bin", 462, 380, 7, ())]
+    # **No table here.** `table_with_seats` needs ~122 px of floor and this
+    # room has 96, so a table with either side occupied puts its chairs on the
+    # south wall. A 5-tile room is a galley kitchen, not a cafe, and the
+    # honest thing is to draw a galley. The cafe table lives in the open plan,
+    # which has the depth for it.
+    props += [("bin", 606, 380, 11, ())]
     cast = ("06", "07", "09", "10", "17", "19")
     people = [seat(cast[i], sx, sy, f)
               for i, (sx, sy, f) in enumerate(seats)]
