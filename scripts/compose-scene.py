@@ -1119,8 +1119,9 @@ def desk_pod(x, y, v=0, facing="down"):
         out += [
             # 24x24 is the loose sheaf; the 32x42 entry is a filing tower and
             # overhangs the desk's right edge when centred this close to it.
-            ("document_tray", x - 16, y - 16, v % 2, on_desk(16)),
-            ("paper_stack", x + 18, y - 14, (v + 1) % 3, on_desk(14, (24, 24))),
+            ("folder", x - 16, y - 16, 0, on_desk(16)),
+            ("clipboard", x - 14, y - 10, v % 4, on_desk(10)),
+            ("paper_stack", x + 18, y - 16, (v + 1) % 3, on_desk(16, (24, 24))),
             ("coffee_cup", x + 20, y - 10, 0, on_desk(10)),
         ]
     return out
@@ -1165,12 +1166,15 @@ def engineering():
               ("pc_tower", 30, 250, 1, ("ink:26x44",)),
               ("pc_tower", 136, 344, 0, ("ink:26x44",)),
               ("pc_tower", 254, 206, 2, ("ink:26x44",)),
-              ("bin", 150, 250, 2, ()),
+              ("bin", 158, 252, 7, ()),
               ("bin", 252, 374, 6, ()),
               ("cabinet_drawers", 26, 302, 4, ()),
               ("plant_potted", 250, 118, 9, ()),
               ("plant_potted", 366, 118, 13, ()),
-              ("backpack", 118, 226, 0, ("ground",)),
+              ("plant_potted", 112, 250, 4, ()),
+              ("box_cardboard", 250, 250, 0, ("ink:32x42",)),
+              ("box_cardboard", 276, 262, 1, ("ink:24x42",)),
+              ("backpack", 214, 218, 0, ("ground",)),
               ("backpack", 252, 356, 1, ("ground",))]
     # Meeting room: long table, chairs down both sides, screen on the face.
     #
@@ -1237,7 +1241,8 @@ def museum():
         Room("gallery", 0, 0, 14, 12, "slab",
              doors=[("east", 7, 3)]),
         Room("gift shop", 14, 0, 8, 6, "lino_tan", doors=[("west", 3, 2)]),
-        Room("entrance", 14, 6, 8, 6, "lino", doors=[("west", 1, 3)]),
+        Room("entrance", 14, 6, 8, 6, "lino",
+             doors=[("west", 1, 3), ("south", 3, 3)]),
     ]
     props = []
     # Gallery: paintings hung along the face, barrier line, then cases.
@@ -1264,6 +1269,9 @@ def museum():
               ("vase_on_plinth", 300, 300, 2, ()),
               ("plinth", 148, 348, 0, ()),
               ("lectern", 250, 348, 3, ()),
+              ("bench", 376, 330, 0, ()),
+              ("plant_potted", 380, 380, 11, ()),
+              ("wall_plaque", 372, 236, 0, ("ground",)),
               ("bench", 130, 366, 0, ()), ("bench", 290, 366, 1, ()),
               ("sign_exit", 356, 56, 2, ("flat",)),
               ("plant_potted", 62, 384, 1, ()),
@@ -1272,7 +1280,7 @@ def museum():
     # Gift shop: shelves along the face, tables of merch, a counter.
     props += [("poster_shirt", 500, 58, 1, ("flat",)),
               ("poster_shirt", 560, 58, 3, ("flat",)),
-              ("sign_souvenir", 630, 56, 0, ("flat",))]
+              ("sign_open", 638, 56, 0, ("flat",))]
     props += row("shop_shelf", 480, 132, 6, 34, v0=5, flags=("ink:32x42",))
     props += [("souvenir_display", 496, 186, 0, ("ink:64x50",)),
               ("display_table", 582, 186, 2, ("ink:60x60",)),
@@ -1284,18 +1292,21 @@ def museum():
     # Entrance: ticket desk, turnstiles, benches, a big centrepiece.
     props += [("sign_hanging", 648, 246, 0, ("flat",)),
               ("picture_framed", 470, 250, 0, ("flat",))]
-    props += [("ticket_counter", 566, 318, 0, ()),
-              ("turnstile", 500, 372, 1, ()),
-              ("turnstile", 534, 372, 3, ()),
-              ("turnstile", 568, 372, 4, ()),
-              ("security_scanner", 478, 336, 0, ()),
-              ("bench", 640, 372, 2, ()),
-              ("plant_potted", 676, 300, 2, ()),
-              ("plant_potted", 692, 300, 0, ()),
+    # The hall is 256x120 of floor and the ticket office takes 192x112 of it,
+    # so everything else lives in the strip below, clear of the street door's
+    # 96 px opening at x 544-640.
+    props += [("ticket_counter", 566, 316, 0, ()),
+              ("turnstile", 470, 356, 1, ()),
+              ("turnstile", 502, 356, 3, ()),
+              ("turnstile", 534, 356, 4, ()),
+              ("plant_potted", 464, 382, 6, ()),
+              ("plant_potted", 668, 340, 9, ()),
+              ("bench", 670, 384, 2, ()),
+              ("doormat", 592, 382, 4, ("ground",)),
               ("sign_exit", 690, 250, 4, ("flat",))]
     people = [("17", "idle", "up", 140, 150), ("07", "idle", "up", 320, 150),
               ("09", "idle", "down", 220, 340), ("19", "idle", "left", 542, 184),
-              ("10", "idle", "up", 660, 348), ("06", "walk", "right", 480, 340)]
+              ("10", "idle", "up", 592, 356), ("06", "walk", "right", 480, 340)]
     return {"name": "02-museum", "rooms": rooms, "props": props,
             "people": people}
 
@@ -1321,42 +1332,44 @@ def hospital():
     BED = ("ink:64x44",)
     IV = ("ink:30x60",)
     for i, x in enumerate((66, 176, 286)):
-        props += [("hospital_bed", x, 158, i, BED),
+        props += [("hospital_bed", x, 158, (3, 2, 4)[i], BED),
                   ("patient_lying", x - 2, 150, i * 2, on_desk(8, (44, 36))),
-                  ("nightstand", x + 48, 176, i, ("ink:32x40",)),
+                  ("nightstand", x + 52, 178, i, ("ink:32x40",)),
                   ("iv_stand", x - 44, 154, i, IV),
                   ("board_schedule", x + 4, 56, i, ("flat",))]
     for i, x in enumerate((66, 176, 286)):
-        props += [("hospital_bed", x, 306, 3 + i, BED),
+        props += [("hospital_bed", x, 306, (1, 3, 0)[i], BED),
                   ("patient_lying", x - 2, 298, 1 + i * 2, on_desk(8, (44, 36))),
-                  ("nightstand", x + 46, 308, i + 3, ("ink:32x40",)),
+                  ("nightstand", x + 52, 330, i + 2, ("ink:32x40",)),
                   ("iv_stand", x - 44, 302, 3 + i, IV),
                   chair(x + 20, 348, i, "up")]
     props += [("privacy_screen", 220, 236, 0, ()),
-              ("room_divider", 350, 330, 1, ()),
+              ("room_divider", 250, 382, 1, ()),
               ("cabinet_medical", 36, 212, 0, ("ink:54x78",)),
               ("shelf_medical", 38, 264, 0, ("ink:58x68",)),
               ("sink_wall", 348, 60, 0, ("flat",)),
               ("dispenser_soap", 316, 60, 0, ("flat",)),
               ("bin", 320, 372, 11, ()),
               ("plant_potted", 24, 372, 1, ()),
-              ("wheelchair", 360, 372, 3, ())]
+              ("wheelchair", 360, 372, 3, ()),
+              ("cabinet_steel", 112, 368, 3, ("ink:32x42",)),
+              ("cabinet_steel", 146, 368, 0, ("ink:28x42",)),
+              ("bin", 300, 254, 6, ())]
     # Reception: counter, waiting chairs, notice board, vending.
-    props += [("counter_reception", 440, 150, 0, ()),
-              ("counter_reception", 504, 150, 2, ()),
-              ("counter_medical", 568, 150, 0, ()),
-              ("plant_potted", 424, 122, 6, ()),
-              ("printer", 620, 148, 7, ("ink:30x36",)),
+    props += [("counter_reception", 440, 132, 0, ()),
+              ("counter_reception", 504, 132, 2, ()),
+              ("counter_medical", 568, 132, 0, ()),
+              ("plant_potted", 414, 190, 6, ()),
+              ("printer", 622, 130, 7, ("ink:30x36",)),
               ("noticeboard", 470, 58, 0, ("flat",)),
               ("board_schedule", 560, 58, 3, ("flat",)),
               ("tv_wall", 640, 58, 2, ("flat",)),
-              ("kiosk_touchscreen", 676, 150, 0, ())]
-    props += row("chair_waiting", 440, 186, 3, 66, v0=0, dv=1,
+              ("kiosk_touchscreen", 678, 128, 0, ())]
+    props += row("chair_waiting", 478, 190, 3, 66, v0=0, dv=1,
                  flags=("ink:62x36",))
-    props += [("table_coffee", 620, 188, 6, ("ink:40x36",)),
-              ("vending_machine", 664, 188, 0, ("ink:48x68",)),
-              ("stanchion_rope", 424, 166, 0, ("ground",)),
-              ("stanchion_rope", 600, 166, 2, ("ground",)),
+    props += [("vending_machine", 678, 190, 0, ("ink:48x68",)),
+              ("stanchion_rope", 424, 172, 0, ("ground",)),
+              ("stanchion_rope", 646, 172, 2, ("ground",)),
               ("fire_extinguisher", 690, 58, 0, ("flat",))]
     # Play area: mats, kid chairs, toy boxes, easels.
     props += [("chalk_drawing", 470, 250, 0, ("flat",)),
@@ -1380,7 +1393,7 @@ def hospital():
               ("toy_block", 466, 378, 0, ("ground",)),
               ("bench", 600, 380, 3, ())]
     people = [("17", "idle", "down", 120, 200), ("07", "idle", "left", 336, 208),
-              ("19", "idle", "down", 500, 132), ("09", "idle", "down", 556, 296),
+              ("19", "idle", "down", 470, 132), ("09", "idle", "down", 556, 296),
               ("10", "idle", "down", 448, 366), ("06", "walk", "down", 400, 120)]
     return {"name": "03-hospital", "rooms": rooms, "props": props,
             "people": people}
