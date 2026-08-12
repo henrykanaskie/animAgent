@@ -565,6 +565,22 @@ enum SceneFixtures {
         try Manifest.load(root: repositoryRoot)
     }
 
+    /// **The seat metrics the shipped room places its furniture against.**
+    /// [ADR-008]
+    ///
+    /// `RoomLayout` takes these as a required argument because a default would
+    /// put a camera-facing desk *upstage* of the character it is supposed to be
+    /// in front of, silently. Tests that only care about a side-on seat still
+    /// have to pass something, so they pass the room's own — read out of the
+    /// manifest here, once, rather than written down at thirty call sites.
+    static func seatMetrics(_ manifest: Manifest, theme: String? = nil) -> RoomLayout.SeatMetrics {
+        let room = theme.flatMap { manifest.themes.theme($0)?.room } ?? manifest.room
+        return RoomLayout.SeatMetrics(
+            deskInkHeight: Double(room.prop("desk")?.contentBox.height ?? 0),
+            chairInkHeight: Double(room.prop("chair_back")?.contentBox.height ?? 0),
+            costumeTopAboveFeet: Double(manifest.characters.costumes.inkTopAboveFeet))
+    }
+
     /// The delta stream, batched the way the scene actually receives it: one
     /// batch per frame of fixture time, not one per event. Same-frame
     /// coalescing is a real behaviour and the tests have to exercise it.

@@ -1208,8 +1208,16 @@ public struct SceneDirector: Sendable {
             let body = body(for: presentation, badge: badge)
             if emittedBody[agent] != body {
                 emittedBody[agent] = body
+                // **The seat's own facing, not the room's.** [ADR-008] It was
+                // `layout.seatedFacing`, one constant for every seat, because
+                // the room was side-on everywhere. A seat declares which way it
+                // faces now, and the body has to be told which seat it is in —
+                // the seat is right here on the presentation, so this costs
+                // nothing and stays a pure function of what the director
+                // already knows.
                 intents.append(.setBody(
-                    agent: agent, state: body, facing: layout.seatedFacing))
+                    agent: agent, state: body,
+                    facing: layout.seatedFacing(presentation.seat)))
             }
             if emittedBadge[agent] != badge {
                 emittedBadge[agent] = badge

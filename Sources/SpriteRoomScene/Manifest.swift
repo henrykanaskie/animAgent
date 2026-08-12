@@ -37,6 +37,23 @@ public struct Manifest: Sendable, Hashable {
     public struct StateAnimation: Sendable, Hashable {
         public let loops: Bool
         public let fps: Double
+        /// **Which frame of this row holds the body highest**, measured by
+        /// `scripts/build-manifest.py` off the frames themselves. [ADR-008]
+        ///
+        /// `AmbientMotion`'s phrase table is a schedule over two positions of
+        /// one bob — `settled` and `raised` — and `raised` used to be computed
+        /// as "the last frame". That is a measurement of the three-frame `sit`
+        /// row `(rest, rest, up)` and it is wrong for every other row: the
+        /// six-frame `idle` row bobs on frames **2 and 3** and comes back to
+        /// rest on 4 and 5, so the last frame is a *settled* one and a phrase
+        /// built on it would hold a working character motionless. Once a seat
+        /// can face the camera the idle row is what a seated character draws,
+        /// so this stopped being hypothetical.
+        ///
+        /// `nil` for a manifest that predates the measurement, and
+        /// `AmbientMotion.Beat.frameIndex` then falls back to the old rule, so
+        /// an old manifest draws exactly what it drew before.
+        public let raisedFrame: Int?
         /// Frame paths per direction. `working` carries `right` and `left`
         /// only — the pack ships no front- or back-facing sitting pose.
         public let frames: [Facing: [String]]
@@ -161,13 +178,31 @@ public struct Manifest: Sendable, Hashable {
         /// dropped at decode; an asserting costume in here is a manifest defect
         /// and a test says so.
         public let assignableIDs: [String]
+        /// **How far above the feet a costume's ink reaches**, over the two
+        /// states a seated character draws, every set, every layer, every frame,
+        /// every direction. Measured by `scripts/build-manifest.py`; 22 px for
+        /// the shipped wardrobe. [ADR-008]
+        ///
+        /// It is the identity channel's extent, and it is what an away-facing
+        /// seat's chair is placed against: a chair back `H` px tall drawn in
+        /// front of a character hides **every** costume pixel at any standoff
+        /// below `H − this`, which is 24 px for the 46 px chair every theme
+        /// binds. A standoff chosen without it erases the costume completely
+        /// and nothing fails. See `RoomLayout.awayChairStandoff(chairHeight:
+        /// costumeTopAboveFeet:)`.
+        ///
+        /// `0` for a manifest that predates the measurement or declares no
+        /// wardrobe, which makes the standoff the chair's own height plus the
+        /// collar allowance — the safe direction, since it shows *more* of the
+        /// character rather than less.
+        public let inkTopAboveFeet: Int
 
         public func costume(_ id: String) -> Costume? { sets[id] }
 
         public var isEmpty: Bool { sets.isEmpty }
 
         public static let none = Costumes(
-            sets: [:], orderedIDs: [], roles: [:], assignableIDs: [])
+            sets: [:], orderedIDs: [], roles: [:], assignableIDs: [], inkTopAboveFeet: 0)
     }
 
     public struct Characters: Sendable, Hashable {
@@ -385,17 +420,34 @@ public struct Manifest: Sendable, Hashable {
     /// A desk, a chair, and at most one adjacent floor-standing prop, at one
     /// seat. [ADR-002 §7]
     ///
-    /// `chair` must be **side view with the backrest on the left** so a person
-    /// on it faces right — the only direction the pack's sit rows were drawn
-    /// for. A theme whose chair does not satisfy that is not a theme; it is
-    /// asking for art that does not exist. [04-ART-DIRECTION]
+    /// **The chair role is per *facing*, and this rule used to be global.**
+    /// [ADR-008]
+    ///
+    /// It read "`chair` must be side view with the backrest on the left so a
+    /// person on it faces right — the only direction the pack's sit rows were
+    /// drawn for", and that was true while every seat in the room was side-on.
+    /// A seat now declares which way its occupant faces, and the sentence splits
+    /// in two:
+    ///
+    /// - **`chair`** — still the side view with the backrest on the left, still
+    ///   for the sit rows, and still the *only* chair a side-on seat may take.
+    /// - **`chair_back`** — the same office chair drawn from behind, for a seat
+    ///   whose occupant faces away from the camera. A side chair under a
+    ///   back-facing occupant is a chair pointing 90° away from the person in
+    ///   it, so this is not a variant of the first, it is the other view of it.
+    ///
+    /// A seat facing the *camera* takes neither: the body covers the chair
+    /// entirely, which is what the pack's own `Office_Design_2.gif` does at
+    /// every camera-facing desk. `RoomLayout.SeatFacing.seatRole` is the mapping
+    /// and it is the only place it is written down.
     ///
     /// **`desk` and `chair` are the theme's own unless the station overrides
     /// them.** Every station the shipped manifest declares overrides neither, so
     /// what a station changes is what stands *beside* the seat — which is the
     /// only channel the art we own can actually separate. The pack's desks all
-    /// desaturate to the same pale slab, and it ships exactly one chair that is
-    /// a side view with its backrest on the left. [ADR-002 §14c]
+    /// desaturate to the same pale slab, and it ships exactly two chairs worth
+    /// binding: one side view and one back view, both of them the same chair.
+    /// [ADR-002 §14c]
     ///
     /// `asserts` is the same flag `Costume` carries and it means the same thing:
     /// whether this station makes a claim about what kind of worker sits at it.
@@ -881,6 +933,7 @@ public struct Manifest: Sendable, Hashable {
             states[state] = StateAnimation(
                 loops: (stateObject["loop"] as? Bool) ?? true,
                 fps: Double((stateObject["fps"] as? Int) ?? Int(frameRate)),
+                raisedFrame: stateObject["raised_frame"] as? Int,
                 frames: frames)
         }
         return states
@@ -942,7 +995,8 @@ public struct Manifest: Sendable, Hashable {
             .sorted()
         return Costumes(
             sets: sets, orderedIDs: sets.keys.sorted(),
-            roles: roles, assignableIDs: assignable)
+            roles: roles, assignableIDs: assignable,
+            inkTopAboveFeet: max(0, (object["ink_top_px"] as? Int) ?? 0))
     }
 
     /// Decodes one `room`-shaped object: tile, builder, props, stations.

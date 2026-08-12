@@ -331,9 +331,17 @@ struct ThemeSceneTests {
             scene.setViewport(CGSize(width: 720, height: 400))
             var director = SceneDirector(manifest: manifest, themeID: themeID)
             scene.apply(director.apply(deltas))
-            let props = scene.propNodesForTesting
-                .map { "\(Int($0.position.x)),\(Int($0.position.y))" }
-            let art = scene.propArtForTesting
+            // **Seat furniture is compared separately and by column.** [ADR-008]
+            // A camera-facing desk's *depth* is derived from that theme's own
+            // desk ink so the cut lands on one row of the body in every theme,
+            // so its y differs by theme by construction and comparing it here
+            // would be asserting the bug. Its x is theme-independent and is
+            // asserted in `seats` below; the cut is asserted outright.
+            let seatNodes = Set(scene.seatFurnitureNodesForTesting.map(ObjectIdentifier.init))
+            let kept = zip(scene.propNodesForTesting, scene.propArtForTesting)
+                .filter { !seatNodes.contains(ObjectIdentifier($0.0)) }
+            let props = kept.map { "\(Int($0.0.position.x)),\(Int($0.0.position.y))" }
+            let art = kept.map(\.1)
             let characters = Self.cast(3).compactMap { agent -> String? in
                 guard let character = scene.character(for: agent) else { return nil }
                 return [
@@ -344,11 +352,21 @@ struct ThemeSceneTests {
                     "\(director.seats[agent] ?? -1)",
                 ].joined(separator: "|")
             }
-            // The seat furniture, which is what "the layout is theme-independent"
-            // actually means: a chair and a desk on every seat's own point.
+            // The seat furniture's **column**, which is what "the layout is
+            // theme-independent" actually means: a chair and a desk on every
+            // seat's own point in x, in every theme.
+            //
+            // **The depth is deliberately not compared, and ADR-008 is why.** A
+            // camera-facing desk stands `deskInkHeight − 1 − deskCutAboveFeet`
+            // downstage of its occupant, so that its top edge lands on the same
+            // row of the *body* whatever the theme's desk happens to be — 11 px
+            // for the four 24 px desks, 23 for `mission_control`'s 36 and 31 for
+            // `library`'s 44. A constant there fails every theme in one
+            // direction or the other [docs/M8-MEASUREMENTS-phase1c.md §2]. The
+            // theme-independent fact is the *cut*, and it is asserted below as
+            // itself rather than through a y that cannot be equal.
             let seats = (0..<scene.layout.seatCapacity).flatMap { seat in
-                scene.furnitureForTesting(seat: seat)
-                    .map { "\(seat):\(Int($0.x)),\(Int($0.y))" }
+                scene.furnitureForTesting(seat: seat).map { "\(seat):\(Int($0.x))" }
             }.sorted()
             return (props, art, characters, seats, scene.layout.plan)
         }
@@ -367,6 +385,22 @@ struct ThemeSceneTests {
             "every theme has the same kind of room, so the two branches below are not"
             + " both exercised — planned: \(planCounts[false] ?? 0),"
             + " open: \(planCounts[true] ?? 0)"))
+
+        // **The cut is the theme-independent number, and it is checked over
+        // every theme including the first.** [ADR-008]
+        let layout = RoomLayout()
+        var cuts: Set<Int> = []
+        for id in ids {
+            let metrics = SceneFixtures.seatMetrics(manifest, theme: id)
+            for seat in 0..<layout.seatCapacity
+            where layout.seatFacing(seat) == .towardCamera {
+                let desk = layout.deskPosition(seat, metrics: metrics)
+                cuts.insert(Int(desk.y + metrics.deskInkHeight - 1 - layout.seatRowY(seat)))
+            }
+        }
+        #expect(cuts == [Int(layout.deskCutAboveFeet)], Comment(rawValue:
+            "a camera-facing desk cuts the body at \(cuts.sorted()) across the themes;"
+            + " it must land on one row of the body in all of them"))
 
         for id in ids.dropFirst() {
             let other = render(id)

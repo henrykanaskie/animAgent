@@ -520,9 +520,44 @@ struct RoomSceneTests {
         #expect(seconds(0) > 0)
     }
 
-    @Test func everySeatedCharacterFacesADirectionThePackDrew() {
+    /// **Every seat faces a direction the pack actually drew, in the row that
+    /// draws it.** [ADR-008]
+    ///
+    /// It used to read `#expect(layout.seatedFacing.isSideView)` — one facing
+    /// for the whole room, and the property being checked was that a seated
+    /// character never asks for a sit frame that does not exist, because both
+    /// sit rows are side art in all four blocks [M0]. **That property has not
+    /// changed and this is it, restated for a room whose seats can turn.** A
+    /// turned seat does not ask for a sit frame at all: it draws the standing
+    /// `idle` row, which the manifest declares in all four directions at six
+    /// frames each, and lets the seat's own occluder do the sitting. So the
+    /// assertion is on `BodyState.artState(facing:)` — the function that makes
+    /// the choice — rather than on a constant that no longer exists.
+    @Test func everySeatedCharacterFacesADirectionThePackDrew() throws {
         let layout = RoomLayout()
-        #expect(layout.seatedFacing.isSideView)
+        let manifest = try SceneFixtures.manifest()
+        var seen: Set<RoomLayout.SeatFacing> = []
+        for seat in 0..<layout.seatCapacity {
+            let facing = layout.seatFacing(seat)
+            seen.insert(facing)
+            let body = layout.seatedFacing(seat)
+            #expect(body == facing.bodyFacing)
+            let art = BodyState.working.artState(facing: body)
+            // A sit row is only ever asked for a side view, and every other
+            // facing draws the idle row.
+            #expect(art == .working ? body.isSideView : art == .idle)
+            for id in manifest.characters.orderedVariantIDs {
+                let frames = manifest.characters.variant(id)?
+                    .animation(art)?.frames(facing: art == .working ? body.seated : body)
+                #expect(frames?.isEmpty == false, Comment(rawValue:
+                    "variant \(id) has no \(art) frames facing \(body) for seat \(seat)"))
+            }
+        }
+        // **No seat in the shipped lattice is side-on**, and that is a
+        // measurement rather than a remark: the whole point of ADR-008 is that
+        // the room turned, and a lattice that quietly left a seat side-on would
+        // draw a held object at it and nothing would fail.
+        #expect(seen == [.towardCamera, .awayFromCamera])
     }
 
     // MARK: Criterion 1, end to end
@@ -1193,14 +1228,46 @@ struct RoomSceneTests {
     /// A desk stands on the same row as the character sitting at it, so the tie
     /// has to be broken on purpose. It is broken towards the desk — and the
     /// nameplate still outranks both.
-    @Test func aDeskOutranksTheSeatedBodyButNotTheNameplate() {
+    /// **However a seat is turned, its desk draws in front of its occupant and
+    /// behind anyone walking past, and the nameplate outranks all of it.**
+    ///
+    /// The original read the side-on case only, and it read it as a *tie*: a
+    /// desk and its occupant stand on one row, so `rowDepth` alone leaves the
+    /// order to chance and `surfaceInFrontBias` breaks it on purpose. ADR-008
+    /// turns three of the seven seats, and at a turned seat there is no tie to
+    /// break — a camera-facing desk is genuinely downstage of the body, so the
+    /// row does the work and the bias is zero. Both cases are asserted, because
+    /// the property the room needs ("the desk crosses the body it belongs to")
+    /// is the same one and only the mechanism differs.
+    @Test func aDeskOutranksTheSeatedBodyButNotTheNameplate() throws {
         let layout = RoomLayout()
-        let seated = Character.Layer.rowDepth(layout.baselineY)
-        let desk = Character.Layer.rowDepth(layout.deskPosition(0).y) + 0.5
+        let metrics = SceneFixtures.seatMetrics(try SceneFixtures.manifest())
         let aisle = Character.Layer.rowDepth(layout.aisleY)
-        #expect(desk > seated, "the desk's near edge must cross the body it belongs to")
-        #expect(aisle > desk, "a character walking past is always in front of the furniture")
-        #expect(seated + Character.Layer.nameplate > aisle, "no body may hide a nameplate")
+        for seat in 0..<layout.seatCapacity {
+            let facing = layout.seatFacing(seat)
+            let seated = Character.Layer.rowDepth(layout.seatRowY(seat))
+            let bias: CGFloat = facing == .sideOn ? RoomScene.surfaceInFrontBias : 0
+            let desk = Character.Layer.rowDepth(
+                layout.deskPosition(seat, metrics: metrics).y) + bias
+            switch facing {
+            case .sideOn, .towardCamera:
+                #expect(desk > seated,
+                        "seat \(seat)'s desk must cross the body it belongs to")
+            case .awayFromCamera:
+                // Its occupant has its back to it, so the desk is upstage and
+                // the **chair** is what stands in front. Asserted rather than
+                // skipped: a desk that crept in front of an away-facing body
+                // would cover the one thing that seat shows.
+                #expect(desk < seated, "an away-facing desk stands behind its occupant")
+            }
+            if let chair = layout.chairPosition(seat, metrics: metrics), facing != .sideOn {
+                #expect(Character.Layer.rowDepth(chair.y) > seated,
+                        "seat \(seat)'s chair back must stand in front of its occupant")
+            }
+            #expect(aisle > desk,
+                    "a character walking past is always in front of the furniture")
+            #expect(seated + Character.Layer.nameplate > aisle, "no body may hide a nameplate")
+        }
     }
 
     // MARK: Composition [M5]
@@ -1484,6 +1551,19 @@ struct RoomSceneTests {
     /// aisle and the delivery rows — so the foreground is occupied by the thing
     /// the user is supposed to be looking at, and there is nothing left to
     /// compete with it.
+    ///
+    /// **ADR-008 narrows this to *decoration*, and the narrowing is the whole of
+    /// what it takes from the rule.** A seat's own desk and chair now stand
+    /// downstage of their occupant — that is what makes a standing figure read
+    /// as a seated one, and it is the only reason a camera-facing seat exists at
+    /// all. What the rule protects is that **nothing the room decorates itself
+    /// with** comes between the viewer and a character, and that is untouched:
+    /// no scenery, no backdrop, no accent, no station prop moved a pixel. The
+    /// seat furniture is excluded by identity rather than by position, and it is
+    /// held to its own bound instead — it may come downstage of its own row, and
+    /// it may not reach `aisleY`, the row every character in the room walks
+    /// across. A chair on the walkway would be furniture standing in a route,
+    /// which is the thing `RoomPlan.routeViolations` exists to refuse.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theRoomDrawsNoDecorationInFrontOfTheCharacters() throws {
         let manifest = try SceneFixtures.manifest()
@@ -1491,11 +1571,26 @@ struct RoomSceneTests {
             let scene = RoomScene(manifest: manifest, themeID: theme)
             let nodes = scene.propNodesForTesting
             #expect(!nodes.isEmpty, "\(theme ?? "room") drew no furniture at all")
+            let seatFurniture = Set(
+                scene.seatFurnitureNodesForTesting.map(ObjectIdentifier.init))
+            var decorative = 0, seated = 0
             for node in nodes {
+                if seatFurniture.contains(ObjectIdentifier(node)) {
+                    seated += 1
+                    let why = "\(theme ?? "room") drew a seat's own furniture at"
+                        + " y=\(node.position.y), on or past the walkway"
+                    #expect(Double(node.position.y) > scene.layout.aisleY,
+                            Comment(rawValue: why))
+                    continue
+                }
+                decorative += 1
                 let why = "\(theme ?? "room") drew a prop at y=\(node.position.y),"
                     + " in front of the seat row"
                 #expect(Double(node.position.y) >= scene.layout.baselineY, Comment(rawValue: why))
             }
+            // Both branches ran, so neither assertion is vacuous.
+            #expect(decorative > 0 && seated > 0, Comment(rawValue:
+                "\(theme ?? "room"): \(decorative) decorative, \(seated) seat pieces"))
         }
     }
 
@@ -1532,11 +1627,18 @@ struct RoomSceneTests {
             let centre = layout.seatPosition(0).x
             // Only the two decorative roles; the desks and chairs at every seat
             // are placed by the seat, not by this band.
-            let seatRows = Set(layout.seatRows)
-            let scenery = Set(scene.sceneryNodesForTesting.map(ObjectIdentifier.init))
+            // **By identity, not by position.** [ADR-008] This filtered out
+            // anything standing on a seat row, which was exact only while every
+            // desk and chair shared its occupant's row; a turned seat's
+            // furniture stands downstage of it, and a position filter would
+            // have quietly started counting seven desks as decoration. The
+            // comment below already argued identity is the right key for
+            // scenery; it is the right key for both.
+            let excluded = Set(
+                (scene.sceneryNodesForTesting + scene.seatFurnitureNodesForTesting)
+                    .map(ObjectIdentifier.init))
             let decoration = scene.propNodesForTesting.filter {
-                !seatRows.contains(Double($0.position.y))
-                    && !scenery.contains(ObjectIdentifier($0))
+                !excluded.contains(ObjectIdentifier($0))
             }
             #expect(decoration.count == layout.seatCapacity, Comment(rawValue:
                 "\(theme ?? "room") drew \(decoration.count) decorative props"))

@@ -153,6 +153,15 @@ public final class TextureStore {
         manifest.characters.variant(variant)?.animation(state)?.loops ?? state.loopsByDefault
     }
 
+    /// **Which frame of an animation the manifest measured as the raised one.**
+    /// [ADR-008, `AmbientMotion.Beat`]
+    ///
+    /// `nil` for a manifest that predates the measurement, which puts
+    /// `AmbientMotion` back on the frame-count rule it used to carry.
+    public func raisedFrame(variant: String, state: BodyState) -> Int? {
+        manifest.characters.variant(variant)?.animation(state)?.raisedFrame
+    }
+
     public func headTop(variant: String) -> Int {
         manifest.characters.variant(variant)?.headTopPx ?? 0
     }

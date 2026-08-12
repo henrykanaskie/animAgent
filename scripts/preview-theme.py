@@ -427,7 +427,74 @@ def desk_depth_bias(desk_height, near_edge_x=None, manifest=None):
     return -0.5 if desk_height > clearance else 0.5
 
 
-def prop_layout(desk_height=None, desk_near_edge_x=None, manifest=None):
+# **Which way each seat faces, and what that brings with it.** [ADR-008]
+# Transcribed from `RoomLayout.SeatFacing` and `RoomLayout.seatFacing(_:)`: the
+# back row faces away from the camera because it is the only row with the 30 px
+# of clear floor its chair needs, and the front row faces the camera.
+SEAT_ROLE = {"toward_camera": None, "away_from_camera": "chair_back",
+             "side_on": "chair"}
+# How far above the feet a costume's ink reaches, and how far the top edge of an
+# away-facing chair is allowed inside that band. `RoomLayout.awayChairStandoff`.
+COLLAR_ROWS_ABOVE_CHAIR = 6
+# Which row of the body a camera-facing desk's top edge lands on.
+# `RoomLayout.deskCutAboveFeet`.
+DESK_CUT_ABOVE_FEET = 12
+# How far upstage of the feet an away-facing seat's desk stands.
+# `RoomLayout.awayDeskUpstage`.
+AWAY_DESK_UPSTAGE = TILE / 4
+
+
+def seat_facing(index):
+    """`RoomLayout.seatFacing(_:)`."""
+    return "away_from_camera" if seat_ring(index) % 2 else "toward_camera"
+
+
+def away_chair_standoff(chair_height, costume_top):
+    """`RoomLayout.awayChairStandoff(metrics:)` — 30 px for the shipped art."""
+    return max(0.0, chair_height - costume_top + COLLAR_ROWS_ABOVE_CHAIR)
+
+
+def chair_y(index, chair_height, costume_top):
+    """Where this seat's chair stands, or its own row when it is side-on."""
+    if seat_facing(index) == "away_from_camera":
+        return seat_y(index) - away_chair_standoff(chair_height, costume_top)
+    return seat_y(index)
+
+
+def desk_point(index, desk_height):
+    """`RoomLayout.deskPosition(_:metrics:)`."""
+    facing = seat_facing(index)
+    if facing == "toward_camera":
+        return (seat_x(index),
+                seat_y(index) - max(0.0, desk_height - 1 - DESK_CUT_ABOVE_FEET))
+    if facing == "away_from_camera":
+        return (seat_x(index) + TILE * 0.875, seat_y(index) + AWAY_DESK_UPSTAGE)
+    return (seat_x(index) + TILE * 0.875, seat_y(index))
+
+
+def seat_metrics(theme=None):
+    """**The measured art the seat furniture is placed against**, for one theme.
+
+    `RoomScene.seatMetrics(desk:)` in this file's terms: the desk's ink height,
+    the back chair's ink height, and how far above the feet a costume reaches.
+    A theme that binds no back chair simply has none to stand, which is the same
+    answer the scene gives. [ADR-008]
+    """
+    roles = (theme or {}).get("props", {}).get("roles", {}) if theme else {}
+    if not roles:
+        roles = manifest_json().get("room", {}).get("props", {}).get("roles", {})
+    costumes = manifest_json().get("characters", {}).get("costumes", {})
+
+    def height(role):
+        entry = roles.get(role)
+        return float(entry["content_box"]["h"]) if entry else 0.0
+
+    return (height("desk"), height("chair_back"),
+            float(costumes.get("ink_top_px", 0)))
+
+
+def prop_layout(desk_height=None, desk_near_edge_x=None, manifest=None,
+                chair_height=None, costume_top=None):
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
     Scene coordinates, y-up, the point being the content box's bottom-centre.
@@ -478,14 +545,36 @@ def prop_layout(desk_height=None, desk_near_edge_x=None, manifest=None):
     # did not exist for two commits, which is why every theme picture between
     # `4e7b43d` and M6e shows them.
     #
-    # Chair at every seat, drawn a hair behind the body. Then the desk, which
-    # takes the row depth plus a half so it occludes the seated body — at 32 px
-    # that overlap is the only cue the character is sitting *at* the desk.
-    for seat in range(SEAT_CAPACITY):
-        placed.append(("chair", seat_x(seat), seat_y(seat), -0.25))
+    # **A chair at every seat that has one, in the view its facing needs, and a
+    # desk wherever that facing puts it.** [ADR-008]
+    #
+    # Transcribed from `RoomLayout.chairPosition(_:metrics:)` and
+    # `deskPosition(_:metrics:)`:
+    #
+    #   * a **side-on** seat keeps what it always had — the chair on the seat's
+    #     own point a hair behind the body, the desk seven eighths of a tile to
+    #     the right on the same row, taking the row depth plus a half so its
+    #     near edge crosses the body;
+    #   * an **away-facing** seat puts the back view of the chair a whole
+    #     standoff *downstage* of the body and its desk a quarter tile upstage;
+    #   * a **camera-facing** seat has no chair at all and its desk stands
+    #     downstage, deep enough that its top edge lands on the body's waist.
+    #
+    # Neither turned case takes a depth bias: the furniture is genuinely on a
+    # different row from its occupant, so the row sorts it and there is no tie
+    # to break. `desk_depth_bias` is the side-on tie-breaker and only that.
     bias = desk_depth_bias(desk_height, desk_near_edge_x, manifest)
     for seat in range(SEAT_CAPACITY):
-        placed.append(("desk", seat_x(seat) + TILE * 0.875, seat_y(seat), bias))
+        facing = seat_facing(seat)
+        role = SEAT_ROLE[facing]
+        if role is not None:
+            placed.append((role, seat_x(seat),
+                           chair_y(seat, chair_height or 0.0, costume_top or 0.0),
+                           -0.25 if facing == "side_on" else 0.0))
+    for seat in range(SEAT_CAPACITY):
+        facing = seat_facing(seat)
+        x, y = desk_point(seat, desk_height or 0.0)
+        placed.append(("desk", x, y, bias if facing == "side_on" else 0.0))
     return placed
 
 
@@ -501,12 +590,15 @@ def role_placements():
     than transcribing the seat arithmetic a fourth time.
 
     The counts on the shipped 25-column layout are `board` 4, `plant` 3,
-    `chair` 7, `desk` 7. `board` and `plant` alternate across the seven seats of
+    `chair_back` 4, `desk` 7 — and `chair` **0**, because ADR-008 gave the seat
+    a facing: the four back-row seats take the back view of the chair, the three
+    front-row seats face the camera and take no chair at all (the body covers
+    one entirely), and no seat in the shipped lattice is side-on. `board` and `plant` alternate across the seven seats of
     the back row, and nothing else is placed. The four keys are always present,
     at zero if nothing is placed, so a caller cannot read a missing role as a
     missing count.
     """
-    counts = {"board": 0, "plant": 0, "chair": 0, "desk": 0}
+    counts = {"board": 0, "plant": 0, "chair": 0, "chair_back": 0, "desk": 0}
     for role, _x, _y, _bias in prop_layout():
         counts[role] = counts.get(role, 0) + 1
     return counts
@@ -825,8 +917,10 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # anchored on its own content box, so a wider desk reaches further left
     # across the body. `RoomScene.surfaceNearEdgeX(of:layout:)`.
     near_edge = (TILE * 0.875 - desk["content_box"]["w"] / 2.0) if desk else None
+    desk_h, chair_h, costume_top = seat_metrics(theme)
     for role_name, x, y, bias in prop_layout(
-            desk["content_box"]["h"] if desk else None, near_edge, manifest_json()):
+            desk["content_box"]["h"] if desk else None, near_edge, manifest_json(),
+            chair_height=chair_h, costume_top=costume_top):
         add_prop(role_name, x, y, bias=bias)
 
     # The scenery, drawn from `scenery_layout()` and deliberately not counted:
@@ -840,7 +934,8 @@ def render(theme, name, population, out_path, characters, seed_variants,
     for seat in range(population):
         variant = seed_variants[seat % len(seed_variants)]
         drawn.append((seat_y(seat), "char",
-                      (characters[variant], seat_x(seat), seat_y(seat))))
+                      (characters[(variant, seat_facing(seat))],
+                       seat_x(seat), seat_y(seat))))
 
     # What was placed must match what `role_placements()` says is placed, because
     # the lint's motion budget multiplies a prop's own motion by that count and
@@ -1286,7 +1381,10 @@ def role_boxes(theme, roles=None):
     declared = theme["props"]["roles"]
     to_screen, _origin = camera(*VERIFY_PANEL)
     boxes = {}
-    for role_name, x, y, _bias in prop_layout():
+    desk_h, chair_h, costume_top = seat_metrics(theme)
+    for role_name, x, y, _bias in prop_layout(
+            desk_h, None, manifest_json(),
+            chair_height=chair_h, costume_top=costume_top):
         if roles is not None and role_name not in roles:
             continue
         role = declared.get(role_name)
@@ -1607,6 +1705,12 @@ def main(argv=None):
               file=sys.stderr)
         return 2
 
+    # **One frame per (variant, seat facing).** [ADR-008] A seat declares which
+    # way its occupant faces and `BodyState.artState(facing:)` decides which row
+    # that draws: the sit row for a side-on seat, the standing `idle` row for a
+    # seat turned toward or away from the camera. This used to take
+    # `frames["right"]` unconditionally, which drew every seat side-on — the
+    # picture the app stopped drawing.
     variants = sorted(m["characters"]["variants"])
     seated = {}
     for v in variants:
@@ -1615,8 +1719,15 @@ def main(argv=None):
             print("error: no state %r (have: %s)"
                   % (args.state, ", ".join(sorted(states))), file=sys.stderr)
             return 2
-        frames = states[args.state]["frames"]["right"]
-        seated[v] = frames[0]
+        for facing, direction in (("side_on", "right"), ("toward_camera", "down"),
+                                  ("away_from_camera", "up")):
+            state = args.state
+            if state == "working" and direction in ("up", "down"):
+                state = "idle"
+            frames = states[state]["frames"].get(direction)
+            if not frames:
+                frames = states[state]["frames"]["right"]
+            seated[(v, facing)] = frames[0]
 
     badge = None
     if args.badge:

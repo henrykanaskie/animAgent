@@ -212,6 +212,17 @@ THEME_SINGLES = os.path.join(
 
 # (set number, single index). Set "office" means the Modern Office singles,
 # which is where the desk and the only usable chair come from.
+#
+# **Two chairs, because a seat has a facing.** [ADR-008] `chair` is the side
+# view (single 104, 24x46, backrest on the left) and `chair_back` is the same
+# office chair drawn from behind (single 101, 32x46) — the sprite
+# `compose-scene.py`'s CHAIR_SUITES["office"]["up"] already pins and the one
+# `Office_Design_2.gif` puts under every desk in its own room. A seat facing
+# away from the camera takes the second; a side-on seat takes the first; a seat
+# facing the camera takes neither, because the body covers the chair entirely,
+# which is also what the pack's own room does. Both are the Office set in every
+# theme for the same reason the note above gives for `chair`: these are the only
+# two office chairs in either pack drawn from a usable angle.
 THEMES = {
     "office": {
         "title": "Open Plan Office",
@@ -221,6 +232,7 @@ THEMES = {
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view, top slab plus two legs"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
             "board": ("office", 171, "presentation board on a stand, chart on the face"),
             "plant": ("office", 99, "small potted plant, floor standing"),
         },
@@ -310,6 +322,7 @@ THEMES = {
             # not a different one, so the mid-grey top is unchanged.
             "desk":  (19, 126, "grey equipment table, side view, bare top"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
             # Set 25's concentric target on a mast (single 15) was here first and
             # was cut after looking at it at 1x: a pale grey dish on a thin mast
             # against a pale wall, half occluded by the desk row, reading as a
@@ -357,6 +370,7 @@ THEMES = {
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
             "board": (23, 8, "studio softbox light on a tripod, tall"),
             "plant": (23, 1, "film camera on a tripod"),
         },
@@ -407,6 +421,7 @@ THEMES = {
             # the near-edge cue the front case exists for, and no face is touched.
             "desk":  (5, 8, "wooden school desk with an open book on the top"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
             "board": (5, 39, "green chalkboard on splayed legs"),
             "plant": (5, 57, "tall bookcase, full height, packed spines"),
         },
@@ -443,6 +458,7 @@ THEMES = {
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
             "board": (6, 37, "drum kit — kick, snare, toms, two cymbals on stands"),
             "plant": (6, 62, "microphone on a round-base stand"),
         },
@@ -473,6 +489,7 @@ THEMES = {
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
+            "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
             # Single 29, the lectern with a lit screen, was tried first: at 1x
             # its body is pale on a pale wall and all that survives is the
             # screen, which reads as a card floating at chest height. The flip

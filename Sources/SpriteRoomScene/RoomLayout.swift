@@ -10,11 +10,30 @@ public struct ScenePoint: Sendable, Hashable {
 
 /// Where everything stands, in unscaled scene pixels.
 ///
-/// **Side view, by necessity.** Both sit rows in Modern Interiors are side art
-/// in all four direction blocks — there is no front- or back-facing sitting
-/// sprite at any size. So the desks face sideways and the camera looks along
-/// the row. That is the design, not a compromise to fix later.
-/// [04-ART-DIRECTION, "Sitting is side-view only"]
+/// **A seat declares which way its occupant faces, and the occluder follows.**
+/// [ADR-008]
+///
+/// This doc comment used to say the room was side-on "by necessity", because
+/// both sit rows in Modern Interiors are side art in all four direction blocks
+/// and there is no front- or back-facing *sitting* sprite at any size. The first
+/// half of that is a measurement and is still true [M0]. The conclusion did not
+/// follow: a seated figure can be drawn as a **standing** figure with something
+/// in front of it, which is what the pack's own `Office_Design_2.gif` does at
+/// every desk in its own room and what `scripts/compose-scene.py` reproduces.
+/// The `idle` row is drawn in all four directions at six frames, and it has been
+/// on disk since M0.
+///
+/// So the room mixes orientations, and what differs per facing is **what does
+/// the occluding**:
+///
+/// | facing | pose drawn | occluder, and where it stands |
+/// |---|---|---|
+/// | toward the camera | `idle_down` | the **desk**, downstage of the feet |
+/// | away from the camera | `idle_up` | the **chair back**, downstage of the feet; the desk goes upstage |
+/// | side-on | `working` (the sit row) | nothing — it is a real seated pose |
+///
+/// See `seatFacing(_:)` for which seat gets which, and `SeatFacing` for what
+/// each brings with it.
 public struct RoomLayout: Sendable, Hashable {
 
     public let tile: Int
@@ -449,17 +468,324 @@ public struct RoomLayout: Sendable, Hashable {
         ScenePoint(x: Double(seatColumn(index) * tile + tile / 2), y: seatRowY(index))
     }
 
-    /// Bottom-**centre** of the desk for a seat. It sits just to the character's
-    /// right; every seated character faces right at it. Uniform facing keeps the
-    /// row readable and keeps every seated sprite inside the two directions the
-    /// pack drew.
+    // MARK: Which way a seat faces, and what stands in front of it [ADR-008]
+
+    /// **Which way the occupant of a seat faces the camera.**
     ///
-    /// The offset is seven eighths of a tile, which puts a 32 px desk's near
-    /// edge four pixels inside the body. That overlap is the point: at 32 px the
-    /// only cue that a character is sitting *at* a desk rather than beside one
-    /// is whether the desk's near edge crosses it.
-    public func deskPosition(_ index: Int) -> ScenePoint {
-        ScenePoint(x: seatPosition(index).x + Double(tile) * 0.875, y: seatRowY(index))
+    /// Not a costume and not a theme's choice: it decides which pose row the
+    /// body draws and therefore what has to stand in front of the body for it to
+    /// read as seated at all. The pack ships no front- or back-facing *sitting*
+    /// sprite [M0], so the two turned facings draw the **standing** `idle` row
+    /// and let furniture hide the legs — the technique the pack's own
+    /// `Office_Design_2.gif` uses at every desk in its own room.
+    public enum SeatFacing: String, Sendable, Hashable, CaseIterable {
+        /// `idle_down`, with the **desk** downstage of the feet. You see the
+        /// face; you lose the bottom of the costume to the desk.
+        case towardCamera = "toward_camera"
+        /// `idle_up`, with the **chair back** downstage of the feet and the desk
+        /// upstage. You see the back of the head and the shoulders.
+        case awayFromCamera = "away_from_camera"
+        /// The sit row, which is a real seated pose and needs no occluder. **No
+        /// seat in the shipped lattice takes it** — see `seatFacing(_:)` — and
+        /// `theShippedLatticeTurnsEverySeat` is that as a measurement rather
+        /// than as a remark. It is kept because it is the only facing with true
+        /// seated art, because the sit row, `Facing.seated`, the desk's
+        /// near-edge cue and the held-object hand anchor are all *about* it, and
+        /// because a room that ever seats a row side-on again needs no new code
+        /// to do it.
+        case sideOn = "side_on"
+
+        /// Which way the body itself points.
+        public var bodyFacing: Facing {
+            switch self {
+            case .towardCamera: return .down
+            case .awayFromCamera: return .up
+            case .sideOn: return .right
+            }
+        }
+
+        /// **Which `props.roles` key this seat's chair comes from**, or `nil` for
+        /// a seat that has no chair at all.
+        ///
+        /// A camera-facing occupant needs none: the body covers it entirely, and
+        /// drawing one would be a chair nobody can see standing where a person
+        /// is. That is what the pack's own room does, and it is the only reason
+        /// the toward-camera seat costs one prop rather than two.
+        public var seatRole: String? {
+            switch self {
+            case .towardCamera: return nil
+            case .awayFromCamera: return "chair_back"
+            case .sideOn: return "chair"
+            }
+        }
+
+        /// Whether an object may stand on this seat's desk. [ADR-008 §5]
+        ///
+        /// **False toward the camera**, for two independent reasons, either of
+        /// which is sufficient: the desk is between the occupant and the viewer,
+        /// so an object on it faces *upstage* and every screen in 12,279
+        /// catalogue props is drawn face-on — a lit monitor there is somebody
+        /// staring at the back of their own screen; and the desk is 32 px wide
+        /// with the body occupying all of it, so there is no column on that desk
+        /// an object can stand in without crossing the face the orientation
+        /// exists to show.
+        public var showsDeskTopObject: Bool { self != .towardCamera }
+
+        /// **Whether this seat's posture channel says anything.** [ADR-008 §6]
+        ///
+        /// ADR-005 keys posture to the turn: the sit row while a turn is in
+        /// progress, the standing row between them. A turned seat draws the
+        /// standing row for *both*, because that is the only row it has, so the
+        /// two states are the same picture pixel for pixel and the channel is
+        /// mute. Something else has to carry the fact, and `Character`'s dim is
+        /// what does — see `Character.setDimsOutOfTurn(_:)`.
+        public var showsPosture: Bool { self == .sideOn }
+    }
+
+    /// **Which way seat `index` faces: the back row away from the camera, the
+    /// front row toward it.**
+    ///
+    /// It is keyed on the row, and the row decides it because the *floor*
+    /// decides it. An away-facing seat needs its chair 30 px downstage of the
+    /// occupant's feet (`awayChairStandoff`), and the front row has 32 px of
+    /// floor between it and `aisleY` — the one row every character in the room
+    /// walks across. A chair there would stand 2 px off the walkway. The back
+    /// row has 64 px and the chair lands in the middle of it.
+    /// [docs/M8-MEASUREMENTS-phase1c.md §3]
+    ///
+    /// A toward-camera seat needs 11 px of floor downstage for its desk, which
+    /// both rows have, so the front row takes the facing that fits and the back
+    /// row takes the one that needs the room.
+    ///
+    /// **The result is the reference composition, for free.** Seats fill outward
+    /// in pairs and ring parity puts them in a checkerboard, so in x order the
+    /// rows run back, front, back, front, … and the facings therefore alternate
+    /// up, down, up, down, … across the whole room — which is exactly what
+    /// `Office_Design_2` and `scripts/compose-scene.py`'s own office do, and it
+    /// is not arranged here, it falls out of `isBackRow(seat:)`.
+    public func seatFacing(_ index: Int) -> SeatFacing {
+        isBackRow(seat: index) ? .awayFromCamera : .towardCamera
+    }
+
+    /// Which way the *body* faces at a seat.
+    ///
+    /// It was `var seatedFacing: Facing { .right }` — one constant for the whole
+    /// room, and the `.right` in it is the reason `Facing.seated` folds `up` and
+    /// `down` onto the side views. Both are still correct **for a side-on seat**
+    /// and neither is the room's answer any more.
+    public func seatedFacing(_ index: Int) -> Facing { seatFacing(index).bodyFacing }
+
+    /// **The measured art a seat's furniture is placed against.**
+    ///
+    /// `RoomLayout` opens no PNG and reads no manifest — that is what makes it
+    /// unit-testable as arithmetic — so the three numbers a turned seat needs
+    /// arrive as a parameter, the same shape
+    /// `deskSurfacePosition(seat:surfaceHeightAboveFloor:)` and
+    /// `contentBand(badgeTopAboveFeet:plateDropBelowFeet:)` already take theirs.
+    ///
+    /// It is a required argument on every accessor that needs it, deliberately.
+    /// A default would place a toward-camera desk at a depth of
+    /// `0 − 1 − deskCutAboveFeet` — *upstage* of the character it is supposed to
+    /// be in front of — and the room would draw a person standing in front of
+    /// their own desk with nothing failing.
+    public struct SeatMetrics: Sendable, Hashable {
+        /// The desk's own ink height, from its `content_box`.
+        public var deskInkHeight: Double
+        /// The chair's ink height, from `chair_back`'s `content_box`.
+        public var chairInkHeight: Double
+        /// `characters.costumes.ink_top_px` — how far above the feet a costume's
+        /// ink reaches.
+        public var costumeTopAboveFeet: Double
+
+        public init(
+            deskInkHeight: Double, chairInkHeight: Double, costumeTopAboveFeet: Double
+        ) {
+            self.deskInkHeight = deskInkHeight
+            self.chairInkHeight = chairInkHeight
+            self.costumeTopAboveFeet = costumeTopAboveFeet
+        }
+    }
+
+    /// **Which row of the body a toward-camera desk's top edge lands on**, above
+    /// the feet.
+    ///
+    /// The desk is the whole of what makes a standing figure read as a seated
+    /// one, so where it cuts is the whole design, and it was measured against
+    /// what it costs before it was chosen [docs/M8-MEASUREMENTS-phase1c.md §2]:
+    ///
+    /// | cut at | body kept | costume kept | reads as |
+    /// |---:|---:|---:|---|
+    /// | h4 | 94% | 79% | standing behind a low table |
+    /// | h8 | 86% | 55% | at a desk, hips hidden |
+    /// | **h12** | **75%** | **29%** | **at a desk, waist hidden** |
+    /// | h17 | 62% | 0% | the whole costume is gone |
+    /// | h23 | 48% | 0% | a head on a slab |
+    ///
+    /// The anatomy is measured too: legs h0–h7, torso and arms h8–h21, head and
+    /// hair h22 up. **There is no cut that keeps the costume and sells "seated"**
+    /// — at h8 you keep 55% of the costume and you can see the hips, and a chibi
+    /// with visible hips is standing. h12 is the waist: the first cut that reads
+    /// as a desk rather than as a table, and it is bought with 71% of the
+    /// costume. Toward-camera buys a **face**, which no other orientation gives
+    /// at all, and this is what it pays.
+    public var deskCutAboveFeet: Double { 12 }
+
+    /// How far **upstage** of the feet an away-facing seat's desk stands.
+    ///
+    /// A quarter tile, and it is `scripts/compose-scene.py`'s own `SEAT_STANDOFF
+    /// = 8` in that file's frame of reference — it seats its away-facing figure
+    /// 8 px downstage of the desk's floor point, which is this number seen from
+    /// the desk instead of from the feet. Nothing has to be derived here because
+    /// nothing is being occluded: the desk is *behind* the occupant, so it sorts
+    /// behind by row and the only thing the number decides is how much of it
+    /// shows around the body.
+    public var awayDeskUpstage: Double { Double(tile) / 4 }
+
+    /// **How far downstage of the feet an away-facing seat's chair stands** — the
+    /// one number in this file that decides whether a costume survives.
+    ///
+    /// ## The two numbers, and which frame of reference each is in
+    ///
+    /// `docs/M8-HANDOFF.md` says "roughly a 30 px standoff so head and shoulders
+    /// clear the backrest". `scripts/compose-scene.py` ships `SEAT_STANDOFF = 8`
+    /// and the maintainer likes how it looks. They are **the same composition**
+    /// measured from two different points:
+    ///
+    /// | | measured from | value |
+    /// |---|---|---:|
+    /// | `compose-scene.py` `SEAT_STANDOFF` | the **desk's** floor point, to the figure's feet | 8 |
+    /// | `compose-scene.py` `CHAIR_DROP` | the **desk's** floor point, to the chair's feet | 38 |
+    /// | this | the **figure's** feet, to the chair's feet | **38 − 8 = 30** |
+    ///
+    /// So the spike's chair sits 30 px downstage of its occupant, and the
+    /// handoff's number is the spike's number. Neither was copied: the two were
+    /// reconciled by measuring, and 30 is what this returns for the 46 px chair
+    /// every theme binds.
+    ///
+    /// ## The floor under it is measured, and it is not the head
+    ///
+    /// A 46 px chair back is *taller than four of the six variants*, so "does the
+    /// head clear" is the wrong question — the head clears at 24 and the costume
+    /// does not appear until 25. The binding number is the **costume**: its ink
+    /// tops out at `costumeTopAboveFeet` (22 px, measured over all twelve sets,
+    /// `characters.costumes.ink_top_px`), so a chair of height `H` hides *every*
+    /// costume pixel at any standoff below `H − 22`, and the identity channel the
+    /// wardrobe exists for is gone with nothing failing.
+    /// [docs/M8-MEASUREMENTS-phase1c.md §1]
+    ///
+    /// This returns `H − costumeTop + collar`, so the chair's top edge always
+    /// lands `collar` px *inside* the costume band and six rows of collar show
+    /// above the backrest. `collar` is the one chosen number here and it is
+    /// chosen at 6 because 46 − 22 + 6 = 30 reproduces the composition the
+    /// maintainer approved. A shorter chair moves down with it rather than
+    /// floating: a 24 px chair asks for 8, which is where a chair sits.
+    ///
+    /// **What it costs, stated rather than discovered in review:** six rows out
+    /// of twenty-two is 24% of the costume, so an away-facing seat spends three
+    /// quarters of its occupant's costume on the chair. The accent, the
+    /// nameplate and the badge are untouched — they are drawn in the overlay
+    /// band far above anything furniture sorts in — and at `1x` the costume was
+    /// already measured at a 0.00% silhouette difference [ADR-005 §9.6], so what
+    /// is being spent is the weakest identity channel the room owns, on the only
+    /// orientation that shows the back of a head.
+    public func awayChairStandoff(metrics: SeatMetrics) -> Double {
+        max(0, metrics.chairInkHeight - metrics.costumeTopAboveFeet + Self.collarRowsAboveChair)
+    }
+
+    /// How many rows of costume an away-facing chair leaves showing above its
+    /// own top edge. See `awayChairStandoff(metrics:)`.
+    public static let collarRowsAboveChair: Double = 6
+
+    /// Bottom-**centre** of the desk for a seat, in the place its facing puts it.
+    ///
+    /// | facing | where | why |
+    /// |---|---|---|
+    /// | side-on | `x + 0.875·tile`, same row | seven eighths of a tile puts a 32 px desk's near edge four pixels *inside* the body, and at 32 px that overlap is the only cue that a character is sitting **at** a desk rather than beside one |
+    /// | toward camera | same column, `deskInkHeight − 1 − deskCutAboveFeet` downstage | so the desk's top edge lands on the body's waist |
+    /// | away from camera | `x + 0.875·tile`, `awayDeskUpstage` upstage | the occupant's back is to it, and the object on it has to be somewhere a viewer can see |
+    ///
+    /// **The away-facing desk keeps the side-on seat's x and moves only in
+    /// depth, and that is a decision worth its own paragraph.** Centring it on
+    /// the column is the obvious arrangement and it was tried first: it puts a
+    /// 32 px desk directly behind a 20 px body, so six pixels of desk show at
+    /// each side, and — much worse — the object standing on it has nowhere to be
+    /// except behind the occupant's head. `docs/M8-PLAN-face-the-camera.md`'s
+    /// complaint #3 is "still no laptops, the desk objects are not readable";
+    /// a layout that hides the desk object at every seat in the room would be
+    /// answering complaint #4 by making #3 worse. Keeping the desk beside the
+    /// occupant keeps `RoomScene.deskObjectNearEdgeX`'s rule exactly as ADR-006
+    /// §2c wrote it — one character half-canvas to the right, the first column
+    /// strictly outside the body — so the object is as visible at an away-facing
+    /// seat as it has ever been, and the depth offset is what says the occupant
+    /// is *at* the desk rather than beside it.
+    ///
+    /// The pack's own room can centre its figure because its desk is 64 px wide
+    /// with two monitors at ±16 and the person between them. Ours is 32. That is
+    /// the whole of the difference and it is an art fact, not a taste one.
+    ///
+    /// **The turned cases need no depth bias and that is the point of moving
+    /// them.** `Character.Layer.rowDepth` sorts by row, so a desk genuinely
+    /// downstage of a body draws in front of it and one genuinely upstage draws
+    /// behind it, with no constant to pick and no tie to break.
+    /// `RoomScene.surfaceDepthBias` exists because a side-on desk shares its
+    /// occupant's row; a turned one does not.
+    ///
+    /// **The depth is per-theme and derived, because a constant fails every
+    /// theme in one direction or the other** — at 0 all six cut at or above the
+    /// collarbone (four leave a head on a slab, `mission_control` cuts into the
+    /// head, `library` decapitates) and at one whole floor row four of six do not
+    /// occlude at all and the room draws people standing behind furniture. The
+    /// six shipped desks want 11, 11, 11, 11, 23 and 31 px.
+    /// [docs/M8-MEASUREMENTS-phase1c.md §2]
+    ///
+    /// It is the **ink height** rather than `surface_y` that decides it, and the
+    /// two are the same in five themes and differ by 8 px in `library`, whose box
+    /// top is a standing book and not the slab. `surface_y` answers "where could
+    /// something stand"; occlusion asks "where does the ink stop", and reaching
+    /// for the more natural-sounding of the two would be wrong exactly once.
+    /// How far to a side-on occupant's right its desk is centred. Seven eighths
+    /// of a tile — see `deskPosition(_:metrics:)`. Named because
+    /// `RoomScene.surfaceNearEdgeX` is the *only* other thing that needs it, and
+    /// it needs it for a seat it may not be able to ask about: the near-edge cue
+    /// is a property of the side-on arrangement, not of whichever seat happens
+    /// to be seat 0.
+    public var sideOnDeskOffsetX: Double { Double(tile) * 0.875 }
+
+    public func deskPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint {
+        let seat = seatPosition(index)
+        switch seatFacing(index) {
+        case .sideOn:
+            return ScenePoint(x: seat.x + sideOnDeskOffsetX, y: seat.y)
+        case .towardCamera:
+            return ScenePoint(x: seat.x, y: seat.y - deskDepth(metrics: metrics))
+        case .awayFromCamera:
+            return ScenePoint(x: seat.x + sideOnDeskOffsetX, y: seat.y + awayDeskUpstage)
+        }
+    }
+
+    /// How far downstage of the feet a toward-camera desk's floor point sits, so
+    /// that its top edge lands on `deskCutAboveFeet`. Never negative: a desk
+    /// shorter than the cut stands on the character's own row and cuts wherever
+    /// its own height puts it.
+    public func deskDepth(metrics: SeatMetrics) -> Double {
+        max(0, metrics.deskInkHeight - 1 - deskCutAboveFeet)
+    }
+
+    /// Bottom-centre of a seat's chair, or `nil` for a seat that has none.
+    ///
+    /// Side-on keeps what it always had: the chair on the seat's own point, with
+    /// the body drawn a hair in front of it. Away-facing puts the chair back
+    /// `awayChairStandoff(metrics:)` downstage, which is what makes an `idle_up`
+    /// figure read as sitting in it. Toward-camera has no chair at all —
+    /// `SeatFacing.seatRole`.
+    public func chairPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint? {
+        let seat = seatPosition(index)
+        switch seatFacing(index) {
+        case .sideOn: return seat
+        case .towardCamera: return nil
+        case .awayFromCamera:
+            return ScenePoint(x: seat.x, y: seat.y - awayChairStandoff(metrics: metrics))
+        }
     }
 
     /// **The desk's top surface for a seat** — the plane an object could stand
@@ -483,22 +809,31 @@ public struct RoomLayout: Sendable, Hashable {
     /// here; this accessor only answers "where is the surface", which is a
     /// question every future object needs the same answer to and none of them
     /// should answer by eyeballing a second time.
-    public func deskSurfacePosition(seat index: Int, surfaceHeightAboveFloor: Double) -> ScenePoint {
-        let anchor = deskPosition(index)
+    public func deskSurfacePosition(
+        seat index: Int, surfaceHeightAboveFloor: Double, metrics: SeatMetrics
+    ) -> ScenePoint {
+        let anchor = deskPosition(index, metrics: metrics)
         return ScenePoint(x: anchor.x, y: anchor.y + surfaceHeightAboveFloor)
     }
 
     /// Bottom-centre of a station's one optional adjacent prop: a tile to the
     /// character's **left**, on the seat row. [ADR-002 §7]
     ///
-    /// The left because the right is the desk, and the arithmetic that keeps it
-    /// out of everyone else's way is worth writing down rather than eyeballing.
-    /// A seat pitch is three tiles. Within one pitch the desk's 32 px box spans
-    /// `x+12 … x+44` and this prop's spans `x−48 … x−16`, so a station occupies
-    /// `x−48 … x+44` — 92 px of a 96 px pitch, with the next station's prop
-    /// starting at `x+48`. Nothing overlaps and nothing is on a column any
-    /// character walks down, because every column in this room is a seat's own
-    /// and this is beside one, not on it.
+    /// The left because at a side-on seat the right is the desk, and the
+    /// arithmetic that keeps it out of everyone else's way is worth writing down
+    /// rather than eyeballing. A seat pitch is three tiles. Within one pitch a
+    /// side-on desk's 32 px box spans `x+12 … x+44` and this prop's spans
+    /// `x−48 … x−16`, so a station occupies `x−48 … x+44` — 92 px of a 96 px
+    /// pitch, with the next station's prop starting at `x+48`. Nothing overlaps
+    /// and nothing is on a column any character walks down, because every column
+    /// in this room is a seat's own and this is beside one, not on it.
+    ///
+    /// **A turned seat stacks its occluder in depth rather than beside the
+    /// body**, so it spans `x−48 … x+16` instead and the bound above still holds
+    /// with 28 px to spare. The measured footprints are 92 px side-on against
+    /// 32–40 px turned; the plan expected the opposite and the seat pitch is the
+    /// nameplate's anyway, so no mix of facings moves the scale the camera picks.
+    /// [ADR-008 §7, docs/M8-MEASUREMENTS-phase1c.md §3]
     ///
     /// It is on its seat's **own** row, so it is furniture beside the character
     /// rather than decoration in front of the characters — the rule that
@@ -545,8 +880,6 @@ public struct RoomLayout: Sendable, Hashable {
     public var overflowPlatePosition: ScenePoint {
         ScenePoint(x: propColumnX(forSeat: 0), y: wallBaseY + Double(tile))
     }
-
-    public var seatedFacing: Facing { .right }
 
     // MARK: Scenery [M8 Phase 2b]
 

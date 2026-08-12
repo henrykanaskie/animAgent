@@ -145,20 +145,38 @@ public enum AmbientMotion {
     public enum Beat: Sendable, Hashable {
         /// Frame 0. Head and torso down.
         case settled
-        /// The last frame. The whole upper body 2 px up.
+        /// The frame that holds the whole upper body 2 px up.
         case raised
 
-        /// Which frame of a `working` animation of `frameCount` frames this is.
+        /// Which frame of the animation this is, given how many frames it has
+        /// and which of them the manifest **measured** as the raised one.
         ///
-        /// **Total for any count**, which is what keeps the extensibility
-        /// property `03-EVENT-MODEL.md` protects for the pose table true here
-        /// too: a manifest that ships a seated loop of a different length still
-        /// plays every phrase, and no phrase can index out of it.
-        public func frameIndex(inFrameCount frameCount: Int) -> Int {
+        /// **`raisedFrame` is a measurement and it used to be a guess.** This
+        /// returned `frameCount − 1` for `raised`, which is right for the
+        /// three-frame `sit` row `(rest, rest, up)` and wrong for every other
+        /// row in the pack: the six-frame `idle` row bobs on frames **2 and 3**
+        /// and comes back to rest on 4 and 5, so the last frame is *settled* and
+        /// a phrase built on it alternates between two identical pictures. A
+        /// character with a call open would then hold still, which inverts the
+        /// one signal this whole file exists to carry. That stopped being
+        /// hypothetical the day a seat could face the camera, because a turned
+        /// seat draws the idle row. `Manifest.StateAnimation.raisedFrame` is
+        /// measured off the frames by `scripts/build-manifest.py`.
+        ///
+        /// **Total for any count and for any manifest**, which is what keeps the
+        /// extensibility property `03-EVENT-MODEL.md` protects for the pose table
+        /// true here too: an out-of-range or absent measurement falls back to the
+        /// old rule, so a manifest that predates it draws exactly what it drew
+        /// before, and no phrase can index out of any animation.
+        public func frameIndex(inFrameCount frameCount: Int, raisedFrame: Int? = nil) -> Int {
             guard frameCount > 1 else { return 0 }
             switch self {
             case .settled: return 0
-            case .raised: return frameCount - 1
+            case .raised:
+                guard let raisedFrame, raisedFrame > 0, raisedFrame < frameCount else {
+                    return frameCount - 1
+                }
+                return raisedFrame
             }
         }
     }
@@ -321,9 +339,13 @@ public enum AmbientMotion {
     ///   mark — `WorldDelta.gateChanged`. Defaulted to `false` so that every
     ///   caller who has nothing to say about a gate says nothing, which is the
     ///   ungated case and is what this function always assumed.
+    /// - Parameter raisedFrame: which frame of this animation the manifest
+    ///   measured as the raised one. Defaulted to `nil` — the old
+    ///   count-derived rule — so that a caller with no measurement in hand asks
+    ///   for exactly the behaviour that shipped before it existed.
     public static func sequence(
         for badge: ToolBadge?, state: BodyState, openCalls: Int, isGated: Bool = false,
-        frameCount: Int
+        frameCount: Int, raisedFrame: Int? = nil
     ) -> [Int] {
         guard frameCount > 0 else { return [0] }
         if state == .idle { return idleSequence }
@@ -336,6 +358,8 @@ public enum AmbientMotion {
         // reason. [ADR-005 §7]
         guard !isGated else { return gatedStillSequence }
         guard let phrase = phrase(for: badge) else { return identity }
-        return phrase.map { $0.frameIndex(inFrameCount: frameCount) }
+        return phrase.map {
+            $0.frameIndex(inFrameCount: frameCount, raisedFrame: raisedFrame)
+        }
     }
 }

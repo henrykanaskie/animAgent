@@ -77,10 +77,15 @@ struct DeskTopObjectTests {
     @Test func theThreeNewRolesAreNotTheFallbackRolesAStationReadsFrom() throws {
         let manifest = try SceneFixtures.manifest()
         for role in ["laptop", "papers", "pad"] {
-            #expect(role != "desk" && role != "chair", "would change station fallback behaviour")
+            #expect(role != "desk" && role != "chair" && role != "chair_back",
+                    "would change station fallback behaviour")
         }
+        // `chair_back` is new and is a **seat** role, not a desk-top one: it is
+        // the back view of the same office chair, bound because a seat declares
+        // which way its occupant faces. [ADR-008]
         #expect(manifest.room.propRoles.keys.sorted()
-                == ["board", "chair", "desk", "laptop", "pad", "papers", "plant"])
+                == ["board", "chair", "chair_back", "desk",
+                    "laptop", "pad", "papers", "plant"])
     }
 
     /// A weak but cheap silhouette-distinctness pin: no two of the three share
@@ -126,9 +131,13 @@ struct DeskTopObjectTests {
     static func deskTopWidthBound(manifest: Manifest, layout: RoomLayout) throws -> Double {
         let nearEdgeX = Double(manifest.characters.canvas.width) / 2
         let desk = try #require(manifest.room.prop("desk"))
-        let seat = layout.seatPosition(0)
-        let deskAnchor = layout.deskPosition(0)
-        let deskRightEdge = (deskAnchor.x - seat.x) + Double(desk.contentBox.width) / 2
+        // **The side-on offset by name, not seat 0's.** [ADR-008] Seat 0 faces
+        // the camera now and its desk is centred on its own column, so
+        // `deskPosition(0).x - seatPosition(0).x` is 0 there. The bound this
+        // computes is a property of the arrangement where the desk stands
+        // beside the occupant — which is the side-on seat's and the away-facing
+        // seat's — so it names that offset instead.
+        let deskRightEdge = layout.sideOnDeskOffsetX + Double(desk.contentBox.width) / 2
         return deskRightEdge - nearEdgeX
     }
 
@@ -176,8 +185,8 @@ struct DeskTopObjectTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func theSeatedHeadClearanceThresholdMatchesWhatTheWidthBoundAssumes() throws {
         let manifest = try SceneFixtures.manifest()
-        let layout = RoomLayout()
-        let frames = RoomScene.seatedFrames(manifest: manifest, facing: layout.seatedFacing)
+        let frames = RoomScene.seatedFrames(
+            manifest: manifest, facing: RoomLayout.SeatFacing.sideOn.bodyFacing)
         let head = try #require(SeatedHead(frames: frames), "no seated frame loaded")
         let nearEdgeX = Double(manifest.characters.canvas.width) / 2
         #expect(nearEdgeX == 16)
@@ -493,9 +502,12 @@ struct DeskMonitorArtTests {
     /// directly rather than assuming it from the formula's shape.
     @Test func theSurfaceHeightNeverMovesTheMonitorsNearEdgeX() {
         let layout = RoomLayout()
-        let anchorX = layout.deskPosition(0).x
+        let metrics = RoomLayout.SeatMetrics(
+            deskInkHeight: 24, chairInkHeight: 46, costumeTopAboveFeet: 22)
+        let anchorX = layout.deskPosition(0, metrics: metrics).x
         for surfaceHeight in [24.0, 36.0] {
-            let surface = layout.deskSurfacePosition(seat: 0, surfaceHeightAboveFloor: surfaceHeight)
+            let surface = layout.deskSurfacePosition(
+                seat: 0, surfaceHeightAboveFloor: surfaceHeight, metrics: metrics)
             #expect(surface.x == anchorX,
                     "surface height \(surfaceHeight) moved the near-edge x")
         }
@@ -514,8 +526,8 @@ struct DeskMonitorArtTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func theMonitorCannotCoverAHeadPixelAtEitherDeskSurfaceHeight() throws {
         let manifest = try SceneFixtures.manifest()
-        let layout = RoomLayout()
-        let frames = RoomScene.seatedFrames(manifest: manifest, facing: layout.seatedFacing)
+        let frames = RoomScene.seatedFrames(
+            manifest: manifest, facing: RoomLayout.SeatFacing.sideOn.bodyFacing)
         let head = try #require(SeatedHead(frames: frames), "no seated frame loaded")
         let nearEdgeX = Double(manifest.characters.canvas.width) / 2
         #expect(nearEdgeX == 16)

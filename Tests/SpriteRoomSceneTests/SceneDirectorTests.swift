@@ -180,17 +180,44 @@ struct SceneDirectorTests {
         #expect(!exitStyles.contains { if case .report = $0 { return true } else { return false } })
     }
 
-    /// A seated character can only face sideways. Asking for `working` facing
-    /// up or down is asking for art nobody drew.
-    @Test func seatedCharactersAlwaysFaceSideways() async throws {
+    /// **A seated character faces a direction the pack drew, and the director
+    /// says which seat it is sitting in.**
+    ///
+    /// This was `seatedCharactersAlwaysFaceSideways`, and its reason was that
+    /// "asking for `working` facing up or down is asking for art nobody drew".
+    /// The premise is a real measurement and it is still true — both sit rows
+    /// are side art in all four blocks [M0] — but the conclusion stopped
+    /// following at ADR-008: a seat facing the camera does not ask for a sit
+    /// frame at all, it draws the standing `idle` row, which the manifest
+    /// declares in all four directions, and lets the seat's own occluder do the
+    /// sitting. `BodyState.artState(facing:)` is the function that makes that
+    /// choice and it is what this now checks.
+    ///
+    /// The property being defended is unchanged: **no intent this director emits
+    /// can ask for a frame that does not exist.**
+    @Test func seatedCharactersFaceADirectionThePackDrew() async throws {
+        let manifest = try SceneFixtures.manifest()
         var director = Self.director()
+        let layout = RoomLayout()
+        var seen: Set<Facing> = []
         for batch in try await SceneFixtures.batchedDeltas("three-subagents") {
             for intent in director.apply(batch) {
-                if case let .setBody(_, state, facing) = intent, state == .working {
-                    #expect(facing.isSideView)
+                guard case let .setBody(_, state, facing) = intent, state == .working
+                else { continue }
+                seen.insert(facing)
+                let art = BodyState.working.artState(facing: facing)
+                #expect(art == .working ? facing.isSideView : art == .idle)
+                for id in manifest.characters.orderedVariantIDs {
+                    let frames = manifest.characters.variant(id)?.animation(art)?
+                        .frames(facing: art == .working ? facing.seated : facing)
+                    #expect(frames?.isEmpty == false, Comment(rawValue:
+                        "variant \(id) has no \(art) frames facing \(facing)"))
                 }
             }
         }
+        // The corpus fills both rows, so both facings are exercised rather than
+        // one of them being asserted vacuously.
+        #expect(seen == Set((0..<layout.seatCapacity).map { layout.seatedFacing($0) }))
     }
 
     // MARK: The permission gate — ADR-005 §7

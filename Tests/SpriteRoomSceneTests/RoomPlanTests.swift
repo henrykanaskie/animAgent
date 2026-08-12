@@ -112,6 +112,10 @@ struct RoomPlanTests {
     @Test func adoptingAPlanMovesNoRouteNumber() throws {
         let open = RoomLayout()
         let planned = open.adopting(plan: try Self.officePlan())
+        // Any metrics at all: the assertion is that a plan changes nothing, and
+        // the two sides are asked the same question. [ADR-008]
+        let metrics = RoomLayout.SeatMetrics(
+            deskInkHeight: 24, chairInkHeight: 46, costumeTopAboveFeet: 22)
         #expect(planned.seatCapacity == open.seatCapacity)
         #expect(planned.width == open.width && planned.height == open.height)
         #expect(planned.wallBaseY == open.wallBaseY)
@@ -122,7 +126,10 @@ struct RoomPlanTests {
         #expect(planned.standingRows == open.standingRows)
         for seat in 0..<open.seatCapacity {
             #expect(planned.seatPosition(seat) == open.seatPosition(seat))
-            #expect(planned.deskPosition(seat) == open.deskPosition(seat))
+            #expect(planned.deskPosition(seat, metrics: metrics)
+                    == open.deskPosition(seat, metrics: metrics))
+            #expect(planned.chairPosition(seat, metrics: metrics)
+                    == open.chairPosition(seat, metrics: metrics))
             #expect(planned.stationPropPosition(seat) == open.stationPropPosition(seat))
             #expect(planned.entranceRoute(forSeat: seat) == open.entranceRoute(forSeat: seat))
             #expect(planned.upstageExit(forSeat: seat) == open.upstageExit(forSeat: seat))

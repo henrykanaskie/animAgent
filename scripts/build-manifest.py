@@ -93,8 +93,24 @@ ACCENT_HUES = ["#FF884D", "#C4FF4D", "#4DFF88", "#4DC3FF", "#884DFF", "#FF4DC4"]
 PROP_ROLES = {
     "desk":  {"index": 34,  "what": "plain office desk, side view, top slab plus two legs"},
     "chair": {"index": 104, "what": "office chair, side view, backrest to the left - a "
-                                    "person on it faces right, which is the way every "
-                                    "seated character faces"},
+                                    "person on it faces right, which is the way a "
+                                    "side-on seated character faces"},
+    # **The second chair, and it is a facing rather than a variant.** [ADR-008]
+    # A seat declares which way its occupant faces, and a side-view chair under
+    # a back-facing occupant is a chair pointing 90 degrees away from the person
+    # in it. This is the same office chair drawn from behind - the sprite
+    # `Office_Design_2.gif` puts under every desk in the pack's own room.
+    "chair_back": {
+        "index": 101,
+        "what": "office chair, back view - a person on it faces away from the "
+                "camera, which is the way a back-row seated character faces",
+        "identified_by": "rendered at 6x and inspected by eye for ADR-008; ink "
+                         "32x46, matching the (32,46) family "
+                         "scripts/compose-scene.py's CHAIR_SUITES pins as the "
+                         "office suite's `up` view. Selected by ink dimensions "
+                         "rather than by name: singles 279/280 carry the same "
+                         "catalogue name at 30x32 and are a photocopier",
+    },
     "plant": {"index": 99,  "what": "small potted plant, floor standing"},
     "board": {"index": 171, "what": "presentation board on a stand, floor standing, "
                                     "chart on the face"},
@@ -365,6 +381,61 @@ def content_box(path):
     return {"x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1}
 
 
+def raised_frame(frames):
+    """Which frame of an animation holds the body **highest**. [ADR-008]
+
+    The `AmbientMotion` phrase table is a schedule over two positions of one
+    bob — `settled` and `raised` — and until now `raised` was "the last frame",
+    which is a measurement of the three-frame `sit` row (0, 0, up) that happens
+    to be right there and is wrong everywhere else. The six-frame `idle` row
+    bobs on frames **2 and 3** and returns to rest on 4 and 5, so `frameCount -
+    1` picks a *settled* frame and a phrase built on it would hold a working
+    character motionless. A seat that faces the camera draws the idle row, so
+    that stopped being hypothetical.
+
+    Mechanical, and the same rule for any row: the first frame whose ink starts
+    highest.
+
+    Measured on the state's first direction. For the two rows anything reads it
+    for — `idle` and `working` — all four directions agree exactly, on every
+    variant (idle 2, working 2). `walk` does **not** agree, because its bob is a
+    stride and the down block starts on the raised foot; nothing reads `walk`'s,
+    and a number that means "the up part of the loop" is not meaningful for a
+    row whose loop is a gait. If a phrase is ever keyed on a walk, this is the
+    line to revisit rather than to trust.
+    """
+    tops = [content_top(os.path.join(REPO, p), 32, 64) for p in frames]
+    if not tops:
+        return None
+    return tops.index(min(tops))
+
+
+def costume_ink_top(sets):
+    """How far above the feet a costume's ink reaches, over every **seated**
+    pose the room can draw. [ADR-008]
+
+    This is the identity channel's own extent, and it is what an away-facing
+    seat's chair is placed against: a chair back `H` px tall drawn in front of
+    a character hides every costume pixel at any standoff below `H - this`, so
+    a standoff chosen without it erases the costume completely and nothing
+    fails. Measured here rather than in `Sources/` because the scene would have
+    to open ~1000 PNGs to ask the same question at build time.
+
+    `idle` and `working` only — the two states a seated character draws. `walk`
+    reaches 2 px higher and no seat ever draws it.
+    """
+    highest = None
+    for spec in sets.values():
+        for layer in spec.get("layers", []):
+            for state in ("idle", "working"):
+                frames = layer.get("states", {}).get(state, {}).get("frames", {})
+                for paths in frames.values():
+                    for path in paths:
+                        top = content_top(os.path.join(REPO, path), 32, 64)
+                        highest = top if highest is None else min(highest, top)
+    return None if highest is None else 64 - highest
+
+
 def desk_surface_height(path, box):
     """How many px above the floor a desk's top surface sits. [ADR-006 SS2b]
 
@@ -429,6 +500,7 @@ def build_characters():
                 "loop": spec["loop"],
                 "fps": FPS,
                 "frame_count": len(next(iter(per_dir.values()))),
+                "raised_frame": raised_frame(next(iter(per_dir.values()))),
                 "frames": per_dir,
             }
         if not ok:
@@ -439,6 +511,7 @@ def build_characters():
                 "loop": True,
                 "fps": FPS,
                 "frame_count": states[src]["frame_count"],
+                "raised_frame": states[src]["raised_frame"],
                 "frames": states[src]["frames"],
             }
         first = states["idle"]["frames"]["down"][0]
@@ -564,7 +637,7 @@ def build_costumes():
               "claim about an agent_type nobody anticipated [I1]"
               % ", ".join(asserting), file=sys.stderr)
         raise SystemExit(3)
-    return {
+    out = {
         "note": "Two tiers. `roles` is keyed on the exact agent_type string and "
                 "may translate it — a test-engineer in a lab coat is the room "
                 "repeating a name the user chose. `assignable` is the pool an "
@@ -574,6 +647,18 @@ def build_costumes():
         "roles": roles,
         "assignable": assignable,
     }
+    top = costume_ink_top(sets)
+    if top is not None:
+        out["ink_top_px"] = top
+        out["ink_top_note"] = (
+            "How far above the feet a costume's ink reaches, over the two "
+            "states a seated character draws (`idle` and `working`), every "
+            "set, every layer, every frame, every direction. It is the "
+            "identity channel's own extent, and an away-facing seat's chair "
+            "is placed against it: a chair back H px tall drawn in front of a "
+            "character hides every costume pixel at any standoff below "
+            "H - this. [ADR-008]")
+    return out
 
 
 def rel_layer_source(imp, spec, index):

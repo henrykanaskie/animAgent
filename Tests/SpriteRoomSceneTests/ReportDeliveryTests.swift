@@ -195,7 +195,7 @@ struct ReportDeliveryTests {
     /// The props are checked too, because a theme could otherwise stand a plant
     /// in the corridor: `RoomScene.decorationPlacements` is asked rather than
     /// transcribed.
-    @Test func theRoomsOneLateralCorridorMeetsNoOtherRoute() {
+    @Test func theRoomsOneLateralCorridorMeetsNoOtherRoute() throws {
         let layout = RoomLayout()
 
         // 1. Nothing but a report has a waypoint on the delivery row or below it.
@@ -253,9 +253,18 @@ struct ReportDeliveryTests {
             #expect(placement.point.y > layout.deliveryRowY, Comment(rawValue:
                 "a \(placement.role) stands on the delivery row at x=\(placement.point.x)"))
         }
+        // Including the furniture a turned seat pushes **downstage** of its
+        // occupant, which is the one thing ADR-008 moves toward this row: a
+        // camera-facing desk and an away-facing chair back both stand in front
+        // of the body, and neither may reach the corridor.
+        let metrics = SceneFixtures.seatMetrics(try SceneFixtures.manifest())
         for seat in 0..<layout.seatCapacity {
-            #expect(layout.deskPosition(seat).y > layout.deliveryRowY)
+            #expect(layout.deskPosition(seat, metrics: metrics).y > layout.deliveryRowY)
             #expect(layout.stationPropPosition(seat).y > layout.deliveryRowY)
+            if let chair = layout.chairPosition(seat, metrics: metrics) {
+                #expect(chair.y > layout.aisleY, Comment(rawValue:
+                    "seat \(seat)'s chair stands at y=\(chair.y), on or past the walkway"))
+            }
         }
     }
 

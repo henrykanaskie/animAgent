@@ -137,9 +137,35 @@ public final class RoomScene: SKScene {
     /// A role name is not a filename and not a theme name: it is the key the
     /// manifest and the scene agree on, exactly as `badges.map`'s keys are.
     nonisolated static let surfaceRole = "desk"
+    /// The side-view chair. **A seat's chair is now the facing's, not this
+    /// constant's** — `RoomLayout.SeatFacing.seatRole` answers it, and this is
+    /// what that returns for a side-on seat. Kept as the name of the slot for
+    /// the same reason the other three are constants. [ADR-008]
     nonisolated static let seatRole = "chair"
     nonisolated static let backdropRole = "board"
     nonisolated static let accentRole = "plant"
+
+    /// **The measured art the seat furniture is placed against.** [ADR-008]
+    ///
+    /// `RoomLayout` reads no manifest and opens no PNG, so a turned seat's three
+    /// numbers are gathered here and handed to it: the desk's ink height decides
+    /// how far downstage a camera-facing desk stands, the back chair's decides
+    /// how far downstage an away-facing chair stands, and the wardrobe's ink top
+    /// is the floor under the second of those.
+    ///
+    /// Per **desk** rather than per theme, because a station may bind its own
+    /// desk and an object standing on that desk has to be placed at *its*
+    /// surface — the same reason `stationDesks` exists.
+    func seatMetrics(desk: Manifest.PropRole? = nil) -> RoomLayout.SeatMetrics {
+        let desk = desk ?? store.room.prop(Self.surfaceRole)
+        return RoomLayout.SeatMetrics(
+            deskInkHeight: Double(
+                desk?.contentBox.height ?? SceneBitmaps.placeholderDesk().height),
+            chairInkHeight: Double(
+                store.room.prop(RoomLayout.SeatFacing.awayFromCamera.seatRole ?? "")?
+                    .contentBox.height ?? 0),
+            costumeTopAboveFeet: Double(store.manifest.characters.costumes.inkTopAboveFeet))
+    }
 
     /// **Where the two decoration bands stand**, as `(role, bottom-centre)`, in
     /// the order `buildRoom` places them.
@@ -302,15 +328,31 @@ public final class RoomScene: SKScene {
         // at any scale and any population. `theRoomDrawsNoDecorationInFrontOfThe
         // Characters` asserts it over every theme.
 
-        // A chair at every seat, under whoever is sitting there. The side-view
-        // chair the pack ships has its backrest on the left, so a person on it
-        // faces right — which is the way every seated character faces, because
-        // the pack drew no front- or back-facing sit. Drawn a hair behind the
-        // body so the character is on the chair rather than in front of it.
+        // **A chair at every seat that has one, in the view its facing needs.**
+        // [ADR-008]
+        //
+        // A side-on seat takes the side-view chair, whose backrest is on the
+        // left, so a person on it faces right — which is the way a side-on
+        // seated character faces, because the pack drew no front- or back-facing
+        // sit. It is drawn a hair behind the body so the character is on the
+        // chair rather than in front of it.
+        //
+        // An away-facing seat takes the **back view** of the same chair, a whole
+        // standoff downstage of the body rather than under it, because that is
+        // what makes an `idle_up` figure read as sitting in it. It needs no
+        // depth bias: it is genuinely nearer the camera than its occupant, so
+        // `rowDepth` puts it in front with nothing to tune.
+        //
+        // A camera-facing seat takes **none**. The body covers a chair entirely
+        // at that angle, which is why the pack's own `Office_Design_2.gif` draws
+        // no chair at any camera-facing desk in its own room.
+        let metrics = seatMetrics()
         for seat in 0..<layout.seatCapacity {
-            guard let node = place(
-                role: Self.seatRole, at: layout.seatPosition(seat), depthBias: Self.seatDepthBias),
-                  let path = store.room.prop(Self.seatRole)?.file else { continue }
+            guard let role = layout.seatFacing(seat).seatRole,
+                  let point = layout.chairPosition(seat, metrics: metrics) else { continue }
+            let bias = layout.seatFacing(seat) == .sideOn ? Self.seatDepthBias : 0
+            guard let node = place(role: role, at: point, depthBias: bias),
+                  let path = store.room.prop(role)?.file else { continue }
             emptySeatFurniture[seat, default: []].append(
                 SeatFurniture(node: node, path: path))
         }
@@ -336,9 +378,17 @@ public final class RoomScene: SKScene {
         // a desk taller than the shortest head goes behind the body instead of
         // in front of it, because two shipped themes bind one that would
         // otherwise cover every face in the room.
-        let surfaceBias = surfaceDepthBias(for: store.room.prop(Self.surfaceRole))
+        //
+        // **All of the paragraph above is the side-on case.** At a turned seat
+        // the desk is not on the character's row at all — it stands downstage of
+        // a camera-facing occupant and upstage of an away-facing one — so
+        // `rowDepth` alone sorts it correctly and the bias is zero. The tie
+        // these constants break exists only where a desk and its occupant share
+        // a row. [ADR-008]
         for seat in 0..<layout.seatCapacity {
-            let position = layout.deskPosition(seat)
+            let position = layout.deskPosition(seat, metrics: metrics)
+            let surfaceBias = layout.seatFacing(seat) == .sideOn
+                ? surfaceDepthBias(for: store.room.prop(Self.surfaceRole)) : 0
             if let node = place(
                 role: Self.surfaceRole, at: position, depthBias: surfaceBias),
                let path = store.room.prop(Self.surfaceRole)?.file {
@@ -357,8 +407,10 @@ public final class RoomScene: SKScene {
             node.anchorPoint = CGPoint(x: 0.5, y: 0)
             node.size = CGSize(width: bitmap.width, height: bitmap.height)
             node.position = CGPoint(x: position.x, y: position.y)
-            // The placeholder is 26 px tall, so it is always the in-front case.
-            node.zPosition = Character.Layer.rowDepth(position.y) + Self.surfaceInFrontBias
+            // The placeholder is 26 px tall, so it is always the in-front case
+            // where the tie has to be broken at all.
+            node.zPosition = Character.Layer.rowDepth(position.y)
+                + (layout.seatFacing(seat) == .sideOn ? Self.surfaceInFrontBias : 0)
             world.addChild(node)
             // The placeholder has no manifest path, and saying so is the point:
             // nothing in the manifest is called a desk here. It is still a piece
@@ -601,7 +653,8 @@ public final class RoomScene: SKScene {
 
     /// Measured once per scene, off the art the scene is about to draw.
     private lazy var seatedHeadMeasurement: SeatedHead? = SeatedHead(
-        frames: Self.seatedFrames(manifest: store.manifest, facing: layout.seatedFacing))
+        frames: Self.seatedFrames(
+            manifest: store.manifest, facing: RoomLayout.SeatFacing.sideOn.bodyFacing))
 
     /// Every seated frame of every variant, as pixels.
     ///
@@ -610,13 +663,17 @@ public final class RoomScene: SKScene {
     /// the third frame's head sits 2 px lower than the first's, and a rule
     /// measured on frame 0 alone would be wrong for a third of every second.
     ///
-    /// **One facing, and it is `RoomLayout.seatedFacing` rather than a choice
-    /// made here.** The two sit facings are pixel-exact mirrors, so measuring
-    /// both would put the hair's widest rows at *both* edges of the canvas and
-    /// hand every desk in the room the clearance of a character sitting the wrong
-    /// way round — which cost `office` its near-edge cue the first time this was
-    /// written. Every seated character in this room faces the same way, the
-    /// layout says which, and this asks it.
+    /// **One facing, and it is the side-on seat's own.** The two sit facings are
+    /// pixel-exact mirrors, so measuring both would put the hair's widest rows at
+    /// *both* edges of the canvas and hand every desk in the room the clearance
+    /// of a character sitting the wrong way round — which cost `office` its
+    /// near-edge cue the first time this was written.
+    ///
+    /// It asked `RoomLayout.seatedFacing` while that was one constant for the
+    /// whole room. A seat declares its own facing now [ADR-008], and this
+    /// measurement is about the sit row and about nothing else — the whole
+    /// near-edge cue is the side-on arrangement's — so it names
+    /// `SeatFacing.sideOn` rather than asking a seat that may have turned.
     nonisolated static func seatedFrames(manifest: Manifest, facing: Facing) -> [Bitmap] {
         var frames: [Bitmap] = []
         for id in manifest.characters.orderedVariantIDs {
@@ -650,8 +707,7 @@ public final class RoomScene: SKScene {
     nonisolated static func surfaceNearEdgeX(
         of prop: Manifest.PropRole, layout: RoomLayout
     ) -> Double {
-        let centre = layout.deskPosition(0).x - layout.seatPosition(0).x
-        return centre - Double(prop.contentBox.width) / 2
+        layout.sideOnDeskOffsetX - Double(prop.contentBox.width) / 2
     }
 
     /// The theme-wide desk and chair drawn at each seat at build time.
@@ -749,9 +805,26 @@ public final class RoomScene: SKScene {
             guard let node = place(prop: role, at: point, depthBias: depthBias) else { return }
             placed.append(SeatFurniture(node: node, path: role.file))
         }
-        draw(station.chair, at: layout.seatPosition(seat), depthBias: Self.seatDepthBias)
-        draw(station.desk, at: layout.deskPosition(seat),
-             depthBias: surfaceDepthBias(for: station.desk))
+        // **The chair is the seat's, not the station's, wherever the seat has
+        // turned.** [ADR-008] A station's chair falls back to the theme's `chair`
+        // role — every station in the shipped manifest declares none, and the
+        // manifest's own note says why: there is one side-view chair in either
+        // pack, so a station cannot be themed art anyway. A side view under a
+        // back-facing occupant is a chair pointing 90° away from the person in
+        // it, so an away-facing seat takes `chair_back` and a camera-facing seat
+        // takes nothing, exactly as `buildRoom` places them.
+        let facing = layout.seatFacing(seat)
+        let metrics = seatMetrics(desk: station.desk)
+        if let point = layout.chairPosition(seat, metrics: metrics) {
+            let chair = facing == .sideOn
+                ? station.chair
+                : (layout.seatFacing(seat).seatRole.flatMap { store.room.prop($0) })
+            if let chair {
+                draw(chair, at: point, depthBias: facing == .sideOn ? Self.seatDepthBias : 0)
+            }
+        }
+        draw(station.desk, at: layout.deskPosition(seat, metrics: metrics),
+             depthBias: facing == .sideOn ? surfaceDepthBias(for: station.desk) : 0)
         if let prop = station.prop {
             draw(prop, at: layout.stationPropPosition(seat), depthBias: Self.seatDepthBias)
         }
@@ -884,9 +957,24 @@ public final class RoomScene: SKScene {
         // knows what to redraw even in the (unreachable today) case where the
         // art failed to load and the desk stayed bare.
         deskObjectKinds[agent] = kind
-        guard let node = deskObjectNodes[agent], let seat = seatOf[agent],
+        let slot = deskObjectNodes[agent]
+        guard let node = slot, let seat = seatOf[agent],
               layout.isSeatable(seat),
-              let art = deskObjectArt(kind, screen: deskScreens[agent] ?? .lit) else { return }
+              // **A camera-facing seat's desk carries nothing**, and it is the
+              // only slot in the room that answers a real fact with silence.
+              // [ADR-008 §5, `RoomLayout.SeatFacing.showsDeskTopObject`] The
+              // desk is between the occupant and the viewer, so an object on it
+              // faces upstage — and there is no rear view of a screen anywhere
+              // in 12,279 catalogue props, so a lit monitor there draws somebody
+              // staring at the back of their own screen. The desk is also 32 px
+              // wide with the body occupying all of it, so no column on it is
+              // clear of the face. Two independent reasons, and I1's answer when
+              // you cannot say something truthfully is to say nothing.
+              layout.seatFacing(seat).showsDeskTopObject,
+              let art = deskObjectArt(kind, screen: deskScreens[agent] ?? .lit) else {
+            slot?.isHidden = true
+            return
+        }
         // The desk this seat actually draws, which is a station's own when it has
         // one and the theme's `desk` role otherwise. Stations fall back to that
         // role when they declare no desk, and none in the shipped manifest does,
@@ -899,8 +987,18 @@ public final class RoomScene: SKScene {
         // height for a manifest with no desk role at all. [ADR-006 §2b]
         let surfaceHeight = desk.map { Double($0.surfaceY ?? $0.contentBox.height) }
             ?? Double(SceneBitmaps.placeholderDesk().height)
+        let metrics = seatMetrics(desk: desk)
+        let facing = layout.seatFacing(seat)
+        let deskPoint = layout.deskPosition(seat, metrics: metrics)
         let surface = layout.deskSurfacePosition(
-            seat: seat, surfaceHeightAboveFloor: surfaceHeight)
+            seat: seat, surfaceHeightAboveFloor: surfaceHeight, metrics: metrics)
+        // **Where on the desk it stands is one rule, and an away-facing seat
+        // keeps it.** One character half-canvas to the right of the seat, which
+        // is the first column strictly outside the sprite, so the object cannot
+        // cover a head pixel at any height [ADR-006 §2c]. That holds unchanged
+        // at an away-facing seat because the desk moved in *depth* and not in x
+        // — see `RoomLayout.deskPosition(_:metrics:)` for why it was kept there.
+        // A camera-facing seat never reaches this line.
         let nearEdge = layout.seatPosition(seat).x
             + Self.deskObjectNearEdgeX(manifest: store.manifest)
 
@@ -908,8 +1006,9 @@ public final class RoomScene: SKScene {
         node.anchorPoint = art.anchor
         node.size = art.size
         node.position = CGPoint(x: nearEdge + art.contentWidth / 2, y: surface.y)
-        node.zPosition = Character.Layer.rowDepth(layout.deskPosition(seat).y)
-            + surfaceDepthBias(for: desk) + Self.deskObjectInFrontStep
+        node.zPosition = Character.Layer.rowDepth(deskPoint.y)
+            + (facing == .sideOn ? surfaceDepthBias(for: desk) : 0)
+            + Self.deskObjectInFrontStep
         node.isHidden = false
         deskObjectPaths[agent] = art.path
     }
@@ -1026,6 +1125,24 @@ public final class RoomScene: SKScene {
 
     var sceneryNodesForTesting: [SKSpriteNode] { sceneryNodes }
 
+    /// **The seat furniture subset of `propNodes`** — every desk and every chair
+    /// the room draws at a seat, occupied or not. [ADR-008]
+    ///
+    /// It exists for the same reason `sceneryNodesForTesting` does, and it
+    /// became necessary for a reason worth writing down: the two decoration
+    /// tests used to separate seat furniture from decoration **by position**,
+    /// filtering out anything standing on a seat row. That was exact while every
+    /// desk and chair shared its occupant's row, and ADR-008 moves them off it —
+    /// a camera-facing desk stands downstage of the seat and an away-facing
+    /// chair further downstage still. Identity is what the exclusion always
+    /// meant; the position filter was a proxy that happened to be equivalent,
+    /// and `decorationIsSpreadAcrossTheRoomAndStandsAtTwoDepths`'s own comment
+    /// already says why identity is the right key.
+    var seatFurnitureNodesForTesting: [SKSpriteNode] {
+        emptySeatFurniture.values.flatMap { $0 }.map(\.node)
+            + stationFurniture.values.flatMap { $0 }.map(\.node)
+    }
+
     /// The props that idle on their own loop. [ADR-002 §14b]
     ///
     /// One per placed node, so four copies of an animated `board` swing
@@ -1129,6 +1246,12 @@ public final class RoomScene: SKScene {
             // goes up hidden and bare: a character whose work the room cannot
             // name keeps the plain desk. [ADR-006 §3]
             placeDeskObjectNode(for: agent)
+            // **A turned seat's posture channel is silent, so its dim carries
+            // the turn.** [ADR-008 §6] Told once, here, from the seat's own
+            // facing — a side-on seat is told nothing changed and keeps the
+            // picture this app has always drawn.
+            character.setDimsOutOfTurn(!layout.seatFacing(seat).showsPosture)
+            character.setInTurn((deskScreens[agent] ?? .lit) == .lit)
             // **Straight up its own column, from the walkway.**
             // See `RoomLayout.entranceRoute(forSeat:)`: the walk-in used to run
             // one seat pitch sideways along the aisle, which is the one row
@@ -1174,6 +1297,13 @@ public final class RoomScene: SKScene {
             // the moment one is adopted.
             deskScreens[agent] = screen
             if let kind = deskObjectKinds[agent] { showDeskObject(kind, for: agent) }
+            // **And the same fact reaches the body at a turned seat.** The
+            // screen intent *is* `isInTurn && !isDormant` [ADR-006 §12], which
+            // is exactly what the dim is about, so no new intent and no second
+            // channel is needed to carry it. A side-on character ignores it —
+            // its posture already says this — and `Character.setInTurn` is
+            // idempotent, so a repeat draws nothing. [ADR-008 §6]
+            characters[agent]?.setInTurn(screen == .lit)
 
         case let .setGated(agent, isGated):
             // The motion channel's third input, and the only one that takes
@@ -1225,7 +1355,8 @@ public final class RoomScene: SKScene {
                 onFinished: { [weak self, weak character] in
                     guard let self, let character else { return }
                     character.setResting(
-                        self.restingBody[agent] ?? .idle, facing: self.layout.seatedFacing)
+                        self.restingBody[agent] ?? .idle,
+                        facing: self.layout.seatedFacing(seat))
                 })
 
         case let .exitCharacter(agent, style):

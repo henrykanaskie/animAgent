@@ -64,6 +64,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/06/idle_right_00.png",
@@ -104,6 +105,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 3,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/06/sit_right_00.png",
@@ -122,6 +124,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/06/walk_right_00.png",
@@ -162,6 +165,7 @@
             "loop": false,
             "fps": 8,
             "frame_count": 10,
+            "raised_frame": 0,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/06/gift_right_00.png",
@@ -218,6 +222,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/06/walk_right_00.png",
@@ -258,6 +263,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/06/walk_right_00.png",
@@ -307,6 +313,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/07/idle_right_00.png",
@@ -347,6 +354,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 3,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/07/sit_right_00.png",
@@ -365,6 +373,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/07/walk_right_00.png",
@@ -405,6 +414,7 @@
             "loop": false,
             "fps": 8,
             "frame_count": 10,
+            "raised_frame": 0,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/07/gift_right_00.png",
@@ -461,6 +471,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/07/walk_right_00.png",
@@ -501,6 +512,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/07/walk_right_00.png",
@@ -550,6 +562,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/09/idle_right_00.png",
@@ -590,6 +603,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 3,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/09/sit_right_00.png",
@@ -608,6 +622,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/09/walk_right_00.png",
@@ -648,6 +663,7 @@
             "loop": false,
             "fps": 8,
             "frame_count": 10,
+            "raised_frame": 0,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/09/gift_right_00.png",
@@ -704,6 +720,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/09/walk_right_00.png",
@@ -744,6 +761,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/09/walk_right_00.png",
@@ -793,6 +811,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/10/idle_right_00.png",
@@ -833,6 +852,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 3,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/10/sit_right_00.png",
@@ -851,6 +871,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/10/walk_right_00.png",
@@ -891,6 +912,7 @@
             "loop": false,
             "fps": 8,
             "frame_count": 10,
+            "raised_frame": 0,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/10/gift_right_00.png",
@@ -947,6 +969,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/10/walk_right_00.png",
@@ -987,6 +1010,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/10/walk_right_00.png",
@@ -1036,6 +1060,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/17/idle_right_00.png",
@@ -1076,6 +1101,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 3,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/17/sit_right_00.png",
@@ -1094,6 +1120,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/17/walk_right_00.png",
@@ -1134,6 +1161,7 @@
             "loop": false,
             "fps": 8,
             "frame_count": 10,
+            "raised_frame": 0,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/17/gift_right_00.png",
@@ -1190,6 +1218,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/17/walk_right_00.png",
@@ -1230,6 +1259,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/17/walk_right_00.png",
@@ -1279,6 +1309,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/19/idle_right_00.png",
@@ -1319,6 +1350,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 3,
+            "raised_frame": 2,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/19/sit_right_00.png",
@@ -1337,6 +1369,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/19/walk_right_00.png",
@@ -1377,6 +1410,7 @@
             "loop": false,
             "fps": 8,
             "frame_count": 10,
+            "raised_frame": 0,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/19/gift_right_00.png",
@@ -1433,6 +1467,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/19/walk_right_00.png",
@@ -1473,6 +1508,7 @@
             "loop": true,
             "fps": 8,
             "frame_count": 6,
+            "raised_frame": 1,
             "frames": {
               "right": [
                 "assets/processed/characters/32x32/19/walk_right_00.png",
@@ -4511,7 +4547,9 @@
         "n04",
         "n05",
         "n06"
-      ]
+      ],
+      "ink_top_px": 22,
+      "ink_top_note": "How far above the feet a costume's ink reaches, over the two states a seated character draws (`idle` and `working`), every set, every layer, every frame, every direction. It is the identity channel's own extent, and an away-facing seat's chair is placed against it: a chair back H px tall drawn in front of a character hides every costume pixel at any standoff below H - this. [ADR-008]"
     }
   },
   "room": {
@@ -4687,7 +4725,7 @@
         "h": 96
       },
       "identified": true,
-      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 7 roles below were identified by rendering the singles and looking at them; the other 332 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b] `laptop`, `papers` and `pad` are desk-top object declarations for ADR-006 SS1/SS2c \u2014 measured content_box only, not yet placed by any scene code. A fourth kind, a desk monitor with a lit screen for `running`, is deliberately not declared: every candidate single in the pack's desk-scale band (130-134, 30-32px wide) exceeds the SS2c desk-top width bound of 28px, so no compliant art exists for it. `scenery` points into processed/themes/office/, not into the folder above: `room` IS the resolved default theme [ADR-002 SS14a] and its dressing has to be byte-identical to themes.sets.office's or the same room would be two rooms. Six of the office scenery props come from the Hospital set \u2014 the only bins, filing cabinets, wall clocks and schedule boards in either pack \u2014 and the room singles folder holds the Office set only, so it could not carry them at all.",
+      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 8 roles below were identified by rendering the singles and looking at them; the other 331 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b] `laptop`, `papers` and `pad` are desk-top object declarations for ADR-006 SS1/SS2c \u2014 measured content_box only, not yet placed by any scene code. A fourth kind, a desk monitor with a lit screen for `running`, is deliberately not declared: every candidate single in the pack's desk-scale band (130-134, 30-32px wide) exceeds the SS2c desk-top width bound of 28px, so no compliant art exists for it. `scenery` points into processed/themes/office/, not into the folder above: `room` IS the resolved default theme [ADR-002 SS14a] and its dressing has to be byte-identical to themes.sets.office's or the same room would be two rooms. Six of the office scenery props come from the Hospital set \u2014 the only bins, filing cabinets, wall clocks and schedule boards in either pack \u2014 and the room singles folder holds the Office set only, so it could not carry them at all.",
       "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
       "roles": {
         "board": {
@@ -4708,11 +4746,24 @@
           "single_index": 104,
           "provenance": "pack",
           "identified_by": "rendered and inspected by eye at M5; the pack ships no names for its singles",
-          "what": "office chair, side view, backrest to the left - a person on it faces right, which is the way every seated character faces",
+          "what": "office chair, side view, backrest to the left - a person on it faces right, which is the way a side-on seated character faces",
           "content_box": {
             "x": 4,
             "y": 42,
             "w": 24,
+            "h": 46
+          }
+        },
+        "chair_back": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_101.png",
+          "single_index": 101,
+          "provenance": "pack",
+          "identified_by": "rendered at 6x and inspected by eye for ADR-008; ink 32x46, matching the (32,46) family scripts/compose-scene.py's CHAIR_SUITES pins as the office suite's `up` view. Selected by ink dimensions rather than by name: singles 279/280 carry the same catalogue name at 30x32 and are a photocopier",
+          "what": "office chair, back view - a person on it faces away from the camera, which is the way a back-row seated character faces",
+          "content_box": {
+            "x": 0,
+            "y": 46,
+            "w": 32,
             "h": 46
           }
         },
@@ -5987,6 +6038,20 @@
                 "h": 46
               }
             },
+            "chair_back": {
+              "file": "assets/processed/themes/briefing/32x32/singles/chair_back.png",
+              "source_set": "Modern Office singles",
+              "single_index": 101,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, back view - a person on it faces away from the camera",
+              "content_box": {
+                "x": 0,
+                "y": 46,
+                "w": 32,
+                "h": 46
+              }
+            },
             "desk": {
               "file": "assets/processed/themes/briefing/32x32/singles/desk.png",
               "source_set": "Modern Office singles",
@@ -6276,6 +6341,20 @@
                 "x": 4,
                 "y": 42,
                 "w": 24,
+                "h": 46
+              }
+            },
+            "chair_back": {
+              "file": "assets/processed/themes/broadcast/32x32/singles/chair_back.png",
+              "source_set": "Modern Office singles",
+              "single_index": 101,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, back view - a person on it faces away from the camera",
+              "content_box": {
+                "x": 0,
+                "y": 46,
+                "w": 32,
                 "h": 46
               }
             },
@@ -6592,6 +6671,20 @@
                 "h": 46
               }
             },
+            "chair_back": {
+              "file": "assets/processed/themes/library/32x32/singles/chair_back.png",
+              "source_set": "Modern Office singles",
+              "single_index": 101,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, back view - a person on it faces away from the camera",
+              "content_box": {
+                "x": 0,
+                "y": 46,
+                "w": 32,
+                "h": 46
+              }
+            },
             "desk": {
               "file": "assets/processed/themes/library/32x32/singles/desk.png",
               "source_set": "Modern Interiors Theme Sorter set 5",
@@ -6866,6 +6959,20 @@
                 "x": 4,
                 "y": 42,
                 "w": 24,
+                "h": 46
+              }
+            },
+            "chair_back": {
+              "file": "assets/processed/themes/mission_control/32x32/singles/chair_back.png",
+              "source_set": "Modern Office singles",
+              "single_index": 101,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, back view - a person on it faces away from the camera",
+              "content_box": {
+                "x": 0,
+                "y": 46,
+                "w": 32,
                 "h": 46
               }
             },
@@ -7306,6 +7413,20 @@
                 "x": 4,
                 "y": 42,
                 "w": 24,
+                "h": 46
+              }
+            },
+            "chair_back": {
+              "file": "assets/processed/themes/office/32x32/singles/chair_back.png",
+              "source_set": "Modern Office singles",
+              "single_index": 101,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, back view - a person on it faces away from the camera",
+              "content_box": {
+                "x": 0,
+                "y": 46,
+                "w": 32,
                 "h": 46
               }
             },
@@ -7843,6 +7964,20 @@
                 "x": 4,
                 "y": 42,
                 "w": 24,
+                "h": 46
+              }
+            },
+            "chair_back": {
+              "file": "assets/processed/themes/stage/32x32/singles/chair_back.png",
+              "source_set": "Modern Office singles",
+              "single_index": 101,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "office chair, back view - a person on it faces away from the camera",
+              "content_box": {
+                "x": 0,
+                "y": 46,
+                "w": 32,
                 "h": 46
               }
             },

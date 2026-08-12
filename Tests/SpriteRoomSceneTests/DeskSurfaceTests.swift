@@ -132,12 +132,20 @@ struct DeskSurfaceTests {
 
     // MARK: RoomLayout.deskSurfacePosition — pure arithmetic, needs no manifest
 
+    /// The shipped room's own seat metrics, written out rather than read, so
+    /// this block stays arithmetic with no manifest behind it. [ADR-008]
+    static let metrics = RoomLayout.SeatMetrics(
+        deskInkHeight: 24, chairInkHeight: 46, costumeTopAboveFeet: 22)
+
     /// Same seat, same height, called twice: the same point. `RoomLayout` has
     /// no state and no clock, so nothing here can drift between calls.
     @Test func deskSurfacePositionIsDeterministic() {
         let layout = RoomLayout()
-        let first = layout.deskSurfacePosition(seat: 3, surfaceHeightAboveFloor: 24)
-        let second = layout.deskSurfacePosition(seat: 3, surfaceHeightAboveFloor: 24)
+        let metrics = Self.metrics
+        let first = layout.deskSurfacePosition(
+            seat: 3, surfaceHeightAboveFloor: 24, metrics: metrics)
+        let second = layout.deskSurfacePosition(
+            seat: 3, surfaceHeightAboveFloor: 24, metrics: metrics)
         #expect(first == second)
     }
 
@@ -147,8 +155,9 @@ struct DeskSurfaceTests {
     @Test func deskSurfaceSitsDirectlyAboveTheDesksOwnAnchor() {
         let layout = RoomLayout()
         for seat in 0..<layout.seatCapacity {
-            let anchor = layout.deskPosition(seat)
-            let surface = layout.deskSurfacePosition(seat: seat, surfaceHeightAboveFloor: 24)
+            let anchor = layout.deskPosition(seat, metrics: Self.metrics)
+            let surface = layout.deskSurfacePosition(
+                seat: seat, surfaceHeightAboveFloor: 24, metrics: Self.metrics)
             #expect(surface.x == anchor.x, "seat \(seat)")
             #expect(surface.y == anchor.y + 24, "seat \(seat)")
         }
@@ -159,8 +168,10 @@ struct DeskSurfaceTests {
     /// not silently clamped or ignored.
     @Test func aTallerSurfaceHeightStandsFurtherAboveTheFloor() {
         let layout = RoomLayout()
-        let bare = layout.deskSurfacePosition(seat: 0, surfaceHeightAboveFloor: 24)
-        let library = layout.deskSurfacePosition(seat: 0, surfaceHeightAboveFloor: 36)
+        let bare = layout.deskSurfacePosition(
+            seat: 0, surfaceHeightAboveFloor: 24, metrics: Self.metrics)
+        let library = layout.deskSurfacePosition(
+            seat: 0, surfaceHeightAboveFloor: 36, metrics: Self.metrics)
         #expect(library.y > bare.y)
         #expect(library.y - bare.y == 12)
     }
@@ -174,8 +185,9 @@ struct DeskSurfaceTests {
         let heights = Self.deskSurfaceHeights(root)
         let layout = RoomLayout()
         for (_, height) in heights {
-            let anchor = layout.deskPosition(0)
-            let surface = layout.deskSurfacePosition(seat: 0, surfaceHeightAboveFloor: Double(height))
+            let anchor = layout.deskPosition(0, metrics: Self.metrics)
+            let surface = layout.deskSurfacePosition(
+                seat: 0, surfaceHeightAboveFloor: Double(height), metrics: Self.metrics)
             #expect(surface.y >= anchor.y)
         }
     }

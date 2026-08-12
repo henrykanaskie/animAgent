@@ -57,6 +57,37 @@ public enum BodyState: String, Sendable, Hashable, CaseIterable {
     /// four-minute `Bash` both render with no queue and no minimum duration.
     /// [I2/I3]
     public var loopsByDefault: Bool { self != .deliver }
+
+    /// **Which animation row this state's art comes from, facing that way.**
+    /// [ADR-008]
+    ///
+    /// Identity for every state but one. `working` — *seated at its station, in
+    /// a turn* — is drawn from the `sit` row when the seat is side-on, and from
+    /// the **standing `idle` row** when it is turned toward or away from the
+    /// camera, because the pack ships no front- or back-facing sitting sprite at
+    /// any size [M0] and never will. What makes that read as sitting is the
+    /// occluder the seat brings with it: the desk in front of a camera-facing
+    /// figure, the chair back in front of an away-facing one
+    /// [`RoomLayout.SeatFacing`]. It is the technique the pack's own
+    /// `Office_Design_2.gif` uses at every desk in its own room, and it invents
+    /// no frame — every pixel drawn is a pixel the artist drew for this pose.
+    ///
+    /// **This is a depiction, not an assertion, and I1 is untouched.** I1
+    /// governs what *triggers* a visible behaviour, not who drew the pixels or
+    /// which row they came from [ADR-005 §0]. The state still means exactly what
+    /// it meant: `working` is reached from a turn boundary and from nothing else,
+    /// and whether anything is *running* is still carried by the motion over it.
+    ///
+    /// **The two things this costs, both named rather than discovered.** A
+    /// turned seat draws the same picture standing as it does seated, so the
+    /// posture channel is silent there and the turn is carried by the character
+    /// dim instead [ADR-008 §6]; and the held-object anchor is a measurement of
+    /// the sit row's hand box, so a turned character's hands stay empty
+    /// [`Character.heldObject`].
+    public func artState(facing: Facing) -> BodyState {
+        guard self == .working, !facing.isSideView else { return self }
+        return .idle
+    }
 }
 
 /// Sheet direction order, measured at M0: `right, up, left, down`.

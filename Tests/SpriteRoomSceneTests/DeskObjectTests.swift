@@ -930,22 +930,38 @@ struct DeskObjectSceneTests {
     ///   the next seat's station prop, which starts a further four pixels out;
     /// - its **bottom edge** is on the desk's measured surface, which is 24 px
     ///   above the floor in five themes and 36 in two.
+    ///
+    /// **And that a camera-facing seat's desk carries nothing at all.** [ADR-008
+    /// §5] This test asserted `drawn.count == 4` — every seated character has an
+    /// object — and that is no longer true, deliberately: the desk at a
+    /// camera-facing seat stands between the occupant and the viewer, so an
+    /// object on it faces upstage and there is no rear view of a screen anywhere
+    /// in the catalogue. Silence is the answer, and the count is now asserted
+    /// against the seats whose facing shows one, with the empty ones checked
+    /// **by name** rather than by subtraction — a count that happened to match
+    /// while the wrong seats were bare would pass either way.
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyDeskObjectStandsOnItsOwnDeskAndOutsideItsCharactersColumn() throws {
         let manifest = try SceneFixtures.manifest()
         let layout = RoomLayout()
         let nearEdgeOffset = RoomScene.deskObjectNearEdgeX(manifest: manifest)
+        let showing = (0..<4).filter { layout.seatFacing($0).showsDeskTopObject }
+        #expect(!showing.isEmpty && showing.count < 4, "the sweep tests neither branch")
         var checked = 0
 
         for themeID in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
             let room = manifest.room(theme: themeID)
             let desk = try #require(room.prop("desk"))
             let surfaceHeight = Double(desk.surfaceY ?? desk.contentBox.height)
+            let metrics = SceneFixtures.seatMetrics(manifest, theme: themeID)
             for kind in WorkKind.allCases {
                 let (scene, director) = Self.furnished(
                     manifest: manifest, themeID: themeID, count: 4, kind: kind)
                 let drawn = scene.deskObjectsForTesting()
-                #expect(drawn.count == 4, "\(themeID ?? "room")/\(kind): not every desk was furnished")
+                let seats = Set(drawn.keys.compactMap { director.seats[$0] })
+                #expect(seats == Set(showing), Comment(rawValue:
+                    "\(themeID ?? "room")/\(kind): objects on seats \(seats.sorted()), "
+                    + "expected \(showing)"))
                 for (agent, object) in drawn {
                     let seat = try #require(director.seats[agent])
                     let seatX = layout.seatPosition(seat).x
@@ -954,20 +970,22 @@ struct DeskObjectSceneTests {
                     let width = Self.contentWidth(of: kind, manifest: manifest, themeID: themeID)
                     let left = object.x - width / 2
                     let right = object.x + width / 2
-                    let deskRight = layout.deskPosition(seat).x
+                    let deskRight = layout.deskPosition(seat, metrics: metrics).x
                         + Double(desk.contentBox.width) / 2
                     #expect(left == seatX + nearEdgeOffset, Comment(rawValue:
                         "\(themeID ?? "room")/\(kind) seat \(seat): near edge at \(left - seatX)"))
                     #expect(right <= deskRight, Comment(rawValue:
                         "\(themeID ?? "room")/\(kind) seat \(seat): overhangs its own desk"))
                     #expect(object.y == layout.deskSurfacePosition(
-                        seat: seat, surfaceHeightAboveFloor: surfaceHeight).y, Comment(rawValue:
+                        seat: seat, surfaceHeightAboveFloor: surfaceHeight,
+                        metrics: metrics).y, Comment(rawValue:
                         "\(themeID ?? "room")/\(kind) seat \(seat): not on the surface"))
                     checked += 1
                 }
             }
         }
-        #expect(checked == 7 * 4 * 4, "the sweep did not cover every theme and kind")
+        #expect(checked == 7 * 4 * showing.count,
+                "the sweep did not cover every theme and kind")
     }
 
     /// The ink width of one kind's art: the authored bitmap's own width for
@@ -1020,9 +1038,23 @@ struct DeskObjectSceneTests {
                     #expect(room.prop(role) == nil, Comment(rawValue:
                         "\(themeID) now declares \(role) itself; this test's premise is gone"))
                 }
+                // **Enough agents to fill a seat that shows an object.** [ADR-008]
+                // This seated one character and asserted one object. Seat 0
+                // faces the camera and camera-facing desks carry nothing, so a
+                // room of one draws none — correctly. The claim being made here
+                // is about the *role fallback*, not about seat 0, so the cast is
+                // grown until a seat that shows an object is occupied and the
+                // count is asserted against that seat.
+                let layout = RoomLayout()
+                let count = try #require(
+                    (1...layout.seatCapacity).first { seats in
+                        (0..<seats).contains { layout.seatFacing($0).showsDeskTopObject }
+                    })
                 let (scene, _) = Self.furnished(
-                    manifest: manifest, themeID: themeID, count: 1, kind: kind)
-                #expect(scene.deskObjectsForTesting().count == 1,
+                    manifest: manifest, themeID: themeID, count: count, kind: kind)
+                let expected = (0..<count)
+                    .filter { layout.seatFacing($0).showsDeskTopObject }.count
+                #expect(scene.deskObjectsForTesting().count == expected,
                         "\(themeID)/\(kind) drew nothing")
             }
         }
@@ -1083,19 +1115,28 @@ struct DeskObjectSceneTests {
             // in. `nil` kind is the bare desk, which draws no texture at all.
             var drawn: [AgentRef: (kind: WorkKind?, screen: DeskScreen)] = [:]
             var seen: [AgentRef: String] = [:]
+            /// Agents whose seat draws no desk object at all.
+            var bare: [AgentRef: Bool] = [:]
 
             var time = 0.0
             for (at, deltas) in try await SceneFixtures.timedBatchedDeltas(name) {
                 let intents = director.apply(deltas, at: at)
                 for intent in intents {
                     switch intent {
-                    case let .spawnCharacter(agent, _, _, _, _, _):
+                    case let .spawnCharacter(agent, _, _, seat, _, _):
+                        // **A camera-facing seat's desk draws nothing at all**,
+                        // so its texture never changes and it must not be
+                        // predicted to. [ADR-008 §5] Recording the seat here is
+                        // the whole of the change: the prediction is still a
+                        // pure function of the intent stream, it just knows
+                        // which desks are in the picture.
                         drawn[agent] = (nil, .lit)
+                        bare[agent] = !RoomLayout().seatFacing(seat).showsDeskTopObject
                     case let .setDeskObject(agent, kind):
-                        if drawn[agent]?.kind != nil { replacements += 1 }
+                        if drawn[agent]?.kind != nil, bare[agent] != true { replacements += 1 }
                         drawn[agent] = (kind, drawn[agent]?.screen ?? .lit)
                     case let .setDeskScreen(agent, screen):
-                        if drawn[agent]?.kind != nil { screenChanges += 1 }
+                        if drawn[agent]?.kind != nil, bare[agent] != true { screenChanges += 1 }
                         drawn[agent] = (drawn[agent]?.kind, screen)
                     default: break
                     }
@@ -1118,7 +1159,7 @@ struct DeskObjectSceneTests {
                     // pure function of (kind, screen), so it changes exactly
                     // when that pair does on a desk that already had something
                     // on it.
-                    if let state = drawn[agent], let kind = state.kind {
+                    if let state = drawn[agent], let kind = state.kind, bare[agent] != true {
                         let key = kind.textureKey(screen: state.screen)
                         if let known = seen[agent], known != key { predicted += 1 }
                         seen[agent] = key

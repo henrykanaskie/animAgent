@@ -39,9 +39,13 @@ import SpriteKit
 ///   block inside an existing outline and cannot change the silhouette on this
 ///   pose; it is deliberately not asked to do the badge's job.
 ///
-/// The two `Books` and `Smartphones` folders remain unusable and the reason is
-/// unchanged: they carry ink on one standing front-facing row each, and this
-/// room is side-view seated.
+/// The two `Books` and `Smartphones` folders remain unusable and the reason has
+/// changed shape without changing sign: they carry ink on one standing
+/// front-facing row each, and the held-object layer is now **frozen to the sit
+/// row** — a seat that faces the camera or away from it draws the standing
+/// `idle` row, for which the pack gives us no hand anchor at all, so its hands
+/// stay empty. [ADR-008 §8] The sentence used to read "this room is side-view
+/// seated"; the room is not, and no seat in it holds anything.
 @MainActor
 public final class Character: SKNode {
 
@@ -156,6 +160,12 @@ public final class Character: SKNode {
     private var framesLoop = true
     private var stateStartedAt: TimeInterval = 0
     private var currentState: BodyState?
+    /// **Which animation row is actually on screen**, which is `currentState`
+    /// except at a seat whose facing has no seated art — see
+    /// `BodyState.artState(facing:)`. Read where the *frames* are the question
+    /// (their count, their rate, which of them is the raised one) and never
+    /// where the *fact* is. [ADR-008]
+    private var currentArtState: BodyState?
     private var currentFacing: Facing = .right
     private var currentBadge: BadgeSelection = .none
     private var now: TimeInterval = 0
@@ -164,6 +174,23 @@ public final class Character: SKNode {
     /// The state the *data* says this character is in. A running script owns
     /// the body until it finishes; this is what the body returns to.
     private var restingState: BodyState = .idle
+
+    /// **Which way the data says this character faces when it is not walking.**
+    /// [ADR-008]
+    ///
+    /// The end of a script used to restore `currentFacing.seated` — a *fold of
+    /// the travel facing* — and that was correct only while every seat in the
+    /// room faced the same way: `.up.seated` is `.right`, and every entrance in
+    /// this room is a walk upstage, so a character arriving at its chair turned
+    /// to the room's one seated facing whatever it had been told. With a seat
+    /// declaring its own facing that fold turns an away-facing occupant to face
+    /// sideways the instant it finishes walking in, and nothing says so.
+    ///
+    /// So the script's end restores what the **director** last said, which is
+    /// what `restingState` beside it has always done. It is set by
+    /// `setResting(_:facing:)` and by nothing else, so the two cannot disagree
+    /// about which character this is.
+    private var restingFacing: Facing = .right
 
     // MARK: Choreography
 
@@ -514,18 +541,34 @@ public final class Character: SKNode {
     ///   stricter of the two readings available and it is the one ADR-003 §1
     ///   argues for: a gated `Bash` **is not running**, so drawing the tool over
     ///   it asserts work that is not happening.
-    /// - **The body must be in the seated pose**, and this one is not a claim
-    ///   about the data at all: `seatedHandCentre` is a measurement of the `sit`
-    ///   row's hand box and of nothing else. There is no per-frame anchor for
-    ///   the walk cycle, so an object on a walking character would hang in the
-    ///   air beside it. A character can hold calls while it walks — a spawn and
-    ///   a `PreToolUse` in one batch — so this is reachable, and it is a
-    ///   *placement* rule rather than a truth rule. [04-ART-DIRECTION]
+    /// - **The body must be in the seated pose, drawn from the sit row**, and
+    ///   this one is not a claim about the data at all: `seatedHandCentre` is a
+    ///   measurement of the `sit` row's hand box and of nothing else. There is
+    ///   no per-frame anchor for the walk cycle, so an object on a walking
+    ///   character would hang in the air beside it. A character can hold calls
+    ///   while it walks — a spawn and a `PreToolUse` in one batch — so this is
+    ///   reachable, and it is a *placement* rule rather than a truth rule.
+    ///   [04-ART-DIRECTION]
+    ///
+    ///   **The facing clause is what freezes this layer at a turned seat, and it
+    ///   is a decision rather than a consequence.** [ADR-008 §8] A seat facing
+    ///   the camera or away from it draws the standing `idle` row, whose hands
+    ///   are in a different place in every frame and for which the pack gives us
+    ///   no anchor at all. The two available answers were to *port* the anchor —
+    ///   which means measuring a hand box per direction per frame and inventing
+    ///   the rest — or to *freeze* the layer where its one measurement holds.
+    ///   Frozen: `docs/M8-PLAN-face-the-camera.md` §5 already proposed it,
+    ///   ADR-006 moved the meaning of *what kind of work* onto the desk object,
+    ///   and ADR-005 §8 item 4 prices this channel at 12×10 px inside a 20×16
+    ///   torso, which is the weakest one the room owns. Nothing is deleted: the
+    ///   layer draws exactly what it always drew wherever a seat is side-on, and
+    ///   an eyeballed offset dressed as data is what the alternative would have
+    ///   been.
     ///
     /// `questionMark` yields no object at all — see `HeldObject.init(badge:)`.
     private var heldObject: HeldObject? {
         guard currentBadge.count > 0 else { return nil }
-        guard currentState == .working else { return nil }
+        guard currentState == .working, currentFacing.isSideView else { return nil }
         guard let badge = currentBadge.drawn.badge else { return nil }
         return HeldObject(badge: badge)
     }
@@ -564,7 +607,65 @@ public final class Character: SKNode {
     /// as long as a permission prompt happened to be outstanding over its head.
     /// The badge slot has a precedence order because it holds one picture at a
     /// time; the body has no such contest and should simply be true.
-    private var isDimmed: Bool { currentBadge.isDormant }
+    private var isDimmed: Bool { currentBadge.isDormant || (dimsOutOfTurn && !hasTurn) }
+
+    /// **Whether this character's dim also carries the turn.** [ADR-008 §6]
+    ///
+    /// Set once, at spawn, from the seat's facing, and false for every side-on
+    /// seat — so nothing about the picture this app drew yesterday changes at a
+    /// seat that has not turned.
+    ///
+    /// **Why a turned seat needs it.** ADR-005 keys posture to the turn: seated
+    /// while a turn is in progress, standing between them. A turned seat draws
+    /// the standing `idle` row for *both*, because that is the only row it has,
+    /// so the posture channel says nothing there — the two states are the same
+    /// picture, pixel for pixel. Something else has to carry the fact or the
+    /// room has silently stopped telling the truth it was telling before.
+    ///
+    /// The dim is the cheapest thing that can: it is built, tested and shipped
+    /// [ADR-006 §12], it is an instant step rather than a fade so it moves no
+    /// pixel and needs no licence from I2, and it already means *this agent is
+    /// not working*. A dormant subagent is by construction out of turn —
+    /// `SubagentStop` is a subagent's turn boundary [ADR-005 §3] — so this is
+    /// one signal with a wider domain rather than two signals competing.
+    ///
+    /// **Provisional, pending #77.** Phase 1a settled the in-turn signal as the
+    /// lit/dark desk screen, and a screen is honest only at a seat facing *away*
+    /// from the camera [docs/M8-MEASUREMENTS-phase1c.md §4]: at a camera-facing
+    /// seat the screen faces upstage and there is nothing to light. So this is
+    /// the escape route that section costs as "the dimmed character alone", and
+    /// whether three channels for one fact is redundancy or noise is the naive
+    /// observer's question, not this file's.
+    private var dimsOutOfTurn = false
+
+    /// Whether this character's agent is in a turn, for the dim above. Seeded
+    /// `true` because a character exists at all only because an event arrived,
+    /// and an event arriving means a turn — the same seed
+    /// `RoomScene.deskScreens` and `SceneDirector` both take, for the same
+    /// reason, so the three agree without asking each other.
+    private var hasTurn = true
+
+    /// Tells this character that its seat's posture channel is silent, so the
+    /// dim has to carry the turn. Called from the spawn arm and from nowhere
+    /// else.
+    public func setDimsOutOfTurn(_ dims: Bool) {
+        guard dims != dimsOutOfTurn else { return }
+        dimsOutOfTurn = dims
+        refreshDim()
+    }
+
+    /// The turn boundary, as the scene already receives it —
+    /// `SpriteIntent.setDeskScreen` is `isInTurn && !isDormant`, and both halves
+    /// are what the dim is about. Idempotent, and it starts nothing: assigning
+    /// the same blend factor twice draws the same frame.
+    public func setInTurn(_ inTurn: Bool) {
+        guard inTurn != hasTurn else { return }
+        hasTurn = inTurn
+        refreshDim()
+    }
+
+    /// Whether the turn flag is set, for tests that check the fact.
+    public var hasTurnForTesting: Bool { hasTurn }
 
     /// Puts the dim on, or takes it off. **An instant step, never a fade.**
     ///
@@ -692,7 +793,9 @@ public final class Character: SKNode {
         guard !frames.isEmpty else { return }
         frameSequence = AmbientMotion.sequence(
             for: ambientBadge, state: currentState ?? .idle, openCalls: openCallCount,
-            isGated: isGated, frameCount: frames.count)
+            isGated: isGated, frameCount: frames.count,
+            raisedFrame: store.raisedFrame(
+                variant: agentVariant, state: currentArtState ?? .idle))
     }
 
     /// The frame indices this character is playing, for tests that check the
@@ -779,6 +882,7 @@ public final class Character: SKNode {
     /// a scripted move owns the body, in which case it lands when the script
     /// ends.
     public func setResting(_ state: BodyState, facing: Facing) {
+        restingFacing = facing
         restingState = state
         guard !isScripted else { return }
         apply(state: state, facing: facing)
@@ -787,11 +891,21 @@ public final class Character: SKNode {
     /// The whole state machine. Same state and facing means no work — the
     /// running animation keeps running rather than restarting from frame zero.
     public func apply(state: BodyState, facing: Facing, startingAt start: TimeInterval? = nil) {
-        let resolved = state == .working ? facing.seated : facing
+        // **The art row and the state are two questions now.** `working` at a
+        // side-on seat is the sit row, and `working` at a seat turned toward or
+        // away from the camera is the standing `idle` row with the seat's own
+        // occluder in front of it — `BodyState.artState(facing:)` is the whole
+        // of the mapping and the argument. `Facing.seated`'s fold onto the side
+        // views is still the honest handling of a sit row with no front or back
+        // art, and it now applies only where that row is what is being drawn.
+        // [ADR-008]
+        let art = state.artState(facing: facing)
+        let resolved = art == .working ? facing.seated : facing
         guard state != currentState || resolved != currentFacing else { return }
-        let textures = store.frames(variant: agentVariant, state: state, facing: resolved)
+        let textures = store.frames(variant: agentVariant, state: art, facing: resolved)
         guard !textures.isEmpty else { return }
         currentState = state
+        currentArtState = art
         currentFacing = resolved
         frames = textures
         // The phrase, before the first texture is chosen, because the phrase is
@@ -801,10 +915,13 @@ public final class Character: SKNode {
         // frame rather than from the second.
         frameSequence = AmbientMotion.sequence(
             for: ambientBadge, state: state, openCalls: openCallCount, isGated: isGated,
-            frameCount: textures.count)
+            frameCount: textures.count,
+            raisedFrame: store.raisedFrame(variant: agentVariant, state: art))
         let firstIndex = frameSequence.first ?? 0
-        framesPerSecond = max(1, store.frameRate(variant: agentVariant, state: state))
-        framesLoop = store.loops(variant: agentVariant, state: state)
+        // The **art** row's rate and loop flag, because they are properties of
+        // the frames being played rather than of the state being asserted.
+        framesPerSecond = max(1, store.frameRate(variant: agentVariant, state: art))
+        framesLoop = store.loops(variant: agentVariant, state: art)
         stateStartedAt = start ?? now
         body.texture = textures[firstIndex]
 
@@ -814,7 +931,7 @@ public final class Character: SKNode {
         // would be a second state machine with its own idea of what the
         // character is doing.
         costumeFrames = store.costumeFrames(
-            costume: agentCostume, state: state, facing: resolved,
+            costume: agentCostume, state: art, facing: resolved,
             bodyFrameCount: textures.count)
         for (index, node) in costumeNodes.enumerated() {
             guard index < costumeFrames.count, let textures = costumeFrames[index] else {
@@ -987,7 +1104,7 @@ public final class Character: SKNode {
         // Script over: fall back to whatever the data says.
         script = []
         stepIndex = 0
-        apply(state: restingState, facing: currentFacing.seated, startingAt: start)
+        apply(state: restingState, facing: restingFacing, startingAt: start)
     }
 
     // MARK: Clock

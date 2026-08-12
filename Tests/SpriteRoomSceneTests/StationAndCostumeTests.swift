@@ -101,7 +101,15 @@ struct StationSceneTests {
             return (patches, types.indices.map { director.station(cast[$0 + 1]) })
         }
 
-        let types = ["Explore", "general-purpose", "general-purpose"]
+        // **Four, and the order matters.** [ADR-008] Seats fill outward in
+        // pairs, so seats 1 and 2 are the back row and 3 and 4 the front, and a
+        // seat's *facing* now decides what furniture stands at it. The two
+        // comparisons below therefore have to be made between seats of the same
+        // facing, or a station difference and a facing difference would be
+        // indistinguishable: `Explore` against `general-purpose` on seats 1 and
+        // 2 (both away-facing), and `general-purpose` against itself on seats 3
+        // and 4 (both camera-facing).
+        let types = ["Explore", "general-purpose", "general-purpose", "general-purpose"]
         let drawn = try seats(shipped, types)
         #expect(drawn.patches[0].opaqueCount > 0, "nothing at all was drawn at a seat")
 
@@ -114,9 +122,10 @@ struct StationSceneTests {
             + "\(drawn.patches[0].height) patch of room at their seats. The station"
             + " resolved and reached nothing. [ADR-002 §4]"))
 
-        // §4: identical agents get identical desks, deliberately.
-        #expect(drawn.stations[1] == drawn.stations[2])
-        #expect(SeatRaster.differences(drawn.patches[1], drawn.patches[2]) == 0,
+        // §4: identical agents get identical desks, deliberately — compared on
+        // the two seats that share a facing as well as a station.
+        #expect(drawn.stations[2] == drawn.stations[3])
+        #expect(SeatRaster.differences(drawn.patches[2], drawn.patches[3]) == 0,
                 "two agents of one agent_type were given different stations")
     }
 
@@ -159,13 +168,13 @@ struct StationSceneTests {
         let themeID = try #require(shipped.themes.orderedIDs.first)
         let theme = try #require(shipped.themes.theme(themeID))
         let desk = try #require(theme.room.prop(RoomScene.surfaceRole)).file
-        let chair = try #require(theme.room.prop(RoomScene.seatRole)).file
 
         // Numbered stations only: `main` and `default` are unbound, so the main
         // thread and an untyped subagent both fall back to the theme's roles.
         let partial = try ManifestFixtures.stationed(shipped, bindMainAndDefault: false)
         let scene = RoomScene(manifest: partial, themeID: themeID)
         scene.setViewport(CGSize(width: 720, height: 400))
+        let layoutForSeats = scene.layout
         var director = SceneDirector(manifest: partial, themeID: themeID)
         let cast = Self.cast(3)
         scene.apply(director.apply([
@@ -178,7 +187,21 @@ struct StationSceneTests {
             let seat = try #require(director.seats[agent])
             let paths = Set(scene.furnitureForTesting(seat: seat).map(\.path))
             #expect(paths.contains(desk), "seat \(seat) lost the theme's desk")
-            #expect(paths.contains(chair), "seat \(seat) lost the theme's chair")
+            // **The chair the seat's own facing asks for**, which used to be
+            // `props.roles.chair` at every seat and is now `chair_back` at an
+            // away-facing seat and *nothing at all* at a camera-facing one — the
+            // body covers a chair entirely at that angle. [ADR-008] The fallback
+            // being tested is unchanged: it is still the theme's `props.roles`
+            // rather than a station's, and only the key moved.
+            let role = layoutForSeats.seatFacing(seat).seatRole
+            if let role, let chair = theme.room.prop(role)?.file {
+                #expect(paths.contains(chair),
+                        "seat \(seat) lost the theme's \(role)")
+            } else {
+                #expect(paths.count == 1, Comment(rawValue:
+                    "seat \(seat) faces the camera and should have a desk and nothing"
+                    + " else, but drew \(paths.sorted())"))
+            }
         }
         // And the typed one did take a station, or the fallback proved nothing.
         let stationed = try #require(director.seats[cast[2]])
@@ -509,7 +532,11 @@ struct StationContractTests {
 
         // The gap a prop has to live in, from the layout itself.
         let propCentre = layout.stationPropPosition(0).x - layout.seatPosition(0).x
-        let deskCentre = layout.deskPosition(0).x - layout.seatPosition(0).x
+        // **The side-on offset by name.** [ADR-008] Seat 0 faces the camera and
+        // its desk is centred on its own column; the lane arithmetic below is
+        // about the arrangement where the desk stands beside the occupant, and
+        // that is the widest a seat ever gets.
+        let deskCentre = layout.sideOnDeskOffsetX
         let maximumPropWidth = 2 * (propCentre - (deskCentre - pitch))
         #expect(maximumPropWidth >= 32)
 
@@ -549,7 +576,7 @@ struct StationContractTests {
         // any theme can put at a seat: whichever branch the scene takes, the two
         // depths still have to sort in one order.
         let cast = SeatedHead(
-            frames: RoomScene.seatedFrames(manifest: manifest, facing: layout.seatedFacing))
+            frames: RoomScene.seatedFrames(manifest: manifest, facing: RoomLayout.SeatFacing.sideOn.bodyFacing))
         var deskCount = 0
         var inFront = 0
         for (id, room) in try Self.everyTheme(manifest) {
@@ -618,7 +645,7 @@ struct StationContractTests {
             - Double(manifest.characters.canvas.width) / 2
         for (id, room) in try Self.everyTheme(manifest) {
             guard let desk = room.prop(RoomScene.surfaceRole) else { continue }
-            let overhang = layout.deskPosition(0).x
+            let overhang = layout.seatPosition(0).x + layout.sideOnDeskOffsetX
                 + Double(desk.contentBox.width) / 2 - propLaneLeft
             #expect(overhang <= 0, Comment(rawValue:
                 "\(id): a \(desk.contentBox.width)px desk overhangs the next seat's prop"
@@ -1109,8 +1136,8 @@ struct SeatedHeadOcclusionTests {
     @Test(.enabled(if: SceneArt.isAvailable))
     func theShippedCastsChinIsWhereTheDesksAreMeasuredAgainst() throws {
         let manifest = try SceneFixtures.manifest()
-        let layout = RoomLayout()
-        let frames = RoomScene.seatedFrames(manifest: manifest, facing: layout.seatedFacing)
+        let frames = RoomScene.seatedFrames(
+            manifest: manifest, facing: RoomLayout.SeatFacing.sideOn.bodyFacing)
         #expect(frames.count == 18, "six variants of three sit frames were expected")
         let head = try #require(SeatedHead(frames: frames))
         #expect(head.framesMeasured == 18)
@@ -1158,8 +1185,14 @@ struct SeatedHeadOcclusionTests {
     func nothingTheRoomDrawsInFrontOfASeatedBodyCoversItsHead() throws {
         let manifest = try SceneFixtures.manifest()
         let layout = RoomLayout()
-        let masks = try Self.headMasks(manifest, facing: layout.seatedFacing)
-        #expect(masks.count == 18, "the cast's seated frames did not load")
+        // **One mask set per facing**, because a turned seat draws the standing
+        // row and its head is not where the sit row's is. [ADR-008]
+        var masksByFacing: [RoomLayout.SeatFacing: [HeadMask]] = [:]
+        for facing in RoomLayout.SeatFacing.allCases {
+            masksByFacing[facing] = try Self.headMasks(manifest, facing: facing.bodyFacing)
+        }
+        #expect(masksByFacing[.sideOn]?.count == 18, "the cast's seated frames did not load")
+        #expect(masksByFacing[.towardCamera]?.count == 36, "the cast's idle frames did not load")
 
         var violations: Set<String> = []
         var piecesChecked = 0
@@ -1186,6 +1219,7 @@ struct SeatedHeadOcclusionTests {
                 for seat in 0..<layout.seatCapacity {
                     let origin = layout.seatPosition(seat)
                     let bodyZ = Double(Character.Layer.rowDepth(origin.y))
+                    let masks = masksByFacing[layout.seatFacing(seat)] ?? []
                     for piece in scene.furnitureForTesting(seat: seat) {
                         piecesChecked += 1
                         guard piece.z > bodyZ else { continue }
@@ -1220,7 +1254,14 @@ struct SeatedHeadOcclusionTests {
         // of anybody" is itself a defect, because the near-edge cue is the reason
         // the in-front branch exists.
         #expect(themesChecked >= 7, "only \(themesChecked) rooms were dressed")
-        #expect(piecesChecked >= 140, "only \(piecesChecked) pieces of furniture were examined")
+        // **126, not 140**, and the number that moved is the *count*, not the
+        // pin: 147 pieces were examined before ADR-008 and 126 after, a drop of
+        // exactly 21 — three chairs in each of the seven rooms. A camera-facing
+        // seat draws no chair at all, because the body covers one entirely
+        // [ADR-008, `SeatFacing.seatRole`], and three of the seven seats face
+        // the camera. The old pin sat seven below its own count; this one is
+        // tight, so a piece disappearing for any other reason fails here.
+        #expect(piecesChecked >= 126, "only \(piecesChecked) pieces of furniture were examined")
         #expect(inFrontChecked >= 30, """
             only \(inFrontChecked) pieces were drawn in front of a body. Either the \
             walk found nothing, or every desk in the product has gone behind the \
@@ -1248,15 +1289,44 @@ struct SeatedHeadOcclusionTests {
         let neck: Int
     }
 
+    /// **The head masks for one seat facing**, drawn from the row that facing
+    /// actually plays. [ADR-008]
+    ///
+    /// It took a `Facing` and always read the `working` row, which was the whole
+    /// story while every seat was side-on. A turned seat draws the standing
+    /// `idle` row — `BodyState.artState(facing:)` — so the mask has to come from
+    /// there or the proof below would be measuring furniture against a head that
+    /// is not on screen.
+    /// **Where the head starts, for a facing whose art has no visible neck.**
+    ///
+    /// `SeatedHead.neckRow` finds the row where a *side-view* silhouette pinches
+    /// between the hair and the shoulders. It is a measurement of the sit row and
+    /// it means nothing on a back view, where there is no neck to find and the
+    /// heuristic answers with a row down by the hips — which would make this
+    /// proof report the legs as a face. So a turned facing gets the line the
+    /// **wardrobe** measures instead: `characters.costumes.ink_top_px` is how
+    /// far up the figure any costume reaches (22 px), the anatomy above it is
+    /// head and hair [docs/M8-MEASUREMENTS-phase1c.md §1], and it is the same
+    /// number `RoomLayout.awayChairStandoff` places the chair against. One
+    /// measured line, used by the placement and by the proof of the placement.
+    static func headTopRow(_ manifest: Manifest) -> Int {
+        manifest.characters.canvas.height - 1 - manifest.characters.costumes.inkTopAboveFeet
+    }
+
     static func headMasks(_ manifest: Manifest, facing: Facing) throws -> [HeadMask] {
+        let state = BodyState.working.artState(facing: facing)
+        let resolved = state == .working ? facing.seated : facing
         var masks: [HeadMask] = []
         for id in manifest.characters.orderedVariantIDs {
             guard let variant = manifest.characters.variant(id),
-                  let animation = variant.animation(.working),
-                  let paths = animation.frames(facing: facing) else { continue }
+                  let animation = variant.animation(state),
+                  let paths = animation.frames(facing: resolved) else { continue }
             for path in paths {
-                guard let frame = try? PixelImage.bitmap(contentsOf: manifest.url(path)),
-                      let neck = SeatedHead.neckRow(of: frame) else { continue }
+                guard let frame = try? PixelImage.bitmap(contentsOf: manifest.url(path))
+                else { continue }
+                let neck = state == .working
+                    ? SeatedHead.neckRow(of: frame) : Self.headTopRow(manifest)
+                guard let neck else { continue }
                 masks.append(HeadMask(variant: id, frame: frame, neck: neck))
             }
         }
