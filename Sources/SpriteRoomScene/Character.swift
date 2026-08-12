@@ -393,6 +393,10 @@ public final class Character: SKNode {
         // and before the early return below, so a selection that puts no glyph
         // in the slot still empties the hands.
         refreshHeld()
+        // And so does the dim, for the same reason and in the same place: the
+        // selection is where this class learns that the agent went dormant, and
+        // every path that changes dormancy changes the selection.
+        refreshDim()
         // And so does the ambient phrase, for the same reason and in the same
         // place: the motion is a function of (body state, badge class), and this
         // is one of exactly two calls that can change either.
@@ -544,6 +548,69 @@ public final class Character: SKNode {
             y: Self.seatedHandCentre.y + Self.heldOffset.y)
         heldNode.xScale = mirror
         heldNode.isHidden = false
+    }
+
+    // MARK: The dormancy dim
+
+    /// **Whether this character is drawn dimmed**, read off the badge selection
+    /// and nowhere else.
+    ///
+    /// `BadgeSelection.isDormant` is the *fact* — `WorldDelta.dormancyChanged`,
+    /// which is a subagent's `SubagentStop` — and it rides on every selection
+    /// the director emits, so the scene needs no new intent and no second
+    /// channel to know it. The dim is keyed to the fact rather than to
+    /// `isSleeping`, which is the *slot*: `isSleeping` is `isDormant &&
+    /// !isAttention`, so keying the body to it would un-dim a finished agent for
+    /// as long as a permission prompt happened to be outstanding over its head.
+    /// The badge slot has a precedence order because it holds one picture at a
+    /// time; the body has no such contest and should simply be true.
+    private var isDimmed: Bool { currentBadge.isDormant }
+
+    /// Puts the dim on, or takes it off. **An instant step, never a fade.**
+    ///
+    /// Called from `apply(badge:)` and from nowhere else, so the dim cannot get
+    /// out of step with the fact that decides it. It is idempotent by
+    /// construction — assigning the same blend factor twice draws the same frame
+    /// — and it starts no action, runs no interpolation and touches no clock:
+    /// I2 licenses motion on a character only inside an open tool call, a
+    /// dormant character holds none, and a crossfade is motion. [ADR-006 §12]
+    ///
+    /// **The body, the costume and the held object dim. The nameplate and the
+    /// badge do not**, and that is `Layer`'s own argument applied to colour: M0
+    /// measured that this cast is not separable by silhouette, so the nameplate
+    /// *is* the identity and the badge *is* the tool. Degrading either is a loss
+    /// of information rather than a loss of polish, and a viewer who cannot read
+    /// which agent went dormant has been told less than before, not more. Those
+    /// two nodes are siblings of the body inside this node, so leaving them
+    /// alone is a matter of not touching them.
+    ///
+    /// `heldNode` is included because it is a thing in the character's hands,
+    /// not a caption on it — though in practice a dormant character's hands are
+    /// already empty, since `heldObject` requires an open call.
+    private func refreshDim() {
+        let colour = SKColor(
+            red: CGFloat(CharacterDim.tint.r) / 255,
+            green: CGFloat(CharacterDim.tint.g) / 255,
+            blue: CGFloat(CharacterDim.tint.b) / 255,
+            alpha: 1)
+        let factor: CGFloat = isDimmed ? CGFloat(CharacterDim.factor) : 0
+        for node in [body, heldNode] + costumeNodes {
+            node.color = colour
+            node.colorBlendFactor = factor
+        }
+    }
+
+    /// Whether the dim is on, for tests that check the fact rather than the
+    /// pixels it produces.
+    public var isDimmedForTesting: Bool { isDimmed }
+    /// The blend factor actually on the body node, so a test can measure what
+    /// was applied rather than what was intended.
+    var bodyColorBlendFactorForTesting: CGFloat { body.colorBlendFactor }
+    /// The blend factor on the nameplate and the badge — always zero, and
+    /// asserted rather than assumed.
+    var identityColorBlendFactorsForTesting: [CGFloat] {
+        [nameplateNode.colorBlendFactor, badgeNode.colorBlendFactor,
+         badgeCountNode.colorBlendFactor]
     }
 
     // MARK: Ambient motion

@@ -343,7 +343,26 @@ enum SceneArt {
     /// `&&` would be one more thing to be subtly wrong. Recorded here instead,
     /// which is the honest trade — the notice under-reports by one, and this is
     /// the paragraph that says so.
-    static let expectedGatedTestCount = 89
+    ///
+    /// 97 with ADR-006 §12's dormancy signal: eight tests in
+    /// `DormancySignalTests`, all of them measurements that need real pixels or
+    /// a real node. Two are `CharacterDimTests` — the factor re-derived against
+    /// the two saturation thresholds over every colour the shipped cast draws,
+    /// and the contrast direction re-measured against every theme's own mean, so
+    /// the claim that dimming *raises* I7's tightest number is checked against
+    /// the art rather than against this file. Three are `CharacterDimSceneTests`
+    /// — a `Character` with no art never enters a body state, so the dim, its
+    /// stillness over 60 frames and its precedence against an attention bubble
+    /// would all pass vacuously without the pack. Three are
+    /// `DeskScreenSceneTests`, which need a real `RoomScene`: it places nothing
+    /// without the pack, so the node those three are about would not exist.
+    ///
+    /// The rest of that change is deliberately **not** gated and must not become
+    /// so: `DeskScreenArtTests` is bitmap arithmetic over art this repository
+    /// draws itself — the one layer `scripts/lint-palette.py` cannot see — and
+    /// `DeskScreenDirectorTests` is the keying, which is this repository's own
+    /// policy. A fresh clone still checks every number in the ADR's own table.
+    static let expectedGatedTestCount = 97
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

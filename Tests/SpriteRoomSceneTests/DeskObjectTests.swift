@@ -681,8 +681,11 @@ struct DeskObjectDirectorTests {
         #expect(Self.kinds(intents) == [.authoring])
         // And the kind resolves to the authored laptop, whose silhouette steps
         // outward at the hinge — the feature no other desk object has.
-        let laptop = try? #require(DeskWorkArt.bitmap(.authoring))
-        #expect(laptop != nil)
+        // Plain `!= nil` rather than `#require`: `bitmap(_:screen:)` gained a
+        // defaulted argument when the screen state landed, and the `#require`
+        // macro then reports the call as never-optional and fails the build
+        // under `-warnings-as-errors`. The assertion is the same one.
+        #expect(DeskWorkArt.bitmap(.authoring) != nil)
         #expect(DeskWorkArt.design(.authoring) == DeskWorkArt.laptop)
     }
 
@@ -1052,20 +1055,52 @@ struct DeskObjectSceneTests {
     /// cover. `noPropNodeIsEverRebuiltAcrossAnyFixtureReplay` guards the room's
     /// own furniture and cannot see this, because a desk object is per-character
     /// furniture and lives outside `propNodes` exactly as a station's does.
+    ///
+    /// **The swap count is now cross-checked rather than pinned**, and the
+    /// reason is ADR-006 §12: the drawn texture is a function of *two* facts,
+    /// the kind and the screen state, and only the first of them used to exist.
+    /// It was `== 2` — the corpus's two kind replacements — and 45 of the 47
+    /// swaps it now sees are turn boundaries turning a screen off or on, which
+    /// is the feature working rather than the invariant breaking. A restated
+    /// constant would have been a number nobody could derive again, so the
+    /// expectation is *recomputed from the intent stream* on the same per-frame
+    /// granularity the observation uses, and the two have to agree exactly.
     @Test(.enabled(if: SceneArt.isAvailable))
     func noDeskObjectNodeIsEverRebuiltAcrossAnyFixtureReplay() async throws {
         let manifest = try SceneFixtures.manifest()
         var everSwapped = 0
+        var predicted = 0
+        var replacements = 0
+        var screenChanges = 0
         for name in try DeskObjectCorpusTests.fixtureNames() {
             let scene = RoomScene(manifest: manifest)
             scene.setViewport(CGSize(width: 720, height: 400))
             var director = SceneDirector(manifest: manifest)
             var identity: [AgentRef: ObjectIdentifier] = [:]
             var textures: [AgentRef: ObjectIdentifier?] = [:]
+            // What the intents say each desk should be drawing: the kind, and
+            // the screen state, which starts lit for every character that walks
+            // in. `nil` kind is the bare desk, which draws no texture at all.
+            var drawn: [AgentRef: (kind: WorkKind?, screen: DeskScreen)] = [:]
+            var seen: [AgentRef: String] = [:]
 
             var time = 0.0
             for (at, deltas) in try await SceneFixtures.timedBatchedDeltas(name) {
-                scene.apply(director.apply(deltas, at: at))
+                let intents = director.apply(deltas, at: at)
+                for intent in intents {
+                    switch intent {
+                    case let .spawnCharacter(agent, _, _, _, _, _):
+                        drawn[agent] = (nil, .lit)
+                    case let .setDeskObject(agent, kind):
+                        if drawn[agent]?.kind != nil { replacements += 1 }
+                        drawn[agent] = (kind, drawn[agent]?.screen ?? .lit)
+                    case let .setDeskScreen(agent, screen):
+                        if drawn[agent]?.kind != nil { screenChanges += 1 }
+                        drawn[agent] = (drawn[agent]?.kind, screen)
+                    default: break
+                    }
+                }
+                scene.apply(intents)
                 time += 1.0 / 60.0
                 scene.advance(to: time)
                 for (agent, node) in scene.deskObjectNodesForTesting {
@@ -1079,12 +1114,27 @@ struct DeskObjectSceneTests {
                         everSwapped += 1
                     }
                     textures[agent] = texture
+                    // The same observation over the intents: the texture is a
+                    // pure function of (kind, screen), so it changes exactly
+                    // when that pair does on a desk that already had something
+                    // on it.
+                    if let state = drawn[agent], let kind = state.kind {
+                        let key = kind.textureKey(screen: state.screen)
+                        if let known = seen[agent], known != key { predicted += 1 }
+                        seen[agent] = key
+                    }
                 }
             }
         }
-        // The corpus's two replacements, seen from the other side: a change of
-        // kind is a texture swap on a node that was already there.
-        #expect(everSwapped == 2, "the texture-swap path was never exercised")
+        print("""
+            desk-object texture swaps over the corpus: \(everSwapped) — \
+            \(replacements) kind replacements, \(screenChanges) screen changes
+            """)
+        #expect(everSwapped == predicted,
+                "the scene swapped \(everSwapped) textures where the intents say \(predicted)")
+        #expect(replacements == 2, "the corpus's two kind replacements are gone")
+        #expect(screenChanges > 0, "no turn boundary ever reached a furnished desk")
+        #expect(everSwapped > replacements, "the screen never reached the node")
     }
 
     /// The node goes when the character does, so a departed agent leaves nothing

@@ -103,8 +103,48 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// it is how a manifest and its art drift apart.
     public var propRole: String? { nil }
 
+    /// **Whether this kind's object has a screen to turn off.** [ADR-006 §12]
+    ///
+    /// Two of the four do, and the split is a fact about the objects rather than
+    /// a preference:
+    ///
+    /// | kind | object | screen |
+    /// |---|---|---|
+    /// | `authoring` | a laptop, lid up | **yes** — `DeskWorkArt.laptop`'s `a` rows |
+    /// | `running` | a desk monitor | **yes** — `DeskMonitorArt`'s whole glass |
+    /// | `research` | a stack of paper | no |
+    /// | `coordinating` | a pad | no |
+    ///
+    /// **The two paper kinds abstain, and that is I1 rather than an
+    /// oversight.** A dark screen is a true picture of a machine nobody is
+    /// using; a *dimmed sheet of paper* is a picture of nothing at all, because
+    /// paper does not have an off state to draw. The room would be inventing a
+    /// second appearance for an object in order to repeat a fact the character's
+    /// own dim (`CharacterDim`) already carries truthfully — and I1's
+    /// instruction for the case where truthful representation is not available
+    /// is to show nothing. So an agent that has been reading is dimmed with its
+    /// papers unchanged, and the room says exactly as much as it knows.
+    ///
+    /// Total by construction: a fifth kind fails to compile here rather than
+    /// silently acquiring or losing a screen.
+    var hasScreen: Bool {
+        switch self {
+        case .authoring, .running: return true
+        case .research, .coordinating: return false
+        }
+    }
+
     /// Stable key for the texture cache, for the kind whose art is authored.
-    var textureKey: String { "deskobject:" + rawValue }
+    ///
+    /// **The screen state is part of the key.** A lit and a dark laptop are two
+    /// bitmaps and `TextureStore` caches by key, so a shared key would hand the
+    /// first one drawn to every later caller and the screen would appear stuck.
+    /// The two kinds with no screen return the same bitmap for either state, so
+    /// their two keys hold identical textures — a duplicate entry in a cache of
+    /// two dozen, which is cheaper than a key rule with an exception in it.
+    func textureKey(screen state: DeskScreen) -> String {
+        "deskobject:" + rawValue + (state == .lit ? "" : ":dark")
+    }
 
     // MARK: - The lexicon [ADR-006 §3 step 1, §6c rule 5]
 

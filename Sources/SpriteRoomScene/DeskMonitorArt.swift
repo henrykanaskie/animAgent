@@ -1,5 +1,21 @@
 import Foundation
 
+/// **Whether a desk object's screen is on.** [ADR-006 §12]
+///
+/// It says one thing and it is the turn: the screen is `lit` while the agent
+/// holds a turn and `dark` when it does not. It is not the open-call set — a
+/// call is 23 ms at the median and a screen that blinked with one would be the
+/// strobe with a bigger sprite — and it is not a mood.
+///
+/// **Two of the four kinds have a screen**; see `WorkKind.hasScreen`, which is
+/// where the abstention is argued. Passing `.dark` to a kind that draws paper
+/// returns the same bitmap as `.lit`, because turning paper off is fiction.
+/// [I1]
+public enum DeskScreen: Sendable, Hashable {
+    case lit
+    case dark
+}
+
 /// The fourth desk-top object ADR-006 §1 names and could not declare: a desk
 /// monitor with a lit screen, for `running` (`Bash`, `BashOutput`, `KillShell`).
 ///
@@ -88,6 +104,55 @@ enum DeskMonitorArt {
     /// showing "two faint icon dots".
     static let statusDot = Bitmap.RGBA(159, 159, 175)
 
+    /// **The screen with nothing on it** — `(141, 141, 141)`, saturation
+    /// **0.000**, value **0.553**.
+    ///
+    /// # It is derived rather than sampled, and the reason is measured
+    ///
+    /// `screen` above was *sampled*, because a lit screen already existed in the
+    /// pack. A dark one does not: scanning every opaque pixel of
+    /// `assets/processed/room/32x32/` — builder tiles, builder-full and all 339
+    /// singles — the whole processed room palette bottoms out at value **0.659**
+    /// (`(168, 150, 154)`), because `scripts/process-assets.py` value-compresses
+    /// the pack *into* I7's band and the pack's own art never reaches the
+    /// bottom of it. There is no pack ink below 0.659 to sample, and 0.659 is
+    /// eight hundredths *brighter* than this object's own casing, so sampling
+    /// the darkest thing available would draw a screen lighter than the box
+    /// around it.
+    ///
+    /// So it is derived the way `SceneBitmaps.placeholderDesk`'s inks are, and
+    /// the derivation is the mirror of `screen`'s own sentence:
+    ///
+    /// > A lit screen is the one place this object may be the **brightest**
+    /// > thing it draws and it still does not reach the room's ceiling. A dark
+    /// > screen is the one place it may be the **darkest**, and it sits exactly
+    /// > on the room's floor rather than through it.
+    ///
+    /// I7's room band is `[0.55, 0.92]` (`04-ART-DIRECTION.md`, "The palette
+    /// rule is now a build step"). `140/255 = 0.549` is below the floor;
+    /// `141/255 = 0.553` is the darkest 8-bit neutral at or above it. Grey
+    /// rather than tinted, because an off screen is the absence of emission and
+    /// a hue would be a claim about what is not being displayed.
+    ///
+    /// # What it separates from, measured
+    ///
+    /// | against | value | Δ |
+    /// |---|---:|---:|
+    /// | `screen` / `face`, the lit ink | 0.871 | **0.318** |
+    /// | `outline`, this object's own casing | 0.667 | 0.114 |
+    /// | the room's darkest opaque ink | 0.659 | 0.106 |
+    /// | the cast's darkest pixel, dimmed or not | 0.304–0.314 | 0.239 |
+    ///
+    /// The first number is the one that has to survive `1x`, and it is larger
+    /// than the room's entire measured spread from its darkest ink to its mean
+    /// (0.659 → 0.785 = 0.126) and larger than the lit screen's own step away
+    /// from the casing it sits in (0.204). The second says the dark screen still
+    /// reads as a *recess in* the casing rather than dissolving into it — a flat
+    /// slab would have been the cheaper answer and a worse picture. The last
+    /// says the room still does not own the darkest pixel on screen, which is
+    /// the only thing the band's floor exists to protect. [I7]
+    static let screenOff = Bitmap.RGBA(141, 141, 141)
+
     // MARK: - The design grid
 
     /// The design canvas, **before** the 2x doubling — the same convention
@@ -148,15 +213,24 @@ enum DeskMonitorArt {
 
     /// The design, doubled onto the `20x22` canvas — `HeldObjectArt.bitmap`'s
     /// own construction, one design grid smaller.
-    static func bitmap() -> Bitmap {
+    ///
+    /// **`screen: .dark` repaints the glass and nothing else.** `a` and `b` are
+    /// both *inside* the bordered rectangle — the field and the two icon dots —
+    /// so a dark screen takes both: a monitor that is off does not keep its
+    /// status lights. The `o` casing, the stalk and the base are the same pixels
+    /// in either state, because a screen going dark is not a monitor changing
+    /// shape: the silhouette is the object's identity [ADR-006 §1a] and this
+    /// channel may not touch it.
+    static func bitmap(screen state: DeskScreen = .lit) -> Bitmap {
         var bitmap = Bitmap(width: canvasWidth, height: canvasHeight)
         for (row, line) in design.enumerated() {
             for (column, character) in line.enumerated() {
                 let colour: Bitmap.RGBA
-                switch character {
-                case "o": colour = outline
-                case "a": colour = screen
-                case "b": colour = statusDot
+                switch (character, state) {
+                case ("o", _): colour = outline
+                case ("a", .lit): colour = screen
+                case ("b", .lit): colour = statusDot
+                case ("a", .dark), ("b", .dark): colour = screenOff
                 default: continue
                 }
                 bitmap.fill(x: column * 2, y: row * 2, w: 2, h: 2, colour)

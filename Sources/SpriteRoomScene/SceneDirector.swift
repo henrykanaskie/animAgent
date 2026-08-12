@@ -73,6 +73,27 @@ public enum SpriteIntent: Sendable, Hashable {
     /// beside it, outside its canvas by construction (`RoomScene
     /// .deskObjectNearEdgeX(manifest:)`), so nothing here can cover a head.
     case setDeskObject(agent: AgentRef, kind: WorkKind)
+    /// **Whether this character's desk screen is on.** Only ever emitted when it
+    /// actually changed. [ADR-006 §12]
+    ///
+    /// A fourth channel beside `setBody`, `setBadge` and `setGated`, and it is
+    /// its own intent for the same reason `setGated` is: it is keyed to
+    /// something none of the others is keyed to. The screen is lit while the
+    /// agent **has a turn** — the interval ADR-005 keys the posture to — and
+    /// dark when it does not, which is a fact about the desk rather than about
+    /// the body, and it outlives every call in the turn.
+    ///
+    /// **It is not the open-call set.** ADR-005 measured the median tool call at
+    /// 23 ms and the median gap between two calls of one turn at 2.35 s. A
+    /// screen keyed to a call would flash at syscall rate, which is the strobe
+    /// ADR-006 §10 already refused for the object itself.
+    ///
+    /// **`.dark` reaches two of the four kinds** — `WorkKind.hasScreen` — and
+    /// the intent is emitted for every seated character regardless, including
+    /// ones whose desk is bare. The alternative is a rule that has to know what
+    /// is on the desk before it can say what the desk is doing, and the scene
+    /// would then need the two facts to arrive in a particular order.
+    case setDeskScreen(agent: AgentRef, screen: DeskScreen)
     /// **Whether this character is stopped at a permission gate.** Only ever
     /// emitted when it actually changed. [ADR-005 §7]
     ///
@@ -416,6 +437,33 @@ public struct SceneDirector: Sendable {
         /// animation for "waiting on a human" and repurposing an unrelated one
         /// would be fiction; the badge is the whole representation.
         var body: BodyState { isInTurn ? .working : .idle }
+
+        /// **The desk screen carries the turn**, which is the same fact the
+        /// posture carries and the reason both are keyed to `isInTurn`.
+        /// [ADR-006 §12]
+        ///
+        /// # Why `!isDormant` is here as well, having checked rather than assumed
+        ///
+        /// The obvious reading is that this second term is redundant, because
+        /// the `dormancyChanged` arm of `apply(_:at:)` sets `isInTurn =
+        /// !isDormant` itself. The brief asked whether
+        /// `turnChanged(hasTurn: false)` is *guaranteed* to have fired for an
+        /// agent that `dormancyChanged(isDormant: true)` reports, and the answer
+        /// found in the code is **no, and not marginally**: `turnChanged` is the
+        /// **main thread's** boundary — it comes from `Stop`, which never
+        /// carries an `agent_id` — and `dormancyChanged` is a **subagent's**,
+        /// from `SubagentStop`, which always does. No agent receives both. So
+        /// for the entire dormant cast the `turnChanged` delta never arrives at
+        /// all, and what closes the turn is the dormancy arm's own assignment.
+        ///
+        /// That assignment is one line in one of eleven arms of a batch loop,
+        /// and the ordering within a batch is what makes it hold. Reading both
+        /// facts here costs nothing and means this value states the thing it
+        /// means — *this agent is working right now* — rather than depending on
+        /// an invariant maintained elsewhere. `theScreenIsDarkForADormantAgent
+        /// EvenIfSomethingReopenedItsTurn` pins it against the case the ordering
+        /// does not cover.
+        var deskScreen: DeskScreen { isInTurn && !isDormant ? .lit : .dark }
         /// **The badge carries kind.** The beat is passed in as the slot's
         /// lowest-precedence source; `BadgeSelection.select` reaches it only
         /// when the open set is empty.
@@ -544,6 +592,12 @@ public struct SceneDirector: Sendable {
     /// walks in with a bare desk and `setDeskObject` has no value that means
     /// "bare", so there is nothing to seed it with. The absence *is* the seed.
     private var emittedDeskObject: [AgentRef: WorkKind] = [:]
+    /// Seeded at spawn with `.lit`, the same idiom as `emittedGated`'s `false`:
+    /// a character exists because an event for it arrived, an event arriving
+    /// means it is in a turn, and `RoomScene` draws a lit screen until told
+    /// otherwise. So a character that never goes dormant — the main agent in
+    /// every fixture — never receives this intent at all.
+    private var emittedDeskScreen: [AgentRef: DeskScreen] = [:]
     private var emittedScale: Int?
     /// Seeded at zero rather than `nil` so a room that never overflows never
     /// emits the intent at all — the same idiom as seeding `emittedBadge` with
@@ -685,6 +739,14 @@ public struct SceneDirector: Sendable {
         presentations[agent]?.deskObject
     }
 
+    /// **Whether this character's desk screen is on.** [ADR-006 §12]
+    ///
+    /// `.dark` for an agent this director has never heard of, which is the same
+    /// answer it gives for one that is not in a turn: nothing is running.
+    public func deskScreen(_ agent: AgentRef) -> DeskScreen {
+        presentations[agent]?.deskScreen ?? .dark
+    }
+
     /// This agent's votes so far **in the turn it is in**. Read by tests; nothing
     /// in the room draws it.
     public func workTally(_ agent: AgentRef) -> WorkTally {
@@ -802,6 +864,14 @@ public struct SceneDirector: Sendable {
                     // same batch for an agent that really is blocked, and this
                     // seeding is what makes that one intent rather than none.
                     emittedGated[agent] = false
+                    // A character that has just walked in is in a turn — the
+                    // comment on `isInTurn` above is the argument — and the
+                    // scene draws a lit screen on an unseeded desk, so "set the
+                    // screen to lit" is an instruction to do nothing. On the
+                    // project-switch reconstruction path a `dormancyChanged(true)`
+                    // follows in the same batch for a sleeper, and this seeding
+                    // is what makes that one intent rather than none.
+                    emittedDeskScreen[agent] = .lit
                     appeared.append(agent)
                 } else if let agentType {
                     presentations[agent]?.agentType = agentType
@@ -994,6 +1064,7 @@ public struct SceneDirector: Sendable {
                 emittedGated.removeValue(forKey: agent)
                 emittedNameplate.removeValue(forKey: agent)
                 emittedDeskObject.removeValue(forKey: agent)
+                emittedDeskScreen.removeValue(forKey: agent)
                 // An agent that never had a seat was never spawned, so there is
                 // no node to walk off. It leaves the overflow count instead,
                 // which is the only thing that was ever showing it.
@@ -1121,6 +1192,17 @@ public struct SceneDirector: Sendable {
             if let kind = presentation.deskObject, emittedDeskObject[agent] != kind {
                 emittedDeskObject[agent] = kind
                 intents.append(.setDeskObject(agent: agent, kind: kind))
+            }
+            // Beside the object it lights, and after it, so that a character
+            // that adopts a kind and ends its turn in one batch is told what is
+            // on its desk before it is told the desk is dark. Ordering only —
+            // the scene applies the whole batch before the next frame, and
+            // `RoomScene` holds the screen state whether an object is drawn yet
+            // or not. [ADR-006 §12]
+            let screen = presentation.deskScreen
+            if emittedDeskScreen[agent] != screen {
+                emittedDeskScreen[agent] = screen
+                intents.append(.setDeskScreen(agent: agent, screen: screen))
             }
             let badge = presentation.badge
             let body = body(for: presentation, badge: badge)
@@ -1451,6 +1533,7 @@ public struct SceneDirector: Sendable {
         // presentation, so an evicted agent that is seated again brings its own
         // desk back rather than starting from a bare one.
         emittedDeskObject.removeValue(forKey: agent)
+        emittedDeskScreen.removeValue(forKey: agent)
         touched.removeAll { $0 == agent }
         // An agent seated and evicted inside one batch was never spawned, so
         // there is no node to walk off and nothing to say about it at all. It

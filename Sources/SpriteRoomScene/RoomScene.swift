@@ -603,7 +603,30 @@ public final class RoomScene: SKScene {
     /// identity says an object was placed; it says nothing about which picture.
     private var deskObjectPaths: [AgentRef: String] = [:]
 
+    /// **What kind each character's desk object is drawing**, so that a screen
+    /// change can redraw it without the director restating the kind.
+    ///
+    /// The two facts arrive on separate intents and in either order — a kind is
+    /// adopted when the votes say so and the screen changes at a turn boundary —
+    /// so each has to be able to land without the other being present. `nil`
+    /// here is the bare desk, and a screen change on a bare desk is a stored
+    /// flag and no drawing at all.
+    private var deskObjectKinds: [AgentRef: WorkKind] = [:]
+
+    /// **Whether each character's desk screen is on.** [ADR-006 §12]
+    ///
+    /// Defaults to `.lit` for a character the director has not spoken about,
+    /// which is what a character walking in is: it exists because an event
+    /// arrived, and an event arriving means it is in a turn. `SceneDirector`
+    /// seeds its own memory with the same value for the same reason, so the two
+    /// agree without either asking the other.
+    private var deskScreens: [AgentRef: DeskScreen] = [:]
+
     var deskObjectNodesForTesting: [AgentRef: SKSpriteNode] { deskObjectNodes }
+
+    /// The screen state each desk is drawn in, for tests that check the picture
+    /// rather than the policy.
+    public func deskScreensForTesting() -> [AgentRef: DeskScreen] { deskScreens }
 
     /// **How far to the character's right a desk-top object's near edge stands**,
     /// in seat-relative scene pixels. [ADR-006 §2c]
@@ -659,8 +682,13 @@ public final class RoomScene: SKScene {
     /// and `noDeskObjectNodeIsEverRebuiltAcrossAnyFixtureReplay` is where it is
     /// checked mechanically.
     private func showDeskObject(_ kind: WorkKind, for agent: AgentRef) {
+        // Recorded before the guard, so a screen change arriving later still
+        // knows what to redraw even in the (unreachable today) case where the
+        // art failed to load and the desk stayed bare.
+        deskObjectKinds[agent] = kind
         guard let node = deskObjectNodes[agent], let seat = seatOf[agent],
-              layout.isSeatable(seat), let art = deskObjectArt(kind) else { return }
+              layout.isSeatable(seat),
+              let art = deskObjectArt(kind, screen: deskScreens[agent] ?? .lit) else { return }
         // The desk this seat actually draws, which is a station's own when it has
         // one and the theme's `desk` role otherwise. Stations fall back to that
         // role when they declare no desk, and none in the shipped manifest does,
@@ -716,14 +744,21 @@ public final class RoomScene: SKScene {
     /// own binding over the root `room`'s, and reinstating one kind's role is all
     /// it takes to use it. `WorkKind.propRole` records that only the authored arm
     /// is covered by a test.
-    private func deskObjectArt(_ kind: WorkKind)
+    private func deskObjectArt(_ kind: WorkKind, screen: DeskScreen)
     -> (texture: SKTexture, anchor: CGPoint, size: CGSize, contentWidth: Double, path: String)? {
         guard let role = kind.propRole else {
             // `running` is the monitor next door; the other three are
             // `DeskWorkArt`. Both are authored and both are their own content
             // box, so the arithmetic below is the same for either.
-            let bitmap = DeskWorkArt.bitmap(kind) ?? DeskMonitorArt.bitmap()
-            guard let texture = store.texture(bitmap: bitmap, key: kind.textureKey) else {
+            //
+            // **The screen state reaches the art here and only here.** Two of
+            // the four kinds redraw for it and two return the same pixels
+            // (`WorkKind.hasScreen`), so a paper desk is bit-identical in both
+            // states rather than special-cased anywhere above this line.
+            let bitmap = DeskWorkArt.bitmap(kind, screen: screen)
+                ?? DeskMonitorArt.bitmap(screen: screen)
+            guard let texture = store.texture(
+                bitmap: bitmap, key: kind.textureKey(screen: screen)) else {
                 return nil
             }
             // The authored bitmap *is* its own content box — ink reaches every
@@ -746,6 +781,8 @@ public final class RoomScene: SKScene {
     private func retireDeskObject(for agent: AgentRef) {
         deskObjectNodes.removeValue(forKey: agent)?.removeFromParent()
         deskObjectPaths.removeValue(forKey: agent)
+        deskObjectKinds.removeValue(forKey: agent)
+        deskScreens.removeValue(forKey: agent)
         stationDesks.removeValue(forKey: agent)
     }
 
@@ -920,6 +957,19 @@ public final class RoomScene: SKScene {
             // life — which is why ADR-006 needs no carve-out from I2 and proposes
             // none. Nothing about the character it belongs to changes here.
             showDeskObject(kind, for: agent)
+
+        case let .setDeskScreen(agent, screen):
+            // **Furniture again, and the same argument.** A screen going dark
+            // is one texture swapped for another on a node that is already in
+            // the tree: no pose, no loop, no interpolation, 0 px/s in every
+            // frame of its life. ADR-006 §12 is where that is argued against I2
+            // rather than asserted here.
+            //
+            // Stored whether or not anything is drawn: a bare desk has no
+            // object to relight, and the flag is what makes the object correct
+            // the moment one is adopted.
+            deskScreens[agent] = screen
+            if let kind = deskObjectKinds[agent] { showDeskObject(kind, for: agent) }
 
         case let .setGated(agent, isGated):
             // The motion channel's third input, and the only one that takes

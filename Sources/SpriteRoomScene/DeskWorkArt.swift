@@ -62,6 +62,11 @@ enum DeskWorkArt {
     /// The second neutral, `(159, 159, 175)`, for the features that would
     /// otherwise leave a flat field: a keyboard, a ruled line, a clip.
     static let detail = DeskMonitorArt.statusDot
+    /// The unlit screen, `(141, 141, 141)`, value 0.553 — the darkest 8-bit
+    /// neutral inside the room's band. `DeskMonitorArt.screenOff` carries the
+    /// derivation and the four separations it was chosen on. **Only the laptop
+    /// ever draws it**; see `bitmap(_:screen:)`.
+    static let faceOff = DeskMonitorArt.screenOff
 
     // MARK: - The design grids
 
@@ -142,15 +147,33 @@ enum DeskWorkArt {
     /// pack's own: every 32x file in Modern Office is a pixel-doubled copy of its
     /// 16x sibling, so a feature drawn at 1 px line weight would read as a
     /// different hand immediately.
-    static func bitmap(_ kind: WorkKind) -> Bitmap? {
+    ///
+    /// # `screen: .dark` reaches exactly one of these three, and that is I1
+    ///
+    /// **The laptop is the only kind here with a screen** — `WorkKind.hasScreen`
+    /// is where that is decided and argued. `research` draws a paper stack and
+    /// `coordinating` draws a pad, and **a sheet of paper cannot be switched
+    /// off**: dimming one would be the room inventing a state the object does
+    /// not have, in order to repeat something the character's own dim already
+    /// says truthfully. So both return the same bitmap in either state,
+    /// deliberately, and a reader who expected four dark objects should read
+    /// this paragraph rather than file a bug. [I1]
+    ///
+    /// On the laptop the substitution is `a` alone. `b` is the **keyboard** row
+    /// under the hinge — a physical object, which stays exactly as bright when
+    /// the display does not — unlike `DeskMonitorArt`'s own `b`, which is two
+    /// icon dots *on the glass* and goes dark with it. The two files disagree on
+    /// purpose and each says why.
+    static func bitmap(_ kind: WorkKind, screen state: DeskScreen = .lit) -> Bitmap? {
         guard let design = design(kind), let width = design.first?.count else { return nil }
+        let dark = state == .dark && kind.hasScreen
         var bitmap = Bitmap(width: width * 2, height: design.count * 2)
         for (row, line) in design.enumerated() {
             for (column, character) in line.enumerated() {
                 let colour: Bitmap.RGBA
                 switch character {
                 case "o": colour = outline
-                case "a": colour = face
+                case "a": colour = dark ? faceOff : face
                 case "b": colour = detail
                 default: continue
                 }
