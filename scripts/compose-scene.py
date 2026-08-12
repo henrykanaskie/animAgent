@@ -1271,7 +1271,7 @@ def museum():
               ("lectern", 250, 348, 3, ()),
               ("bench", 376, 330, 0, ()),
               ("plant_potted", 380, 380, 11, ()),
-              ("wall_plaque", 372, 236, 0, ("ground",)),
+              ("wall_plaque", 372, 60, 0, ("flat",)),
               ("bench", 130, 366, 0, ()), ("bench", 290, 366, 1, ()),
               ("sign_exit", 356, 56, 2, ("flat",)),
               ("plant_potted", 62, 384, 1, ()),
