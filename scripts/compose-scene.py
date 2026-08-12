@@ -103,6 +103,7 @@ rules, checked exhaustively on every run:
   R5  anything resting on a surface is fully on some particular surface
   R6  nothing stands in a doorway
   R7  nothing is drawn and then buried by what is painted over it
+  R8  a row of one name is not a row of one sprite
 
 Its first run reported **43 violations across three scenes that had already
 been eyeballed and called finished**, including two figures standing on walls,
@@ -119,10 +120,20 @@ four mugs at 100% buried. Every one of those was correctly placed by R1-R5 —
 they are not misplaced, they are underneath something — and every one of them
 rendered, cost draw time, and could not be seen.
 
-The same read found the two structural bugs `_open_at` and step 2 of
-`draw_plan` now fix. Both were invisible from inside: a boundary drawn
-correctly by each of the two rooms that share it, which between them walled
-over a declared door.
+R8 is the subtlest and catches the most embarrassing class. `ink` narrows a
+name to one piece of its family, which also shrinks the pool it indexes into —
+often to two. A stride chosen against the full family then aliases: `3 + i * 4`
+over a pool of two is odd every time. The ward drew all six of its nightstands
+from one file, three identical patients per row, and three identical benches in
+an unbroken run that reads as a fence. Each placement was individually correct.
+It is judged against what is *reachable*, so a name with one catalogue entry is
+not a complaint.
+
+The same read found three structural bugs, all invisible from inside:
+`_open_at`, step 2 of `draw_plan`, and the cap tiles — a boundary drawn
+correctly by each of the two rooms that share it and walled over between them;
+a doorway patched with two different floors stacked; and four of eight surfaces
+built on a mid-run cap tile that omits the wall's outer edge.
 
 Uses Pillow, which the app's own pipeline avoids — fine here, because nothing
 in this file is part of the build. `scripts/process-assets.py` stays stdlib.
@@ -195,16 +206,23 @@ OUTSIDE = (34, 34, 44)
 # Doorways are gaps rather than tiles, which is what Office_Design_2 draws
 # anyway: the line and the face stop, and the floor beyond shows through.
 
+# **Only columns 0-2 of a cap row carry the wall's top edge.** Every cap tile
+# is 12 px of floor-plan line over 20 px of face, but the line is only drawn
+# complete — 2 px dark, 8 px white, 2 px dark — in the first three columns.
+# Columns 3-9 omit the top 2 px because they are mid-run pieces meant to butt
+# against something above them. Four of these eight surfaces were built on c07
+# and drew every room's north wall with its outer edge missing, which reads at
+# 1x as a wall that fades into the background instead of ending.
 SURFACES = {
     # name:      (floor,          cap,             body)
     "concrete":  ("tile_r07_c11.png", "tile_r07_c00.png", "tile_r08_c00.png"),
     "slab":      ("tile_r05_c11.png", "tile_r05_c00.png", "tile_r06_c00.png"),
-    "plank":     ("tile_r05_c14.png", "tile_r05_c07.png", "tile_r06_c07.png"),
+    "plank":     ("tile_r05_c14.png", "tile_r05_c01.png", "tile_r06_c01.png"),
     "carpet":    ("tile_r07_c14.png", "tile_r09_c00.png", "tile_r10_c00.png"),
     "lino":      ("tile_r09_c11.png", "tile_r11_c00.png", "tile_r12_c00.png"),
-    "lino_tan":  ("tile_r09_c14.png", "tile_r09_c07.png", "tile_r10_c07.png"),
-    "mauve":     ("tile_r11_c12.png", "tile_r11_c07.png", "tile_r12_c07.png"),
-    "white":     ("tile_r05_c10.png", "tile_r07_c07.png", "tile_r08_c07.png"),
+    "lino_tan":  ("tile_r09_c14.png", "tile_r09_c02.png", "tile_r10_c02.png"),
+    "mauve":     ("tile_r11_c12.png", "tile_r11_c01.png", "tile_r12_c01.png"),
+    "white":     ("tile_r05_c10.png", "tile_r07_c02.png", "tile_r08_c02.png"),
 }
 
 WALL_H = 2 * TILE           # cap tile + body tile
@@ -324,6 +342,7 @@ def prop(by_name, name, variant=0, ink=None):
         if not sized:
             return None
         entries = sized
+    pool = len({e["file"] for e in entries})
     e = entries[variant % len(entries)]
     key = e["file"]
     if key not in _props:
@@ -333,7 +352,7 @@ def prop(by_name, name, variant=0, ink=None):
         if not os.path.exists(path):
             return None
         _props[key] = Image.open(path).convert("RGBA")
-    return _props[key], e["content_box"]
+    return _props[key], e["content_box"], key, pool
 
 
 def character(variant, pose, facing, frame=0):
@@ -664,7 +683,32 @@ def check_continuity(rooms, placed):
     because its support is what stands on the floor.
     """
     out = []
-    for name, x, y, w, h, kind in placed:
+
+    # R8. A row of the same name must not be a row of the same sprite.
+    #
+    # `ink` narrows a name to one piece of its family, which also shrinks the
+    # pool it indexes into — often to two or three. A stride chosen against the
+    # full family then aliases: `3 + i * 4` over a pool of 2 is odd every time.
+    # The ward drew all six of its nightstands from one file, three identical
+    # patients per row, and three identical benches in an unbroken run that
+    # reads as a fence. Nothing else notices, because each placement on its own
+    # is correct.
+    families = {}
+    for name, x, y, w, h, kind, source, pool in placed:
+        families.setdefault(name, [set(), 0, 0])
+        families[name][0].add(source)
+        families[name][1] += 1
+        families[name][2] = pool
+    # Judged against what is *reachable* — a name with one catalogue entry can
+    # only ever draw one sprite, and a deliberate subset (only the lit screens,
+    # say) is a choice rather than a bug. The complaint is using less than half
+    # of what could have been used.
+    for name, (sources, count, pool) in families.items():
+        if count > 2 and len(sources) * 2 <= min(count, pool):
+            out.append("R8 %d x %s draw from %d sprite(s), %d available"
+                       % (count, name, len(sources), pool))
+
+    for name, x, y, w, h, kind, _, _p in placed:
         left, right = x - w // 2, x - w // 2 + w
         if kind == "wall":
             # R1. Wall decor hangs on a wall, and a doorway is a hole in one.
@@ -693,12 +737,12 @@ def check_continuity(rooms, placed):
     # is a mug in mid-air beside a desk — which looks, at panel size, exactly
     # like a mug on a desk, so this is not findable by eye.
     supports = [p for p in placed if p[5] == "floor"]
-    for name, x, y, w, h, kind in placed:
+    for name, x, y, w, h, kind, _, _p in placed:
         if kind != "on":
             continue
         left, right = x - w // 2, x - w // 2 + w
         held = False
-        for _, fx, fy, fw, fh, _ in supports:
+        for _, fx, fy, fw, fh, _, _s, _p in supports:
             fl = fx - fw // 2
             if fl <= left and right <= fl + fw and fy - fh <= y <= fy:
                 held = True
@@ -715,8 +759,8 @@ def check_continuity(rooms, placed):
     # plinth (18 px apart), a shelving unit standing inside a dinosaur skeleton
     # (6 px) and a 140 px dinosaur inside a ticket booth (28 px).
     floors = [p for p in placed if p[5] == "floor"]
-    for i, (n1, x1, y1, w1, h1, _) in enumerate(floors):
-        for n2, x2, y2, w2, h2, _ in floors[i + 1:]:
+    for i, (n1, x1, y1, w1, h1, _, _s1, _p1) in enumerate(floors):
+        for n2, x2, y2, w2, h2, _, _s2, _p2 in floors[i + 1:]:
             d1, d2 = min(h1, 18), min(h2, 18)
             if y1 - d1 >= y2 or y2 - d2 >= y1:
                 continue
@@ -732,7 +776,7 @@ def check_continuity(rooms, placed):
     # because a door aperture is legitimately outside the floor and legitimately
     # on a wall line. The museum had a ticket office across the whole width of
     # its north door and a potted plant in the west one.
-    for name, x, y, w, h, kind in placed:
+    for name, x, y, w, h, kind, _, _p in placed:
         if kind != "floor":
             continue
         left, right = x - w // 2, x - w // 2 + w
@@ -822,7 +866,7 @@ def compose(spec, by_name, out_path):
         # it a partition — see `prop`'s note on families versus pieces.
         if min(box["w"], box["h"]) < 8:
             tiny.append("%s#%d %dx%d" % (name, variant, box["w"], box["h"]))
-        placed.append((name, x, y, box["w"], box["h"], kind))
+        placed.append((name, x, y, box["w"], box["h"], kind, got[2], got[3]))
         items.append((y + z, got[0], box, x, y,
                       kind in ("floor", "seat"), name))
     for entry in spec.get("people", []):
@@ -835,7 +879,7 @@ def compose(spec, by_name, out_path):
         # A figure seated facing the camera stands *inside* the desk, whose own
         # floor point is what has to be on the floor — so check where the desk
         # is, not where the head is.
-        placed.append((v, x, y, im.width, im.height, "seat"))
+        placed.append((v, x, y, im.width, im.height, "seat", v, 1))
         items.append((y + z, im, None, x, y, z >= 0, "character " + v))
     place(plan, items)
 
@@ -865,10 +909,10 @@ def compose(spec, by_name, out_path):
     # anything carrying something is exempt; the rule is about props buried by
     # things that have no business on top of them.
     carrying = set()
-    for _, ox, oy, ow, _, okind in placed:
+    for _, ox, oy, ow, _, okind, _os, _op in placed:
         if okind != "on":
             continue
-        for name, fx, fy, fw, fh, fkind in placed:
+        for name, fx, fy, fw, fh, fkind, _fs, _fp in placed:
             fl = fx - fw // 2
             if fkind == "floor" and fl <= ox - ow // 2 and \
                     ox - ow // 2 + ow <= fl + fw and fy - fh <= oy <= fy:
@@ -1059,15 +1103,15 @@ def desk_pod(x, y, v=0, facing="down"):
     floor something the app wants anyway — desks that look like different
     kinds of work.
     """
-    out = [("desk_corner_l", x, y, v % 5, DESK)]
+    out = [("desk_corner_l", x, y, v, DESK)]
     if facing == "up":
         out += [
             # Two screens, filling the slab. Ink 32 wide against 64, so x-16
             # and x+16 tile it exactly. Base 16 px up the desk, screen clearing
             # the back edge by 20 px the way the pack's own GIF draws it.
-            ("workstation_composite", x - 16, y - 16, LIT_RIGS[v % 4],
+            ("workstation_composite", x - 16, y - 16, LIT_RIGS[(3 * v) % 4],
              on_desk(16, (32, 42))),
-            ("workstation_composite", x + 16, y - 16, LIT_RIGS[(v + 1) % 4],
+            ("workstation_composite", x + 16, y - 16, LIT_RIGS[(3 * v + 1) % 4],
              on_desk(16, (32, 42))),
             chair(x, y + CHAIR_DROP, v, "up", ("seat",)),
         ]
@@ -1121,8 +1165,8 @@ def engineering():
               ("pc_tower", 30, 250, 1, ("ink:26x44",)),
               ("pc_tower", 136, 344, 0, ("ink:26x44",)),
               ("pc_tower", 254, 206, 2, ("ink:26x44",)),
-              ("bin", 150, 250, 6, ()),
-              ("bin", 252, 374, 7, ()),
+              ("bin", 150, 250, 2, ()),
+              ("bin", 252, 374, 6, ()),
               ("cabinet_drawers", 26, 302, 4, ()),
               ("plant_potted", 250, 118, 9, ()),
               ("plant_potted", 366, 118, 13, ()),
@@ -1241,7 +1285,7 @@ def museum():
     props += [("ticket_counter", 566, 318, 0, ()),
               ("turnstile", 500, 372, 1, ()),
               ("turnstile", 534, 372, 3, ()),
-              ("turnstile", 568, 372, 1, ()),
+              ("turnstile", 568, 372, 4, ()),
               ("security_scanner", 478, 336, 0, ()),
               ("bench", 640, 372, 2, ()),
               ("plant_potted", 676, 300, 2, ()),
@@ -1277,22 +1321,22 @@ def hospital():
     for i, x in enumerate((66, 176, 286)):
         props += [("hospital_bed", x, 158, i, BED),
                   ("patient_lying", x - 2, 150, i * 2, on_desk(8, (44, 36))),
-                  ("nightstand", x + 48, 176, 3 + i * 4, ("ink:30x38",)),
+                  ("nightstand", x + 48, 176, i, ("ink:32x40",)),
                   ("iv_stand", x - 44, 154, i, IV),
                   ("board_schedule", x + 4, 56, i, ("flat",))]
     for i, x in enumerate((66, 176, 286)):
         props += [("hospital_bed", x, 306, 3 + i, BED),
                   ("patient_lying", x - 2, 298, 1 + i * 2, on_desk(8, (44, 36))),
-                  ("nightstand", x + 46, 308, 9 + i * 4, ("ink:30x38",)),
+                  ("nightstand", x + 46, 308, i + 3, ("ink:32x40",)),
                   ("iv_stand", x - 44, 302, 3 + i, IV),
-                  chair(x + 20, 334, i, "down")]
+                  chair(x + 20, 348, i, "up")]
     props += [("privacy_screen", 220, 236, 0, ()),
               ("room_divider", 350, 330, 1, ()),
               ("cabinet_medical", 36, 212, 0, ("ink:54x78",)),
               ("shelf_medical", 38, 264, 0, ("ink:58x68",)),
               ("sink_wall", 348, 60, 0, ("flat",)),
               ("dispenser_soap", 316, 60, 0, ("flat",)),
-              ("bin", 320, 372, 6, ()),
+              ("bin", 320, 372, 11, ()),
               ("plant_potted", 24, 372, 1, ()),
               ("wheelchair", 360, 372, 3, ())]
     # Reception: counter, waiting chairs, notice board, vending.
@@ -1305,7 +1349,7 @@ def hospital():
               ("board_schedule", 560, 58, 3, ("flat",)),
               ("tv_wall", 640, 58, 2, ("flat",)),
               ("kiosk_touchscreen", 676, 150, 0, ())]
-    props += row("chair_waiting", 440, 186, 3, 66, v0=1, dv=2,
+    props += row("chair_waiting", 440, 186, 3, 66, v0=0, dv=1,
                  flags=("ink:62x36",))
     props += [("table_coffee", 620, 188, 6, ("ink:40x36",)),
               ("vending_machine", 664, 188, 0, ("ink:48x68",)),
