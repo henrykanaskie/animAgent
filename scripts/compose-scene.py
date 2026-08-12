@@ -114,6 +114,16 @@ rules, checked exhaustively on every run:
   R7  nothing is drawn and then buried by what is painted over it
   R8  a row of one name is not a row of one sprite
 
+`library()` is the check on all of that. The first three scenes were fixed one
+prop at a time until they passed, which proves the rules hold *there* and not
+that they generalise. So the fourth was written straight through against the
+rules, from a different pack's vocabulary, with no render looked at until the
+linter was silent. It came out with **5 violations against the first three
+scenes' 43**, and all five were coordinates rather than anything structural:
+three plants over a wall line and two figures standing inside furniture. The
+budget in `table_with_seats` also decided its floor plan before a single prop
+was named, which is the point.
+
 Its first run reported **43 violations across three scenes that had already
 been eyeballed and called finished**, including two figures standing on walls,
 a sign hanging in a doorway, six appliances inside a 416x72 prop that turned
@@ -1471,7 +1481,84 @@ def hospital():
             "people": people}
 
 
-SCENES = [engineering, museum, hospital]
+def library():
+    """A fourth plan, built only from the assemblies and never eyeballed.
+
+    # Why this scene exists
+
+    The first three were fixed one prop at a time until they passed. That
+    proves the rules hold *here*; it does not prove they generalise, and the
+    whole point of `check_continuity`, `table_with_seats`, `chair` and `prop`'s
+    `ink` is that a new scene should get correctness without repeating the
+    argument. So this one was written straight through against the rules — no
+    render was looked at until the linter was silent — and out of a different
+    pack's vocabulary: shelving, reading tables, armchairs, none of which the
+    office kit covers.
+
+    The budget from `table_with_seats` decides the plan before any prop is
+    named: the reading room needs a table with a chair row, so it takes the
+    full 12 tiles, and the two side rooms take 6 and 6 because neither holds
+    a table.
+    """
+    rooms = [
+        Room("reading room", 0, 0, 13, 12, "plank", doors=[("east", 8, 3)]),
+        Room("stacks", 13, 0, 9, 6, "carpet", doors=[("west", 3, 2)]),
+        Room("study", 13, 6, 9, 6, "slab", doors=[("west", 2, 3)]),
+    ]
+    props = []
+    # Reading room: art on the face, shelving down the west wall, two reading
+    # tables, armchairs in the corners.
+    props += [("painting_framed", 70, 58, 15, ("flat",)),
+              ("painting_framed", 170, 58, 19, ("flat",)),
+              ("clock", 240, 52, 0, ("flat",)),
+              ("painting_framed", 310, 58, 25, ("flat",)),
+              ("noticeboard", 386, 56, 0, ("flat",))]
+    props += [("shelf_library", 60, 148, 0, ()),
+              ("shelf_library", 140, 148, 1, ()),
+              ("shelf_library", 220, 148, 2, ()),
+              ("globe", 300, 144, 0, ()),
+              ("step_ladder", 350, 146, 2, ())]
+    props += table_with_seats(120, 300, slabs=2, seats=(3, 0), v=0,
+                              name="table_wood", ink=(60, 50), pitch=60,
+                              chair_h=42)
+    props += [("paper_stack", 96, 282, 0, on_desk(32, (24, 24))),
+              ("coffee_cup", 148, 280, 0, on_desk(30)),
+              ("lamp_floor", 30, 300, 0, ("ink:26x68",)),
+              ("armchair", 300, 268, 0, ("ink:40x46",)),
+              ("armchair", 370, 268, 1, ("ink:40x46",)),
+              ("rug_patterned", 336, 300, 1, ("ground", "ink:60x60")),
+              ("plant_potted", 30, 372, 10, ()),
+              ("plant_potted", 386, 372, 15, ()),
+              ("bin", 250, 372, 6, ())]
+    # Stacks: nothing but shelving and a ladder, which is what a stack is.
+    props += [("poster", 486, 56, 1, ("flat",)),
+              ("noticeboard", 600, 56, 1, ("flat",))]
+    props += [("bookcase_tall", 486, 152, 0, ("ink:50x78",)),
+              ("bookcase_tall", 560, 152, 1, ("ink:50x78",)),
+              ("bookcase_tall", 634, 152, 2, ("ink:50x78",)),
+              ("step_ladder", 690, 150, 0, ("ink:24x38",)),
+              ("plant_potted", 442, 186, 7, ()),
+              ("bin", 690, 188, 11, ())]
+    # Study: a librarian's desk, a lectern, and quiet seating.
+    props += [("painting_framed", 500, 250, 16, ("flat",)),
+              ("clock", 600, 246, 0, ("flat",)),
+              ("poster", 646, 250, 3, ("flat",))]
+    props += [("desk_librarian_composite", 470, 330, 0, ()),
+              ("lectern_with_book", 540, 328, 0, ("ink:34x58",)),
+              ("armchair", 620, 330, 2, ("ink:40x46",)),
+              ("table_wood", 682, 360, 0, ("ink:32x40",)),
+              ("lamp_floor", 676, 290, 0, ("ink:26x68",)),
+              ("rug_patterned", 600, 384, 2, ("ground", "ink:58x32")),
+              ("plant_potted", 448, 380, 9, ()),
+              ("bin", 560, 380, 7, ())]
+    people = [("17", "idle", "up", 180, 340), ("07", "idle", "down", 200, 200),
+              ("09", "idle", "up", 560, 190), ("19", "idle", "left", 350, 320),
+              ("10", "idle", "down", 470, 372), ("06", "walk", "right", 420, 300)]
+    return {"name": "04-library", "rooms": rooms, "props": props,
+            "people": people}
+
+
+SCENES = [engineering, museum, hospital, library]
 
 
 def main():
