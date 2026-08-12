@@ -362,7 +362,18 @@ enum SceneArt {
     /// draws itself — the one layer `scripts/lint-palette.py` cannot see — and
     /// `DeskScreenDirectorTests` is the keying, which is this repository's own
     /// policy. A fresh clone still checks every number in the ADR's own table.
-    static let expectedGatedTestCount = 97
+    ///
+    /// 99 with #73's travel facing: two in `TravelFacingSceneTests`, both of
+    /// which need the pack because they are about the frames. One walks a real
+    /// character in and reads the direction it drew; the other asserts the four
+    /// walk directions are four *distinct* textures rather than one sheet
+    /// pointed at four times — which is precisely the defect M0 found in the
+    /// `sit` row, so it is checked rather than assumed for the rows this change
+    /// starts using. The six arithmetic tests in `TravelFacingTests` are
+    /// deliberately ungated: the travel rule and `RoomLayout`'s route geometry
+    /// are both pure numbers, and a fresh clone should still catch an inverted
+    /// axis.
+    static let expectedGatedTestCount = 99
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

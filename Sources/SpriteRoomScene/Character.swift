@@ -964,8 +964,14 @@ public final class Character: SKNode {
                 moveDuration = Self.duration(from: moveFrom, to: destination)
                 apply(
                     state: state,
-                    facing: Facing.forHorizontalTravel(
-                        destination.x - moveFrom.x, current: currentFacing),
+                    // Both axes, because this room's walks are overwhelmingly
+                    // vertical — see `Facing.forTravel`. A character walking up
+                    // its own column now draws `walk_up` rather than whichever
+                    // side view it happened to be wearing.
+                    facing: Facing.forTravel(
+                        dx: destination.x - moveFrom.x,
+                        dy: destination.y - moveFrom.y,
+                        current: currentFacing),
                     startingAt: start)
                 return
             case let .play(state, facing):
