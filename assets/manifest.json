@@ -5119,6 +5119,21 @@
             "w": 28,
             "h": 34
           }
+        },
+        {
+          "band": "mid_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/19_mid_floor.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 256,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "waste bin, mixed rubbish \u2014 a third bin art so the band does not read as one bin copy-pasted across the floor",
+          "content_box": {
+            "x": 18,
+            "y": 46,
+            "w": 28,
+            "h": 36
+          }
         }
       ],
       "files": [
@@ -7772,6 +7787,21 @@
                 "y": 48,
                 "w": 28,
                 "h": 34
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/19_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 256,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "waste bin, mixed rubbish \u2014 a third bin art so the band does not read as one bin copy-pasted across the floor",
+              "content_box": {
+                "x": 18,
+                "y": 46,
+                "w": 28,
+                "h": 36
               }
             }
           ]

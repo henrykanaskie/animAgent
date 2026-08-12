@@ -288,9 +288,26 @@ THEMES = {
             # the pack draws all four TILTED on the wall, and at 1x a 20x30
             # frame at an angle reads as a stray diagonal rather than a picture.
             ("wall", 19, 248, "framed landscape painting"),
+            # M8 density pass — Hospital 241 ("poster" in `assets/catalogue.json`)
+            # and Hospital 50 (also "poster", 16x22 ink in a near-square canvas
+            # — half the ink of 241 and a coloured square at 1x, not a poster)
+            # were both tried here and dropped, not added. `RoomLayout.
+            # sceneryAnchors(.wall)` binds to `layout.seatCapacity` (7) minus
+            # the doorway and backdrop columns it excludes — measured at 7 for
+            # this plan, not 8 — so an eighth entry is never selected by
+            # `RoomScene`'s `props[index % props.count]` and would sit in the
+            # manifest asserting nothing. `SceneryContractTests` catches a
+            # declared prop with no matching art; it does not catch one with
+            # no matching *anchor*, which is why this is recorded here instead.
             ("wall_line", "office", 173, "water cooler"),
             ("wall_line", "office", 175, "vending machine"),
             ("wall_line", "office", 320, "coffee counter with machine and cups"),
+            # M8 density pass — Hospital 275 ("steel locker bank", already
+            # standing in `mission_control`) was tried as a fourth entry here
+            # and dropped for the same reason as the wall's eighth: `wall_line`
+            # resolves to 3 anchors under this plan (the even scenery columns,
+            # less the one the overflow plate already claims), so a fourth
+            # entry cycles in at index 3 and is never reached.
             ("back_floor", 19, 344, "two-drawer filing cabinet"),
             ("back_floor", "office", 148, "office printer"),
             ("back_floor", "office", 165, "flatbed scanner"),
@@ -302,10 +319,14 @@ THEMES = {
             ("mid_floor", 19, 255, "waste bin, full"),
             # Office 154, a 32x30 stack of paper, was here and is refused for
             # the reason 06-SET-BUILDING SS9 already records against `book`: on a
-            # floor at 1x it is a white lozenge, not a stack of anything. Four
-            # entries over five anchors, so the first bin repeats at the far
-            # end of the room rather than a fifth prop nobody wants being
-            # invented to fill it.
+            # floor at 1x it is a white lozenge, not a stack of anything.
+            # M8 density pass — a fifth `mid_floor` entry, against the band's
+            # own five anchors (column 0 plus the odd columns), so the two
+            # waste-bin entries above no longer have to carry three of the
+            # five anchors between them.
+            ("mid_floor", 19, 256, "waste bin, mixed rubbish — a third bin "
+                                   "art so the band does not read as one bin "
+                                   "copy-pasted across the floor"),
         ],
     },
     # REBUILT at M6b. The first version passed the lint and failed the eye: it
