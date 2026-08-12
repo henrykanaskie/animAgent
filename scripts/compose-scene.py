@@ -101,12 +101,28 @@ rules, checked exhaustively on every run:
   R3  and on one floor: no footprint straddling a wall or the plan's edge
   R4  no two pieces of furniture in the same floor space
   R5  anything resting on a surface is fully on some particular surface
+  R6  nothing stands in a doorway
+  R7  nothing is drawn and then buried by what is painted over it
 
 Its first run reported **43 violations across three scenes that had already
 been eyeballed and called finished**, including two figures standing on walls,
 a sign hanging in a doorway, six appliances inside a 416x72 prop that turned
 out to be an entire wall of fridges rather than one, and cups floating beside
 a table. R5 alone found nine. None of these were visible at 1x.
+
+R6 and R7 came later, from an outside read of the finished renders, and they
+matter more than the first five because they catch what *looks* right. R6
+found a ticket office parked across the full width of a doorway and a plant in
+another; R7 found a 140x86 dinosaur entirely inside that ticket office, a
+visitor reduced to a floating clump of hair, an exit sign under a painting and
+four mugs at 100% buried. Every one of those was correctly placed by R1-R5 —
+they are not misplaced, they are underneath something — and every one of them
+rendered, cost draw time, and could not be seen.
+
+The same read found the two structural bugs `_open_at` and step 2 of
+`draw_plan` now fix. Both were invisible from inside: a boundary drawn
+correctly by each of the two rooms that share it, which between them walled
+over a declared door.
 
 Uses Pillow, which the app's own pipeline avoids — fine here, because nothing
 in this file is part of the build. `scripts/process-assets.py` stays stdlib.
@@ -380,6 +396,43 @@ def _cut(spans, a, b):
     return any(s <= a and b <= e for s, e in spans)
 
 
+OPPOSITE = {"north": "south", "south": "north",
+            "west": "east", "east": "west"}
+
+
+def _open_at(rooms, room, side, t):
+    """Is `room`'s `side` open at tile `t` (absolute, along that side)?
+
+    **A boundary between two rooms belongs to both of them, and each draws its
+    own half.** So a door declared by one room is walled over by its neighbour
+    unless the neighbour is asked too. That is not a hypothetical: the meeting
+    room declared a west door onto the open plan, the open plan drew its east
+    wall across the whole shared edge, and the result was a meeting room with
+    no way in — reachable only by going through the break room. It rendered as
+    an unbroken wall and nothing complained, because from each room's own point
+    of view the drawing was correct.
+
+    Rather than make callers remember, every wall query comes through here and
+    asks both sides.
+    """
+    if side in ("north", "south"):
+        local = t - room.x
+        edge = room.y if side == "north" else room.y + room.h
+        probe = (t, edge - 1 if side == "north" else edge)
+    else:
+        local = t - room.y
+        edge = room.x if side == "west" else room.x + room.w
+        probe = (edge - 1 if side == "west" else edge, t)
+    if _cut(_door_spans(room, side), local, local + 1):
+        return True
+    other = room_at(rooms, probe[0], probe[1])
+    if other is None or other is room:
+        return False
+    far = OPPOSITE[side]
+    base = other.x if side in ("north", "south") else other.y
+    return _cut(_door_spans(other, far), t - base, t - base + 1)
+
+
 def room_at(rooms, tx, ty):
     for r in rooms:
         if r.x <= tx < r.x + r.w and r.y <= ty < r.y + r.h:
@@ -399,20 +452,20 @@ def draw_plan(rooms):
                    (r.x * TILE, r.y * TILE, (r.x + r.w) * TILE, (r.y + r.h) * TILE))
 
     # 2. North wall band: cap tile row then body tile row, per column,
-    #    skipping doorway columns and patching them with the floor of
-    #    whatever room lies beyond.
+    #    skipping doorway columns.
+    #
+    #    Nothing is drawn in the gap. Step 1 already laid this room's floor
+    #    across the whole rect, so leaving the band off shows a clean 64 px of
+    #    it — a threshold. An earlier version patched the gap's top tile with
+    #    the floor of the room *beyond*, which put two different floor
+    #    materials one above the other and left a hard seam across the middle
+    #    of every doorway that read as a step.
     for r in rooms:
         if not r.band:
             continue
         _, cap, body = SURFACES[r.surface]
-        north = _door_spans(r, "north")
         for tx in range(r.x, r.x + r.w):
-            if _cut(north, tx - r.x, tx - r.x + 1):
-                beyond = room_at(rooms, tx, r.y - 1)
-                if beyond is not None:
-                    fill_tiled(canvas, SURFACES[beyond.surface][0],
-                               (tx * TILE, r.y * TILE, (tx + 1) * TILE,
-                                (r.y + 1) * TILE))
+            if _open_at(rooms, r, "north", tx):
                 continue
             canvas.alpha_composite(tile(cap), (tx * TILE, r.y * TILE))
             canvas.alpha_composite(tile(body), (tx * TILE, (r.y + 1) * TILE))
@@ -424,9 +477,8 @@ def draw_plan(rooms):
     for r in rooms:
         if not r.band:
             continue
-        north = _door_spans(r, "north")
         for tx in range(r.x, r.x + r.w):
-            if _cut(north, tx - r.x, tx - r.x + 1):
+            if _open_at(rooms, r, "north", tx):
                 continue
             y = (r.y + 2) * TILE
             for i, a in enumerate((70, 46, 26, 12)):
@@ -438,18 +490,16 @@ def draw_plan(rooms):
     #    where no room below is about to draw its own cap line there.
     wall = Wall()
     for r in rooms:
-        south = _door_spans(r, "south")
         for tx in range(r.x, r.x + r.w):
-            if _cut(south, tx - r.x, tx - r.x + 1):
+            if _open_at(rooms, r, "south", tx):
                 continue
             below = room_at(rooms, tx, r.y + r.h)
             if below is not None and below.y == r.y + r.h and below["band"]:
                 continue
             wall.horizontal(tx * TILE, (tx + 1) * TILE, (r.y + r.h) * TILE)
         for side, bx in (("west", r.x), ("east", r.x + r.w)):
-            spans = _door_spans(r, side)
             for ty in range(r.y, r.y + r.h):
-                if _cut(spans, ty - r.y, ty - r.y + 1):
+                if _open_at(rooms, r, side, ty):
                     continue
                 wall.vertical(ty * TILE, (ty + 1) * TILE, bx * TILE)
     wall.draw(canvas)
@@ -492,13 +542,13 @@ def place(canvas, items):
     """
     shade = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     ds = ImageDraw.Draw(shade)
-    for _, im, box, x, y, sh in sorted(items, key=lambda i: (i[0], i[3])):
+    for _, im, box, x, y, sh, *_r in sorted(items, key=lambda i: (i[0], i[3])):
         if sh:
             w = max(10, (box["w"] if box else im.width // 2))
             ds.ellipse([x - w // 2, y - 5, x + w // 2, y + 4],
                        fill=(20, 20, 30, 58))
     canvas.alpha_composite(shade)
-    for _, im, box, x, y, _ in sorted(items, key=lambda i: (i[0], i[3])):
+    for _, im, box, x, y, _, *_r in sorted(items, key=lambda i: (i[0], i[3])):
         if box is None:
             canvas.alpha_composite(im, (x - im.width // 2, y - im.height))
         else:
@@ -656,23 +706,99 @@ def check_continuity(rooms, placed):
         if not held:
             out.append("R5 %s@%d,%d rests on nothing" % (name, x, y))
 
-    # R4. Two pieces of furniture cannot occupy the same floor. Compared on
-    # footprint — the ink's bottom 12 px, which is what touches the ground —
-    # rather than on the whole box, because a tall thing legitimately overlaps
-    # what is behind it.
+    # R4. Two pieces of furniture cannot occupy the same floor.
+    #
+    # Compared as *footprint rectangles* — the ink's bottom band, which is what
+    # touches the ground. An earlier version compared horizontal spans only and
+    # skipped any pair whose floor points differed by more than 10 px, which is
+    # a hole you can drive furniture through: it passed a bench parked across a
+    # plinth (18 px apart), a shelving unit standing inside a dinosaur skeleton
+    # (6 px) and a 140 px dinosaur inside a ticket booth (28 px).
     floors = [p for p in placed if p[5] == "floor"]
-
-    for i, (n1, x1, y1, w1, _, _) in enumerate(floors):
-        for n2, x2, y2, w2, _, _ in floors[i + 1:]:
-            if abs(y1 - y2) > 10:
+    for i, (n1, x1, y1, w1, h1, _) in enumerate(floors):
+        for n2, x2, y2, w2, h2, _ in floors[i + 1:]:
+            d1, d2 = min(h1, 18), min(h2, 18)
+            if y1 - d1 >= y2 or y2 - d2 >= y1:
                 continue
             a0, a1 = x1 - w1 // 2, x1 - w1 // 2 + w1
             b0, b1 = x2 - w2 // 2, x2 - w2 // 2 + w2
             share = min(a1, b1) - max(a0, b0)
-            if share > min(w1, w2) // 2:
+            if share > max(10, min(w1, w2) // 2):
                 out.append("R4 %s@%d,%d and %s@%d,%d share %d px of floor"
                            % (n1, x1, y1, n2, x2, y2, share))
+
+    # R6. A doorway is for walking through. Anything standing in one blocks the
+    # only route between two rooms — and both R2 and R3 wave it through,
+    # because a door aperture is legitimately outside the floor and legitimately
+    # on a wall line. The museum had a ticket office across the whole width of
+    # its north door and a potted plant in the west one.
+    for name, x, y, w, h, kind in placed:
+        if kind != "floor":
+            continue
+        left, right = x - w // 2, x - w // 2 + w
+        for r in rooms:
+            for side in ("north", "south", "west", "east"):
+                for s, e in _door_spans(r, side):
+                    if side in ("north", "south"):
+                        gy = (r.y if side == "north" else r.y + r.h) * TILE
+                        g0, g1 = (r.x + s) * TILE, (r.x + e) * TILE
+                        blocked = (min(right, g1) - max(left, g0) > 8
+                                   and gy - TILE <= y <= gy + 2 * TILE)
+                    else:
+                        gx = (r.x if side == "west" else r.x + r.w) * TILE
+                        g0, g1 = (r.y + s) * TILE, (r.y + e) * TILE
+                        blocked = (left < gx + 10 and right > gx - 10
+                                   and g0 <= y <= g1)
+                    if blocked:
+                        out.append("R6 %s@%d,%d blocks the %s doorway of %s"
+                                   % (name, x, y, side, r["name"]))
     return out
+
+
+def report_hidden(items, size, floor=0.45):
+    """Items whose ink is mostly painted over by whatever is drawn after them.
+
+    **A prop that is drawn and then buried is a bug the eye cannot find**, and
+    it is the single largest category the placement rules miss. The museum had
+    a 140x86 dinosaur entirely inside a ticket booth, a visitor reduced to a
+    floating clump of hair, an exit sign under a painting and a picture frame
+    half behind a counter. All four rendered; all four were invisible; not one
+    broke R1 through R6, because none of them is *misplaced* — they are
+    correctly placed underneath something.
+
+    So this composites into an index buffer rather than pixels: every opaque
+    pixel records which item drew it last, and an item's surviving share of
+    its own ink is how much of it a viewer actually gets. Cheap, exhaustive,
+    and it needs no judgement about what ought to be in front of what.
+    """
+    order = sorted(items, key=lambda i: (i[0], i[3]))
+    owner = [-1] * (size[0] * size[1])
+    total = [0] * len(order)
+    for index, (_, im, box, x, y, _, *_r) in enumerate(order):
+        if box is None:
+            ox, oy = x - im.width // 2, y - im.height
+        else:
+            ox, oy = x - (box["x"] + box["w"] // 2), y - (box["y"] + box["h"])
+        alpha = im.getchannel("A").load()
+        for py in range(im.height):
+            gy = oy + py
+            if not 0 <= gy < size[1]:
+                continue
+            row = gy * size[0]
+            for px in range(im.width):
+                if alpha[px, py] < 128:
+                    continue
+                gx = ox + px
+                if 0 <= gx < size[0]:
+                    total[index] += 1
+                    owner[row + gx] = index
+    seen = [0] * len(order)
+    for o in owner:
+        if o >= 0:
+            seen[o] += 1
+    return [(order[i][6], order[i][3], order[i][4], seen[i] / total[i])
+            for i in range(len(order))
+            if total[i] and seen[i] / total[i] < floor]
 
 
 def compose(spec, by_name, out_path):
@@ -680,7 +806,7 @@ def compose(spec, by_name, out_path):
     plan = draw_plan(rooms)
 
     wall_zones = [((r.y) * TILE, (r.y + 2) * TILE) for r in rooms if r.band]
-    items, missing, tiny, placed = [], [], [], []
+    items, missing, tiny, placed, breaks_hidden = [], [], [], [], []
     for entry in spec["props"]:
         name, x, y = entry[0], entry[1], entry[2]
         variant = entry[3] if len(entry) > 3 else 0
@@ -697,7 +823,8 @@ def compose(spec, by_name, out_path):
         if min(box["w"], box["h"]) < 8:
             tiny.append("%s#%d %dx%d" % (name, variant, box["w"], box["h"]))
         placed.append((name, x, y, box["w"], box["h"], kind))
-        items.append((y + z, got[0], box, x, y, kind in ("floor", "seat")))
+        items.append((y + z, got[0], box, x, y,
+                      kind in ("floor", "seat"), name))
     for entry in spec.get("people", []):
         v, pose, facing, x, y = entry[:5]
         z = entry[5] if len(entry) > 5 else 0
@@ -709,7 +836,7 @@ def compose(spec, by_name, out_path):
         # floor point is what has to be on the floor — so check where the desk
         # is, not where the head is.
         placed.append((v, x, y, im.width, im.height, "seat"))
-        items.append((y + z, im, None, x, y, z >= 0))
+        items.append((y + z, im, None, x, y, z >= 0, "character " + v))
     place(plan, items)
 
     if os.environ.get("SCENE_DEBUG"):
@@ -718,7 +845,7 @@ def compose(spec, by_name, out_path):
         # sits at an arbitrary offset inside a 64x96 canvas — so the only
         # reliable way to see that a cup is on a desk is to draw the boxes.
         d = ImageDraw.Draw(plan)
-        for _, im, box, x, y, _ in items:
+        for _, im, box, x, y, _, *_r in items:
             w = box["w"] if box else im.width
             h = box["h"] if box else im.height
             left = x - w // 2
@@ -733,7 +860,26 @@ def compose(spec, by_name, out_path):
         print("  MISSING: %s" % ", ".join(sorted(set(missing))))
     if tiny:
         print("  SLIVERS: %s" % ", ".join(sorted(set(tiny))))
-    breaks = check_continuity(rooms, placed)
+    # A surface is *meant* to disappear under what stands on it — a desk with
+    # two screens, a tray and an occupant is doing its job at 30% visible. So
+    # anything carrying something is exempt; the rule is about props buried by
+    # things that have no business on top of them.
+    carrying = set()
+    for _, ox, oy, ow, _, okind in placed:
+        if okind != "on":
+            continue
+        for name, fx, fy, fw, fh, fkind in placed:
+            fl = fx - fw // 2
+            if fkind == "floor" and fl <= ox - ow // 2 and \
+                    ox - ow // 2 + ow <= fl + fw and fy - fh <= oy <= fy:
+                carrying.add((name, fx, fy))
+    for label, hx, hy, frac in report_hidden(items,
+                                             (PLAN[0] * TILE, PLAN[1] * TILE)):
+        if (label, hx, hy) in carrying:
+            continue
+        breaks_hidden.append("R7 %s@%d,%d is %d%% buried"
+                             % (label, hx, hy, 100 - int(frac * 100)))
+    breaks = check_continuity(rooms, placed) + breaks_hidden
     if breaks:
         print("  CONTINUITY (%d)" % len(breaks))
         for b in breaks:
@@ -913,10 +1059,7 @@ def desk_pod(x, y, v=0, facing="down"):
     floor something the app wants anyway — desks that look like different
     kinds of work.
     """
-    out = [
-        ("desk_corner_l", x, y, v % 5, DESK),
-        ("coffee_cup", x + 2, y - 12, 0, on_desk(12)),
-    ]
+    out = [("desk_corner_l", x, y, v % 5, DESK)]
     if facing == "up":
         out += [
             # Two screens, filling the slab. Ink 32 wide against 64, so x-16
@@ -933,7 +1076,8 @@ def desk_pod(x, y, v=0, facing="down"):
             # 24x24 is the loose sheaf; the 32x42 entry is a filing tower and
             # overhangs the desk's right edge when centred this close to it.
             ("document_tray", x - 16, y - 16, v % 2, on_desk(16)),
-            ("paper_stack", x + 18, y - 12, (v + 1) % 3, on_desk(12, (24, 24))),
+            ("paper_stack", x + 18, y - 14, (v + 1) % 3, on_desk(14, (24, 24))),
+            ("coffee_cup", x + 20, y - 10, 0, on_desk(10)),
         ]
     return out
 
@@ -952,8 +1096,7 @@ def engineering():
         # first draft put four of them on the break room's wall.
         Room("meeting", 13, 0, 9, 6, "carpet",
              doors=[("west", 3, 2)]),
-        Room("break", 13, 6, 9, 6, "plank",
-             doors=[("west", 2, 3), ("north", 4, 2)]),
+        Room("break", 13, 6, 9, 6, "plank", doors=[("west", 2, 3)]),
     ]
     props = []
     # Open plan: whiteboard and chart on the north face, four desk pods.
@@ -973,7 +1116,7 @@ def engineering():
               ("printer_desk_composite", 384, 190, 0, ()),
               ("printer", 384, 250, 7, ("ink:30x36",)),
               ("cabinet_drawers", 388, 300, 0, ()),
-              ("cabinet_drawers", 388, 340, 2, ()),
+              ("cabinet_drawers", 356, 356, 2, ()),
               ("water_cooler", 384, 366, 0, ()),
               ("pc_tower", 30, 250, 1, ("ink:26x44",)),
               ("pc_tower", 136, 344, 0, ("ink:26x44",)),
@@ -1004,7 +1147,7 @@ def engineering():
               ("printer", 444, 186, 6, ("ink:30x32",)),
               ("document_tray", 522, 148, 0, on_desk(26)),
               ("paper_stack", 574, 146, 0, on_desk(24, (24, 24))),
-              ("coffee_cup", 508, 144, 0, on_desk(22)),
+              ("coffee_cup", 552, 146, 0, on_desk(24)),
               ("coffee_cup", 588, 144, 0, on_desk(22))]
     # Break room: counters, cafe tables, sofa, vending.
     # The break room's north wall is 64 px of the panel's 400 and was carrying
@@ -1049,10 +1192,8 @@ def museum():
     rooms = [
         Room("gallery", 0, 0, 14, 12, "slab",
              doors=[("east", 7, 3)]),
-        Room("gift shop", 14, 0, 8, 6, "lino_tan",
-             doors=[("west", 3, 2), ("south", 2, 3)]),
-        Room("entrance", 14, 6, 8, 6, "lino",
-             doors=[("west", 1, 3), ("north", 2, 3)]),
+        Room("gift shop", 14, 0, 8, 6, "lino_tan", doors=[("west", 3, 2)]),
+        Room("entrance", 14, 6, 8, 6, "lino", doors=[("west", 1, 3)]),
     ]
     props = []
     # Gallery: paintings hung along the face, barrier line, then cases.
@@ -1078,7 +1219,7 @@ def museum():
               ("plinth", 148, 348, 0, ()),
               ("lectern", 250, 348, 3, ()),
               ("bench", 130, 366, 0, ()), ("bench", 290, 366, 1, ()),
-              ("sign_exit", 430, 56, 2, ("flat",)),
+              ("sign_exit", 356, 56, 2, ("flat",)),
               ("plant_potted", 24, 130, 1, ()),
               ("laser_sensor", 60, 150, 0, ("ground",)),
               ("laser_sensor", 390, 150, 3, ("ground",))]
@@ -1098,18 +1239,17 @@ def museum():
     props += [("sign_hanging", 648, 246, 0, ("flat",)),
               ("picture_framed", 470, 250, 0, ("flat",))]
     props += [("ticket_counter", 566, 318, 0, ()),
-              ("turnstile", 494, 376, 1, ()),
-              ("turnstile", 526, 376, 3, ()),
-              ("turnstile", 558, 376, 5, ()),
+              ("turnstile", 500, 372, 1, ()),
+              ("turnstile", 534, 372, 3, ()),
+              ("turnstile", 568, 372, 1, ()),
               ("security_scanner", 478, 336, 0, ()),
               ("bench", 640, 372, 2, ()),
               ("plant_potted", 676, 300, 2, ()),
-              ("plant_potted", 456, 300, 0, ()),
-              ("dinosaur_model", 590, 290, 0, ()),
+              ("plant_potted", 692, 300, 0, ()),
               ("sign_exit", 690, 250, 4, ("flat",))]
     people = [("17", "idle", "up", 140, 150), ("07", "idle", "up", 320, 150),
               ("09", "idle", "down", 220, 340), ("19", "idle", "left", 542, 184),
-              ("10", "idle", "up", 610, 350), ("06", "walk", "right", 466, 288)]
+              ("10", "idle", "up", 660, 348), ("06", "walk", "right", 480, 340)]
     return {"name": "02-museum", "rooms": rooms, "props": props,
             "people": people}
 
@@ -1118,19 +1258,15 @@ def hospital():
     rooms = [
         Room("ward", 0, 0, 12, 12, "white",
              doors=[("east", 8, 3)]),
-        Room("reception", 12, 0, 10, 6, "lino",
-             doors=[("west", 3, 2), ("south", 3, 3)]),
-        Room("play area", 12, 6, 10, 6, "mauve",
-             doors=[("west", 1, 3), ("north", 3, 3)]),
+        Room("reception", 12, 0, 10, 6, "lino", doors=[("west", 3, 2)]),
+        Room("play area", 12, 6, 10, 6, "mauve", doors=[("west", 1, 3)]),
     ]
     props = []
     # Ward: two rows of beds head-to-wall, curtains, nightstands, IVs.
-    props += [("window", 60, 60, 2, ("flat",)),
-              ("window", 180, 60, 4, ("flat",)),
-              ("window", 300, 60, 6, ("flat",)),
-              ("clock", 240, 52, 0, ("flat",)),
-              ("sign_medical", 120, 54, 0, ("flat",)),
-              ("light_ceiling", 350, 50, 0, ("flat",))]
+    props += [("window", 32, 60, 2, ("flat",)),
+              ("clock", 138, 52, 0, ("flat",)),
+              ("window", 248, 60, 4, ("flat",)),
+              ("sign_medical", 358, 54, 0, ("flat",))]
     # `hospital_bed` has 49 entries across two orientations. The 64x44 piece is
     # the bed seen lengthways, and it is the only one `patient_lying` fits:
     # that prop is a 44x36 figure lying head-to-the-left, so laying it on the
@@ -1141,21 +1277,21 @@ def hospital():
     for i, x in enumerate((66, 176, 286)):
         props += [("hospital_bed", x, 158, i, BED),
                   ("patient_lying", x - 2, 150, i * 2, on_desk(8, (44, 36))),
-                  ("nightstand", x + 46, 160, 3 + i * 4, ("ink:30x38",)),
+                  ("nightstand", x + 48, 176, 3 + i * 4, ("ink:30x38",)),
                   ("iv_stand", x - 44, 154, i, IV),
-                  ("board_schedule", x, 58, i, ("flat",))]
+                  ("board_schedule", x + 4, 56, i, ("flat",))]
     for i, x in enumerate((66, 176, 286)):
         props += [("hospital_bed", x, 306, 3 + i, BED),
                   ("patient_lying", x - 2, 298, 1 + i * 2, on_desk(8, (44, 36))),
                   ("nightstand", x + 46, 308, 9 + i * 4, ("ink:30x38",)),
                   ("iv_stand", x - 44, 302, 3 + i, IV),
                   chair(x + 20, 334, i, "down")]
-    props += [("privacy_screen", 350, 190, 0, ()),
+    props += [("privacy_screen", 220, 236, 0, ()),
               ("room_divider", 350, 330, 1, ()),
               ("cabinet_medical", 36, 212, 0, ("ink:54x78",)),
               ("shelf_medical", 38, 264, 0, ("ink:58x68",)),
               ("sink_wall", 348, 60, 0, ("flat",)),
-              ("dispenser_soap", 318, 46, 0, ("flat",)),
+              ("dispenser_soap", 316, 60, 0, ("flat",)),
               ("bin", 320, 372, 6, ()),
               ("plant_potted", 24, 372, 1, ()),
               ("wheelchair", 360, 372, 3, ())]
@@ -1184,7 +1320,7 @@ def hospital():
               ("table_round", 590, 320, 3, ("ink:54x54",)),
               ("chair_kids", 560, 316, 2, ()),
               ("chair_kids", 620, 316, 8, ()),
-              ("chair_kids", 590, 336, 14, ()),
+              ("chair_kids", 618, 348, 14, ()),
               ("toy_box", 440, 300, 1, ()),
               ("toy_box_animal", 440, 340, 2, ()),
               ("toy_bin_animal", 676, 300, 1, ()),
@@ -1197,9 +1333,9 @@ def hospital():
               ("toy_stacking_ring", 630, 378, 0, ()),
               ("toy_block", 466, 378, 0, ("ground",)),
               ("bench", 600, 380, 3, ())]
-    people = [("17", "idle", "down", 120, 200), ("07", "idle", "left", 330, 250),
+    people = [("17", "idle", "down", 120, 200), ("07", "idle", "left", 336, 208),
               ("19", "idle", "down", 500, 132), ("09", "idle", "down", 556, 296),
-              ("10", "idle", "down", 590, 300), ("06", "walk", "down", 400, 120)]
+              ("10", "idle", "down", 448, 366), ("06", "walk", "down", 400, 120)]
     return {"name": "03-hospital", "rooms": rooms, "props": props,
             "people": people}
 
