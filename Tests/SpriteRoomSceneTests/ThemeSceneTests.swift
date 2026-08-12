@@ -365,9 +365,51 @@ struct ThemeSceneTests {
             // direction or the other [docs/M8-MEASUREMENTS-phase1c.md §2]. The
             // theme-independent fact is the *cut*, and it is asserted below as
             // itself rather than through a y that cannot be equal.
-            let seats = (0..<scene.layout.seatCapacity).flatMap { seat in
-                scene.furnitureForTesting(seat: seat).map { "\(seat):\(Int($0.x))" }
+            //
+            // **And the desk's x is no longer theme-independent either**, for
+            // exactly the reason its y is not. [ADR-009] An away-facing desk
+            // stands beside its occupant while it is too narrow to be centred on
+            // and centres once it is wide enough to carry a kit slot either side
+            // — `RoomLayout.awayDeskOffsetX(metrics:)`, which is ADR-008 §7's own
+            // condition as arithmetic. `office` is 64 px and centres; the other
+            // five are 32 or 40 and do not. So a desk is compared against **the
+            // layout's own answer for its own theme** below, and what is compared
+            // across themes is the furniture whose point is genuinely the seat's:
+            // the chair, and the station prop beside it.
+            let byRole = (0..<scene.layout.seatCapacity).flatMap { seat in
+                scene.furnitureForTesting(seat: seat).map {
+                    (seat: seat,
+                     role: URL(fileURLWithPath: $0.path).deletingPathExtension()
+                        .lastPathComponent,
+                     x: Int($0.x))
+                }
+            }
+            let seatRoles: Set<String> = ["desk", "monitor", "desk_kit"]
+            let seats = byRole
+                .filter { !seatRoles.contains($0.role) }
+                .map { "\($0.seat):\($0.x)" }.sorted()
+            // Every piece whose position is a function of this theme's own desk
+            // art, against the layout that placed it. Stronger than the blanket
+            // comparison it replaces: it says the scene draws its furniture where
+            // `RoomLayout` says, per theme, rather than that two themes agree.
+            let metrics = SceneFixtures.seatMetrics(manifest, theme: themeID)
+            let derived = byRole
+                .filter { seatRoles.contains($0.role) }
+                .map { "\($0.seat):\($0.role):\($0.x)" }.sorted()
+            let expected = (0..<scene.layout.seatCapacity).flatMap { seat -> [String] in
+                var out = ["\(seat):desk:"
+                           + "\(Int(scene.layout.deskPosition(seat, metrics: metrics).x))"]
+                if let point = scene.layout.monitorPosition(seat, metrics: metrics) {
+                    out.append("\(seat):monitor:\(Int(point.x))")
+                }
+                if let point = scene.layout.deskKitPosition(seat, metrics: metrics) {
+                    out.append("\(seat):desk_kit:\(Int(point.x))")
+                }
+                return out
             }.sorted()
+            #expect(derived == expected, Comment(rawValue:
+                "theme \(themeID) drew its desk furniture at \(derived), and its own"
+                + " layout puts it at \(expected)"))
             return (props, art, characters, seats, scene.layout.plan)
         }
 
@@ -411,7 +453,7 @@ struct ThemeSceneTests {
             // **Route geometry, in every theme, planned or not.** A plan may
             // redress a room; it may never move a seat. [ADR-007 §2]
             #expect(other.seats == first.seats,
-                    "theme \(id) moved a chair or a desk off its seat's own point")
+                    "theme \(id) moved a chair or a station prop off its seat's own point")
             if other.plan == first.plan {
                 // Same plan, so same geometry and different pictures. The
                 // positions are the layout; the paths are the theme.

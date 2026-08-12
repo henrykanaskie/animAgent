@@ -379,7 +379,18 @@ enum SceneArt {
     /// deliberately ungated: the travel rule and `RoomLayout`'s route geometry
     /// are both pure numbers, and a fresh clone should still catch an inverted
     /// axis.
-    static let expectedGatedTestCount = 105
+    ///
+    /// 106 with ADR-009's desk pod: **one**, and the ratio is the point.
+    /// `DeskPodTests` is eight tests and seven of them are arithmetic over the
+    /// shipped `assets/manifest.json`, which is tracked — whether a desk is wide
+    /// enough to carry a rig either side of its occupant, where the two kit slots
+    /// fall, how far a 64 px desk reaches toward the next seat's lane — so a
+    /// fresh clone still checks every number ADR-009 argues from. The gated one is
+    /// `theRoomDrawsAScreenRigAtEveryAwayFacingSeatOfThePodAndNowhereElse`, which
+    /// needs a real `RoomScene`: it places nothing without the pack, so the nodes
+    /// it reads would not exist and the check would pass having compared two
+    /// empty lists.
+    static let expectedGatedTestCount = 106
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.
@@ -574,11 +585,23 @@ enum SceneFixtures {
     /// have to pass something, so they pass the room's own — read out of the
     /// manifest here, once, rather than written down at thirty call sites.
     static func seatMetrics(_ manifest: Manifest, theme: String? = nil) -> RoomLayout.SeatMetrics {
-        let room = theme.flatMap { manifest.themes.theme($0)?.room } ?? manifest.room
-        return RoomLayout.SeatMetrics(
+        seatMetrics(
+            room: theme.flatMap { manifest.themes.theme($0)?.room } ?? manifest.room,
+            manifest: manifest)
+    }
+
+    /// The same, for a caller that already holds the room — the theme walk in
+    /// `StationContractTests` iterates `(id, Manifest.Room)` pairs and has no
+    /// theme id for the default. One body, so a test cannot be measuring
+    /// different metrics from the scene by taking the other door. [ADR-009]
+    static func seatMetrics(room: Manifest.Room, manifest: Manifest) -> RoomLayout.SeatMetrics {
+        RoomLayout.SeatMetrics(
             deskInkHeight: Double(room.prop("desk")?.contentBox.height ?? 0),
             chairInkHeight: Double(room.prop("chair_back")?.contentBox.height ?? 0),
-            costumeTopAboveFeet: Double(manifest.characters.costumes.inkTopAboveFeet))
+            costumeTopAboveFeet: Double(manifest.characters.costumes.inkTopAboveFeet),
+            deskInkWidth: Double(room.prop("desk")?.contentBox.width ?? 0),
+            monitorInkWidth: Double(room.prop("monitor")?.contentBox.width ?? 0),
+            monitorInkHeight: Double(room.prop("monitor")?.contentBox.height ?? 0))
     }
 
     /// The delta stream, batched the way the scene actually receives it: one

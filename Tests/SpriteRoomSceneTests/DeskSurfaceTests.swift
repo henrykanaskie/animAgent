@@ -77,11 +77,27 @@ struct DeskSurfaceTests {
 
     /// ADR-006 §2b's own table, reproduced independently for this task and
     /// checked against the shipped manifest rather than trusted from the doc.
+    ///
+    /// **`office` is 38 and no longer 24, and the number that moved is the
+    /// art.** [ADR-009] The theme bound a 32×24 side-view desk through M8 and
+    /// binds `desk_corner_l`'s 64×38 slab now, so its measured surface is the
+    /// slab's own back edge. The rule is untouched: it is still the topmost row
+    /// of an 80%-of-box-width ink run, and it still finds `library`'s slab under
+    /// the book rather than the book.
+    ///
+    /// **What the office desk also proves is that `surface_y` is not the whole
+    /// answer for every desk shape**, which is why a pod does not place its kit
+    /// there — 25 of the slab's 38 rows are top surface seen at an angle, so its
+    /// first full-width row is the *back* edge. See
+    /// `RoomLayout.deskTopLift(surfaceHeightAboveFloor:metrics:)`, and
+    /// `RoomLayoutTests.aPodStandsItsKitOnItsDesktopRatherThanOnItsBackEdge`,
+    /// which is where that distinction is measured. This test's job is the
+    /// manifest number, and the manifest number is right.
     @Test func theMeasuredHeightsMatchADR006sTable() throws {
         let root = try Self.rawManifest()
         let heights = Self.deskSurfaceHeights(root)
         let expected: [String: Int] = [
-            "room": 24, "briefing": 24, "broadcast": 24, "office": 24, "stage": 24,
+            "room": 24, "briefing": 24, "broadcast": 24, "office": 38, "stage": 24,
             "library": 36, "mission_control": 36,
         ]
         #expect(heights == expected)

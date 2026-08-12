@@ -7433,17 +7433,45 @@
             "desk": {
               "file": "assets/processed/themes/office/32x32/singles/desk.png",
               "source_set": "Modern Office singles",
-              "single_index": 34,
+              "single_index": 248,
               "provenance": "pack",
               "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
-              "what": "plain office desk, side view, top slab plus two legs",
+              "what": "office desk, straight 64x38 slab with a drawer pedestal at the left end - the piece scripts/compose-scene.py's desk_pod stands every workstation on",
               "content_box": {
                 "x": 0,
-                "y": 64,
-                "w": 32,
-                "h": 24
+                "y": 32,
+                "w": 64,
+                "h": 38
               },
-              "surface_y": 24
+              "surface_y": 38
+            },
+            "desk_kit": {
+              "file": "assets/processed/themes/office/32x32/singles/desk_kit.png",
+              "source_set": "Modern Office singles",
+              "single_index": 153,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "loose stack of paper, 24x24 - the orientation-neutral desktop object a camera-facing pod carries in place of a screen",
+              "content_box": {
+                "x": 8,
+                "y": 72,
+                "w": 24,
+                "h": 22
+              }
+            },
+            "monitor": {
+              "file": "assets/processed/themes/office/32x32/singles/monitor.png",
+              "source_set": "Modern Interiors Theme Sorter set 18",
+              "single_index": 147,
+              "provenance": "pack",
+              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
+              "what": "workstation rig - monitor on a stand with a keyboard and a tower beside it, screen lit, 32x42",
+              "content_box": {
+                "x": 16,
+                "y": 40,
+                "w": 32,
+                "h": 42
+              }
             },
             "plant": {
               "file": "assets/processed/themes/office/32x32/singles/plant.png",

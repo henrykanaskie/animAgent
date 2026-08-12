@@ -230,9 +230,44 @@ THEMES = {
         "floor": None,          # office keeps its own Room_Builder_Office tiles
         "wall": None,
         "roles": {
-            "desk":  ("office", 34, "plain office desk, side view, top slab plus two legs"),
+            # **The desk is the pod's slab, not the bench.** [ADR-009] Single 34
+            # is a 32x24 side-view desk and it is what made a seat read as a
+            # bench: one body's width of furniture with nothing on it. 248 is
+            # `desk_corner_l`'s 64x38 straight piece — the one
+            # `scripts/compose-scene.py`'s `desk_pod` builds every workstation in
+            # `output/01-engineering-office.png` on, selected there BY INK
+            # DIMENSIONS because the name is a family of ten modular segments and
+            # asking for variant 0 draws a 32x16 back strip.
+            "desk":  ("office", 248, "office desk, straight 64x38 slab with a drawer "
+                                     "pedestal at the left end - the piece "
+                                     "scripts/compose-scene.py's desk_pod stands every "
+                                     "workstation on"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
             "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
+            # **The screen rig, and it belongs to one facing only.** [ADR-009]
+            # Every screen in either pack is drawn face-on with its keyboard
+            # below it and there is no rear view of a monitor anywhere in the
+            # 12,279-prop catalogue, so a rig at a camera-facing seat is somebody
+            # sitting between the viewer and the back of their own screen. It is
+            # placed at away-facing seats and nowhere else.
+            #
+            # Jail 147 rather than one of the six, because two of the six
+            # (149, 152) are drawn switched off and a dark panel at 1x reads as a
+            # broken monitor rather than an idle one — `compose-scene.py`'s
+            # `LIT_RIGS` is the same finding. The Jail set is where the only
+            # 32x42 `workstation_composite` in either pack lives; the Office set
+            # draws monitors without keyboards.
+            "monitor": (18, 147, "workstation rig - monitor on a stand with a keyboard "
+                                 "and a tower beside it, screen lit, 32x42"),
+            # **What a camera-facing pod carries instead**, and the whole reason
+            # it can carry anything is that it is orientation-neutral: a paper
+            # stack reads the same from either side, where a screen does not.
+            # 24x24, so it stands in the 16px of desktop outside the body's own
+            # canvas and its top lands under the desk's back edge, where it
+            # cannot cross the face the orientation exists to show.
+            "desk_kit": ("office", 153, "loose stack of paper, 24x24 - the "
+                                        "orientation-neutral desktop object a "
+                                        "camera-facing pod carries in place of a screen"),
             "board": ("office", 171, "presentation board on a stand, chart on the face"),
             "plant": ("office", 99, "small potted plant, floor standing"),
         },

@@ -461,40 +461,96 @@ def chair_y(index, chair_height, costume_top):
     return seat_y(index)
 
 
-def desk_point(index, desk_height):
+# **The desk pod.** [ADR-009] `RoomLayout.monitorScreenClearance` — how far above
+# the desk's own back edge a screen rig's top has to reach, which is what fixes
+# where a prop standing on a pod's desktop puts its feet.
+MONITOR_SCREEN_CLEARANCE = 20
+
+
+def is_desk_pod(metrics):
+    """`RoomLayout.SeatMetrics.isDeskPod` — a slab wide enough for a rig either
+    side of its occupant, and a theme that binds one. False for five of six."""
+    _dh, _ch, _ct, desk_w, mon_w, mon_h = metrics
+    return mon_w > 0 and mon_h > 0 and desk_w >= mon_w * 2
+
+
+def desk_top_lift(surface_y, metrics):
+    """`RoomLayout.deskTopLift(surfaceHeightAboveFloor:metrics:)`.
+
+    `surface_y` finds the *back* edge of a slab whose top surface is 25 rows
+    deep, so a pod derives the lift from its own two heights instead: 38 + 20 -
+    42 = 16 for the shipped office pod.
+    """
+    if not is_desk_pod(metrics):
+        return surface_y
+    desk_h, _ch, _ct, _dw, _mw, mon_h = metrics
+    return min(max(0.0, desk_h + MONITOR_SCREEN_CLEARANCE - mon_h), desk_h)
+
+
+def pod_slot_offset_x(metrics):
+    """`RoomLayout.podSlotOffsetX(metrics:)` — 16 px for the shipped pod."""
+    if not is_desk_pod(metrics):
+        return 0.0
+    _dh, _ch, _ct, desk_w, mon_w, _mh = metrics
+    return (desk_w - mon_w) / 2.0
+
+
+def away_desk_offset_x(metrics):
+    """`RoomLayout.awayDeskOffsetX(metrics:)` — 0 for a pod, seven eighths of a
+    tile for every desk narrow enough that its occupant cannot be centred on it."""
+    return 0.0 if is_desk_pod(metrics) else TILE * 0.875
+
+
+def desk_point(index, metrics):
     """`RoomLayout.deskPosition(_:metrics:)`."""
     facing = seat_facing(index)
+    desk_height = metrics[0]
     if facing == "toward_camera":
         return (seat_x(index),
                 seat_y(index) - max(0.0, desk_height - 1 - DESK_CUT_ABOVE_FEET))
     if facing == "away_from_camera":
-        return (seat_x(index) + TILE * 0.875, seat_y(index) + AWAY_DESK_UPSTAGE)
+        return (seat_x(index) + away_desk_offset_x(metrics),
+                seat_y(index) + AWAY_DESK_UPSTAGE)
     return (seat_x(index) + TILE * 0.875, seat_y(index))
 
 
 def seat_metrics(theme=None):
     """**The measured art the seat furniture is placed against**, for one theme.
 
-    `RoomScene.seatMetrics(desk:)` in this file's terms: the desk's ink height,
-    the back chair's ink height, and how far above the feet a costume reaches.
-    A theme that binds no back chair simply has none to stand, which is the same
-    answer the scene gives. [ADR-008]
+    `RoomScene.seatMetrics(desk:)` in this file's terms, in `SeatMetrics`' own
+    field order: the desk's ink height, the back chair's ink height, how far
+    above the feet a costume reaches, the desk's ink width, and the screen rig's
+    ink width and height. A theme that binds no back chair simply has none to
+    stand, and one that binds no `monitor` is not a pod — which is the same
+    answer the scene gives in both cases. [ADR-008, ADR-009]
     """
     roles = (theme or {}).get("props", {}).get("roles", {}) if theme else {}
     if not roles:
         roles = manifest_json().get("room", {}).get("props", {}).get("roles", {})
     costumes = manifest_json().get("characters", {}).get("costumes", {})
 
-    def height(role):
+    def box(role, axis):
         entry = roles.get(role)
-        return float(entry["content_box"]["h"]) if entry else 0.0
+        return float(entry["content_box"][axis]) if entry else 0.0
 
-    return (height("desk"), height("chair_back"),
-            float(costumes.get("ink_top_px", 0)))
+    return (box("desk", "h"), box("chair_back", "h"),
+            float(costumes.get("ink_top_px", 0)),
+            box("desk", "w"), box("monitor", "w"), box("monitor", "h"))
 
 
-def prop_layout(desk_height=None, desk_near_edge_x=None, manifest=None,
-                chair_height=None, costume_top=None):
+def default_seat_metrics():
+    """The shipped room's metrics — the manifest's own default theme.
+
+    `role_placements()` needs them, because how many rigs the room draws is a
+    property of the theme's art now rather than of the layout alone.
+    """
+    manifest = manifest_json()
+    name = manifest.get("themes", {}).get("default")
+    theme = manifest.get("themes", {}).get("sets", {}).get(name)
+    return seat_metrics(theme)
+
+
+def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None):
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
     Scene coordinates, y-up, the point being the content box's bottom-centre.
@@ -563,25 +619,49 @@ def prop_layout(desk_height=None, desk_near_edge_x=None, manifest=None,
     # Neither turned case takes a depth bias: the furniture is genuinely on a
     # different row from its occupant, so the row sorts it and there is no tie
     # to break. `desk_depth_bias` is the side-on tie-breaker and only that.
-    bias = desk_depth_bias(desk_height, desk_near_edge_x, manifest)
+    metrics = metrics or (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    desk_height, chair_height, costume_top = metrics[0], metrics[1], metrics[2]
+    bias = desk_depth_bias(desk_height or None, desk_near_edge_x, manifest)
     for seat in range(SEAT_CAPACITY):
         facing = seat_facing(seat)
         role = SEAT_ROLE[facing]
         if role is not None:
             placed.append((role, seat_x(seat),
-                           chair_y(seat, chair_height or 0.0, costume_top or 0.0),
+                           chair_y(seat, chair_height, costume_top),
                            -0.25 if facing == "side_on" else 0.0))
     for seat in range(SEAT_CAPACITY):
         facing = seat_facing(seat)
-        x, y = desk_point(seat, desk_height or 0.0)
+        x, y = desk_point(seat, metrics)
         placed.append(("desk", x, y, bias if facing == "side_on" else 0.0))
+    # **The kit on the desktop.** [ADR-009] `RoomScene.podFurniture(seat:metrics:)`:
+    # a screen rig at every away-facing seat and a paper stack at every
+    # camera-facing one, both lifted onto the desktop and both biased by
+    # `lift + 0.25` so the lift does not sort them behind the desk they stand on.
+    # Nothing at all for a theme that is not a pod.
+    if is_desk_pod(metrics):
+        lift = desk_top_lift(desk_height, metrics)
+        slot = pod_slot_offset_x(metrics)
+        for seat in range(SEAT_CAPACITY):
+            facing = seat_facing(seat)
+            x, y = desk_point(seat, metrics)
+            if facing == "away_from_camera":
+                placed.append(("monitor", x - slot, y + lift, lift + 0.25))
+            elif facing == "toward_camera":
+                placed.append(("desk_kit", x + slot, y + lift, lift + 0.25))
     return placed
 
 
-def role_placements():
-    """How many times the room draws each prop role on one panel. One panel, not
-    one theme: this is a fact about the *layout*, and it is the same for every
-    theme because every theme fills the same four slots.
+def role_placements(metrics=None):
+    """How many times the room draws each prop role on one panel.
+
+    **It used to be a fact about the layout alone and it is not one any more.**
+    That sentence stood here while every theme filled the same four slots; ADR-009
+    gave the office theme a desk wide enough to carry a screen rig, and how many
+    rigs the room draws is now a property of the *art* — four at a theme whose
+    desk is a pod and none at a theme whose desk is not. So it takes the metrics
+    of the room being priced, and defaults to the manifest's own default theme
+    rather than to nothing, because a census of no theme in particular is the kind
+    of second opinion this file exists to stop trusting.
 
     It exists because `scripts/lint-palette.py`'s motion budget is a budget on
     what reaches the screen, and a prop placed four times costs four times as
@@ -593,13 +673,17 @@ def role_placements():
     `chair_back` 4, `desk` 7 — and `chair` **0**, because ADR-008 gave the seat
     a facing: the four back-row seats take the back view of the chair, the three
     front-row seats face the camera and take no chair at all (the body covers
-    one entirely), and no seat in the shipped lattice is side-on. `board` and `plant` alternate across the seven seats of
-    the back row, and nothing else is placed. The four keys are always present,
-    at zero if nothing is placed, so a caller cannot read a missing role as a
-    missing count.
+    one entirely), and no seat in the shipped lattice is side-on. `board` and
+    `plant` alternate across the seven seats of the back row. At the office pod
+    add `monitor` 4 — one per away-facing seat, in the left of its desk's two kit
+    slots — and `desk_kit` 3, the paper stack a camera-facing pod carries because
+    no screen has an honest rear view. The keys are always present, at zero if
+    nothing is placed, so a caller cannot read a missing role as a missing count.
     """
-    counts = {"board": 0, "plant": 0, "chair": 0, "chair_back": 0, "desk": 0}
-    for role, _x, _y, _bias in prop_layout():
+    counts = {"board": 0, "plant": 0, "chair": 0, "chair_back": 0, "desk": 0,
+              "monitor": 0, "desk_kit": 0}
+    for role, _x, _y, _bias in prop_layout(
+            metrics if metrics is not None else default_seat_metrics()):
         counts[role] = counts.get(role, 0) + 1
     return counts
 
@@ -917,10 +1001,8 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # anchored on its own content box, so a wider desk reaches further left
     # across the body. `RoomScene.surfaceNearEdgeX(of:layout:)`.
     near_edge = (TILE * 0.875 - desk["content_box"]["w"] / 2.0) if desk else None
-    desk_h, chair_h, costume_top = seat_metrics(theme)
-    for role_name, x, y, bias in prop_layout(
-            desk["content_box"]["h"] if desk else None, near_edge, manifest_json(),
-            chair_height=chair_h, costume_top=costume_top):
+    metrics = seat_metrics(theme)
+    for role_name, x, y, bias in prop_layout(metrics, near_edge, manifest_json()):
         add_prop(role_name, x, y, bias=bias)
 
     # The scenery, drawn from `scenery_layout()` and deliberately not counted:
@@ -951,7 +1033,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # with nothing the scene draws. `--verify` is the tie now. Only roles this
     # theme actually declares are compared — a theme missing a role draws none
     # of it, which is not a drift.
-    expected = role_placements()
+    expected = role_placements(metrics)
     for role_name, n in sorted(census.items()):
         if expected.get(role_name) != n:
             raise SystemExit(
@@ -1381,10 +1463,8 @@ def role_boxes(theme, roles=None):
     declared = theme["props"]["roles"]
     to_screen, _origin = camera(*VERIFY_PANEL)
     boxes = {}
-    desk_h, chair_h, costume_top = seat_metrics(theme)
     for role_name, x, y, _bias in prop_layout(
-            desk_h, None, manifest_json(),
-            chair_height=chair_h, costume_top=costume_top):
+            seat_metrics(theme), None, manifest_json()):
         if roles is not None and role_name not in roles:
             continue
         role = declared.get(role_name)

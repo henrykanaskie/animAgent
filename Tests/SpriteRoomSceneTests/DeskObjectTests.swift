@@ -970,10 +970,36 @@ struct DeskObjectSceneTests {
                     let width = Self.contentWidth(of: kind, manifest: manifest, themeID: themeID)
                     let left = object.x - width / 2
                     let right = object.x + width / 2
-                    let deskRight = layout.deskPosition(seat, metrics: metrics).x
-                        + Double(desk.contentBox.width) / 2
-                    #expect(left == seatX + nearEdgeOffset, Comment(rawValue:
-                        "\(themeID ?? "room")/\(kind) seat \(seat): near edge at \(left - seatX)"))
+                    let deskX = layout.deskPosition(seat, metrics: metrics).x
+                    let deskLeft = deskX - Double(desk.contentBox.width) / 2
+                    let deskRight = deskX + Double(desk.contentBox.width) / 2
+                    // **On a pod the rule is the slot, not the near edge.**
+                    // [ADR-009] A pod's desktop is two 32px slots on a 64px slab;
+                    // the theme's screen rig takes the left one and this takes the
+                    // right, so the object is *centred* on `deskX + slot` rather
+                    // than left-aligned to the body's canvas edge.
+                    //
+                    // The near-edge rule is not weakened by that, it is
+                    // inapplicable: ADR-006 §2c pushes the object clear of the
+                    // body so it cannot cover a head, and only a camera-facing
+                    // seat could be covered that way — which draws no object at
+                    // all. Every seat that reaches this line is away-facing, so
+                    // its desk is genuinely upstage and `rowDepth` draws the body
+                    // over the object at any x. What is asserted instead is the
+                    // property that still bites: the object stands wholly on its
+                    // own desk.
+                    if metrics.isDeskPod {
+                        #expect(object.x == deskX + layout.podSlotOffsetX(metrics: metrics),
+                                Comment(rawValue:
+                            "\(themeID ?? "room")/\(kind) seat \(seat): not in the pod's"
+                            + " right kit slot"))
+                        #expect(left >= deskLeft, Comment(rawValue:
+                            "\(themeID ?? "room")/\(kind) seat \(seat): hangs off the left"
+                            + " of its own desk"))
+                    } else {
+                        #expect(left == seatX + nearEdgeOffset, Comment(rawValue:
+                            "\(themeID ?? "room")/\(kind) seat \(seat): near edge at \(left - seatX)"))
+                    }
                     #expect(right <= deskRight, Comment(rawValue:
                         "\(themeID ?? "room")/\(kind) seat \(seat): overhangs its own desk"))
                     #expect(object.y == layout.deskSurfacePosition(

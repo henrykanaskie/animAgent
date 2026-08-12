@@ -596,14 +596,167 @@ public struct RoomLayout: Sendable, Hashable {
         /// `characters.costumes.ink_top_px` — how far above the feet a costume's
         /// ink reaches.
         public var costumeTopAboveFeet: Double
+        /// The desk's own ink **width**. `0` for a theme with no desk role at
+        /// all, which is the placeholder path.
+        ///
+        /// It arrives because the pod arithmetic below is entirely about how much
+        /// desktop there is: how many kit slots a desk has, and whether an
+        /// away-facing occupant can be centred on it. [ADR-009]
+        public var deskInkWidth: Double
+        /// The screen rig's ink, from the theme's `monitor` role, or `(0, 0)` for
+        /// a theme that binds none.
+        ///
+        /// **A theme with no rig is not a pod**, and every accessor below asks
+        /// `isDeskPod` rather than testing this directly, so "this theme has no
+        /// rig" and "this desk is too narrow to hold one" are answered in one
+        /// place. Five of the six shipped themes are in that case and draw
+        /// exactly the picture they drew before this existed.
+        public var monitorInkWidth: Double
+        public var monitorInkHeight: Double
+
+        /// **Whether this seat's desk is a pod**: a slab wide enough to carry a
+        /// screen rig either side of its occupant, and a theme that binds one.
+        ///
+        /// Two conditions and both are load-bearing. A theme with no `monitor`
+        /// role has nothing to stand, and a desk narrower than two rigs has no
+        /// second slot — which is the arrangement ADR-008 §7 described as an art
+        /// fact rather than a taste one when it kept the away-facing desk beside
+        /// its occupant: *"The pack can centre its figure because its desk is
+        /// 64 px wide with two monitors at ±16 and the person between them; ours
+        /// is 32."* This is that sentence as arithmetic, so the office desk
+        /// becoming 64 px wide moves the room and nothing else does.
+        public var isDeskPod: Bool {
+            monitorInkWidth > 0 && monitorInkHeight > 0
+                && deskInkWidth >= monitorInkWidth * 2
+        }
 
         public init(
-            deskInkHeight: Double, chairInkHeight: Double, costumeTopAboveFeet: Double
+            deskInkHeight: Double, chairInkHeight: Double, costumeTopAboveFeet: Double,
+            deskInkWidth: Double = 0,
+            monitorInkWidth: Double = 0, monitorInkHeight: Double = 0
         ) {
             self.deskInkHeight = deskInkHeight
             self.chairInkHeight = chairInkHeight
             self.costumeTopAboveFeet = costumeTopAboveFeet
+            self.deskInkWidth = deskInkWidth
+            self.monitorInkWidth = monitorInkWidth
+            self.monitorInkHeight = monitorInkHeight
         }
+    }
+
+    // MARK: The desk pod [ADR-009]
+
+    /// **How far above the desk's own back edge a screen rig's top must reach.**
+    ///
+    /// 20 px, and it is `scripts/compose-scene.py`'s number with that file's own
+    /// citation behind it: *"its screen rises 20 px above the back edge the way
+    /// the pack's own office GIF draws a monitor"*. It is the one chosen constant
+    /// in the pod and everything else here is measured off the art, which is why
+    /// it is named rather than folded into `deskTopLift`.
+    public static let monitorScreenClearance: Double = 20
+
+    /// **Where a prop standing on this desk puts its feet**, above the desk's own
+    /// floor point.
+    ///
+    /// For every desk in the room this has always been the manifest's
+    /// `surface_y` — the topmost row of an 80%-of-box-width ink run, which for a
+    /// desk drawn in near profile *is* the desktop. A pod's slab is not drawn in
+    /// near profile: 25 of its 38 rows are top surface seen at an angle, so
+    /// `surface_y` finds its **back** edge and a prop placed there stands behind
+    /// the desk rather than on it.
+    ///
+    /// So a pod derives the lift instead, from the two heights it already
+    /// measured: `deskInkHeight + monitorScreenClearance − monitorInkHeight`,
+    /// which is 38 + 20 − 42 = **16** for the shipped office pod and is
+    /// `compose-scene.py`'s `on_desk(16)` re-derived rather than copied. The
+    /// keyboard lands near the front of the desktop and the screen clears the
+    /// back edge, which is the whole of what makes a rig read as standing *on* a
+    /// desk.
+    ///
+    /// Clamped into `0...deskInkHeight`: a rig taller than the desk plus its
+    /// clearance stands on the floor point rather than below it, and one shorter
+    /// than the clearance stands on the back edge rather than in the air.
+    public func deskTopLift(surfaceHeightAboveFloor: Double, metrics: SeatMetrics) -> Double {
+        guard metrics.isDeskPod else { return surfaceHeightAboveFloor }
+        return min(max(0, metrics.deskInkHeight + Self.monitorScreenClearance
+                          - metrics.monitorInkHeight),
+                   metrics.deskInkHeight)
+    }
+
+    /// **How far either side of the desk's centre a pod's two kit slots sit.**
+    ///
+    /// Half the desktop that a rig does not cover: `(64 − 32) / 2 = 16`, so the
+    /// two 32 px slots tile the 64 px slab exactly and neither hangs off an edge.
+    /// It is `compose-scene.py`'s `x ± 16` measured off the art rather than
+    /// written down, so a re-cut desk or a re-cut rig moves the slots with it.
+    ///
+    /// `0` for a desk that is not a pod, which is the same as saying it has one
+    /// slot and the slot is the middle.
+    public func podSlotOffsetX(metrics: SeatMetrics) -> Double {
+        guard metrics.isDeskPod else { return 0 }
+        return (metrics.deskInkWidth - metrics.monitorInkWidth) / 2
+    }
+
+    /// **Bottom-centre of the screen rig standing on a seat's desk**, or `nil`
+    /// for a seat that may not have one.
+    ///
+    /// **Away-facing seats only, and that is a fact about the art rather than a
+    /// preference.** Every screen in either pack is drawn face-on with its
+    /// keyboard below it, and there is no rear view of a monitor anywhere in the
+    /// 12,279-prop catalogue, so a rig at a camera-facing seat is drawn being
+    /// looked at from below by the person sitting between it and the viewer.
+    /// `compose-scene.py`'s `desk_pod` refuses it for the same reason and says
+    /// the first three renders of that scene showed exactly that, six times over.
+    /// A camera-facing pod carries `deskKitPosition(_:metrics:)` instead.
+    ///
+    /// **The left slot, because the right one is spoken for.** ADR-006's
+    /// work-kind object stands in the other one — see
+    /// `RoomScene.showDeskObject(_:for:)`. The pod has two slots and the room has
+    /// two things to put in them: one that says *this is a workstation* and one
+    /// that says *this is the work*. Drawing a rig in both would be the second of
+    /// those competing with a prop that means nothing.
+    public func monitorPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint? {
+        guard metrics.isDeskPod, seatFacing(index) == .awayFromCamera else { return nil }
+        let desk = deskPosition(index, metrics: metrics)
+        return ScenePoint(
+            x: desk.x - podSlotOffsetX(metrics: metrics),
+            y: desk.y + deskTopLift(surfaceHeightAboveFloor: metrics.deskInkHeight,
+                                    metrics: metrics))
+    }
+
+    /// **Bottom-centre of the orientation-neutral object on a camera-facing pod's
+    /// desktop**, or `nil` for a seat that has none.
+    ///
+    /// ADR-008 §5 left a camera-facing desk bare and gave two independent reasons.
+    /// The first still holds and is why this is not a rig: an object there faces
+    /// upstage, and a screen has no honest rear view. **The second has expired.**
+    /// It was geometric — *"the theme desk is 32 px wide and the body occupies all
+    /// of it"* — and a pod is 64 px wide with 16 px of desktop outside the body's
+    /// canvas on either side.
+    ///
+    /// What stands here is therefore theme furniture that says nothing about any
+    /// agent [I1]: a paper stack, which reads the same from either side. It is
+    /// still not ADR-006's work-kind slot, and a camera-facing seat still carries
+    /// none of that — `SeatFacing.showsDeskTopObject` is unchanged.
+    ///
+    /// **It cannot cover a face, and that is arithmetic rather than care.** The
+    /// lift plus the kit's own ink height comes to the desk's back edge, so the
+    /// object is drawn entirely inside the band the desk already covers. Whatever
+    /// its width, it stands in front of pixels the viewer could not see anyway.
+    ///
+    /// **The right slot, which is the same slot ADR-006's object takes at an
+    /// away-facing seat.** One rule covers the room: the right slot carries the
+    /// seat's own kit and the left one carries the theme's rig where a rig is
+    /// honest. It also balances the seat, because `stationPropPosition` is a tile
+    /// to the character's *left* and a kit in the left slot puts everything a
+    /// pod owns on one side of its occupant.
+    public func deskKitPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint? {
+        guard metrics.isDeskPod, seatFacing(index) == .towardCamera else { return nil }
+        let desk = deskPosition(index, metrics: metrics)
+        return ScenePoint(
+            x: desk.x + podSlotOffsetX(metrics: metrics),
+            y: desk.y + deskTopLift(surfaceHeightAboveFloor: metrics.deskInkHeight,
+                                    metrics: metrics))
     }
 
     /// **Which row of the body a toward-camera desk's top edge lands on**, above
@@ -751,6 +904,27 @@ public struct RoomLayout: Sendable, Hashable {
     /// to be seat 0.
     public var sideOnDeskOffsetX: Double { Double(tile) * 0.875 }
 
+    /// **How far to an away-facing occupant's right its desk is centred — `0` for
+    /// a pod.** [ADR-009]
+    ///
+    /// ADR-008 §7 kept the away-facing desk beside its occupant rather than
+    /// behind it, and argued the decision on one number: a 32 px desk centred on a
+    /// 32 px body shows six pixels at each side and leaves the object standing on
+    /// it nowhere to be except behind the occupant's head. That argument closed
+    /// with the condition under which it stops holding, in as many words: *"The
+    /// pack can centre its figure because its desk is 64 px wide with two monitors
+    /// at ±16 and the person between them; ours is 32. That is an art fact, not a
+    /// taste one."*
+    ///
+    /// The office desk is 64 px wide with two rig slots now, so the condition is
+    /// met and the desk centres — which is what puts a rig at each shoulder in
+    /// `output/01-engineering-office.png`. Nothing else in the room changes,
+    /// because `SeatMetrics.isDeskPod` is false for every other theme and this
+    /// returns exactly what it returned before.
+    public func awayDeskOffsetX(metrics: SeatMetrics) -> Double {
+        metrics.isDeskPod ? 0 : sideOnDeskOffsetX
+    }
+
     public func deskPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint {
         let seat = seatPosition(index)
         switch seatFacing(index) {
@@ -759,7 +933,8 @@ public struct RoomLayout: Sendable, Hashable {
         case .towardCamera:
             return ScenePoint(x: seat.x, y: seat.y - deskDepth(metrics: metrics))
         case .awayFromCamera:
-            return ScenePoint(x: seat.x + sideOnDeskOffsetX, y: seat.y + awayDeskUpstage)
+            return ScenePoint(
+                x: seat.x + awayDeskOffsetX(metrics: metrics), y: seat.y + awayDeskUpstage)
         }
     }
 
@@ -809,11 +984,20 @@ public struct RoomLayout: Sendable, Hashable {
     /// here; this accessor only answers "where is the surface", which is a
     /// question every future object needs the same answer to and none of them
     /// should answer by eyeballing a second time.
+    ///
+    /// **A pod answers it from its own art instead**, because `surface_y` finds
+    /// the back edge of a slab whose top surface is 25 rows deep. See
+    /// `deskTopLift(surfaceHeightAboveFloor:metrics:)`, which is where the two
+    /// answers meet, and which returns the parameter unchanged for every theme
+    /// that is not a pod.
     public func deskSurfacePosition(
         seat index: Int, surfaceHeightAboveFloor: Double, metrics: SeatMetrics
     ) -> ScenePoint {
         let anchor = deskPosition(index, metrics: metrics)
-        return ScenePoint(x: anchor.x, y: anchor.y + surfaceHeightAboveFloor)
+        return ScenePoint(
+            x: anchor.x,
+            y: anchor.y + deskTopLift(
+                surfaceHeightAboveFloor: surfaceHeightAboveFloor, metrics: metrics))
     }
 
     /// Bottom-centre of a station's one optional adjacent prop: a tile to the

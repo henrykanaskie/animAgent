@@ -255,8 +255,14 @@ def preview_module():
     return mod
 
 
-def role_placements():
+def role_placements(theme=None):
     """How many times the room draws each prop role on one panel.
+
+    **Per theme, since ADR-009.** The four slots used to be filled the same way
+    everywhere and this was a fact about the layout; a theme whose desk is a pod
+    draws four screen rigs and one whose desk is not draws none, so the census
+    takes the theme it is describing. `None` is the manifest's own default theme,
+    which is the room most users see.
 
     **Imported from `scripts/preview-theme.py` rather than transcribed**, because
     a prop placed four times costs four times as much and that count is the one
@@ -278,7 +284,10 @@ def role_placements():
     """
     mod = preview_module()
     fn = getattr(mod, "role_placements", None) if mod else None
-    return dict(fn()) if fn else {}
+    if not fn:
+        return {}
+    metrics = getattr(mod, "seat_metrics", None)
+    return dict(fn(metrics(theme)) if (theme and metrics) else fn())
 
 
 def scene_agreement(sets, names):
@@ -682,6 +691,14 @@ def main(argv=None):
     motion_scopes = []   # (scope, total px/s, [(role, id, own px/s, placed px/s, own frac)])
     scopes = [("room", m.get("room", {}))] + [(t, themes[t]) for t in sorted(themes)]
     for sname, node in scopes:
+        # **The census is per scope, because it stopped being a fact about the
+        # layout alone.** ADR-009 gave the office theme a desk wide enough to
+        # carry a screen rig either side of its occupant, so how many copies of
+        # `monitor` the room draws is a property of that theme's *art* — four
+        # where the desk is a pod and none where it is not. A single census
+        # applied to every theme would price an animated rig in a theme that
+        # draws none of it, and would miss one in a theme that draws four.
+        scope_placements = role_placements(node) or placements
         total, contributors = 0.0, []
         for role_name, role in animated_roles(node):
             anim = role["animation"]
@@ -735,7 +752,7 @@ def main(argv=None):
                         "— a transcribed motion figure is how 10.4%% became 27.9%% "
                         "(%s)" % (sname, role_name, key, declared, measured, where))
 
-            n = placements.get(role_name)
+            n = scope_placements.get(role_name)
             if n is None:
                 failures.append(
                     "motion: %s animates role %s, and scripts/preview-theme.py does "

@@ -145,6 +145,18 @@ public final class RoomScene: SKScene {
     nonisolated static let backdropRole = "board"
     nonisolated static let accentRole = "plant"
 
+    /// **The screen rig on an away-facing pod's desktop.** [ADR-009]
+    ///
+    /// Optional in a way the four above are not: a theme that binds no `monitor`
+    /// has no pod, and its seats are drawn exactly as they were before this role
+    /// existed. Five of the six shipped themes are in that case.
+    nonisolated static let monitorRole = "monitor"
+    /// **The orientation-neutral object on a camera-facing pod's desktop** — a
+    /// paper stack, which reads the same from either side where a screen does
+    /// not. Theme furniture: it says nothing about any agent [I1], and it is not
+    /// ADR-006's work-kind slot, which a camera-facing seat still does not carry.
+    nonisolated static let deskKitRole = "desk_kit"
+
     /// **The measured art the seat furniture is placed against.** [ADR-008]
     ///
     /// `RoomLayout` reads no manifest and opens no PNG, so a turned seat's three
@@ -158,13 +170,18 @@ public final class RoomScene: SKScene {
     /// surface — the same reason `stationDesks` exists.
     func seatMetrics(desk: Manifest.PropRole? = nil) -> RoomLayout.SeatMetrics {
         let desk = desk ?? store.room.prop(Self.surfaceRole)
+        let monitor = store.room.prop(Self.monitorRole)
         return RoomLayout.SeatMetrics(
             deskInkHeight: Double(
                 desk?.contentBox.height ?? SceneBitmaps.placeholderDesk().height),
             chairInkHeight: Double(
                 store.room.prop(RoomLayout.SeatFacing.awayFromCamera.seatRole ?? "")?
                     .contentBox.height ?? 0),
-            costumeTopAboveFeet: Double(store.manifest.characters.costumes.inkTopAboveFeet))
+            costumeTopAboveFeet: Double(store.manifest.characters.costumes.inkTopAboveFeet),
+            deskInkWidth: Double(
+                desk?.contentBox.width ?? SceneBitmaps.placeholderDesk().width),
+            monitorInkWidth: Double(monitor?.contentBox.width ?? 0),
+            monitorInkHeight: Double(monitor?.contentBox.height ?? 0))
     }
 
     /// **Where the two decoration bands stand**, as `(role, bottom-centre)`, in
@@ -418,6 +435,62 @@ public final class RoomScene: SKScene {
             emptySeatFurniture[seat, default: []].append(
                 SeatFurniture(node: node, path: ""))
         }
+
+        // **The kit on the desktop, which is what makes a slab read as a
+        // workstation rather than a bench.** [ADR-009]
+        //
+        // A screen rig at every away-facing seat and a paper stack at every
+        // camera-facing one — the split `scripts/compose-scene.py`'s `desk_pod`
+        // makes, for that file's reason: there is no rear view of a monitor
+        // anywhere in the 12,279-prop catalogue, so a screen facing the camera is
+        // being looked at from below by the person sitting behind it.
+        //
+        // Both are **theme furniture**. They are drawn at every seat whether
+        // anyone is sitting there or not, they never change, and no path from a
+        // `WorldDelta` reaches either [I1, ADR-002 §6 rule 1]. What says *what
+        // the work is* is still ADR-006's object, and it stands in the pod's
+        // other slot.
+        for seat in 0..<layout.seatCapacity {
+            for piece in podFurniture(seat: seat, metrics: metrics) {
+                guard let node = place(
+                    role: piece.role, at: piece.point, depthBias: piece.depthBias),
+                      let path = store.room.prop(piece.role)?.file else { continue }
+                emptySeatFurniture[seat, default: []].append(
+                    SeatFurniture(node: node, path: path))
+            }
+        }
+    }
+
+    /// **Everything standing on one seat's desktop that is furniture**, as
+    /// `(role, bottom-centre, depth bias)`. Empty for a theme that is not a pod
+    /// and for a seat whose facing carries nothing. [ADR-009]
+    ///
+    /// One list, read by `buildRoom` for the empty desk and by `placeStation` for
+    /// an occupied one, so the two cannot draw different desktops — the same
+    /// reason `decorationPlacements` is a function rather than two loops.
+    ///
+    /// **The bias is `lift + deskObjectInFrontStep` and it has to be.** `place`
+    /// sorts on the point it is given, and a prop lifted onto a desktop is `lift`
+    /// px *above* the desk's floor point — which sorts it `lift` px **behind** the
+    /// desk, so the desk paints over everything below its own back edge and what
+    /// survives is a screen apparently hovering with no base. That is
+    /// `compose-scene.py`'s `on_desk` docstring, which records the symptom being
+    /// on screen for two renders before anyone read it correctly. Adding the lift
+    /// back puts the prop on its desk's own row and the step puts it one notch in
+    /// front — the same construction the ADR-006 object already uses.
+    func podFurniture(seat: Int, metrics: RoomLayout.SeatMetrics)
+    -> [(role: String, point: ScenePoint, depthBias: CGFloat)] {
+        let lift = layout.deskTopLift(
+            surfaceHeightAboveFloor: metrics.deskInkHeight, metrics: metrics)
+        let bias = CGFloat(lift) + Self.deskObjectInFrontStep
+        var pieces: [(role: String, point: ScenePoint, depthBias: CGFloat)] = []
+        if let point = layout.monitorPosition(seat, metrics: metrics) {
+            pieces.append((Self.monitorRole, point, bias))
+        }
+        if let point = layout.deskKitPosition(seat, metrics: metrics) {
+            pieces.append((Self.deskKitRole, point, bias))
+        }
+        return pieces
     }
 
     // MARK: The floor plan [ADR-007]
@@ -825,6 +898,15 @@ public final class RoomScene: SKScene {
         }
         draw(station.desk, at: layout.deskPosition(seat, metrics: metrics),
              depthBias: facing == .sideOn ? surfaceDepthBias(for: station.desk) : 0)
+        // The desktop kit is the **theme's**, not the station's, exactly as the
+        // turned seat's chair is: a station changes what stands beside the seat
+        // and never what the theme's furniture looks like [ADR-002 §14c]. It is
+        // redrawn here rather than left showing because `placeStation` hides the
+        // whole of `emptySeatFurniture`, the kit included. [ADR-009]
+        for piece in podFurniture(seat: seat, metrics: metrics) {
+            guard let prop = store.room.prop(piece.role) else { continue }
+            draw(prop, at: piece.point, depthBias: piece.depthBias)
+        }
         if let prop = station.prop {
             draw(prop, at: layout.stationPropPosition(seat), depthBias: Self.seatDepthBias)
         }
@@ -1001,11 +1083,29 @@ public final class RoomScene: SKScene {
         // A camera-facing seat never reaches this line.
         let nearEdge = layout.seatPosition(seat).x
             + Self.deskObjectNearEdgeX(manifest: store.manifest)
+        // **On a pod it stands in the other rig slot instead.** [ADR-009] The pod
+        // has two 32 px slots on a 64 px slab; the theme's screen rig takes the
+        // left one and this takes the right, so the desktop carries one prop that
+        // says *this is a workstation* and one that says *this is the work*,
+        // rather than two competing for one column.
+        //
+        // **The near-edge rule is not weakened, it is inapplicable here.** ADR-006
+        // §2c pushes the object clear of the body so it cannot cover a head pixel
+        // at any height. Only a camera-facing seat can be covered that way, and a
+        // camera-facing seat draws no object at all — at an away-facing seat the
+        // desk and everything on it is genuinely *upstage* of the occupant, so
+        // `rowDepth` draws the body over the object and the risk the rule exists
+        // to close cannot occur at any x. What the slot costs instead is a few
+        // columns of the object hidden behind the body, and the body's ink is
+        // narrower than its canvas.
+        let objectX = metrics.isDeskPod
+            ? deskPoint.x + layout.podSlotOffsetX(metrics: metrics)
+            : nearEdge + art.contentWidth / 2
 
         node.texture = art.texture
         node.anchorPoint = art.anchor
         node.size = art.size
-        node.position = CGPoint(x: nearEdge + art.contentWidth / 2, y: surface.y)
+        node.position = CGPoint(x: objectX, y: surface.y)
         node.zPosition = Character.Layer.rowDepth(deskPoint.y)
             + (facing == .sideOn ? surfaceDepthBias(for: desk) : 0)
             + Self.deskObjectInFrontStep

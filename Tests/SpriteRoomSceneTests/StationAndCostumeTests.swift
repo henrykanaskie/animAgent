@@ -621,35 +621,59 @@ struct StationContractTests {
         }
 
         // **The width limit is not enforceable from here and is bounded
-        // instead.** A desk is centred on `deskPosition`, so its right edge
-        // reaches `28 + w/2` from its seat while the next seat's station prop
-        // lane starts at `+48` — which makes the overhang exactly `w/2 − 20`,
-        // and therefore a statement about the desk's width alone.
+        // instead**: a desk's right edge may not reach the lane the *next*
+        // seat's station prop stands in.
         //
         // **The bound is 0, and it used to be 8.** 8 was the 56px `library`
         // desk's overhang, and once `1c0eeb3` re-cut that desk to 32 the bound
-        // carried 8px of slack over every desk the room draws: the widest is
-        // `mission_control`'s 40, which lands at **exactly 0**, and every other
-        // theme's 32 lands at −4. A limit with slack over the worst shipped case
-        // absorbs the first regression instead of reporting it — art could go
-        // back to overhanging by 8 and nothing would say so. Tightened to the
-        // measurement, so the next widening fails here.
+        // carried 8px of slack over every desk the room draws. A limit with slack
+        // over the worst shipped case absorbs the first regression instead of
+        // reporting it — art could go back to overhanging by 8 and nothing would
+        // say so. Tightened to the measurement, so the next widening fails here.
         //
         // Zero is the right number rather than a coincidence: it is where a
         // desk's right edge meets the lane the neighbour's station prop stands
         // in, so `> 0` is a desk standing *on* the neighbour and `≤ 0` is not.
-        // A theme that wants a wider desk is choosing different art in
-        // `assets/manifest.json`, which is where the fix belongs.
-        // The next seat's prop lane at the 32px limit asserted just above.
-        let propLaneLeft = layout.stationPropPosition(1).x
-            - Double(manifest.characters.canvas.width) / 2
+        //
+        // **It is measured at every seat now, and it used to be measured at a
+        // seat the room does not have.** The arithmetic here was
+        // `seatPosition(0).x + sideOnDeskOffsetX + w/2`, which is where a desk
+        // stands at a *side-on* seat — and ADR-008 left no side-on seat in the
+        // lattice, so for a milestone this bounded an arrangement nothing drew
+        // while the two facings the room does draw went unchecked. It asks
+        // `deskPosition(seat:metrics:)` per seat instead, which is the function
+        // the scene calls, so a facing that moves its desk is a facing this sees.
+        //
+        // The measured overhangs, from the seat's own right edge to the next
+        // seat's lane, are: side-on-shaped desks at `sideOnDeskOffsetX` reach
+        // −4 (32px art) and 0 (`mission_control`'s 40px); the office pod, 64px
+        // and centred on its column at both of its facings, reaches **−16**. A
+        // pod is *further* from its neighbour than the bench it replaced, which
+        // inverts the risk the task carried — see `aPodDoesNotReachIntoTheNext
+        // SeatsLane` for the same number stated per facing.
+        //
+        // **The lane is found by column, not by seat index.** Seats fill outward
+        // in pairs, so `seat + 1` is the seat on the *other* side of the room for
+        // half of them. Every column in the room is some seat's and a station
+        // prop stands a tile to its own character's left, so the lane one pitch
+        // over starts at `x + pitch − tile − halfCanvas` whichever seat owns it.
+        let laneHalf = Double(manifest.characters.canvas.width) / 2
+        #expect(layout.seatPosition(0).x + pitch - Double(layout.tile) - laneHalf
+                == layout.stationPropPosition(1).x - laneHalf,
+                "the lane rule and stationPropPosition disagree")
         for (id, room) in try Self.everyTheme(manifest) {
             guard let desk = room.prop(RoomScene.surfaceRole) else { continue }
-            let overhang = layout.seatPosition(0).x + layout.sideOnDeskOffsetX
-                + Double(desk.contentBox.width) / 2 - propLaneLeft
-            #expect(overhang <= 0, Comment(rawValue:
-                "\(id): a \(desk.contentBox.width)px desk overhangs the next seat's prop"
-                + " lane by \(overhang)px"))
+            let metrics = SceneFixtures.seatMetrics(room: room, manifest: manifest)
+            for seat in 0..<layout.seatCapacity {
+                let lane = layout.seatPosition(seat).x + pitch
+                    - Double(layout.tile) - laneHalf
+                let overhang = layout.deskPosition(seat, metrics: metrics).x
+                    + Double(desk.contentBox.width) / 2 - lane
+                #expect(overhang <= 0, Comment(rawValue:
+                    "\(id) seat \(seat) (\(layout.seatFacing(seat))): a"
+                    + " \(desk.contentBox.width)px desk overhangs the next seat's prop"
+                    + " lane by \(overhang)px"))
+            }
         }
 
         for id in manifest.themes.orderedIDs {
