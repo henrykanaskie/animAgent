@@ -51,6 +51,7 @@ Python 3 stdlib only.
 import argparse
 import glob
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -62,6 +63,18 @@ import pnglite
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(REPO, "assets", "manifest.json")
+
+_MANIFEST_JSON = None
+
+
+def manifest_json():
+    """The manifest, loaded once. `seated_head` measures the cast off it."""
+    global _MANIFEST_JSON
+    if _MANIFEST_JSON is None:
+        with open(MANIFEST) as fh:
+            _MANIFEST_JSON = json.load(fh)
+    return _MANIFEST_JSON
+
 
 # The real panel. docs/04-ART-DIRECTION.md and the notch geometry: the drop-down
 # is 720x400, and 1x is the only scale a normal room uses now that the camera
@@ -112,6 +125,8 @@ CHAR_H = 64
 # `RoomScene.surfaceDepthBias` resolves a desk's depth against — see
 # `desk_depth_bias`.
 SHORTEST_HEAD = 44
+# The direction the seated pose is drawn in. `RoomLayout.seatedFacing`.
+SEATED_FACING = "right"
 VOID = (18, 18, 22, 255)
 
 
@@ -168,32 +183,185 @@ def seat_y(index):
     return BACK_SEAT_ROW_Y if seat_ring(index) % 2 else BASELINE_Y
 
 
-def desk_depth_bias(desk_height):
+SCENERY_COLUMNS = sorted(
+    x for x in
+    [min(seat_x(s) for s in range(SEAT_CAPACITY)) - TILE * 1.5]
+    + [seat_x(s) + TILE * 1.5 for s in range(SEAT_CAPACITY)]
+    if 0 < x < WIDTH)
+OVERFLOW_PLATE_X = seat_x(0) + TILE * 1.5
+
+
+def scenery_anchors(band):
+    """Transcribed from `RoomLayout.sceneryAnchors(_:)`. [M8 Phase 2b]
+
+    The eight columns are the gaps between the seat columns, which are the only
+    floor in this room no route ever crosses. `wall` is the exception: it hangs
+    two tiles up the wall face, above the line where a leaver's feet stop, so it
+    may use the seat columns and is behind everything.
+    """
+    if band == "wall":
+        return [(x, WALL_BASE_Y + TILE * 2)
+                for x in sorted(seat_x(s) for s in range(SEAT_CAPACITY))]
+    if band == "wall_line":
+        return [(x, WALL_BASE_Y) for i, x in enumerate(SCENERY_COLUMNS)
+                if i % 2 == 0 and x != OVERFLOW_PLATE_X]
+    if band == "back_floor":
+        return [(x, WALL_BASE_Y - TILE) for i, x in enumerate(SCENERY_COLUMNS)
+                if i == 0 or i % 2]
+    if band == "mid_floor":
+        return [(x, BACK_SEAT_ROW_Y + TILE) for i, x in enumerate(SCENERY_COLUMNS)
+                if i == 0 or i % 2]
+    return []
+
+
+SCENERY_BANDS = ("wall", "wall_line", "back_floor", "mid_floor")
+
+
+def scenery_layout(theme):
+    """`(prop, x, y)` for every piece of a theme's scenery, in the order the
+    scene draws it.
+
+    Kept out of `prop_layout()` on purpose. That function is what
+    `role_placements()` counts, and the census exists for one thing only — the
+    motion budget, which prices a *role* by the copies of it on the panel.
+    Scenery may not animate at all (`scripts/lint-palette.py` fails a manifest
+    where it does), so it has no place in that count and folding it in would
+    make the budget's own table harder to read for nothing.
+    """
+    declared = theme.get("props", {}).get("scenery", []) or []
+    placed = []
+    for band in SCENERY_BANDS:
+        props = [e for e in declared if e.get("band") == band]
+        if not props:
+            continue
+        for i, (x, y) in enumerate(scenery_anchors(band)):
+            placed.append((props[i % len(props)], x, y))
+    return placed
+
+
+def _neck_row(w, h, px):
+    """`SeatedHead.neckRow(of:)`. The first row of the sprite that is not head."""
+    counts = []
+    for y in range(h):
+        counts.append(sum(1 for x in range(w) if px[(y * w + x) * 4 + 3] > 0))
+    inked = [y for y in range(h) if counts[y] > 0]
+    if not inked:
+        return None
+    last_ink = inked[-1]
+    widest = max(counts)
+    if widest <= 0:
+        return None
+    last_widest = max(y for y in range(h) if counts[y] == widest)
+    if last_widest >= last_ink:
+        return last_ink + 1
+    row = last_widest
+    while row + 1 <= last_ink and counts[row + 1] <= counts[row]:
+        row += 1
+    narrowest = counts[row]
+    while row - 1 > last_widest and counts[row - 1] == narrowest:
+        row -= 1
+    return row
+
+
+_SEATED_HEAD = None
+
+
+def seated_head(manifest):
+    """`SeatedHead` ported: `(canvas_w, canvas_h, suffix_clearance)` or None.
+
+    How tall a surface standing at a given near edge may be before it covers a
+    head pixel, measured over every seated frame of every cast variant — the
+    same measurement `RoomScene.seatedHeadMeasurement` takes, off the same art.
+
+    **It is ported rather than approximated, because approximating it is what
+    was wrong here.** This file used to answer the desk's depth with
+    `height > 44`, a single number standing in for the shortest head; the scene
+    has answered it two-dimensionally since M7e, because a desk is centred seven
+    eighths of a tile to the character's right and a *wider* desk therefore
+    reaches *further left* across the body. The same 36 px desk clears every
+    head at `+12` and covers six of them at `+8`. `mission_control`'s 40x36
+    equipment table is exactly that case, and the two files disagreed about it
+    at every one of the seven seats — 392 px — with nothing failing, because
+    `spriteroom_binary()` was resolving to a `.build/release/spriteroom` older
+    than the fix.
+    """
+    global _SEATED_HEAD
+    if _SEATED_HEAD is not None:
+        return _SEATED_HEAD or None
+    variants = manifest.get("characters", {}).get("variants", {})
+    per_column, pixels, measured, size = None, 0, 0, None
+    for name in sorted(variants):
+        state = variants[name].get("states", {}).get("working", {})
+        for path in state.get("frames", {}).get(SEATED_FACING, []) or []:
+            w, h, px = load(path)
+            if size is None:
+                size = (w, h)
+                per_column = [None] * w
+            elif (w, h) != size:
+                continue
+            neck = _neck_row(w, h, px)
+            if neck is None:
+                continue
+            measured += 1
+            for y in range(min(neck, h)):
+                for x in range(w):
+                    if px[(y * w + x) * 4 + 3] > 0:
+                        pixels += 1
+                        below = h - 1 - y
+                        if per_column[x] is None or below < per_column[x]:
+                            per_column[x] = below
+    if not measured or not pixels or size is None:
+        _SEATED_HEAD = False
+        return None
+    w, h = size
+    suffix = list(per_column)
+    for i in range(w - 2, -1, -1):
+        if suffix[i + 1] is not None and (suffix[i] is None or suffix[i + 1] < suffix[i]):
+            suffix[i] = suffix[i + 1]
+    _SEATED_HEAD = (w, h, suffix)
+    return _SEATED_HEAD
+
+
+def seated_head_clearance(manifest, near_edge_x):
+    """`SeatedHead.clearance(nearEdgeX:)`. 0 when nothing could be measured —
+    a clearance we cannot measure is not a clearance we may assume."""
+    head = seated_head(manifest)
+    if head is None:
+        return 0
+    w, h, suffix = head
+    column = int(math.floor(near_edge_x + w / 2.0))
+    if column < 0:
+        return suffix[0] if suffix[0] is not None else h
+    if column >= w:
+        return h
+    return suffix[column] if suffix[column] is not None else h
+
+
+def desk_depth_bias(desk_height, near_edge_x=None, manifest=None):
     """Transcribed from `RoomScene.surfaceDepthBias(deskHeight:headClearance:)`.
 
     A desk short enough to sit at is drawn **in front of** the body: at 32 px the
     only cue that a character is sitting *at* a desk rather than beside one is
-    whether the desk's near edge crosses it. A desk taller than the shortest
-    head goes **behind** the body and behind the chair instead, because at that
-    height the near-edge cue is not weakened but moot — `library`'s 56x70
-    desk-with-an-open-book covered the whole body including the face at every
-    seat, in a room whose characters are the subject.
-
-    That desk was replaced at M7e (set 5 single 26 -> single 8, 32x44) and no
-    theme currently binds one over the head line, so the behind case is unused
-    by the shipped manifest. It is not dead code and must not be dropped: it is
-    what stops the next theme's art being able to hide a face, and the fact that
-    nothing exercises it today is a fact about six themes, not about the rule.
+    whether the desk's near edge crosses it. A desk taller than the head
+    clearance at its own near edge goes **behind** the body and behind the chair
+    instead, because at that height the near-edge cue is not weakened but moot —
+    a desk that covers the whole body including the face, in a room whose
+    characters are the subject.
 
     `None` means "this theme declares no desk", which is the placeholder path;
-    the placeholder is 26 px tall and therefore always the in-front case.
+    the placeholder is 26 px tall and therefore always the in-front case. With
+    no manifest to measure the cast from, the old constant is the fallback.
     """
-    if desk_height is not None and desk_height > SHORTEST_HEAD:
-        return -0.5
-    return 0.5
+    if desk_height is None:
+        return 0.5
+    if manifest is not None and near_edge_x is not None:
+        clearance = seated_head_clearance(manifest, near_edge_x)
+    else:
+        clearance = SHORTEST_HEAD
+    return -0.5 if desk_height > clearance else 0.5
 
 
-def prop_layout(desk_height=None):
+def prop_layout(desk_height=None, desk_near_edge_x=None, manifest=None):
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
     Scene coordinates, y-up, the point being the content box's bottom-centre.
@@ -249,7 +417,7 @@ def prop_layout(desk_height=None):
     # that overlap is the only cue the character is sitting *at* the desk.
     for seat in range(SEAT_CAPACITY):
         placed.append(("chair", seat_x(seat), seat_y(seat), -0.25))
-    bias = desk_depth_bias(desk_height)
+    bias = desk_depth_bias(desk_height, desk_near_edge_x, manifest)
     for seat in range(SEAT_CAPACITY):
         placed.append(("desk", seat_x(seat) + TILE * 0.875, seat_y(seat), bias))
     return placed
@@ -496,9 +664,20 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # desk's depth is a function of *this theme's* desk, so the height goes in
     # rather than the bias being a constant — see `desk_depth_bias`.
     desk = roles.get("desk")
+    # The near edge is where the layout puts this desk, not a property of its
+    # box: the desk is centred `TILE * 0.875` to the character's right and
+    # anchored on its own content box, so a wider desk reaches further left
+    # across the body. `RoomScene.surfaceNearEdgeX(of:layout:)`.
+    near_edge = (TILE * 0.875 - desk["content_box"]["w"] / 2.0) if desk else None
     for role_name, x, y, bias in prop_layout(
-            desk["content_box"]["h"] if desk else None):
+            desk["content_box"]["h"] if desk else None, near_edge, manifest_json()):
         add_prop(role_name, x, y, bias=bias)
+
+    # The scenery, drawn from `scenery_layout()` and deliberately not counted:
+    # see that function for why it stays out of the census.
+    for entry, x, y in scenery_layout(theme):
+        left, top = prop_origin(entry, canvas, x, y)
+        drawn.append((y, "prop", (entry["file"], left, top)))
 
     # A body at the occupied seats. Depth sorting puts it between its chair and
     # its desk, which is what the biases in `prop_layout()` are for.
@@ -800,8 +979,16 @@ def scene_render(binary, theme, out_dir, fixture=VERIFY_FIXTURE, at=VERIFY_AT,
     user's screen, and it must not bind a port.
     """
     w, h = panel
+    # `--render-scale 1`, and it is not a convenience. This tool draws at
+    # SCALE = 1 and registers both pictures on the 1344x672 tile field they
+    # both paint; an EMPTY room takes 2x from the population ladder, at which
+    # the field is 2688x1344 and cannot fit any frame worth comparing over. The
+    # check reported agreement anyway for as long as `.build/release/spriteroom`
+    # was older than that camera policy, which is the failure mode this whole
+    # file exists to close. See `SceneBinding.pinnedScale`.
     cmd = [binary, os.path.join(REPO, fixture), "--render", out_dir,
-           "--theme", theme, "--at", "%g" % at, "--size", "%dx%d" % (w, h)]
+           "--theme", theme, "--at", "%g" % at, "--render-scale", "1",
+           "--size", "%dx%d" % (w, h)]
     try:
         run = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True,
                              timeout=300)
@@ -817,6 +1004,30 @@ def scene_render(binary, theme, out_dir, fixture=VERIFY_FIXTURE, at=VERIFY_AT,
     if not written:
         return None, "%s --render wrote no PNG" % binary
     return pnglite.load(written[-1]), None
+
+
+# **One unit per channel, and it is a compositing rounding difference rather
+# than a tolerance on placement.**
+#
+# `blit` above is integer alpha-over — `(src*a + dst*(255-a)) // 255`, floored —
+# and SpriteKit blends premultiplied floats and rounds. On a fully opaque pixel
+# the two agree exactly, which is why this was never needed: every prop either
+# pack ships is hard-edged. `mission_control`'s locker bank is the first with a
+# translucent panel, and its 744 semi-alpha pixels came out one unit darker in
+# the scene than here, on every one of them — 744 measured differences, 744
+# pixels of glass, exactly.
+#
+# It cannot hide what this check is for. A prop drawn one pixel out of place
+# moves a hard edge, and a hard edge in this art is a step of tens of units; a
+# missing or phantom copy is the difference between prop ink and bare floor.
+# Neither survives a threshold of one. Anything larger would start to, so this
+# is one and is compared per channel rather than summed.
+COMPOSITE_EPSILON = 1
+
+
+def _same(a, b):
+    """Whether two RGBA pixels agree to within the compositing epsilon."""
+    return a == b or all(abs(x - y) <= COMPOSITE_EPSILON for x, y in zip(a, b))
 
 
 def _classify(scene, preview, room, offset, box):
@@ -859,11 +1070,11 @@ def _classify(scene, preview, room, offset, box):
         for x in range(x_from, x_to + 1):
             i = base_p + x * 4
             j = base_s + (x + dx) * 4
-            if ppx[i:i + 4] == spx[j:j + 4]:
+            if _same(ppx[i:i + 4], spx[j:j + 4]):
                 continue
             bare = rpx[i:i + 4]
-            preview_ink = ppx[i:i + 4] != bare
-            scene_ink = spx[j:j + 4] != bare
+            preview_ink = not _same(ppx[i:i + 4], bare)
+            scene_ink = not _same(spx[j:j + 4], bare)
             if preview_ink and scene_ink:
                 out["moved"].append((x, y))
             elif preview_ink:
@@ -884,7 +1095,8 @@ def _mismatch_count(scene, preview, offset, points):
         if sx < 0 or sy < 0 or sx >= sw or sy >= sh:
             bad += 1
             continue
-        if ppx[(y * pw + x) * 4:(y * pw + x) * 4 + 4] != spx[(sy * sw + sx) * 4:(sy * sw + sx) * 4 + 4]:
+        if not _same(ppx[(y * pw + x) * 4:(y * pw + x) * 4 + 4],
+                     spx[(sy * sw + sx) * 4:(sy * sw + sx) * 4 + 4]):
             bad += 1
     return bad
 

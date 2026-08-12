@@ -1514,6 +1514,15 @@ struct RoomSceneTests {
     ///
     /// Counts are asserted too, because they are what the motion budget is
     /// priced on: this rearrangement had to be free. [ADR-002 §14b]
+    ///
+    /// **`scenery` is excluded, and only `scenery`.** M8 Phase 2b added a second,
+    /// larger band of furniture upstage of these two, and it is priced by
+    /// `SceneryContractTests` rather than here — the motion budget's own
+    /// question, *how many copies of the role that carries the animation does
+    /// the room draw*, is still exactly the count below. Excluding it by
+    /// identity (`sceneryNodesForTesting`) rather than by position is deliberate:
+    /// a position filter would silently start counting a scenery band that moved
+    /// onto one of these rows.
     @Test(.enabled(if: SceneArt.isAvailable))
     func decorationIsSpreadAcrossTheRoomAndStandsAtTwoDepths() throws {
         let manifest = try SceneFixtures.manifest()
@@ -1524,8 +1533,10 @@ struct RoomSceneTests {
             // Only the two decorative roles; the desks and chairs at every seat
             // are placed by the seat, not by this band.
             let seatRows = Set(layout.seatRows)
+            let scenery = Set(scene.sceneryNodesForTesting.map(ObjectIdentifier.init))
             let decoration = scene.propNodesForTesting.filter {
                 !seatRows.contains(Double($0.position.y))
+                    && !scenery.contains(ObjectIdentifier($0))
             }
             #expect(decoration.count == layout.seatCapacity, Comment(rawValue:
                 "\(theme ?? "room") drew \(decoration.count) decorative props"))

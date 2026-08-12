@@ -98,6 +98,43 @@ PROP_ROLES = {
     "plant": {"index": 99,  "what": "small potted plant, floor standing"},
     "board": {"index": 171, "what": "presentation board on a stand, floor standing, "
                                     "chart on the face"},
+    # **The three desk-top declarations, and they were missing from this table
+    # for as long as they have been in the manifest.** [ADR-006 §1a, §2c]
+    #
+    # They reached `assets/manifest.json` without reaching the generator, so
+    # every `python3 scripts/build-manifest.py` since silently dropped all three
+    # — `room.props.roles` is a GUARDED_SECTION, but the guard fires only when a
+    # whole section is lost, and three of seven keys is not a section. Found by
+    # regenerating and watching `DeskTopObjectTests` crash on a nil role. The
+    # `what` and `identified_by` text below is the manifest's own, restored
+    # verbatim, so the generator now reproduces the file it is supposed to own.
+    "laptop": {
+        "index": 135,
+        "what": "open laptop, lid up, 3/4 view, screen showing two faint icon dots "
+                "- a wedge silhouette, unbound: no scene code reads this role yet "
+                "[ADR-006 SS1a authoring]",
+        "identified_by": "rendered and inspected by eye for ADR-006; verified against "
+                         "the desk-top width bound derived in ADR-006 SS2c (W <= 28px) "
+                         "rather than trusted from the ADR's own table",
+    },
+    "papers": {
+        "index": 153,
+        "what": "small stack of a few loose sheets, angled - a low flat slab "
+                "silhouette, unbound: no scene code reads this role yet "
+                "[ADR-006 SS1a research]",
+        "identified_by": "rendered and inspected by eye for ADR-006; the two taller "
+                         "stacks at singles 154 and 155 read the same family but "
+                         "measure 32px wide, over the SS2c width bound, so only 153 is "
+                         "declared",
+    },
+    "pad": {
+        "index": 179,
+        "what": "book or pad standing upright on its spine, on a small base - a thin "
+                "upright board silhouette, unbound: no scene code reads this role yet "
+                "[ADR-006 SS1a coordinating]",
+        "identified_by": "rendered and inspected by eye for ADR-006; the pack ships no "
+                         "names for its singles",
+    },
 }
 
 
@@ -415,8 +452,10 @@ def build_room():
             "file": rel(path),
             "single_index": spec["index"],
             "provenance": "pack",
-            "identified_by": "rendered and inspected by eye at M5; the pack ships no "
-                             "names for its singles",
+            "identified_by": spec.get(
+                "identified_by",
+                "rendered and inspected by eye at M5; the pack ships no "
+                "names for its singles"),
             "what": spec["what"],
             "content_box": box,
         }
@@ -451,9 +490,31 @@ def build_room():
                     "carries `surface_y`: how many px above the floor its top surface "
                     "sits, measured by the topmost row of an 80%%-of-box-width ink run "
                     "rather than by the box's own top — the two disagree wherever "
-                    "something is drawn standing on the desk. [ADR-006 SS2b]"
+                    "something is drawn standing on the desk. [ADR-006 SS2b] "
+                    "`laptop`, `papers` and `pad` are desk-top object "
+                    "declarations for ADR-006 SS1/SS2c — measured content_box "
+                    "only, not yet placed by any scene code. A fourth kind, a "
+                    "desk monitor with a lit screen for `running`, is "
+                    "deliberately not declared: every candidate single in the "
+                    "pack's desk-scale band (130-134, 30-32px wide) exceeds the "
+                    "SS2c desk-top width bound of 28px, so no compliant art "
+                    "exists for it. "
+                    "`scenery` points into processed/themes/office/, not into "
+                    "the folder above: `room` IS the resolved default theme "
+                    "[ADR-002 SS14a] and its dressing has to be byte-identical to "
+                    "themes.sets.office's or the same room would be two rooms. "
+                    "Six of the office scenery props come from the Hospital set "
+                    "— the only bins, filing cabinets, wall clocks and schedule "
+                    "boards in either pack — and the room singles folder holds "
+                    "the Office set only, so it could not carry them at all."
                     % (len(roles), len(props) - len(roles)),
+            "scenery_note": SCENERY_NOTE,
             "roles": roles,
+            "scenery": scenery_entries(
+                "office", _theme_table().get("office", {}),
+                lambda i, band, _set, _single: os.path.join(
+                    PROCESSED, "themes", "office", SIZE, "scenery",
+                    "%02d_%s.png" % (i, band))),
             "files": props,
         },
     }
@@ -564,6 +625,62 @@ def build_stations(base):
         "roles": roles,
         "assignable": assignable,
     }
+
+
+SCENERY_NOTE = (
+    "`scenery` is the room's dressing: everything the four roles above are not "
+    "— printers, cabinets, bins, coolers, wall boards. An ordered list, not a "
+    "map, because the order is what maps a prop onto an anchor. Each entry "
+    "carries a `band` — `wall`, `wall_line`, `back_floor`, `mid_floor` — and "
+    "that is the ONLY placement fact here: which column and which y is scene "
+    "geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with "
+    "no code change. The band is hand-authored in scripts/process-assets.py, "
+    "because it cannot be derived — docs/PLACEMENT-BANDS.md is the measured "
+    "negative result. A band the scene does not know draws nothing rather than "
+    "guessing. Scenery is chosen by theme, decided at build time and identical "
+    "for every agent; nothing in the delta stream reaches it, and none of it "
+    "may ever carry an `animation` — the motion budget is priced on the four "
+    "roles. [ADR-002 SS6 rule 1, SS14b, I1]"
+)
+
+
+def scenery_entries(theme_name, spec, path_for):
+    """`props.scenery` for one room: the declared list, measured off disk.
+
+    `path_for(index, band)` says where this room keeps the cut file, which is
+    the one thing `room` and `themes.sets.<id>` do differently — the default
+    room draws the Office singles straight out of `processed/room/`, and a theme
+    draws its own re-padded copies. Everything else, including the order, is one
+    list in `scripts/process-assets.py`: two copies of it would be two rooms.
+
+    An entry whose file is missing or unmeasurable is dropped, so the manifest
+    never names art that is not there.
+    """
+    out = []
+    for index, entry in enumerate(spec.get("scenery", ())):
+        band, setno, single, what = entry
+        path = path_for(index, band, setno, single)
+        if path is None or not os.path.exists(path):
+            continue
+        box = content_box(path)
+        if box is None:
+            continue
+        out.append({
+            "band": band,
+            "file": rel(path),
+            "source_set": "Modern Office singles" if setno == "office"
+                          else "Modern Interiors Theme Sorter set %s" % setno,
+            "single_index": single,
+            "provenance": "pack",
+            "identified_by": "named in assets/catalogue.json by "
+                             "scripts/name-catalogue.py, then rendered at 6x with "
+                             "its content box drawn and looked at before the index "
+                             "was written into scripts/process-assets.py; the packs "
+                             "ship no names for their singles",
+            "what": what,
+            "content_box": box,
+        })
+    return out
 
 
 def _importer():
@@ -913,7 +1030,12 @@ def build_themes():
                                   "mean(transition_px) * fps, summed over every copy the "
                                   "room draws, against the quietest looping animation in "
                                   "the cast.",
+                "scenery_note": SCENERY_NOTE,
                 "roles": roles,
+                "scenery": scenery_entries(
+                    name, spec,
+                    lambda i, band, _set, _single: os.path.join(
+                        tdir, "scenery", "%02d_%s.png" % (i, band))),
             },
         }
     if not sets:
@@ -1065,6 +1187,7 @@ GUARDED_SECTIONS = (
     ("characters", "variants"),
     ("characters", "costumes", "sets"),
     ("room", "props", "roles"),
+    ("room", "props", "scenery"),
     ("room", "props", "stations", "sets"),
     ("badges", "map"),
     ("themes", "sets"),

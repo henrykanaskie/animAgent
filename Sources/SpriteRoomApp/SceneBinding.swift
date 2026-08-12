@@ -70,9 +70,51 @@ final class SceneBinding {
     /// open-call set has just emptied is by definition not producing deltas.
     /// Guarding on `!deltas.isEmpty` would leave the beat up until that agent's
     /// next event, which the M7a capture measures at a mean of 18.5 s.
+    /// **`--render-scale`: hold the camera at one rung of the ladder.**
+    ///
+    /// `nil` — the default and the only value the shipped app ever has — means
+    /// the population decides, which is `RoomCamera.scale(forPopulation:)`.
+    ///
+    /// It exists for `scripts/preview-theme.py --verify`, which compares the
+    /// room `--render` draws against its own composition **pixel for pixel** and
+    /// has to register the two pictures on the tile field they both paint. That
+    /// registration needs the whole field inside the frame, and the field is
+    /// 1344×672 unscaled: at `1x` it fits a 1600×900 render with margin, at `2x`
+    /// it is 2688×1344 and cannot fit any frame that tool would want to compare
+    /// over. An *empty* room — which is the only room that harness compares,
+    /// because a character on stage is ink it does not model — takes `2x` from
+    /// `defaultComfortablePopulation`, so the check had no way to see the room
+    /// at all.
+    ///
+    /// It was passing anyway, against a **stale `.build/release/spriteroom`**:
+    /// `spriteroom_binary()` prefers the release build, and the one on the
+    /// maintainer's disk predated the camera policy that made an empty room
+    /// `2x`. Rebuilding it is what surfaced this. So the check has been
+    /// comparing a current room against an old binary rather than failing, which
+    /// is the same class of defect as M6e's two agreeing transcriptions and is
+    /// recorded here for the same reason.
+    ///
+    /// Pinning the scale is honest for what this check measures. Placement is in
+    /// **scene** coordinates and a scale is a property of the camera, not of the
+    /// room; the real `RoomScene` still draws through the real `SKRenderer`, and
+    /// `1x` is the rung the shipped panel uses for any room with four or more
+    /// agents in it. Nothing but the harness sets it.
+    var pinnedScale: Int? {
+        didSet {
+            guard let pinnedScale else { return }
+            scene.apply([.setScale(pinnedScale)])
+        }
+    }
+
     @discardableResult
     func apply(_ deltas: [WorldDelta], at now: Date) -> [SpriteIntent] {
-        let intents = director.apply(deltas, at: now)
+        var intents = director.apply(deltas, at: now)
+        if let pinnedScale {
+            intents = intents.map {
+                if case .setScale = $0 { return .setScale(pinnedScale) }
+                return $0
+            }
+        }
         guard !intents.isEmpty else { return [] }
         scene.apply(intents)
         return intents

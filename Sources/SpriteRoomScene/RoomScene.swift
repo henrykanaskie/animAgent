@@ -222,6 +222,52 @@ public final class RoomScene: SKScene {
             place(role: placement.role, at: placement.point)
         }
 
+        // **The scenery: everything the four roles above are not.** [M8 Phase 2b]
+        //
+        // The maintainer looked at the shipped room and asked for the density of
+        // `scripts/compose-scene.py`'s composed scenes — 88 props against this
+        // room's four bound roles and roughly 335 processed singles going
+        // unused. This is that, and the whole of the mechanism is: the manifest
+        // says *what* and *which depth band*, `RoomLayout.sceneryAnchors(_:)`
+        // says *where*, and the two never negotiate. Swapping the art is a
+        // manifest change with no code in it, which is the standing rule for
+        // every asset in this project.
+        //
+        // **Three things about it are not composition, and each has a test.**
+        //
+        // - It is drawn once, here, in `buildRoom`, from the theme alone. There
+        //   is no path from a `WorldDelta` to any of it and there must not be:
+        //   a prop that changed because an agent did something is the fiction
+        //   ADR-002 §6 rule 1 exists to prevent. It goes in `propNodes` with the
+        //   rest of the furniture, so the "zero prop-node rebuilds across a
+        //   whole fixture replay" assertion already covers it.
+        // - Nothing stands in a seat column. Every route in this room is either
+        //   straight up a character's own column or lateral on `deliveryRowY`,
+        //   so the columns and that one row are the two things a prop may never
+        //   touch. `sceneryColumns` is the gaps between them, and the `wall`
+        //   band is the one exception — it hangs two tiles up the wall face,
+        //   above the line where a leaver's feet stop.
+        // - Nothing is nearer the camera than the seat row, which is the rule
+        //   that replaced M5's foreground row and is stated again below.
+        //
+        // Entries are assigned to anchors in declaration order and repeat to
+        // fill the band, so a theme that owns three good props gets a full band
+        // of them rather than four bare anchors. That is the pack's own habit —
+        // `Office_Design_2` repeats one plant in three corners — and it is what
+        // keeps a thin theme honest instead of padded with props nobody looked
+        // at.
+        for band in RoomLayout.SceneryBand.allCases {
+            let props = store.room.scenery(band)
+            guard !props.isEmpty else { continue }
+            for (index, point) in layout.sceneryAnchors(band).enumerated() {
+                let prop = props[index % props.count]
+                guard let node = place(prop: prop, at: point, depthBias: 0) else { continue }
+                propNodes.append(node)
+                propPaths.append(prop.file)
+                sceneryNodes.append(node)
+            }
+        }
+
         // **There is no foreground row, and the rule that replaced it is
         // stronger than the one it replaced.**
         //
@@ -821,6 +867,12 @@ public final class RoomScene: SKScene {
 
     private var propNodes: [SKSpriteNode] = []
     private var propPaths: [String] = []
+    /// The scenery subset of `propNodes`, so a test can tell the room's dressing
+    /// from the four bound roles without re-deriving which is which from
+    /// positions. [M8 Phase 2b]
+    private var sceneryNodes: [SKSpriteNode] = []
+
+    var sceneryNodesForTesting: [SKSpriteNode] { sceneryNodes }
 
     /// The props that idle on their own loop. [ADR-002 §14b]
     ///
@@ -1353,6 +1405,21 @@ public final class RoomScene: SKScene {
         for placement in Self.decorationPlacements(layout: layout) {
             guard let prop = store.room.prop(placement.role) else { continue }
             top = max(top, placement.point.y + Double(prop.contentBox.height))
+        }
+        // **The scenery counts, and the `wall` band is usually what decides it.**
+        // A picture two tiles up the wall face is the highest thing the room
+        // draws in five of six themes, and a camera that measured only the
+        // backdrops would aim below it and crop it — which is the exact defect
+        // this accessor was written against, one band further up. It costs a
+        // little of the dead floor under the room and nothing else: the aim is
+        // clamped by the slack the scale left, and at `2x` and `3x` that clamp
+        // binds first, so the close views are unmoved.
+        for band in RoomLayout.SceneryBand.allCases {
+            let props = store.room.scenery(band)
+            guard !props.isEmpty else { continue }
+            for (index, point) in layout.sceneryAnchors(band).enumerated() {
+                top = max(top, point.y + Double(props[index % props.count].contentBox.height))
+            }
         }
         return top
     }

@@ -79,6 +79,11 @@ struct Options {
     var forcePanelRender = false
     var renderDirectory: URL?
     var renderTimes: [Double] = []
+    /// `--render-scale N`: hold the camera at one rung instead of letting the
+    /// population pick. Only `scripts/preview-theme.py --verify` sets it — see
+    /// `SceneBinding.pinnedScale` for why that check cannot register the room
+    /// without it.
+    var renderScale: Int?
     var width = 960
     var height = 540
     /// Window mode: capture the live `SKView` at the `--at` marks, then quit.
@@ -123,6 +128,9 @@ func usage() -> String {
       --theme ID         room to draw with --render/--window; 'list' names them.
                          Default: the theme the app derives from the fixture's cwd
       --at T[,T...]      fixture seconds to render at (with --render)
+      --render-scale N   hold the camera at Nx instead of letting the
+                         population pick it. For scripts/preview-theme.py
+                         --verify, which has to see the whole tile field
       --size WxH         viewport size in pixels (default 960x540)
       --window-render DIR  open the window, capture the live SKView at --at, quit
       --panel-render DIR   reveal the REAL panel over your screen and capture it;
@@ -234,6 +242,11 @@ func parse(_ arguments: [String]) -> Options? {
         case "--at":
             guard let value = next() else { print("--at needs times"); return nil }
             options.renderTimes = value.split(separator: ",").compactMap { Double($0) }
+        case "--render-scale":
+            guard let value = next(), let scale = Int(value), scale > 0 else {
+                print("--render-scale needs a positive integer scale"); return nil
+            }
+            options.renderScale = scale
         case "--size":
             guard let value = next() else { print("--size needs WxH"); return nil }
             let parts = value.split(separator: "x").compactMap { Int($0) }
@@ -594,6 +607,7 @@ func renderOffscreen(options: Options, root: URL, entries: [HookLogEntry]) async
     // not dressed for, silently, because both halves are individually valid.
     // [ADR-002 §8 item 5]
     let binding = SceneBinding(manifest: manifest, themeID: themeID, viewport: viewport)
+    binding.pinnedScale = options.renderScale
     let scene = binding.scene
     let driver = ReplayDriver()
     let renderer = try OffscreenRenderer(

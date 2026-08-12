@@ -50,6 +50,19 @@ USERINTERFACE = os.path.join(ASSETS, "modernuserinterface-win")
 OUT = os.path.join(ASSETS, "processed")
 STATE = os.path.join(OUT, ".import-state.json")
 
+# The subtrees of `processed/` this importer owns, and therefore the only ones
+# `prune()` may delete out of.
+#
+# **It used to walk the whole of `OUT`, and that deleted somebody else's art.**
+# `scripts/import-catalogue.py` writes 12,279 byte copies into
+# `processed/catalogue/`, keeps no entry in this script's state file, and is a
+# different pass with a different idempotency argument. So a plain
+# `python3 scripts/process-assets.py` removed every one of them — silently, in
+# the `prune()` line of its own summary, and the catalogue only reappears after
+# an 87 s re-import. Naming the roots is what makes "delete outputs whose source
+# no longer produces them" a statement about *this* importer's outputs.
+OWNED = ("room", "themes", "animated", "characters", "costumes", "badges")
+
 # ---------------------------------------------------------------------------
 # Room palette transform [I7]
 # ---------------------------------------------------------------------------
@@ -147,6 +160,56 @@ THEME_WALLS = os.path.join(
 THEME_SINGLES = os.path.join(
     INTERIORS, "1_Interiors", "%s", "Theme_Sorter_Shadowless_Singles_%s")
 
+# ---------------------------------------------------------------------------
+# `scenery` — the room's dressing, added at M8 Phase 2b
+# ---------------------------------------------------------------------------
+#
+# The four roles above are the slots the scene's *arithmetic* needs. `scenery`
+# is everything else: the printers, cabinets, bins, coolers and wall boards that
+# make a floor read as a place rather than as four props on it. The maintainer
+# looked at the shipped room beside `scripts/compose-scene.py`'s composed scenes
+# — 88 props against this room's four bound roles — and asked for the second.
+#
+# Each entry is `(band, set, index, what)`.
+#
+# **`band` is a depth, and it is hand-authored.** Four values, and the scene
+# resolves each to a row and a set of columns
+# (`RoomLayout.sceneryAnchors(_:)`):
+#
+#   wall        hung two tiles up the wall face, in the seat columns
+#   wall_line   standing where the floor meets the wall
+#   back_floor  one row downstage of that
+#   mid_floor   one row upstage of the back seat row — the nearest scenery goes
+#
+# It is typed here rather than derived because **it cannot be derived.**
+# `docs/PLACEMENT-BANDS.md` is the measured negative result: `painting_framed`,
+# `desk_wood` and `table_console` come out geometrically identical on every
+# pixel signal available, 62% of the catalogue lands in `band_undetermined`, and
+# the generated `floor` band is contaminated (55 of `hat`'s 118 entries are in
+# it). So the band comes from the same place `compose-scene.py`'s per-placement
+# `kind` comes from: somebody rendered the prop and looked at it.
+#
+# **Ink dimensions were checked before each index was written here**, against
+# `RoomLayout.sceneryInkBound(_:)` — 46x40 on the wall, 56x72 on the wall line,
+# 56x40 on the two floor rows. A catalogue name is a family of pieces
+# [docs/06-SET-BUILDING.md §4], so the index is the *piece*, and the sizes are
+# what keeps a prop out of a seat column and stops it burying the prop a row
+# behind it. `SceneryContractTests` re-measures every one of them off the
+# shipped manifest, so a wrong index fails the suite rather than the eye.
+#
+# **A theme takes props from its own set first and from the Office and Hospital
+# sets where its own has no such object.** Both are neutral modern-interior
+# furniture in the same hand at the same 32x32 grid — the Hospital set is where
+# the only bins, filing cabinets, wall clocks and schedule boards in either pack
+# live — and `compose-scene.py`'s own engineering office mixes them the same
+# way. Nothing themed is borrowed: no hospital bed ever stands in an office.
+#
+# Props refused after looking at them, so the next pass does not re-propose
+# them (docs/06-SET-BUILDING.md §9 keeps the same list for the same reason):
+# office `box_cardboard` reads as a blank tan slab, `document_tray` as a filing
+# tower, `sofa` 62x48 as a floor grate, and office `partition` is five parts a
+# 6x86 bare pole.
+
 # (set number, single index). Set "office" means the Modern Office singles,
 # which is where the desk and the only usable chair come from.
 THEMES = {
@@ -161,6 +224,42 @@ THEMES = {
             "board": ("office", 171, "presentation board on a stand, chart on the face"),
             "plant": ("office", 99, "small potted plant, floor standing"),
         },
+        # The reference room. `Office_Design_2.gif` is what this is aimed at:
+        # boards and paper on the wall, a printer row and filing cabinets against
+        # it, bins and towers in the gaps.
+        "scenery": [
+            ("wall", "office", 96, "whiteboard with sticky notes"),
+            ("wall", 19, 266, "blue planning board — the Hospital set's, "
+                              "because the Office set has no wall board that is "
+                              "not on a floor stand"),
+            ("wall", "office", 113, "framed certificate with a medal"),
+            ("wall", "office", 161, "small framed picture"),
+            ("wall", 19, 333, "wall clock — neither pack draws one in the "
+                              "Office set"),
+            ("wall", "office", 97, "cork noticeboard with pinned notes"),
+            # Office 157-160, the framed portraits, were here and are refused:
+            # the pack draws all four TILTED on the wall, and at 1x a 20x30
+            # frame at an angle reads as a stray diagonal rather than a picture.
+            ("wall", 19, 248, "framed landscape painting"),
+            ("wall_line", "office", 173, "water cooler"),
+            ("wall_line", "office", 175, "vending machine"),
+            ("wall_line", "office", 320, "coffee counter with machine and cups"),
+            ("back_floor", 19, 344, "two-drawer filing cabinet"),
+            ("back_floor", "office", 148, "office printer"),
+            ("back_floor", "office", 165, "flatbed scanner"),
+            ("back_floor", "office", 177, "printer with a sheet in the output tray"),
+            ("back_floor", 19, 348, "wooden two-drawer cabinet"),
+            ("mid_floor", 19, 253, "waste bin"),
+            ("mid_floor", "office", 167, "PC tower"),
+            ("mid_floor", "office", 330, "backpack on the floor"),
+            ("mid_floor", 19, 255, "waste bin, full"),
+            # Office 154, a 32x30 stack of paper, was here and is refused for
+            # the reason 06-SET-BUILDING SS9 already records against `book`: on a
+            # floor at 1x it is a white lozenge, not a stack of anything. Four
+            # entries over five anchors, so the first bin repeats at the far
+            # end of the room rather than a fifth prop nobody wants being
+            # invented to fill it.
+        ],
     },
     # REBUILT at M6b. The first version passed the lint and failed the eye: it
     # read as grey monitors on a grey floor, and its own numbers agreed — the
@@ -229,6 +328,25 @@ THEMES = {
                                "wall, and along the foreground walkway it is the "
                                "second console row"),
         },
+        # Sets 18 (Jail), 19 (Hospital) and 25 (Shooting Range) are where this
+        # theme's own roles come from and they are where its dressing comes from
+        # too — the packs own no control room, so this room has always been
+        # assembled out of the three sets that draw institutional grey.
+        "scenery": [
+            ("wall", 18, 133, "wall-mounted security monitor"),
+            ("wall", 19, 265, "schedule board"),
+            ("wall", 19, 334, "wall clock"),
+            ("wall", 19, 244, "warning sign"),
+            ("wall_line", 19, 275, "steel locker bank"),
+            ("wall_line", 19, 105, "vending machine"),
+            ("wall_line", 25, 11, "floor-standing control panel"),
+            ("back_floor", 18, 123, "console keyboard unit"),
+            ("back_floor", 19, 344, "two-drawer filing cabinet"),
+            ("back_floor", 25, 27, "control box"),
+            ("mid_floor", 19, 253, "waste bin"),
+            ("mid_floor", 18, 127, "spare security monitor on the floor"),
+            ("mid_floor", 18, 97, "small waste bin"),
+        ],
     },
     "broadcast": {
         "title": "Broadcast Studio",
@@ -242,6 +360,22 @@ THEMES = {
             "board": (23, 8, "studio softbox light on a tripod, tall"),
             "plant": (23, 1, "film camera on a tripod"),
         },
+        # All of set 23. `green_screen` was refused: desaturated it is a flat
+        # pale rectangle, which is 06-SET-BUILDING SS9's `box_cardboard` again.
+        "scenery": [
+            ("wall", 23, 42, "blank wall monitor"),
+            ("wall", 23, 49, "broadcast monitor carrying a presenter"),
+            ("wall", 23, 46, "blank wall monitor, wider"),
+            ("wall_line", 23, 7, "film camera on a tall tripod"),
+            ("wall_line", 23, 5, "film camera on a short tripod"),
+            ("wall_line", 23, 77, "striped studio backdrop panel"),
+            ("back_floor", 23, 55, "news desk, plain front"),
+            ("back_floor", 23, 32, "round studio stool"),
+            ("back_floor", 23, 75, "striped studio backdrop panel, short"),
+            ("mid_floor", 23, 33, "round studio stool"),
+            ("mid_floor", 23, 72, "script pages on the floor"),
+            ("mid_floor", 23, 34, "round studio stool"),
+        ],
     },
     "library": {
         "title": "Reading Room",
@@ -276,6 +410,29 @@ THEMES = {
             "board": (5, 39, "green chalkboard on splayed legs"),
             "plant": (5, 57, "tall bookcase, full height, packed spines"),
         },
+        # All of set 5. It is the thinnest of the six for dressing — a classroom
+        # set is mostly desks, chairs and bookcases, and the roles already spend
+        # the bookcase — so three props a band rather than the office's four to
+        # seven, repeated round each band. `shelf_library` and `map_world` were
+        # both wanted and are both 64 px wide, past the 56 a scenery column has.
+        "scenery": [
+            # Set 5 draws exactly two flat wall objects that fit a scenery
+            # column: `chart_wall` is 62 px measured and `map_world` 64,
+            # both past the 56 a column has. Two props round seven anchors
+            # is what this set affords and padding it would mean placing
+            # something nobody looked at.
+            ("wall", 5, 33, "cork notice board"),
+            ("wall", 5, 36, "small blackboard"),
+            ("wall_line", 5, 54, "copier on a counter"),
+            ("wall_line", 5, 40, "lockers"),
+            ("wall_line", 5, 52, "wooden counter run, corner piece"),
+            ("back_floor", 5, 34, "globe on a stand"),
+            ("back_floor", 5, 41, "step ladder"),
+            ("back_floor", 5, 53, "wooden counter, short piece"),
+            ("mid_floor", 5, 35, "globe on a stand"),
+            ("mid_floor", 5, 42, "step ladder"),
+            ("mid_floor", 5, 6, "spare school desk"),
+        ],
     },
     "stage": {
         "title": "Rehearsal Room",
@@ -289,6 +446,23 @@ THEMES = {
             "board": (6, 37, "drum kit — kick, snare, toms, two cymbals on stands"),
             "plant": (6, 62, "microphone on a round-base stand"),
         },
+        # All of set 6.
+        "scenery": [
+            ("wall", 6, 108, "framed medal and citation"),
+            ("wall", 6, 96, "sports poster"),
+            ("wall", 6, 157, "trophy shelf"),
+            # `piano_upright` measures 58 px after the import pass — 2 px
+            # past a scenery column — so the tall guitar stands in for it.
+            ("wall_line", 6, 203, "electric guitar on a stand"),
+            ("wall_line", 6, 57, "concert harp"),
+            ("wall_line", 6, 43, "amplifier stack"),
+            ("back_floor", 6, 44, "combo amplifier"),
+            ("back_floor", 6, 69, "marching drum"),
+            ("back_floor", 6, 159, "trophy shelf, low"),
+            ("mid_floor", 6, 132, "trophy"),
+            ("mid_floor", 6, 230, "floor tom"),
+            ("mid_floor", 6, 61, "microphone stand"),
+        ],
     },
     "briefing": {
         "title": "Briefing Room",
@@ -306,6 +480,21 @@ THEMES = {
             "board": (13, 50, "flip chart — a white pad on a tripod easel"),
             "plant": (13, 1, "full-height hanging curtain panel"),
         },
+        # All of set 13.
+        "scenery": [
+            ("wall", 13, 54, "framed portrait poster"),
+            ("wall", 13, 64, "door in the back wall"),
+            ("wall", 13, 55, "framed portrait poster"),
+            ("wall_line", 13, 31, "grey lectern with a microphone"),
+            ("wall_line", 13, 29, "lectern with a lit screen"),
+            ("wall_line", 13, 45, "wooden lectern"),
+            ("back_floor", 13, 39, "stacking chair, back view"),
+            ("back_floor", 13, 40, "step ladder"),
+            ("back_floor", 13, 26, "lectern top"),
+            ("mid_floor", 13, 53, "microphone stand"),
+            ("mid_floor", 13, 47, "wall shelf edge"),
+            ("mid_floor", 13, 59, "fire extinguisher"),
+        ],
     },
 }
 
@@ -1531,6 +1720,34 @@ class Importer:
                     recolour(buf, self.cache, prop_floor)
                     self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
+                # Scenery. Same cut, same shadow strip, same value band, same
+                # canvas as a role — the only difference is that the filename
+                # carries the declaration order and the band, because a scenery
+                # entry has no unique name to key on and its order is what maps
+                # it onto an anchor.
+                for i, spec in enumerate(theme.get("scenery", ())):
+                    band, src_spec = spec[0], spec[1:]
+                    src = self._theme_source(size, src_spec)
+                    if src is None:
+                        self.log("  themes/%s: scenery %d source missing (%s:%s)"
+                                 % (name, i, src_spec[0], src_spec[1]))
+                        continue
+                    dst = os.path.join(base, "scenery", "%02d_%s.png" % (i, band))
+                    key = ("pad%dx%d:band%.3f:" % (PROP_CANVAS + (prop_floor,))
+                           + _digest(src))
+                    if self._fresh(dst, key):
+                        continue
+                    w, h, px = pnglite.load(src)
+                    self.shadow_px += strip_shadow(w, h, px)
+                    buf = self._pad(w, h, px, *PROP_CANVAS)
+                    if buf is None:
+                        self.log("  themes/%s: scenery %d is %dx%d and does not fit "
+                                 "the %dx%d prop canvas — skipped"
+                                 % ((name, i, w, h) + PROP_CANVAS))
+                        continue
+                    recolour(buf, self.cache, prop_floor)
+                    self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
+
                 if not have_builder or theme["floor"] is None:
                     continue
                 for kind, sheet, addr in (("floor", floors_p, theme["floor"]),
@@ -2063,21 +2280,28 @@ class Importer:
         hide the loss. Authored art and placeholders are left alone — a
         different script owns those, and they live under assets/authored/ and
         assets/placeholder/, not here.
+
+        **Scoped to `OWNED`.** `processed/` is not this script's alone —
+        `scripts/import-catalogue.py` puts 12,279 files in `processed/catalogue/`
+        — and a prune over the whole tree deletes them all. See `OWNED`.
         """
         removed = 0
-        for root, _dirs, files in os.walk(OUT):
-            for n in files:
-                if not n.lower().endswith(".png"):
-                    continue
-                p = os.path.join(root, n)
-                if os.path.relpath(p, OUT) not in self.new_state:
-                    os.remove(p)
-                    removed += 1
-        for root, dirs, _files in os.walk(OUT, topdown=False):
-            for d in dirs:
-                p = os.path.join(root, d)
-                if not os.listdir(p):
-                    os.rmdir(p)
+        roots = [os.path.join(OUT, d) for d in OWNED]
+        for base in roots:
+            for root, _dirs, files in os.walk(base):
+                for n in files:
+                    if not n.lower().endswith(".png"):
+                        continue
+                    p = os.path.join(root, n)
+                    if os.path.relpath(p, OUT) not in self.new_state:
+                        os.remove(p)
+                        removed += 1
+        for base in roots:
+            for root, dirs, _files in os.walk(base, topdown=False):
+                for d in dirs:
+                    p = os.path.join(root, d)
+                    if not os.listdir(p):
+                        os.rmdir(p)
         return removed
 
     def save_state(self):

@@ -488,6 +488,127 @@ public struct RoomLayout: Sendable, Hashable {
 
     public var seatedFacing: Facing { .right }
 
+    // MARK: Scenery [M8 Phase 2b]
+
+    /// **The eight columns a piece of scenery may stand on, in x order.**
+    ///
+    /// Every seat's `propColumnX` — half a pitch outward from the seat — plus
+    /// the one half a pitch outward from the leftmost seat, which no seat claims
+    /// because the seats fill outward in pairs and there are seven of them.
+    ///
+    /// **They are the only floor a prop may have**, and that is a fact about the
+    /// room's routes rather than a choice about composition. Every seat column
+    /// is a corridor from the delivery row to the wall line — `entranceRoute`,
+    /// `homeRoute` and `upstageExit` are all "straight up its own column" — so a
+    /// prop on one stands in somebody's way at some point in every session. The
+    /// gaps between the columns meet no route at all: nothing travels laterally
+    /// anywhere except on `deliveryRowY`, which is two rows downstage of the
+    /// nearest thing scenery is allowed to touch.
+    ///
+    /// A pitch is 96 px and a body is 32, so a gap is 64 px of clear floor with
+    /// the prop centred in it. `sceneryClearance` is the half-width that leaves.
+    public var sceneryColumns: [Double] {
+        let claimed = (0..<seatCapacity).map { propColumnX(forSeat: $0) }
+        let leftmost = (0..<seatCapacity).map { seatPosition($0).x }.min() ?? 0
+        return ([leftmost - Double(tile) * 1.5] + claimed)
+            .filter { $0 > 0 && $0 < width }
+            .sorted()
+    }
+
+    /// How far from a scenery column's centre a prop's ink may reach before it
+    /// touches a seat column. Half a pitch, less half a body.
+    public var sceneryClearance: Double { Double(tile) * 1.5 - Double(tile) / 2 }
+
+    /// **The four depths scenery stands at**, far to near.
+    ///
+    /// They are declared by the *manifest* per prop and resolved to a point
+    /// here, so the art can be swapped without the room moving. The vocabulary
+    /// is closed and an unrecognised band draws nothing — the same answer the
+    /// identity model gives an ambiguous attribution. [I1]
+    public enum SceneryBand: String, Sendable, CaseIterable {
+        /// Hung on the wall face, two tiles above the line where the wall meets
+        /// the floor. Nothing stands here — a leaver's feet stop at `wallBaseY`
+        /// — so this band alone may use the **seat** columns, and it is behind
+        /// everything the room draws.
+        case wall
+        /// Standing on the line where the floor meets the wall, in the gaps the
+        /// backdrops leave.
+        case wallLine = "wall_line"
+        /// One row downstage of the wall line.
+        case backFloor = "back_floor"
+        /// One row upstage of the back seat row — the nearest the camera any
+        /// scenery ever comes, and still a whole row behind the furthest-upstage
+        /// character.
+        case midFloor = "mid_floor"
+    }
+
+    /// Where the props of one band stand, bottom-centre, in x order.
+    ///
+    /// **Every column carries at most one prop per band, and the bands are
+    /// assigned so that no column stacks two things that would bury each
+    /// other.** The existing decoration is the fixed point this is built around:
+    /// `RoomScene` stands a backdrop on the wall line at the odd columns and an
+    /// accent a tile behind the back seat row at the even ones.
+    ///
+    /// | band | y | columns | why those |
+    /// |---|---|---|---|
+    /// | `wall` | `wallBaseY + 2·tile` | the seven **seat** columns | disjoint in x from every floor prop, and behind all of them |
+    /// | `wallLine` | `wallBaseY` | the even columns, less the overflow plate's | the odd ones hold the backdrops |
+    /// | `backFloor` | `wallBaseY − tile` | column 0 and the odd ones | an accent column already carries a full-height prop a row in front |
+    /// | `midFloor` | `backSeatRowY + tile` | column 0 and the odd ones | the even ones are the accent row itself |
+    ///
+    /// The one column that carries three floor props — 0, and the odd ones with
+    /// their backdrop — stacks them a row apart with the shortest nearest the
+    /// camera, which is what lets all three read. `sceneryInkBound(_:)` is that
+    /// argument as a number.
+    public func sceneryAnchors(_ band: SceneryBand) -> [ScenePoint] {
+        let columns = sceneryColumns
+        switch band {
+        case .wall:
+            return (0..<seatCapacity)
+                .map { seatPosition($0).x }
+                .sorted()
+                .map { ScenePoint(x: $0, y: wallBaseY + Double(tile * 2)) }
+        case .wallLine:
+            return columns.enumerated()
+                .filter { $0.offset.isMultiple(of: 2) && $0.element != overflowPlatePosition.x }
+                .map { ScenePoint(x: $0.element, y: wallBaseY) }
+        case .backFloor:
+            return columns.enumerated()
+                .filter { $0.offset == 0 || !$0.offset.isMultiple(of: 2) }
+                .map { ScenePoint(x: $0.element, y: wallBaseY - Double(tile)) }
+        case .midFloor:
+            return columns.enumerated()
+                .filter { $0.offset == 0 || !$0.offset.isMultiple(of: 2) }
+                .map { ScenePoint(x: $0.element, y: backSeatRowY + Double(tile)) }
+        }
+    }
+
+    /// **How big a prop in this band may be**, as `(width, height)` of ink.
+    ///
+    /// Width is one number everywhere: half a pitch less half a body, with 8 px
+    /// kept back so the clearance is visible rather than exactly zero. On the
+    /// floor that is the gap between two seat columns. On the wall it is the gap
+    /// to the nearest backdrop, and the same number covers it — the three themes
+    /// whose backdrop reaches above this band's own floor bind one 38, 32 and 30
+    /// px wide, which leaves 58 px of column even at the worst of them.
+    ///
+    /// Height is what stops one prop burying the one behind it [R7]. A row is a
+    /// tile, so a prop no taller than a tile tops out exactly where the prop a
+    /// row upstage of it begins and the two abut instead of overlapping. The two
+    /// floor bands are given a tile and a quarter rather than a tile, which
+    /// costs the prop behind them 8 px of its base and buys a pool of props
+    /// worth placing — a 32 px ceiling excludes almost every printer, cabinet
+    /// and bin in either pack. The wall-line band is the far plane of the floor
+    /// and has nothing behind it, so it takes the whole two tiles of wall face.
+    public func sceneryInkBound(_ band: SceneryBand) -> (width: Int, height: Int) {
+        switch band {
+        case .wall: return (Int(sceneryClearance * 2) - 8, tile + tile / 2)
+        case .wallLine: return (Int(sceneryClearance * 2) - 8, tile * 2 + 8)
+        case .backFloor, .midFloor: return (Int(sceneryClearance * 2) - 8, tile + tile / 4)
+        }
+    }
+
     /// Where a reporting subagent stands to deliver: down onto the delivery row
     /// and along it, to a spot beside the character it is reporting to.
     public var deliveryPosition: ScenePoint {

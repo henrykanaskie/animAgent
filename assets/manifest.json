@@ -4687,7 +4687,8 @@
         "h": 96
       },
       "identified": true,
-      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The roles below were identified by rendering the singles and looking at them; the other unidentified files are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b] `laptop`, `papers` and `pad` are desk-top object declarations for ADR-006 SS1/SS2c \u2014 measured content_box only, not yet placed by any scene code. A fourth kind, a desk monitor with a lit screen for `running`, is deliberately not declared: every candidate single in the pack's desk-scale band (130-134, 30-32px wide) exceeds the SS2c desk-top width bound of 28px, so no compliant art exists for it.",
+      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 7 roles below were identified by rendering the singles and looking at them; the other 332 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b] `laptop`, `papers` and `pad` are desk-top object declarations for ADR-006 SS1/SS2c \u2014 measured content_box only, not yet placed by any scene code. A fourth kind, a desk monitor with a lit screen for `running`, is deliberately not declared: every candidate single in the pack's desk-scale band (130-134, 30-32px wide) exceeds the SS2c desk-top width bound of 28px, so no compliant art exists for it. `scenery` points into processed/themes/office/, not into the folder above: `room` IS the resolved default theme [ADR-002 SS14a] and its dressing has to be byte-identical to themes.sets.office's or the same room would be two rooms. Six of the office scenery props come from the Hospital set \u2014 the only bins, filing cabinets, wall clocks and schedule boards in either pack \u2014 and the room singles folder holds the Office set only, so it could not carry them at all.",
+      "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
       "roles": {
         "board": {
           "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_171.png",
@@ -4729,19 +4730,6 @@
           },
           "surface_y": 24
         },
-        "plant": {
-          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_99.png",
-          "single_index": 99,
-          "provenance": "pack",
-          "identified_by": "rendered and inspected by eye at M5; the pack ships no names for its singles",
-          "what": "small potted plant, floor standing",
-          "content_box": {
-            "x": 0,
-            "y": 40,
-            "w": 32,
-            "h": 36
-          }
-        },
         "laptop": {
           "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_135.png",
           "single_index": 135,
@@ -4753,6 +4741,19 @@
             "y": 38,
             "w": 26,
             "h": 40
+          }
+        },
+        "pad": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_179.png",
+          "single_index": 179,
+          "provenance": "pack",
+          "identified_by": "rendered and inspected by eye for ADR-006; the pack ships no names for its singles",
+          "what": "book or pad standing upright on its spine, on a small base - a thin upright board silhouette, unbound: no scene code reads this role yet [ADR-006 SS1a coordinating]",
+          "content_box": {
+            "x": 8,
+            "y": 32,
+            "w": 24,
+            "h": 42
           }
         },
         "papers": {
@@ -4768,20 +4769,307 @@
             "h": 22
           }
         },
-        "pad": {
-          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_179.png",
-          "single_index": 179,
+        "plant": {
+          "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_99.png",
+          "single_index": 99,
           "provenance": "pack",
-          "identified_by": "rendered and inspected by eye for ADR-006; the pack ships no names for its singles",
-          "what": "book or pad standing upright on its spine, on a small base - a thin upright board silhouette, unbound: no scene code reads this role yet [ADR-006 SS1a coordinating]",
+          "identified_by": "rendered and inspected by eye at M5; the pack ships no names for its singles",
+          "what": "small potted plant, floor standing",
           "content_box": {
-            "x": 8,
-            "y": 32,
-            "w": 24,
-            "h": 42
+            "x": 0,
+            "y": 40,
+            "w": 32,
+            "h": 36
           }
         }
       },
+      "scenery": [
+        {
+          "band": "wall",
+          "file": "assets/processed/themes/office/32x32/scenery/00_wall.png",
+          "source_set": "Modern Office singles",
+          "single_index": 96,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "whiteboard with sticky notes",
+          "content_box": {
+            "x": 2,
+            "y": 48,
+            "w": 28,
+            "h": 34
+          }
+        },
+        {
+          "band": "wall",
+          "file": "assets/processed/themes/office/32x32/scenery/01_wall.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 266,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "blue planning board \u2014 the Hospital set's, because the Office set has no wall board that is not on a floor stand",
+          "content_box": {
+            "x": 6,
+            "y": 46,
+            "w": 46,
+            "h": 34
+          }
+        },
+        {
+          "band": "wall",
+          "file": "assets/processed/themes/office/32x32/scenery/02_wall.png",
+          "source_set": "Modern Office singles",
+          "single_index": 113,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "framed certificate with a medal",
+          "content_box": {
+            "x": 2,
+            "y": 52,
+            "w": 28,
+            "h": 32
+          }
+        },
+        {
+          "band": "wall",
+          "file": "assets/processed/themes/office/32x32/scenery/03_wall.png",
+          "source_set": "Modern Office singles",
+          "single_index": 161,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "small framed picture",
+          "content_box": {
+            "x": 4,
+            "y": 76,
+            "w": 24,
+            "h": 20
+          }
+        },
+        {
+          "band": "wall",
+          "file": "assets/processed/themes/office/32x32/scenery/04_wall.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 333,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "wall clock \u2014 neither pack draws one in the Office set",
+          "content_box": {
+            "x": 20,
+            "y": 48,
+            "w": 22,
+            "h": 20
+          }
+        },
+        {
+          "band": "wall",
+          "file": "assets/processed/themes/office/32x32/scenery/05_wall.png",
+          "source_set": "Modern Office singles",
+          "single_index": 97,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "cork noticeboard with pinned notes",
+          "content_box": {
+            "x": 2,
+            "y": 48,
+            "w": 28,
+            "h": 34
+          }
+        },
+        {
+          "band": "wall",
+          "file": "assets/processed/themes/office/32x32/scenery/06_wall.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 248,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "framed landscape painting",
+          "content_box": {
+            "x": 12,
+            "y": 78,
+            "w": 40,
+            "h": 18
+          }
+        },
+        {
+          "band": "wall_line",
+          "file": "assets/processed/themes/office/32x32/scenery/07_wall_line.png",
+          "source_set": "Modern Office singles",
+          "single_index": 173,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "water cooler",
+          "content_box": {
+            "x": 2,
+            "y": 16,
+            "w": 26,
+            "h": 60
+          }
+        },
+        {
+          "band": "wall_line",
+          "file": "assets/processed/themes/office/32x32/scenery/08_wall_line.png",
+          "source_set": "Modern Office singles",
+          "single_index": 175,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "vending machine",
+          "content_box": {
+            "x": 10,
+            "y": 10,
+            "w": 44,
+            "h": 68
+          }
+        },
+        {
+          "band": "wall_line",
+          "file": "assets/processed/themes/office/32x32/scenery/09_wall_line.png",
+          "source_set": "Modern Office singles",
+          "single_index": 320,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "coffee counter with machine and cups",
+          "content_box": {
+            "x": 8,
+            "y": 14,
+            "w": 52,
+            "h": 64
+          }
+        },
+        {
+          "band": "back_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/10_back_floor.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 344,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "two-drawer filing cabinet",
+          "content_box": {
+            "x": 18,
+            "y": 44,
+            "w": 26,
+            "h": 32
+          }
+        },
+        {
+          "band": "back_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/11_back_floor.png",
+          "source_set": "Modern Office singles",
+          "single_index": 148,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "office printer",
+          "content_box": {
+            "x": 0,
+            "y": 34,
+            "w": 30,
+            "h": 36
+          }
+        },
+        {
+          "band": "back_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/12_back_floor.png",
+          "source_set": "Modern Office singles",
+          "single_index": 165,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "flatbed scanner",
+          "content_box": {
+            "x": 6,
+            "y": 70,
+            "w": 52,
+            "h": 26
+          }
+        },
+        {
+          "band": "back_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/13_back_floor.png",
+          "source_set": "Modern Office singles",
+          "single_index": 177,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "printer with a sheet in the output tray",
+          "content_box": {
+            "x": 6,
+            "y": 52,
+            "w": 50,
+            "h": 40
+          }
+        },
+        {
+          "band": "back_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/14_back_floor.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 348,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "wooden two-drawer cabinet",
+          "content_box": {
+            "x": 18,
+            "y": 44,
+            "w": 26,
+            "h": 32
+          }
+        },
+        {
+          "band": "mid_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/15_mid_floor.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 253,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "waste bin",
+          "content_box": {
+            "x": 18,
+            "y": 48,
+            "w": 28,
+            "h": 34
+          }
+        },
+        {
+          "band": "mid_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/16_mid_floor.png",
+          "source_set": "Modern Office singles",
+          "single_index": 167,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "PC tower",
+          "content_box": {
+            "x": 4,
+            "y": 46,
+            "w": 24,
+            "h": 30
+          }
+        },
+        {
+          "band": "mid_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/17_mid_floor.png",
+          "source_set": "Modern Office singles",
+          "single_index": 330,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "backpack on the floor",
+          "content_box": {
+            "x": 2,
+            "y": 42,
+            "w": 30,
+            "h": 40
+          }
+        },
+        {
+          "band": "mid_floor",
+          "file": "assets/processed/themes/office/32x32/scenery/18_mid_floor.png",
+          "source_set": "Modern Interiors Theme Sorter set 19",
+          "single_index": 255,
+          "provenance": "pack",
+          "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+          "what": "waste bin, full",
+          "content_box": {
+            "x": 18,
+            "y": 48,
+            "w": 28,
+            "h": 34
+          }
+        }
+      ],
       "files": [
         "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_1.png",
         "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_10.png",
@@ -5529,6 +5817,7 @@
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/briefing/32x32/singles/board.png",
@@ -5587,7 +5876,189 @@
                 "h": 66
               }
             }
-          }
+          },
+          "scenery": [
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/briefing/32x32/scenery/00_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 54,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "framed portrait poster",
+              "content_box": {
+                "x": 20,
+                "y": 46,
+                "w": 26,
+                "h": 32
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/briefing/32x32/scenery/01_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 64,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "door in the back wall",
+              "content_box": {
+                "x": 18,
+                "y": 64,
+                "w": 28,
+                "h": 32
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/briefing/32x32/scenery/02_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 55,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "framed portrait poster",
+              "content_box": {
+                "x": 20,
+                "y": 46,
+                "w": 26,
+                "h": 32
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/briefing/32x32/scenery/03_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 31,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "grey lectern with a microphone",
+              "content_box": {
+                "x": 16,
+                "y": 34,
+                "w": 32,
+                "h": 56
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/briefing/32x32/scenery/04_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 29,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "lectern with a lit screen",
+              "content_box": {
+                "x": 16,
+                "y": 34,
+                "w": 32,
+                "h": 56
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/briefing/32x32/scenery/05_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 45,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wooden lectern",
+              "content_box": {
+                "x": 18,
+                "y": 52,
+                "w": 28,
+                "h": 42
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/briefing/32x32/scenery/06_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 39,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "stacking chair, back view",
+              "content_box": {
+                "x": 20,
+                "y": 48,
+                "w": 24,
+                "h": 28
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/briefing/32x32/scenery/07_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 40,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "step ladder",
+              "content_box": {
+                "x": 16,
+                "y": 32,
+                "w": 32,
+                "h": 38
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/briefing/32x32/scenery/08_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 26,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "lectern top",
+              "content_box": {
+                "x": 16,
+                "y": 56,
+                "w": 32,
+                "h": 34
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/briefing/32x32/scenery/09_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 53,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "microphone stand",
+              "content_box": {
+                "x": 24,
+                "y": 48,
+                "w": 18,
+                "h": 30
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/briefing/32x32/scenery/10_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 47,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wall shelf edge",
+              "content_box": {
+                "x": 18,
+                "y": 84,
+                "w": 30,
+                "h": 12
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/briefing/32x32/scenery/11_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 13",
+              "single_index": 59,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "fire extinguisher",
+              "content_box": {
+                "x": 20,
+                "y": 40,
+                "w": 24,
+                "h": 34
+              }
+            }
+          ]
         }
       },
       "broadcast": {
@@ -5638,6 +6109,7 @@
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/broadcast/32x32/singles/board.png",
@@ -5696,7 +6168,189 @@
                 "h": 48
               }
             }
-          }
+          },
+          "scenery": [
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/00_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 42,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "blank wall monitor",
+              "content_box": {
+                "x": 16,
+                "y": 34,
+                "w": 30,
+                "h": 42
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/01_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 49,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "broadcast monitor carrying a presenter",
+              "content_box": {
+                "x": 16,
+                "y": 34,
+                "w": 30,
+                "h": 42
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/02_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 46,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "blank wall monitor, wider",
+              "content_box": {
+                "x": 16,
+                "y": 34,
+                "w": 32,
+                "h": 42
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/03_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 7,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "film camera on a tall tripod",
+              "content_box": {
+                "x": 18,
+                "y": 32,
+                "w": 28,
+                "h": 62
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/04_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 5,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "film camera on a short tripod",
+              "content_box": {
+                "x": 18,
+                "y": 38,
+                "w": 26,
+                "h": 50
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/05_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 77,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "striped studio backdrop panel",
+              "content_box": {
+                "x": 16,
+                "y": 64,
+                "w": 30,
+                "h": 32
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/06_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 55,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "news desk, plain front",
+              "content_box": {
+                "x": 16,
+                "y": 52,
+                "w": 32,
+                "h": 40
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/07_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 32,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "round studio stool",
+              "content_box": {
+                "x": 18,
+                "y": 42,
+                "w": 26,
+                "h": 38
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/08_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 75,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "striped studio backdrop panel, short",
+              "content_box": {
+                "x": 16,
+                "y": 64,
+                "w": 30,
+                "h": 32
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/09_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 33,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "round studio stool",
+              "content_box": {
+                "x": 18,
+                "y": 42,
+                "w": 26,
+                "h": 38
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/10_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 72,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "script pages on the floor",
+              "content_box": {
+                "x": 24,
+                "y": 50,
+                "w": 16,
+                "h": 20
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/broadcast/32x32/scenery/11_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 23",
+              "single_index": 34,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "round studio stool",
+              "content_box": {
+                "x": 18,
+                "y": 42,
+                "w": 26,
+                "h": 38
+              }
+            }
+          ]
         }
       },
       "library": {
@@ -5747,6 +6401,7 @@
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/animated/32x32/pendulum_clock/frame_00.png",
@@ -5826,7 +6481,174 @@
                 "h": 78
               }
             }
-          }
+          },
+          "scenery": [
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/library/32x32/scenery/00_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 33,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "cork notice board",
+              "content_box": {
+                "x": 6,
+                "y": 64,
+                "w": 52,
+                "h": 26
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/library/32x32/scenery/01_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 36,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "small blackboard",
+              "content_box": {
+                "x": 4,
+                "y": 46,
+                "w": 56,
+                "h": 46
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/library/32x32/scenery/02_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 54,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "copier on a counter",
+              "content_box": {
+                "x": 10,
+                "y": 20,
+                "w": 44,
+                "h": 72
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/library/32x32/scenery/03_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 40,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "lockers",
+              "content_box": {
+                "x": 16,
+                "y": 34,
+                "w": 30,
+                "h": 60
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/library/32x32/scenery/04_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 52,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wooden counter run, corner piece",
+              "content_box": {
+                "x": 8,
+                "y": 4,
+                "w": 42,
+                "h": 70
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/library/32x32/scenery/05_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 34,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "globe on a stand",
+              "content_box": {
+                "x": 18,
+                "y": 34,
+                "w": 26,
+                "h": 40
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/library/32x32/scenery/06_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 41,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "step ladder",
+              "content_box": {
+                "x": 16,
+                "y": 36,
+                "w": 24,
+                "h": 38
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/library/32x32/scenery/07_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 53,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wooden counter, short piece",
+              "content_box": {
+                "x": 16,
+                "y": 68,
+                "w": 26,
+                "h": 28
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/library/32x32/scenery/08_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 35,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "globe on a stand",
+              "content_box": {
+                "x": 18,
+                "y": 34,
+                "w": 26,
+                "h": 40
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/library/32x32/scenery/09_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 42,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "step ladder",
+              "content_box": {
+                "x": 16,
+                "y": 36,
+                "w": 24,
+                "h": 38
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/library/32x32/scenery/10_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 5",
+              "single_index": 6,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "spare school desk",
+              "content_box": {
+                "x": 16,
+                "y": 42,
+                "w": 32,
+                "h": 36
+              }
+            }
+          ]
         }
       },
       "mission_control": {
@@ -5877,6 +6699,7 @@
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/mission_control/32x32/singles/board.png",
@@ -5935,7 +6758,204 @@
                 "h": 64
               }
             }
-          }
+          },
+          "scenery": [
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/00_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 18",
+              "single_index": 133,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wall-mounted security monitor",
+              "content_box": {
+                "x": 18,
+                "y": 40,
+                "w": 28,
+                "h": 34
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/01_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 265,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "schedule board",
+              "content_box": {
+                "x": 6,
+                "y": 46,
+                "w": 46,
+                "h": 34
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/02_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 334,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wall clock",
+              "content_box": {
+                "x": 20,
+                "y": 48,
+                "w": 22,
+                "h": 20
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/03_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 244,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "warning sign",
+              "content_box": {
+                "x": 18,
+                "y": 50,
+                "w": 30,
+                "h": 28
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/04_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 275,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "steel locker bank",
+              "content_box": {
+                "x": 16,
+                "y": 34,
+                "w": 32,
+                "h": 60
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/05_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 105,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "vending machine",
+              "content_box": {
+                "x": 8,
+                "y": 18,
+                "w": 48,
+                "h": 68
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/06_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 25",
+              "single_index": 11,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "floor-standing control panel",
+              "content_box": {
+                "x": 18,
+                "y": 48,
+                "w": 30,
+                "h": 44
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/07_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 18",
+              "single_index": 123,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "console keyboard unit",
+              "content_box": {
+                "x": 16,
+                "y": 56,
+                "w": 32,
+                "h": 28
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/08_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 344,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "two-drawer filing cabinet",
+              "content_box": {
+                "x": 18,
+                "y": 44,
+                "w": 26,
+                "h": 32
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/09_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 25",
+              "single_index": 27,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "control box",
+              "content_box": {
+                "x": 18,
+                "y": 64,
+                "w": 28,
+                "h": 32
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/10_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 253,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "waste bin",
+              "content_box": {
+                "x": 18,
+                "y": 48,
+                "w": 28,
+                "h": 34
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/11_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 18",
+              "single_index": 127,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "spare security monitor on the floor",
+              "content_box": {
+                "x": 16,
+                "y": 46,
+                "w": 30,
+                "h": 24
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/mission_control/32x32/scenery/12_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 18",
+              "single_index": 97,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "small waste bin",
+              "content_box": {
+                "x": 24,
+                "y": 74,
+                "w": 14,
+                "h": 22
+              }
+            }
+          ]
         }
       },
       "office": {
@@ -6119,6 +7139,7 @@
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/office/32x32/singles/board.png",
@@ -6177,7 +7198,294 @@
                 "h": 36
               }
             }
-          }
+          },
+          "scenery": [
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/office/32x32/scenery/00_wall.png",
+              "source_set": "Modern Office singles",
+              "single_index": 96,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "whiteboard with sticky notes",
+              "content_box": {
+                "x": 2,
+                "y": 48,
+                "w": 28,
+                "h": 34
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/office/32x32/scenery/01_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 266,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "blue planning board \u2014 the Hospital set's, because the Office set has no wall board that is not on a floor stand",
+              "content_box": {
+                "x": 6,
+                "y": 46,
+                "w": 46,
+                "h": 34
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/office/32x32/scenery/02_wall.png",
+              "source_set": "Modern Office singles",
+              "single_index": 113,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "framed certificate with a medal",
+              "content_box": {
+                "x": 2,
+                "y": 52,
+                "w": 28,
+                "h": 32
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/office/32x32/scenery/03_wall.png",
+              "source_set": "Modern Office singles",
+              "single_index": 161,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "small framed picture",
+              "content_box": {
+                "x": 4,
+                "y": 76,
+                "w": 24,
+                "h": 20
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/office/32x32/scenery/04_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 333,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wall clock \u2014 neither pack draws one in the Office set",
+              "content_box": {
+                "x": 20,
+                "y": 48,
+                "w": 22,
+                "h": 20
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/office/32x32/scenery/05_wall.png",
+              "source_set": "Modern Office singles",
+              "single_index": 97,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "cork noticeboard with pinned notes",
+              "content_box": {
+                "x": 2,
+                "y": 48,
+                "w": 28,
+                "h": 34
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/office/32x32/scenery/06_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 248,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "framed landscape painting",
+              "content_box": {
+                "x": 12,
+                "y": 78,
+                "w": 40,
+                "h": 18
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/office/32x32/scenery/07_wall_line.png",
+              "source_set": "Modern Office singles",
+              "single_index": 173,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "water cooler",
+              "content_box": {
+                "x": 2,
+                "y": 16,
+                "w": 26,
+                "h": 60
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/office/32x32/scenery/08_wall_line.png",
+              "source_set": "Modern Office singles",
+              "single_index": 175,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "vending machine",
+              "content_box": {
+                "x": 10,
+                "y": 10,
+                "w": 44,
+                "h": 68
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/office/32x32/scenery/09_wall_line.png",
+              "source_set": "Modern Office singles",
+              "single_index": 320,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "coffee counter with machine and cups",
+              "content_box": {
+                "x": 8,
+                "y": 14,
+                "w": 52,
+                "h": 64
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/10_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 344,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "two-drawer filing cabinet",
+              "content_box": {
+                "x": 18,
+                "y": 44,
+                "w": 26,
+                "h": 32
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/11_back_floor.png",
+              "source_set": "Modern Office singles",
+              "single_index": 148,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "office printer",
+              "content_box": {
+                "x": 0,
+                "y": 34,
+                "w": 30,
+                "h": 36
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/12_back_floor.png",
+              "source_set": "Modern Office singles",
+              "single_index": 165,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "flatbed scanner",
+              "content_box": {
+                "x": 6,
+                "y": 70,
+                "w": 52,
+                "h": 26
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/13_back_floor.png",
+              "source_set": "Modern Office singles",
+              "single_index": 177,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "printer with a sheet in the output tray",
+              "content_box": {
+                "x": 6,
+                "y": 52,
+                "w": 50,
+                "h": 40
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/14_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 348,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "wooden two-drawer cabinet",
+              "content_box": {
+                "x": 18,
+                "y": 44,
+                "w": 26,
+                "h": 32
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/15_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 253,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "waste bin",
+              "content_box": {
+                "x": 18,
+                "y": 48,
+                "w": 28,
+                "h": 34
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/16_mid_floor.png",
+              "source_set": "Modern Office singles",
+              "single_index": 167,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "PC tower",
+              "content_box": {
+                "x": 4,
+                "y": 46,
+                "w": 24,
+                "h": 30
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/17_mid_floor.png",
+              "source_set": "Modern Office singles",
+              "single_index": 330,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "backpack on the floor",
+              "content_box": {
+                "x": 2,
+                "y": 42,
+                "w": 30,
+                "h": 40
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/office/32x32/scenery/18_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 19",
+              "single_index": 255,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "waste bin, full",
+              "content_box": {
+                "x": 18,
+                "y": 48,
+                "w": 28,
+                "h": 34
+              }
+            }
+          ]
         }
       },
       "stage": {
@@ -6228,6 +7536,7 @@
           "identified": true,
           "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
           "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/stage/32x32/singles/board.png",
@@ -6286,7 +7595,189 @@
                 "h": 54
               }
             }
-          }
+          },
+          "scenery": [
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/stage/32x32/scenery/00_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 108,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "framed medal and citation",
+              "content_box": {
+                "x": 4,
+                "y": 50,
+                "w": 54,
+                "h": 32
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/stage/32x32/scenery/01_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 96,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "sports poster",
+              "content_box": {
+                "x": 18,
+                "y": 52,
+                "w": 26,
+                "h": 30
+              }
+            },
+            {
+              "band": "wall",
+              "file": "assets/processed/themes/stage/32x32/scenery/02_wall.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 157,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "trophy shelf",
+              "content_box": {
+                "x": 4,
+                "y": 14,
+                "w": 56,
+                "h": 40
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/stage/32x32/scenery/03_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 203,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "electric guitar on a stand",
+              "content_box": {
+                "x": 20,
+                "y": 20,
+                "w": 24,
+                "h": 58
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/stage/32x32/scenery/04_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 57,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "concert harp",
+              "content_box": {
+                "x": 14,
+                "y": 32,
+                "w": 44,
+                "h": 58
+              }
+            },
+            {
+              "band": "wall_line",
+              "file": "assets/processed/themes/stage/32x32/scenery/05_wall_line.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 43,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "amplifier stack",
+              "content_box": {
+                "x": 16,
+                "y": 22,
+                "w": 32,
+                "h": 62
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/stage/32x32/scenery/06_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 44,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "combo amplifier",
+              "content_box": {
+                "x": 16,
+                "y": 44,
+                "w": 32,
+                "h": 40
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/stage/32x32/scenery/07_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 69,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "marching drum",
+              "content_box": {
+                "x": 8,
+                "y": 60,
+                "w": 44,
+                "h": 34
+              }
+            },
+            {
+              "band": "back_floor",
+              "file": "assets/processed/themes/stage/32x32/scenery/08_back_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 159,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "trophy shelf, low",
+              "content_box": {
+                "x": 10,
+                "y": 14,
+                "w": 54,
+                "h": 36
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/stage/32x32/scenery/09_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 132,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "trophy",
+              "content_box": {
+                "x": 22,
+                "y": 64,
+                "w": 22,
+                "h": 32
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/stage/32x32/scenery/10_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 230,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "floor tom",
+              "content_box": {
+                "x": 22,
+                "y": 42,
+                "w": 22,
+                "h": 34
+              }
+            },
+            {
+              "band": "mid_floor",
+              "file": "assets/processed/themes/stage/32x32/scenery/11_mid_floor.png",
+              "source_set": "Modern Interiors Theme Sorter set 6",
+              "single_index": 61,
+              "provenance": "pack",
+              "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
+              "what": "microphone stand",
+              "content_box": {
+                "x": 22,
+                "y": 60,
+                "w": 24,
+                "h": 34
+              }
+            }
+          ]
         }
       }
     }

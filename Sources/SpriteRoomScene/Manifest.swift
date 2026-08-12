@@ -362,6 +362,26 @@ public struct Manifest: Sendable, Hashable {
         }
     }
 
+    /// One piece of scenery: a prop plus the depth band it stands in.
+    ///
+    /// **The band is the only placement fact the manifest carries**, and that is
+    /// deliberate. `docs/PLACEMENT-BANDS.md` is a measured negative result — the
+    /// pixels do not say whether a sprite hangs on a wall or stands on a floor,
+    /// `painting_framed`, `desk_wood` and `table_console` measure geometrically
+    /// identical, and 62% of the catalogue cannot be classified at all. So the
+    /// band is hand-authored per prop in `scripts/process-assets.py`, from the
+    /// same knowledge `scripts/compose-scene.py`'s per-placement `kind` carries,
+    /// and it is the *only* thing that crosses the manifest boundary. Which
+    /// column and which y is scene geometry and stays in `RoomLayout`.
+    public struct SceneryProp: Sendable, Hashable {
+        public let band: RoomLayout.SceneryBand
+        public let prop: PropRole
+        public init(band: RoomLayout.SceneryBand, prop: PropRole) {
+            self.band = band
+            self.prop = prop
+        }
+    }
+
     /// A desk, a chair, and at most one adjacent floor-standing prop, at one
     /// seat. [ADR-002 §7]
     ///
@@ -454,6 +474,20 @@ public struct Manifest: Sendable, Hashable {
         /// and walkway accent — a console terminal, a bookcase, a stage curtain.
         /// [04-ART-DIRECTION, "The five themes"]
         public let propRoles: [String: PropRole]
+        /// **`props.scenery` — the room's dressing, in declaration order.**
+        ///
+        /// The four `propRoles` above are the slots the room's *arithmetic*
+        /// needs: a surface and a seat at every seat, one standing object, one
+        /// repeated accent. This is everything else — the printers, cabinets,
+        /// bins, coolers and wall boards that make a floor read as a place. Each
+        /// entry names the depth band it stands in and nothing else; where
+        /// inside that band it lands is `RoomLayout.sceneryAnchors(_:)`'s to
+        /// say, so the art is swappable without moving the room. [M8 Phase 2b]
+        ///
+        /// **It is furniture and it can never be anything else.** It is chosen
+        /// by theme, decided at build time, identical for every agent, and
+        /// nothing in the delta stream reaches it. [ADR-002 §6 rule 1, I1]
+        public let scenery: [SceneryProp]
         /// §7's station bindings, keyed by station id (`"main"`, `"default"`,
         /// and the named ones). Declared once under `room` and inherited by
         /// every theme that does not declare its own. [§14c]
@@ -478,8 +512,10 @@ public struct Manifest: Sendable, Hashable {
             tile: Size, builderTiles: [String], declaredFloor: String?, declaredWall: String?,
             propCanvas: Size, propFiles: [String], propsIdentified: Bool,
             propRoles: [String: PropRole], stations: [String: Station],
-            stationRoles: [String: String] = [:], assignableStationIDs: [String]? = nil
+            stationRoles: [String: String] = [:], assignableStationIDs: [String]? = nil,
+            scenery: [SceneryProp] = []
         ) {
+            self.scenery = scenery
             self.tile = tile
             self.builderTiles = builderTiles
             self.declaredFloor = declaredFloor
@@ -502,6 +538,11 @@ public struct Manifest: Sendable, Hashable {
         }
 
         public func prop(_ role: String) -> PropRole? { propRoles[role] }
+
+        /// The scenery declared for one depth band, in declaration order.
+        public func scenery(_ band: RoomLayout.SceneryBand) -> [PropRole] {
+            scenery.filter { $0.band == band }.map(\.prop)
+        }
 
         public func station(_ id: String) -> Station? { stations[id] }
 
@@ -911,6 +952,20 @@ public struct Manifest: Sendable, Hashable {
             }
             propRoles[role] = box
         }
+        // **A scenery entry the room cannot place draws nothing and the rest
+        // still draw.** An unknown band, or art whose box will not decode, is a
+        // manifest ahead of this build — the vocabulary is closed and its
+        // unmatched case is silence, which is the same answer the identity model
+        // gives an ambiguous attribution. It is *not* a throw: a room that
+        // refuses to load because one printer moved is worse than a room with
+        // one fewer printer. [I1]
+        var scenery: [SceneryProp] = []
+        for raw in (props["scenery"] as? [[String: Any]]) ?? [] {
+            guard let name = raw["band"] as? String,
+                  let band = RoomLayout.SceneryBand(rawValue: name),
+                  let prop = Self.propRole(raw) else { continue }
+            scenery.append(SceneryProp(band: band, prop: prop))
+        }
         let declared = try Self.stationSpecs(props["stations"], context: context)
         // **Inheritance is all-or-nothing, per theme.** A theme either states
         // its own stations or takes the room's whole block — sets, roles and
@@ -933,7 +988,8 @@ public struct Manifest: Sendable, Hashable {
                 stations: stations,
                 stationRoles: effective.roles.filter { stations[$0.value] != nil },
                 assignableStationIDs: effective.declaredAssignable
-                    .map { $0.filter { stations[$0] != nil }.sorted() }),
+                    .map { $0.filter { stations[$0] != nil }.sorted() },
+                scenery: scenery),
             declared)
     }
 

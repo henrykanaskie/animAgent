@@ -373,7 +373,7 @@ enum SceneArt {
     /// deliberately ungated: the travel rule and `RoomLayout`'s route geometry
     /// are both pure numbers, and a fresh clone should still catch an inverted
     /// axis.
-    static let expectedGatedTestCount = 99
+    static let expectedGatedTestCount = 102
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.
