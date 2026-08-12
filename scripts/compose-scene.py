@@ -1248,15 +1248,17 @@ def museum():
               ("painting_framed", 410, 58, 26, ("flat",)),
               ("wall_plaque", 105, 56, 0, ("flat",)),
               ("wall_plaque", 285, 56, 0, ("flat",))]
-    props += row("rope_barrier", 40, 104, 10, 44, v0=0, flags=("ground",))
-    props += [("column", 20, 200, 1, ()), ("column", 20, 340, 3, ()),
-              ("column", 424, 200, 5, ()), ("column", 424, 340, 7, ())]
+    props += row("rope_barrier", 46, 106, 13, 32, v0=0,
+                 flags=("ground", "ink:32x34"))
+    props += [("column", 24, 196, 0, ("ink:32x82",)),
+              ("column", 24, 348, 1, ("ink:32x82",)),
+              ("column", 424, 196, 2, ("ink:32x82",)),
+              ("column", 424, 348, 3, ("ink:32x82",))]
     props += [("display_case", 104, 196, 2, ("ink:54x88",)),
               ("display_case", 196, 196, 3, ("ink:54x88",)),
               ("display_case", 288, 196, 4, ("ink:54x88",)),
               ("artefact_case", 382, 196, 0, ()),
               ("skeleton", 210, 300, 4, ()),
-              ("exhibit_platform", 210, 306, 1, ("ground",)),
               ("statue", 70, 296, 2, ()), ("statue", 350, 296, 6, ()),
               ("amphora_on_plinth", 120, 300, 1, ()),
               ("vase_on_plinth", 300, 300, 2, ()),
@@ -1264,7 +1266,7 @@ def museum():
               ("lectern", 250, 348, 3, ()),
               ("bench", 130, 366, 0, ()), ("bench", 290, 366, 1, ()),
               ("sign_exit", 356, 56, 2, ("flat",)),
-              ("plant_potted", 24, 130, 1, ()),
+              ("plant_potted", 62, 384, 1, ()),
               ("laser_sensor", 60, 150, 0, ("ground",)),
               ("laser_sensor", 390, 150, 3, ("ground",))]
     # Gift shop: shelves along the face, tables of merch, a counter.
