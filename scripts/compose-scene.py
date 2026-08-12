@@ -79,24 +79,31 @@ The other half of the same class of bug is coordinates chosen against a room's
 5-tile room has 3 tiles of floor. `floor_of` reports anything standing outside
 one, which is how the figures on walls were found rather than guessed at.
 
-**Props have a facing, and this pack draws only one of them.** Every monitor
-in 12,279 props is face-on with its keyboard below, so it belongs to someone
-sitting *below* it, facing away. Every office chair — `chair_conference`,
-`chair_office_front`, `chair_office_back`, `chair_office_swivel`,
-`chair_school`, `chair_kids` — is drawn with its backrest away from the viewer
-and its seat toward them, so it belongs to someone facing the camera.
-`front` and `back` are two chair *models*, not two viewpoints.
+**Props have a facing, and a prop turned the wrong way is the one mistake a
+viewer spots instantly.** Two of them here, and they are not the same shape.
 
-Both facts are one-way, and both cost a room its credibility when ignored:
-people staring at the back of their own screen, and a conference table with
-two rows of chairs that were meant to face each other and instead face the
-same way. `desk_pod`, `table_with_seats` and `chair` enforce them; nothing
-places a chair or a screen except through those three.
+*Monitors have exactly one view.* Every screen in 12,279 props is drawn face-on
+with its keyboard below — `monitor_lit`, `monitor_dark`, `monitor_off_white`,
+`laptop_open_lit`, all six 32x42 `workstation_composite` rigs. There is no rear
+view anywhere. A screen is therefore being *looked at* from below, by someone
+sitting between it and the viewer, so **a screen belongs only to a seat facing
+away from the camera.** Give one to a camera-facing occupant and you have drawn
+somebody staring at the back of their own monitor.
 
-The consequence for tables is worth stating on its own: **an empty table gets
-chairs on its far side only.** The near side is undrawable. An *occupied* near
-seat is fine, because the occupant's body covers everything but a compact
-silhouette that has no orientation — which is what makes `desk_pod` work.
+*Chairs have six.* `chair_office_swivel` is a full rotation — measured on the
+Hospital singles, five colours of {profile facing left, three-quarter left,
+front, profile facing right, three-quarter right, back}, and `chair_office_back`
+and `chair_office_front` are two *models* of the same back view. Which way a
+chair faces is a **choice the composer has to make and record**, not a property
+of the pack. See `chair`.
+
+I had this backwards for four renders and told the maintainer so: I read the
+low-detail profiles, concluded the pack drew chairs only one way, and wrote
+"there is no near-side chair" into this file as a fact about the art. It was a
+fact about how far I had looked. The correction came from the packs' own rooms
+(`Office_Design_2.gif`, the ice-cream shop preview), which is where it should
+have come from first — see `chair` for what they show. **R9 now measures the
+sprite rather than trusting either of us.**
 
 # Why there is a linter in here
 
@@ -113,6 +120,7 @@ rules, checked exhaustively on every run:
   R6  nothing stands in a doorway
   R7  nothing is drawn and then buried by what is painted over it
   R8  a row of one name is not a row of one sprite
+  R9  a chair declares which way it faces, and the sprite agrees
 
 `library()` is the check on all of that. The first three scenes were fixed one
 prop at a time until they passed, which proves the rules hold *there* and not
@@ -331,6 +339,23 @@ def load_index():
 
 
 _props = {}
+_index = None
+
+
+def index():
+    """The catalogue, loaded once.
+
+    A scene is a list of tuples built before `compose` ever runs, so the
+    helpers that build those tuples have no `by_name` handed to them. `chair`
+    needs one anyway: which variants of a shared ink pool face left is a
+    question about the *art*, and the honest answer is measured from it rather
+    than hardcoded. Hence a module-level cache instead of threading the index
+    through six call sites.
+    """
+    global _index
+    if _index is None:
+        _index = load_index()
+    return _index
 
 
 def prop(by_name, name, variant=0, ink=None):
@@ -658,6 +683,100 @@ def floor_of(rooms, x, y):
 # misses the ones that are only wrong at 1x. They are cheap to check and the
 # check is exhaustive, so the composer checks them on every run.
 
+# A prop whose first token is one of these is something a person sits on, and
+# R9 makes it declare which way it faces. First token rather than substring on
+# purpose: `bench_canteen` is seating and `lab_bench` is a worktop, and only
+# the leading word tells them apart.
+SEATING = ("chair", "armchair", "stool", "sofa", "bench", "wheelchair",
+           "recliner")
+
+FACINGS = ("up", "down", "left", "right", "none")
+
+
+def check_facing(name, x, y, entry, im, box):
+    """R9 — a chair declares which way it faces, and the sprite agrees.
+
+    # Why this rule exists
+
+    Every other rule here catches a prop in the wrong *place*. This one
+    catches a prop in the wrong *orientation*, which is the class of error the
+    maintainer reported three times running and the only one none of R1-R8
+    could see: a chair standing exactly where a chair belongs, facing the
+    wrong way.
+
+    It cost four renders because I answered it from memory instead of from
+    the art, wrote the wrong answer into this file's header as a fact, and
+    then built two helpers on top of it. The rule replaces my judgement with a
+    measurement that runs on every prop of every scene, every time.
+
+    # What it can and cannot prove
+
+    `backrest_side` separates a profile from a face-on chair exactly — the
+    measured gap is +-8.4 px or 0.0 with nothing between — so a left profile
+    used as a right-hand seat is caught outright, in any scene, from any pack.
+
+    Up and down it **cannot** separate: both are symmetric about the sprite's
+    axis, and no pixel measurement distinguishes the front of a backrest from
+    the back of one. Those two are pinned in `CHAIR_VIEWS` from the packs'
+    own room designs, and the rule checks membership rather than pretending
+    to derive it. Where a family is not pinned, an `up`/`down` claim is
+    checked only as far as "the sprite is at least face-on" — and saying so is
+    the point, because a rule that overstated its reach would be worse than
+    none.
+    """
+    if not name.split("_")[0] in SEATING:
+        return []
+    want = None
+    for f in (entry[4] if len(entry) > 4 else ()):
+        if f.startswith("facing:"):
+            want = f[7:]
+    at = "%s@%d,%d" % (name, x, y)
+    if want is None:
+        return ["R9 %s does not say which way it faces" % at]
+    if want not in FACINGS:
+        return ["R9 %s facing %r is not one of %s"
+                % (at, want, "/".join(FACINGS))]
+    got = backrest_side(im, box)
+    if want in ("left", "right"):
+        # A chair facing left has its backrest on the right, and vice versa.
+        if got != ("right" if want == "left" else "left"):
+            return ["R9 %s claims to face %s but its backrest measures %s"
+                    % (at, want, got)]
+    elif got != "face-on":
+        return ["R9 %s claims to face %s but the sprite is a %s profile"
+                % (at, want, got)]
+    elif want in ("up", "down"):
+        # Front and back are both symmetric about the sprite's own axis, so no
+        # measurement of one sprite says which it is. I tried to derive it from
+        # the family instead, twice, and it does not hold.
+        #
+        # The observation behind the attempt is sound and worth keeping: seen
+        # from behind, the backrest hides the seat, so the back view loses the
+        # seat's depth and comes out bodily shorter. It is true of
+        # `chair_school` (44 vs 30), `chair_ornate` (46 vs 32) and
+        # `chair_office_swivel` (42 vs 24) — three unrelated sheets.
+        #
+        # It is still not a *rule*, because a catalogue name is a family of
+        # pieces rather than a set of views, which is the same thing `prop`
+        # warns about for modular segments. Ranking `chair_office_back` by
+        # height picks its 30x32 entry, which is not a chair at all but a
+        # mislabelled prop with a laptop on it. Ranking `chair_waiting` picks
+        # its 62x36, which is the two-seat unit of the same chair at the same
+        # height. Both scenes were correct and both would have been reported.
+        #
+        # So the heuristic lives in `CHAIR_SUITES` as the reason each suite is
+        # pinned the way it is — use it to propose a new suite, then look at it
+        # once — and the rule checks only what is certain: that nothing uses a
+        # sprite some suite has already identified as the opposite face.
+        for views in CHAIR_SUITES.values():
+            for face in ("up", "down"):
+                if views[face] == (name, (box["w"], box["h"])) and face != want:
+                    return ["R9 %s claims to face %s but %s ink %dx%d is a "
+                            "pinned %s view"
+                            % (at, want, name, box["w"], box["h"], face)]
+    return []
+
+
 def _band_of(rooms, x, y):
     """The room whose north wall band covers (x, y), or None."""
     for r in rooms:
@@ -713,7 +832,9 @@ def check_continuity(rooms, placed):
     # reads as a fence. Nothing else notices, because each placement on its own
     # is correct.
     families = {}
-    for name, x, y, w, h, kind, source, pool in placed:
+    for name, x, y, w, h, kind, source, pool, matched in placed:
+        if matched:
+            continue
         families.setdefault(name, [set(), 0, 0])
         families[name][0].add(source)
         families[name][1] += 1
@@ -722,12 +843,18 @@ def check_continuity(rooms, placed):
     # only ever draw one sprite, and a deliberate subset (only the lit screens,
     # say) is a choice rather than a bug. The complaint is using less than half
     # of what could have been used.
+    #
+    # A `matched` prop is exempt, because some runs are *meant* to be one
+    # sprite: a table assembled from three abutted slabs is one table, and
+    # walking the variant along it produced a top that was tan at one end and
+    # dark orange at the other. The exemption is declared at the placement
+    # rather than inferred, so it can be read off the scene.
     for name, (sources, count, pool) in families.items():
         if count > 2 and len(sources) * 2 <= min(count, pool):
             out.append("R8 %d x %s draw from %d sprite(s), %d available"
                        % (count, name, len(sources), pool))
 
-    for name, x, y, w, h, kind, _, _p in placed:
+    for name, x, y, w, h, kind, _, _p, _m in placed:
         left, right = x - w // 2, x - w // 2 + w
         if kind == "wall":
             # R1. Wall decor hangs on a wall, and a doorway is a hole in one.
@@ -756,12 +883,12 @@ def check_continuity(rooms, placed):
     # is a mug in mid-air beside a desk — which looks, at panel size, exactly
     # like a mug on a desk, so this is not findable by eye.
     supports = [p for p in placed if p[5] == "floor"]
-    for name, x, y, w, h, kind, _, _p in placed:
+    for name, x, y, w, h, kind, _, _p, _m in placed:
         if kind != "on":
             continue
         left, right = x - w // 2, x - w // 2 + w
         held = False
-        for _, fx, fy, fw, fh, _, _s, _p in supports:
+        for _, fx, fy, fw, fh, _, _s, _p, _m in supports:
             fl = fx - fw // 2
             if fl <= left and right <= fl + fw and fy - fh <= y <= fy:
                 held = True
@@ -778,8 +905,8 @@ def check_continuity(rooms, placed):
     # plinth (18 px apart), a shelving unit standing inside a dinosaur skeleton
     # (6 px) and a 140 px dinosaur inside a ticket booth (28 px).
     floors = [p for p in placed if p[5] == "floor"]
-    for i, (n1, x1, y1, w1, h1, _, _s1, _p1) in enumerate(floors):
-        for n2, x2, y2, w2, h2, _, _s2, _p2 in floors[i + 1:]:
+    for i, (n1, x1, y1, w1, h1, _, _s1, _p1, _m1) in enumerate(floors):
+        for n2, x2, y2, w2, h2, _, _s2, _p2, _m2 in floors[i + 1:]:
             d1, d2 = min(h1, 18), min(h2, 18)
             if y1 - d1 >= y2 or y2 - d2 >= y1:
                 continue
@@ -795,7 +922,7 @@ def check_continuity(rooms, placed):
     # because a door aperture is legitimately outside the floor and legitimately
     # on a wall line. The museum had a ticket office across the whole width of
     # its north door and a potted plant in the west one.
-    for name, x, y, w, h, kind, _, _p in placed:
+    for name, x, y, w, h, kind, _, _p, _m in placed:
         if kind != "floor":
             continue
         left, right = x - w // 2, x - w // 2 + w
@@ -870,6 +997,7 @@ def compose(spec, by_name, out_path):
 
     wall_zones = [((r.y) * TILE, (r.y + 2) * TILE) for r in rooms if r.band]
     items, missing, tiny, placed, breaks_hidden = [], [], [], [], []
+    breaks_facing = []
     for entry in spec["props"]:
         name, x, y = entry[0], entry[1], entry[2]
         variant = entry[3] if len(entry) > 3 else 0
@@ -885,7 +1013,9 @@ def compose(spec, by_name, out_path):
         # it a partition — see `prop`'s note on families versus pieces.
         if min(box["w"], box["h"]) < 8:
             tiny.append("%s#%d %dx%d" % (name, variant, box["w"], box["h"]))
-        placed.append((name, x, y, box["w"], box["h"], kind, got[2], got[3]))
+        breaks_facing += check_facing(name, x, y, entry, got[0], box)
+        placed.append((name, x, y, box["w"], box["h"], kind, got[2], got[3],
+                       "matched" in (entry[4] if len(entry) > 4 else ())))
         items.append((y + z, got[0], box, x, y,
                       kind in ("floor", "seat"), name))
     for entry in spec.get("people", []):
@@ -898,7 +1028,7 @@ def compose(spec, by_name, out_path):
         # A figure seated facing the camera stands *inside* the desk, whose own
         # floor point is what has to be on the floor — so check where the desk
         # is, not where the head is.
-        placed.append((v, x, y, im.width, im.height, "seat", v, 1))
+        placed.append((v, x, y, im.width, im.height, "seat", v, 1, False))
         items.append((y + z, im, None, x, y, z >= 0, "character " + v))
     place(plan, items)
 
@@ -933,10 +1063,10 @@ def compose(spec, by_name, out_path):
     # leaves a 26 px strip and reads as a table cut off at both ends. So a
     # support gets a looser floor, not a free pass.
     carrying = set()
-    for _, ox, oy, ow, _, okind, _os, _op in placed:
+    for _, ox, oy, ow, _, okind, _os, _op, _om in placed:
         if okind != "on":
             continue
-        for name, fx, fy, fw, fh, fkind, _fs, _fp in placed:
+        for name, fx, fy, fw, fh, fkind, _fs, _fp, _fm in placed:
             fl = fx - fw // 2
             if fkind == "floor" and fl <= ox - ow // 2 and \
                     ox - ow // 2 + ow <= fl + fw and fy - fh <= oy <= fy:
@@ -948,7 +1078,7 @@ def compose(spec, by_name, out_path):
             continue
         breaks_hidden.append("R7 %s@%d,%d is %d%% buried"
                              % (label, hx, hy, 100 - int(frac * 100)))
-    breaks = check_continuity(rooms, placed) + breaks_hidden
+    breaks = check_continuity(rooms, placed) + breaks_hidden + breaks_facing
     if breaks:
         print("  CONTINUITY (%d)" % len(breaks))
         for b in breaks:
@@ -1061,38 +1191,168 @@ SEAT_STANDOFF = 8
 CHAIR_DROP = 38     # the chair's floor point, below the desk's
 
 
-def chair(x, y, v=0, facing="down", flags=()):
-    """A chair, drawn the only way this pack draws one.
+def _sheet_number(path):
+    """The trailing integer in a singles filename, or -1.
 
-    # There is no near-side chair, and that is a fact about the art
-
-    Every office chair in the pack — `chair_conference`, `chair_office_front`,
-    `chair_office_back`, `chair_office_swivel`, `chair_school`, `chair_kids` —
-    is drawn with its backrest away from the viewer and its seat and feet
-    toward them. `front` and `back` are two chair *models*, a padded one and a
-    mesh one, not two viewpoints; measuring the ink distribution of both puts
-    the mass in the same place.
-
-    So a chair reads as belonging to somebody **facing the camera**, and an
-    empty chair drawn on the near side of a table is drawn backwards. That is
-    what the meeting room looked like for four renders: two rows that were
-    supposed to face each other, both facing the same way.
-
-    Two consequences, and `table_with_seats` applies both:
-
-      * **An empty table gets chairs on its far side only.** The near side is
-        undrawable and a bare near edge reads as a table you walk up to.
-      * An *occupied* near seat is fine, because the occupant's body covers
-        the chair — only the compact silhouette below their shoulders shows,
-        and that has no orientation. `desk_pod` relies on this.
-
-    `facing` therefore selects the model rather than the viewpoint: the mesh
-    `chair_office_back` under an occupant, the lighter `chair_conference`
-    where the chair is seen bare.
+    `Hospital_Singles_Shadowless_32x32_72.png` -> 72. The packs number singles
+    in the order they were drawn, so consecutive numbers are one object's
+    views and one colour's block; sorting by the string does not preserve
+    either.
     """
-    if facing == "down":
-        return ("chair_conference", x, y, v % 2, ("ink:26x42",) + flags)
-    return ("chair_office_back", x, y, v % 4, ("ink:32x46",) + flags)
+    stem = os.path.splitext(os.path.basename(path))[0]
+    tail = stem.rsplit("_", 1)[-1]
+    return int(tail) if tail.isdigit() else -1
+
+
+def backrest_side(im, box):
+    """`"left"`, `"right"` or `"face-on"` — where the backrest sits.
+
+    The horizontal centroid of the top 8 rows of ink against the centroid of
+    the bottom 12. On a profile chair the backrest is a tall bar over one edge
+    while the seat and feet spread the other way; on a face-on chair (front or
+    back) the sprite is symmetric about its own axis.
+
+    The threshold is not a number I chose. Measured over every chair sprite in
+    the catalogue the gap is **+-8.4 px on a 22 px sprite, or 0.0 to the
+    pixel** — the distribution is two spikes and a hole, so anything past 3 is
+    unambiguous and nothing has ever landed in between.
+    """
+    px = im.load()
+    x0, y0, w, h = box["x"], box["y"], box["w"], box["h"]
+
+    def centroid(top, bottom):
+        xs = [x for y in range(y0 + top, y0 + bottom)
+              for x in range(x0, x0 + w) if px[x, y][3] > 128]
+        return sum(xs) / len(xs) if xs else None
+
+    high, low = centroid(0, 8), centroid(h - 12, h)
+    if high is None or low is None:
+        return "face-on"
+    if high - low > 3:
+        return "right"
+    if low - high > 3:
+        return "left"
+    return "face-on"
+
+
+# A *suite* is one chair drawn from four sides, as {facing: (name, ink)}.
+#
+# Rooms are furnished, not merely occupied. A library reading table ringed with
+# grey padded office chairs is as wrong as a chair facing backwards, and the
+# pack has the vocabulary to avoid it — every suite below is a real rotation
+# the artist drew as consecutive singles on one sheet, so a table seated from
+# a suite matches on all four sides.
+#
+# **`down` is always the family's tallest face-on view and `up` its shortest**,
+# and that is not a convention imposed here. Seen from behind, the backrest
+# hides the seat, so the silhouette loses the seat's depth and the back view is
+# bodily shorter. Measured on three unrelated families — `chair_school` 44/30,
+# `chair_ornate` 46/32, `chair_office_swivel` 42/24 — and R9 re-derives it on
+# every run rather than trusting this comment.
+CHAIR_SUITES = {
+    # Office. Three views come from the swivel rotation, but `up` is the big
+    # padded chair: that is the one the pack's own `Office_Design_2` puts
+    # below every desk in the room.
+    "office": {"up":    ("chair_office_back",   (32, 46)),
+               "down":  ("chair_office_swivel", (28, 42)),
+               "left":  ("chair_office_swivel", (22, 42)),
+               "right": ("chair_office_swivel", (22, 42))},
+    # Ladder-back, green frame, wooden seat. Four sprites, four sides.
+    "school": {"up":    ("chair_school", (28, 30)),
+               "down":  ("chair_school", (28, 44)),
+               "left":  ("chair_school", (24, 40)),
+               "right": ("chair_school", (24, 40))},
+    # Turned wood with a slatted back — a reading room or a dining room.
+    "wood":   {"up":    ("chair_ornate", (28, 32)),
+               "down":  ("chair_ornate", (28, 46)),
+               "left":  ("chair_ornate", (22, 46)),
+               "right": ("chair_ornate", (22, 46))},
+}
+
+_chair_pools = {}
+
+
+def chair_pool(suite, facing):
+    """Which variants of a suite's ink pool actually face that way.
+
+    `left` and `right` share one ink pool — the office suite's is twenty
+    entries, five colours of two profiles each way — so the index alone does
+    not say which. Rather than hardcode the stride (regular today, and it
+    would rot silently if the catalogue were regenerated) every entry is
+    **measured** and kept if its backrest is on the far side from the way it
+    faces.
+    """
+    if (suite, facing) in _chair_pools:
+        return _chair_pools[(suite, facing)]
+    name, ink = CHAIR_SUITES[suite][facing]
+    entries = [e for e in index().get(name, [])
+               if (e["content_box"]["w"], e["content_box"]["h"]) == ink]
+    if facing in ("up", "down"):
+        pool = list(range(len(entries)))
+    else:
+        want = "right" if facing == "left" else "left"
+        pool = [i for i in range(len(entries))
+                if backrest_side(*prop(index(), name, i, ink)[:2]) == want]
+    # Ordered by the sheet, not by the filename. `load_index` sorts entries as
+    # strings, which puts `..._100.png` before `..._72.png` and scrambles the
+    # colour blocks: the meeting room came out with a red chair on one side of
+    # the table and a yellow one on the other, both asking for variant 0. A
+    # chair's variant has to mean "which finish", and it only does if the pool
+    # runs in the order the artist drew it.
+    pool.sort(key=lambda i: _sheet_number(entries[i]["file"]))
+    if not pool:
+        raise SystemExit("no %s-facing sprite in %s ink %dx%d" %
+                         ((facing, name) + ink))
+    _chair_pools[(suite, facing)] = pool
+    return pool
+
+
+def _sheet_stem(path):
+    """`.../Hospital_Singles_Shadowless_32x32_72.png` -> the part before `_72`."""
+    stem = os.path.splitext(os.path.basename(path))[0]
+    head, _, tail = stem.rpartition("_")
+    return head if tail.isdigit() else stem
+
+
+def chair(x, y, v=0, facing="down", flags=(), suite="office"):
+    """A chair whose floor point is (x, y), facing `facing`, from `suite`.
+
+    # The pack draws six views, and I spent four renders believing it drew one
+
+    `chair_office_swivel` resolves to a full rotation. One colour's six
+    consecutive Hospital singles are, in order: profile facing left,
+    three-quarter left, **front**, profile facing right, three-quarter right,
+    **back** — in five colours, plus a chunkier Jail set with the same
+    coverage. `chair_office_back` and `chair_office_front` are the padded and
+    mesh *models* of the same back view, which is the only part of my earlier
+    reading that survived.
+
+    # What the packs' own artists do with them
+
+    Two rooms settle every question this raises, and both were sitting in
+    `assets/` the whole time:
+
+      * `Office_Design_2.gif` — every desk chair is the 32x46 back view and
+        every one of them is drawn **below** its desk, so its occupant faces
+        away from the camera. Where a character faces the camera at a desk,
+        the artist draws **no chair at all**: the body covers it entirely.
+      * `Ice_Cream_Shop_Design_preview_32x32.png` — cafe tables are seated on
+        the **left and right** with mirrored profiles facing inward, not on
+        the near and far edges.
+
+    So the near side of a table is not undrawable, as this file claimed; it is
+    the *easy* side, and takes the same back view a desk does. It is the far
+    side that needs the front view, and the front view exists. `left`/`right`
+    are the ones to reach for first all the same, because a profile reads as a
+    chair at a glance where a face-on chair reads as a lump.
+
+    Nothing here is trusted: R9 re-measures every chair on every run and
+    fails the scene if the sprite disagrees with the declared facing.
+    """
+    pool = chair_pool(suite, facing)
+    name, ink = CHAIR_SUITES[suite][facing]
+    return (name, x, y, pool[v % len(pool)],
+            ("ink:%dx%d" % ink, "facing:" + facing) + flags)
 
 
 def seat(variant, x, y, facing="down"):
@@ -1106,50 +1366,90 @@ def seat(variant, x, y, facing="down"):
     return (variant, "idle", "up", x, y + SEAT_STANDOFF)
 
 
-# A near-side chair is 42-46 px tall and a table top is 34-42, so a chair
-# tucked level with the table hides almost all of it. These are the two
-# clearances that keep a table looking like a table.
-FAR_TUCK = 4     # far chair's feet overlap the table's back edge by this
-NEAR_TUCK = 6    # near chair's head overlaps the table's front edge by this
+# A chair is 42-46 px tall and a table top is 34-42, so a chair tucked level
+# with the table hides almost all of it. These are the clearances that keep a
+# table looking like a table.
+FAR_TUCK = 4      # far chair's feet overlap the table's back edge by this
+NEAR_TUCK = 6     # near chair's head overlaps the table's front edge by this
+SIDE_STANDOFF = 6  # side chair's near edge, inside the table's own edge
+CHAIR_W = 22      # a profile chair's ink width
 
 
-def table_with_seats(x, y, slabs=3, seats=(3, 0), v=0,
-                     name="table_metal", ink=(52, 40), pitch=52, chair_h=46):
-    """A table with chairs down both sides, laid out so the table survives.
+def table_with_seats(x, y, slabs=3, seats=(0, 0, 1, 1), v=0,
+                     name="table_metal", ink=(52, 40), pitch=52, chair_h=46,
+                     suite="office"):
+    """A table and its chairs, laid out so both survive.
 
-    # Why this is a function
+    `seats` is `(far, near, west, east)` — how many chairs on each edge.
+
+    # Why the sides come first
+
+    The default seats the ends, not the faces, because that is what the
+    packs' own artists do: the ice-cream shop's cafe tables are seated left
+    and right with mirrored profiles facing inward, and nothing in either
+    pack's designs seats a table on the far edge at all. A profile chair
+    reads as a chair instantly — you can see the backrest, the seat and the
+    legs as separate parts. A face-on chair is a symmetric lump the same
+    colour as the table, and at 1x it disappears into it.
+
+    A side chair's own floor point sits level with the table's, offset
+    `ink[0] // 2 + CHAIR_W // 2 - SIDE_STANDOFF` from centre so it laps the
+    table's edge rather than floating beside it.
+
+    # Why the faces are arithmetic rather than eyeballing
 
     The meeting room was hand-placed three times and came out wrong three
-    times, in the same way each time: the near chairs sat level with the
-    table, and since they are 46 px tall against a 40 px top they covered all
-    but a 26 px strip. The table read as cut off at both ends, which is
-    exactly what it was.
+    times, the same way each time: the near chairs sat level with the table,
+    and since they are 46 px tall against a 40 px top they covered all but a
+    26 px strip. The table read as cut off at both ends, which is what it was.
 
-    The arithmetic is not hard, it is just easy to skip. The top runs from
-    `y - ink[1]` to `y`. A far chair's *feet* belong on the back edge, so its
-    floor point is `y - ink[1] + FAR_TUCK`. A near chair's *head* belongs on
-    the front edge, so its floor point is `y + chair_h - NEAR_TUCK` — below
-    the table, not level with it. Doing it here means every scene gets it and
-    a new one cannot get it wrong by hand.
+    The top runs from `y - ink[1]` to `y`. A far chair's *feet* belong on the
+    back edge, so its floor point is `y - ink[1] + FAR_TUCK`. A near chair's
+    *head* belongs on the front edge, so its floor point is
+    `y + chair_h - NEAR_TUCK` — below the table, not level with it.
 
-    Note the vertical budget this implies: a table with two chair rows needs
+    Note the vertical budget: a table seated on both faces needs
     `chair_h + ink[1] + chair_h - FAR_TUCK - NEAR_TUCK` px of floor, about 122
     for the office kit. A room with a north wall gives 32 px per tile minus
-    64, so **six tiles is not enough for a table with two sides** and seven
-    is. That is why the meeting room is 7 tiles and the break room 5.
+    64, so **six tiles is not enough for a table seated front and back** and
+    seven is. That is why the meeting room is 7 tiles and the break room 5.
+    Seating the sides instead costs nothing vertically, which is the other
+    reason to prefer it.
     """
     out = []
     left = x - (slabs * pitch) // 2 + pitch // 2
     for i in range(slabs):
-        out.append((name, left + i * pitch, y, v + i, ("ink:%dx%d" % ink,)))
-    far, near = seats
+        # One finish for the whole table. Walking the variant along the run
+        # walks the *finishes*, and the library came out as one tan slab
+        # abutted to one dark orange one — a two-tone table nobody makes.
+        out.append((name, left + i * pitch, y, v,
+                    ("ink:%dx%d" % ink, "matched")))
+    far, near, west, east = seats
     span = slabs * pitch
     for i in range(far):
         cx = x - span // 2 + span * (2 * i + 1) // (2 * far)
-        out.append(chair(cx, y - ink[1] + FAR_TUCK, v + i, "down"))
+        out.append(chair(cx, y - ink[1] + FAR_TUCK, v, "down", suite=suite))
     for i in range(near):
         cx = x - span // 2 + span * (2 * i + 1) // (2 * near)
-        out.append(chair(cx, y + chair_h - NEAR_TUCK, v + i, "up"))
+        out.append(chair(cx, y + chair_h - NEAR_TUCK, v, "up", suite=suite))
+    # The table's own half-width, plus half a chair, less the overlap. Long
+    # tables lap the outermost slab, not the centre.
+    reach = span // 2 + CHAIR_W // 2 - SIDE_STANDOFF
+    # A side chair's depth is not free. Placed level with the table's own
+    # floor point it ties on the sort key, and `place` breaks ties by x — so
+    # the chair to the *left* of a table draws behind it and the identical one
+    # to the right draws in front. The meeting room showed exactly that: a
+    # chair on one side, a sliver of chair on the other.
+    #
+    # So a side seat takes one of two depths, front corner first, the way the
+    # ice-cream shop's cafe tables are seated. The front chair laps the near
+    # edge and draws over it; the back one sits behind the table and is
+    # meant to.
+    depths = [y + 2, y - ink[1] + FAR_TUCK]
+    for i in range(west):
+        out.append(chair(x - reach, depths[i % 2], v, "right", suite=suite))
+    for i in range(east):
+        out.append(chair(x + reach, depths[i % 2], v, "left", suite=suite))
     return out
 
 
@@ -1264,13 +1564,18 @@ def engineering():
     props += [("tv_wall", 566, 60, 1, ("flat",)),
               ("certificate", 648, 52, 0, ("flat",)),
               ("noticeboard", 484, 56, 0, ("flat",))]
-    props += table_with_seats(560, 176, slabs=3, seats=(4, 0), v=0)
+    # Seated on all four edges — a meeting room is the one place a table is
+    # meant to look surrounded. The 7 tiles this room has were chosen for
+    # exactly the 122 px `table_with_seats` needs to seat both faces.
+    props += table_with_seats(560, 176, slabs=3, seats=(2, 2, 1, 1), v=0)
     props += [("plant_potted", 442, 110, 8, ()),
               ("plant_potted", 690, 112, 12, ()),
               ("water_cooler", 688, 182, 0, ()),
-              ("printer", 596, 216, 6, ("ink:30x32",)),
+              # Against the west wall, not the near edge of the table: the
+              # near edge is now two chairs, and seating a table costs the
+              # floor that used to hold the room's clutter.
+              ("printer", 440, 170, 6, ("ink:30x32",)),
               ("cabinet_drawers", 448, 214, 1, ()),
-              ("plant_potted", 500, 218, 8, ()),
               ("box_cardboard", 636, 214, 1, ("ink:32x42",)),
               ("box_cardboard", 664, 220, 0, ("ink:24x42",)),
               ("document_tray", 508, 162, 0, on_desk(40)),
@@ -1351,10 +1656,11 @@ def museum():
               ("vase_on_plinth", 300, 300, 2, ()),
               ("plinth", 148, 348, 0, ()),
               ("lectern", 250, 348, 3, ()),
-              ("bench", 376, 330, 0, ()),
+              ("bench", 376, 330, 0, ("facing:none",)),
               ("plant_potted", 380, 380, 11, ()),
               ("wall_plaque", 372, 60, 0, ("flat",)),
-              ("bench", 130, 366, 0, ()), ("bench", 290, 366, 1, ()),
+              ("bench", 130, 366, 0, ("facing:none",)),
+              ("bench", 290, 366, 1, ("facing:none",)),
               ("sign_exit", 356, 56, 2, ("flat",)),
               ("plant_potted", 62, 384, 1, ()),
               ("laser_sensor", 60, 150, 0, ("ground",)),
@@ -1383,7 +1689,7 @@ def museum():
               ("turnstile", 534, 356, 4, ()),
               ("plant_potted", 464, 382, 6, ()),
               ("plant_potted", 668, 340, 9, ()),
-              ("bench", 670, 384, 2, ()),
+              ("bench", 670, 384, 2, ("facing:none",)),
               ("doormat", 592, 382, 4, ("ground",)),
               ("sign_exit", 690, 250, 4, ("flat",))]
     people = [("17", "idle", "up", 140, 150), ("07", "idle", "up", 320, 150),
@@ -1433,7 +1739,7 @@ def hospital():
               ("dispenser_soap", 316, 60, 0, ("flat",)),
               ("bin", 320, 372, 11, ()),
               ("plant_potted", 24, 372, 1, ()),
-              ("wheelchair", 360, 372, 3, ()),
+              ("wheelchair", 360, 372, 3, ("facing:down",)),
               ("cabinet_steel", 112, 368, 3, ("ink:32x42",)),
               ("cabinet_steel", 146, 368, 0, ("ink:28x42",)),
               ("bin", 300, 254, 6, ())]
@@ -1447,8 +1753,14 @@ def hospital():
               ("board_schedule", 560, 58, 3, ("flat",)),
               ("tv_wall", 640, 58, 2, ("flat",)),
               ("kiosk_touchscreen", 678, 128, 0, ())]
-    props += row("chair_waiting", 478, 190, 3, 66, v0=0, dv=1,
-                 flags=("ink:62x36",))
+    # The 62x36 entries are the two-seat units and the 32x36 the singles.
+    # Walking the variant by 1 across the whole family mixes the two and the
+    # run comes out chair, bench, chair — but pinning the *double* was no
+    # better: six seats at a 4 px spacing make an unbroken 190 px band that
+    # reads as a fence rather than as seating. Singles at a 12 px gap read as
+    # five chairs, which is what a waiting room looks like.
+    props += row("chair_waiting", 470, 190, 4, 44, v0=0, dv=1,
+                 flags=("ink:32x36", "facing:down"))
     props += [("vending_machine", 678, 190, 0, ("ink:48x68",)),
               ("stanchion_rope", 424, 172, 0, ("ground",)),
               ("stanchion_rope", 646, 172, 2, ("ground",)),
@@ -1459,9 +1771,9 @@ def hospital():
               ("poster", 640, 248, 0, ("flat",))]
     props += [("play_mat", 500, 320, 0, ("ground",)),
               ("table_round", 590, 320, 3, ("ink:54x54",)),
-              ("chair_kids", 560, 316, 2, ()),
-              ("chair_kids", 620, 316, 8, ()),
-              ("chair_kids", 618, 348, 14, ()),
+              ("chair_kids", 560, 316, 2, ("facing:down",)),
+              ("chair_kids", 620, 316, 8, ("facing:up",)),
+              ("chair_kids", 618, 348, 14, ("facing:left",)),
               ("toy_box", 440, 300, 1, ()),
               ("toy_box_animal", 440, 340, 2, ()),
               ("toy_bin_animal", 676, 300, 1, ()),
@@ -1473,7 +1785,7 @@ def hospital():
               ("toy_figure", 486, 356, 2, ("ground",)),
               ("toy_stacking_ring", 630, 378, 0, ()),
               ("toy_block", 466, 378, 0, ("ground",)),
-              ("bench", 600, 380, 3, ())]
+              ("bench", 600, 380, 3, ("facing:none",))]
     people = [("17", "idle", "down", 120, 200), ("07", "idle", "left", 336, 208),
               ("19", "idle", "down", 470, 132), ("09", "idle", "down", 556, 296),
               ("10", "idle", "down", 448, 366), ("06", "walk", "down", 400, 120)]
@@ -1518,14 +1830,16 @@ def library():
               ("shelf_library", 220, 148, 2, ()),
               ("globe", 300, 144, 0, ()),
               ("step_ladder", 350, 146, 2, ())]
-    props += table_with_seats(120, 300, slabs=2, seats=(3, 0), v=0,
+    # A reading table, seated the way the ice-cream shop seats a cafe table:
+    # profiles facing inward on both ends, and one reader at the near face.
+    props += table_with_seats(120, 300, slabs=2, seats=(0, 2, 1, 1), v=0,
                               name="table_wood", ink=(60, 50), pitch=60,
-                              chair_h=42)
+                              chair_h=42, suite="wood")
     props += [("paper_stack", 96, 282, 0, on_desk(32, (24, 24))),
               ("coffee_cup", 148, 280, 0, on_desk(30)),
               ("lamp_floor", 30, 300, 0, ("ink:26x68",)),
-              ("armchair", 300, 268, 0, ("ink:40x46",)),
-              ("armchair", 370, 268, 1, ("ink:40x46",)),
+              ("armchair", 300, 268, 0, ("ink:40x46", "facing:down")),
+              ("armchair", 370, 268, 1, ("ink:40x46", "facing:down")),
               ("rug_patterned", 336, 300, 1, ("ground", "ink:60x60")),
               ("plant_potted", 30, 372, 10, ()),
               ("plant_potted", 386, 372, 15, ()),
@@ -1545,7 +1859,7 @@ def library():
               ("poster", 646, 250, 3, ("flat",))]
     props += [("desk_librarian_composite", 470, 330, 0, ()),
               ("lectern_with_book", 540, 328, 0, ("ink:34x58",)),
-              ("armchair", 620, 330, 2, ("ink:40x46",)),
+              ("armchair", 620, 330, 2, ("ink:40x46", "facing:down")),
               ("table_wood", 682, 360, 0, ("ink:32x40",)),
               ("lamp_floor", 676, 290, 0, ("ink:26x68",)),
               ("rug_patterned", 600, 384, 2, ("ground", "ink:58x32")),
