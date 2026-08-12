@@ -47,7 +47,7 @@ guessing, is what this file is built on:
     nothing is alone: props come in rows, pairs and clusters, and the gaps
     between clusters are filled with small litter.
 
-# Three findings the app should take
+# Findings the app should take
 
 **A catalogue name is a family, not an object.** `desk_corner_l` has 49
 entries and they are five finishes of the same ten pieces, only two of which
@@ -78,6 +78,35 @@ The other half of the same class of bug is coordinates chosen against a room's
 *rect* rather than its *floor* — the north wall eats the top two tiles, so a
 5-tile room has 3 tiles of floor. `floor_of` reports anything standing outside
 one, which is how the figures on walls were found rather than guessed at.
+
+**Props have a facing, and the pack only draws one of them.** Every monitor
+in 12,279 props is face-on with its keyboard below, so it can only belong to
+someone sitting *below* it, facing away. `chair_conference` puts the backrest
+on the far side, for someone facing the camera; `chair_office_back` puts it
+nearest, for someone facing away. Get either wrong and you have people staring
+at the back of their own screen and sitting the wrong way round in their
+chairs — which is what the first four renders of these scenes did, and what
+made them read as almost-right rather than right. `desk_pod` and `chair`
+enforce both, and nothing places a chair or a screen except through them.
+
+# Why there is a linter in here
+
+Everything above was found by looking at pictures one prop at a time, which is
+slow, misses whatever is only wrong at 1x, and had me fixing symptoms in the
+order I happened to notice them. `check_continuity` replaces that with five
+rules, checked exhaustively on every run:
+
+  R1  wall decor hangs on an actual wall, and not in a doorway
+  R2  furniture stands on a floor — the walkable part, not the room's rect
+  R3  and on one floor: no footprint straddling a wall or the plan's edge
+  R4  no two pieces of furniture in the same floor space
+  R5  anything resting on a surface is fully on some particular surface
+
+Its first run reported **43 violations across three scenes that had already
+been eyeballed and called finished**, including two figures standing on walls,
+a sign hanging in a doorway, six appliances inside a 416x72 prop that turned
+out to be an entire wall of fridges rather than one, and cups floating beside
+a table. R5 alone found nine. None of these were visible at 1x.
 
 Uses Pillow, which the app's own pipeline avoids — fine here, because nothing
 in this file is part of the build. `scripts/process-assets.py` stays stdlib.
@@ -478,17 +507,40 @@ def place(canvas, items):
 
 
 def _flags(entry):
-    """`("flat", "ink:64x64", "z:+2")` -> (flat, (64, 64), 2)."""
-    flat, ink, z = False, None, 0
+    """`("wall", "ink:64x64", "z:+2")` -> (kind, (64, 64), 2).
+
+    `kind` is what the prop is standing on, and every continuity rule keys off
+    it: "floor" for furniture, "wall" for something hung on a wall face, "on"
+    for anything resting on other furniture. It used to be a single `flat` flag
+    meaning only "draw no shadow", which conflated a picture on a wall with a
+    mug on a desk — and a checker cannot tell those apart, so neither could I.
+    """
+    kind, ink, z = "floor", None, 0
     for f in (entry[4] if len(entry) > 4 else ()):
-        if f == "flat":
-            flat = True
+        if f == "wall":
+            kind = "wall"
+        elif f == "flat":
+            # `flat` alone is wall decor; `flat` with a `z` is something
+            # resting on furniture. The two are distinguishable without a
+            # third flag because a prop on a surface *must* carry a z — with
+            # z 0 it sorts behind its own support and is painted over. So a
+            # flat prop with no z has nothing under it but a wall.
+            kind = "wall"
+        elif f == "ground":
+            # Lying on the floor rather than standing on it: a mat, a rug, a
+            # dropped toy, a low platform. Casts no shadow and is not wall
+            # decor, and nothing is wrong with something else standing on it.
+            kind = "ground"
+        elif f == "seat":
+            # A chair with somebody in it. Exempt from the shared-floor rule
+            # for the obvious reason.
+            kind = "seat"
         elif f.startswith("ink:"):
             w, h = f[4:].split("x")
             ink = (int(w), int(h))
         elif f.startswith("z:"):
             z = int(f[2:])
-    return flat, ink, z
+    return ("on" if kind == "wall" and z else kind), ink, z
 
 
 def floor_of(rooms, x, y):
@@ -509,16 +561,130 @@ def floor_of(rooms, x, y):
     return None
 
 
+# ---------------------------------------------------------------------------
+# Continuity
+#
+# Everything below is here because eyeballing renders does not scale. Each of
+# these rules was broken in a shipped scene and found by looking at a picture
+# one prop at a time, which is the slowest possible way to find any of them and
+# misses the ones that are only wrong at 1x. They are cheap to check and the
+# check is exhaustive, so the composer checks them on every run.
+
+def _band_of(rooms, x, y):
+    """The room whose north wall band covers (x, y), or None."""
+    for r in rooms:
+        if not r["band"]:
+            continue
+        if r.x * TILE <= x < (r.x + r.w) * TILE and \
+                r.y * TILE <= y < (r.y + 2) * TILE:
+            return r
+    return None
+
+
+def _door_gap(room, side, x, y):
+    """True if (x, y) falls in a doorway cut through `room`'s `side`."""
+    for s, e in _door_spans(room, side):
+        if side in ("north", "south"):
+            if (room.x + s) * TILE <= x < (room.x + e) * TILE:
+                return True
+        elif (room.y + s) * TILE <= y < (room.y + e) * TILE:
+            return True
+    return False
+
+
+def _walls_between(rooms, x0, x1, y):
+    """Vertical room boundaries strictly inside the span x0..x1 at height y.
+
+    A boundary is a wall. Furniture whose footprint spans one is standing half
+    in each of two rooms, with the wall line drawn through it.
+    """
+    edges = set()
+    for r in rooms:
+        if r.y * TILE <= y <= (r.y + r.h) * TILE:
+            edges.add(r.x * TILE)
+            edges.add((r.x + r.w) * TILE)
+    return sorted(e for e in edges if x0 < e < x1)
+
+
+def check_continuity(rooms, placed):
+    """Every rule the scenes have broken, as a list of complaints.
+
+    `placed` is (name, x, y, w, h, kind) where kind is "floor", "wall" or
+    "on" — resting on other furniture, which is exempt from the floor rules
+    because its support is what stands on the floor.
+    """
+    out = []
+    for name, x, y, w, h, kind in placed:
+        left, right = x - w // 2, x - w // 2 + w
+        if kind == "wall":
+            # R1. Wall decor hangs on a wall, and a doorway is a hole in one.
+            band = _band_of(rooms, x, y)
+            if band is None:
+                out.append("R1 %s@%d,%d hangs on no wall" % (name, x, y))
+            elif _door_gap(band, "north", x, y):
+                out.append("R1 %s@%d,%d hangs in a doorway" % (name, x, y))
+            elif not (_band_of(rooms, left, y) and _band_of(rooms, right - 1, y)):
+                out.append("R1 %s@%d,%d overhangs the wall's end" % (name, x, y))
+        elif kind in ("floor", "ground", "seat"):
+            # R2. Furniture stands on a floor.
+            room = floor_of(rooms, x, y)
+            if room is None:
+                out.append("R2 %s@%d,%d is not on any floor" % (name, x, y))
+                continue
+            # R3. And on ONE floor — a footprint spanning a room boundary is
+            # a desk with a wall drawn through it.
+            if kind != "ground":
+                for edge in _walls_between(rooms, left, right, y):
+                    if not _door_gap(room, "west" if edge <= x else "east", x, y):
+                        out.append("R3 %s@%d,%d straddles the wall at x=%d"
+                                   % (name, x, y, edge))
+    # R5. Anything resting on furniture has to be resting on some *particular*
+    # piece of furniture, with its whole footprint on the surface. Otherwise it
+    # is a mug in mid-air beside a desk — which looks, at panel size, exactly
+    # like a mug on a desk, so this is not findable by eye.
+    supports = [p for p in placed if p[5] == "floor"]
+    for name, x, y, w, h, kind in placed:
+        if kind != "on":
+            continue
+        left, right = x - w // 2, x - w // 2 + w
+        held = False
+        for _, fx, fy, fw, fh, _ in supports:
+            fl = fx - fw // 2
+            if fl <= left and right <= fl + fw and fy - fh <= y <= fy:
+                held = True
+                break
+        if not held:
+            out.append("R5 %s@%d,%d rests on nothing" % (name, x, y))
+
+    # R4. Two pieces of furniture cannot occupy the same floor. Compared on
+    # footprint — the ink's bottom 12 px, which is what touches the ground —
+    # rather than on the whole box, because a tall thing legitimately overlaps
+    # what is behind it.
+    floors = [p for p in placed if p[5] == "floor"]
+
+    for i, (n1, x1, y1, w1, _, _) in enumerate(floors):
+        for n2, x2, y2, w2, _, _ in floors[i + 1:]:
+            if abs(y1 - y2) > 10:
+                continue
+            a0, a1 = x1 - w1 // 2, x1 - w1 // 2 + w1
+            b0, b1 = x2 - w2 // 2, x2 - w2 // 2 + w2
+            share = min(a1, b1) - max(a0, b0)
+            if share > min(w1, w2) // 2:
+                out.append("R4 %s@%d,%d and %s@%d,%d share %d px of floor"
+                           % (n1, x1, y1, n2, x2, y2, share))
+    return out
+
+
 def compose(spec, by_name, out_path):
     rooms = spec["rooms"]
     plan = draw_plan(rooms)
 
     wall_zones = [((r.y) * TILE, (r.y + 2) * TILE) for r in rooms if r.band]
-    items, missing, tiny, astray = [], [], [], []
+    items, missing, tiny, placed = [], [], [], []
     for entry in spec["props"]:
         name, x, y = entry[0], entry[1], entry[2]
         variant = entry[3] if len(entry) > 3 else 0
-        flat, ink, z = _flags(entry)
+        kind, ink, z = _flags(entry)
         got = prop(by_name, name, variant, ink)
         if got is None:
             missing.append(name if ink is None
@@ -530,15 +696,8 @@ def compose(spec, by_name, out_path):
         # it a partition — see `prop`'s note on families versus pieces.
         if min(box["w"], box["h"]) < 8:
             tiny.append("%s#%d %dx%d" % (name, variant, box["w"], box["h"]))
-        onwall = any(a <= y <= b for a, b in wall_zones)
-        # `flat` is the marker for wall-mounted decor and for things resting on
-        # other things; everything else is furniture standing on a floor, and
-        # is out of place anywhere else. Exempting on `onwall` instead would
-        # miss the worst case — a chair standing on the *next* room's wall
-        # band, which is both off its own floor and inside a wall zone.
-        if not flat and floor_of(rooms, x, y) is None:
-            astray.append("%s@%d,%d" % (name, x, y))
-        items.append((y + z, got[0], box, x, y, not (onwall or flat)))
+        placed.append((name, x, y, box["w"], box["h"], kind))
+        items.append((y + z, got[0], box, x, y, kind in ("floor", "seat")))
     for entry in spec.get("people", []):
         v, pose, facing, x, y = entry[:5]
         z = entry[5] if len(entry) > 5 else 0
@@ -549,9 +708,7 @@ def compose(spec, by_name, out_path):
         # A figure seated facing the camera stands *inside* the desk, whose own
         # floor point is what has to be on the floor — so check where the desk
         # is, not where the head is.
-        if floor_of(rooms, x, y) is None and \
-                floor_of(rooms, x, y + SEAT_INSET) is None:
-            astray.append("%s@%d,%d" % (v, x, y))
+        placed.append((v, x, y, im.width, im.height, "seat"))
         items.append((y + z, im, None, x, y, z >= 0))
     place(plan, items)
 
@@ -576,8 +733,11 @@ def compose(spec, by_name, out_path):
         print("  MISSING: %s" % ", ".join(sorted(set(missing))))
     if tiny:
         print("  SLIVERS: %s" % ", ".join(sorted(set(tiny))))
-    if astray:
-        print("  OFF-FLOOR (%d): %s" % (len(astray), ", ".join(astray)))
+    breaks = check_continuity(rooms, placed)
+    if breaks:
+        print("  CONTINUITY (%d)" % len(breaks))
+        for b in breaks:
+            print("    " + b)
     print("  %d props, %d people" % (len(items) - len(spec.get("people", [])),
                                      len(spec.get("people", []))))
     return out_path
@@ -676,7 +836,41 @@ def on_desk(lift, ink=None):
 # everything below them — 8 px of overlap is enough to read as "behind", and
 # more starts to look decapitated.
 SEAT_INSET = 30
-SEAT_STANDOFF = 22  # feet this far below it for the back view
+# Feet this far below the desk for the back view. The back-view chair is 46 px
+# tall against a ~34 px figure, so it swallows an occupant placed level with
+# it: the render came out as three empty chairs. Sitting the figure 30 px
+# higher than the chair's own floor point leaves its head and shoulders above
+# the backrest, which is what somebody in a high-backed chair looks like from
+# behind.
+SEAT_STANDOFF = 8
+CHAIR_DROP = 38     # the chair's floor point, below the desk's
+
+
+def chair(x, y, v=0, facing="down", flags=()):
+    """A chair drawn the right way round for whoever sits in it.
+
+    **Chairs are not symmetric and the pack does not let you pretend they
+    are.** `chair_office_swivel` and `chair_conference` are drawn with the
+    backrest on the *far* side and the seat toward the viewer, which is the
+    chair of somebody facing the camera. `chair_office_back` is the reverse:
+    the backrest is nearest, filling the sprite, and the seat is barely
+    visible — the chair of somebody facing away.
+
+    Using one for the other is subtle enough to survive several renders and
+    obvious once seen, which is the worst combination. It is also not
+    checkable by the linter, because both are 'a chair on a floor'. So the
+    only defence is that nothing places a chair except through here.
+
+    Two more consequences worth stating, since they are the same rule:
+
+      * A table has chairs on both sides and they are **different art**. The
+        far row faces the camera, the near row faces away.
+      * A camera-facing desk gets no chair at all — it would be behind the
+        desk and entirely hidden.
+    """
+    if facing == "down":
+        return (("chair_conference", x, y, v % 2) + (("ink:26x42",) + flags,))
+    return (("chair_office_back", x, y, v % 4) + (("ink:32x46",) + flags,))
 
 
 def seat(variant, x, y, facing="down"):
@@ -702,36 +896,45 @@ def desk_pod(x, y, v=0, facing="down"):
     chair is behind the desk and would be entirely hidden — drawing one there
     just puts a stray backrest through the desktop.
 
-    **The right half is dressed differently depending on which way the seat
-    faces, and that is not a flourish.** A camera-facing occupant *is* the
-    right half — their head and shoulders fill it. A back-facing one sits below
-    the desk and leaves it bare, which is why the first pass of these pods came
-    out looking like six half-empty tables. So the away-facing desk gets a
-    second screen where the person would otherwise have been.
+    **A monitor can only belong to a seat that faces away from the camera,
+    and that is a fact about the art rather than a preference.** Every screen
+    in the pack is drawn face-on with its keyboard below it: `monitor_lit`,
+    `monitor_dark`, `monitor_off_white`, `laptop_open_lit` and all six 32x42
+    `workstation_composite` rigs. There is no rear view of a monitor anywhere
+    in 12,279 props. A screen facing the camera is therefore being *looked at*
+    from below, by someone sitting between it and the viewer.
+
+    So a camera-facing occupant cannot have one. Giving them a screen puts
+    them behind their own monitor looking at its back — which is what the
+    first three renders of this scene showed, six times over.
+
+    Camera-facing desks get orientation-neutral kit instead: paper, a tray, a
+    mug, a lamp. Those read the same from either side, and the split gives the
+    floor something the app wants anyway — desks that look like different
+    kinds of work.
     """
     out = [
         ("desk_corner_l", x, y, v % 5, DESK),
-        # Rig on the desk's left half: ink 32 wide against a 64 wide slab, so
-        # x-16 covers x-32..x-1 exactly. Base 16 px up the desk, screen
-        # clearing the back edge by 20 px the way the pack's own GIF draws it.
-        ("workstation_composite", x - 16, y - 16, LIT_RIGS[v % 4],
-         on_desk(16, (32, 42))),
         ("coffee_cup", x + 2, y - 12, 0, on_desk(12)),
     ]
     if facing == "up":
         out += [
+            # Two screens, filling the slab. Ink 32 wide against 64, so x-16
+            # and x+16 tile it exactly. Base 16 px up the desk, screen clearing
+            # the back edge by 20 px the way the pack's own GIF draws it.
+            ("workstation_composite", x - 16, y - 16, LIT_RIGS[v % 4],
+             on_desk(16, (32, 42))),
             ("workstation_composite", x + 16, y - 16, LIT_RIGS[(v + 1) % 4],
              on_desk(16, (32, 42))),
-            # 24x24 is the loose sheaf; the 32x42 entry is a filing tower and
-            # overhangs the desk's right edge when centred this close to it.
-            ("paper_stack", x + 24, y - 10, v % 3, on_desk(10, (24, 24))),
-            # 22x42 is the narrow swivel seen from behind. The 32x44 entry is a
-            # wide-backed chair, and at this standoff its backrest covers the
-            # occupant's shoulders — an empty chair with a head over it.
-            ("chair_office_swivel", x, y + 32, v * 7 % 6, ("ink:22x42",)),
+            chair(x, y + CHAIR_DROP, v, "up", ("seat",)),
         ]
     else:
-        out.append(("paper_stack", x + 22, y - 14, v % 3, on_desk(14, (24, 24))))
+        out += [
+            # 24x24 is the loose sheaf; the 32x42 entry is a filing tower and
+            # overhangs the desk's right edge when centred this close to it.
+            ("document_tray", x - 16, y - 16, v % 2, on_desk(16)),
+            ("paper_stack", x + 18, y - 12, (v + 1) % 3, on_desk(12, (24, 24))),
+        ]
     return out
 
 
@@ -780,8 +983,8 @@ def engineering():
               ("cabinet_drawers", 26, 302, 4, ()),
               ("plant_potted", 250, 118, 9, ()),
               ("plant_potted", 366, 118, 13, ()),
-              ("backpack", 118, 226, 0, ("flat",)),
-              ("backpack", 252, 356, 1, ("flat",))]
+              ("backpack", 118, 226, 0, ("ground",)),
+              ("backpack", 252, 356, 1, ("ground",))]
     # Meeting room: long table, chairs down both sides, screen on the face.
     #
     # The table is two 52x42 `table_metal` slabs abutted, not a run of
@@ -793,17 +996,16 @@ def engineering():
               ("noticeboard", 484, 56, 0, ("flat",))]
     props += row("table_metal", 522, 160, 2, 52, v0=0, dv=3,
                  flags=("ink:52x40",))
-    props += row("chair_conference", 512, 116, 4, 26, v0=0,
-                 flags=("ink:26x42",))
-    props += row("chair_conference", 512, 190, 4, 26, v0=1, flags=("ink:26x42",))
+    props += [chair(512 + i * 26, 116, i, "down") for i in range(4)]
+    props += [chair(512 + i * 26, 190, i, "up") for i in range(4)]
     props += [("plant_potted", 442, 110, 8, ()),
               ("plant_potted", 690, 112, 12, ()),
               ("water_cooler", 688, 182, 0, ()),
               ("printer", 444, 186, 6, ("ink:30x32",)),
-              ("document_tray", 540, 148, 0, on_desk(26)),
+              ("document_tray", 522, 148, 0, on_desk(26)),
               ("paper_stack", 574, 146, 0, on_desk(24, (24, 24))),
-              ("coffee_cup", 500, 144, 0, on_desk(22)),
-              ("coffee_cup", 596, 144, 0, on_desk(22))]
+              ("coffee_cup", 508, 144, 0, on_desk(22)),
+              ("coffee_cup", 588, 144, 0, on_desk(22))]
     # Break room: counters, cafe tables, sofa, vending.
     # The break room's north wall is 64 px of the panel's 400 and was carrying
     # two objects. The pack's own rooms hang something every two tiles.
@@ -813,13 +1015,12 @@ def engineering():
               ("poster", 676, 244, 0, ("flat",))]
     props += [("coffee_machine", 458, 300, 0, ()),
               ("coffee_machine", 490, 300, 3, ()),
-              ("vending_machine", 684, 306, 2, ()),
+              ("vending_machine", 672, 306, 0, ("ink:48x68",)),
               ("water_cooler", 646, 300, 0, ()),
               ("counter_wood", 540, 300, 0, ("ink:32x30",)),
               ("counter_wood", 572, 300, 1, ("ink:32x30",)),
               ("microwave", 540, 292, 0, on_desk(22)),
               ("kettle", 574, 290, 0, on_desk(20)),
-              ("fridge_white", 606, 302, 0, ()),
               # **No sofas and no tub chairs here.** Both are in the pack and
               # both were tried: at 1x the 62x48 sofa's checkered seat reads as
               # a grate and the 32x36 tub chair reads as a washbasin. Legibility
@@ -828,10 +1029,8 @@ def engineering():
               # a metal table with chairs round it, which reads at any size.
               ("table_metal", 500, 356, 1, ("ink:40x34",)),
               ("table_metal", 592, 356, 2, ("ink:48x40",)),
-              ("chair_conference", 470, 348, 0, ("ink:26x42",)),
-              ("chair_conference", 530, 348, 1, ("ink:26x42",)),
-              ("chair_conference", 560, 350, 0, ("ink:26x42",)),
-              ("chair_conference", 626, 350, 1, ("ink:26x42",)),
+              chair(474, 330, 0, "down"), chair(526, 330, 1, "down"),
+              chair(566, 332, 0, "down"), chair(620, 332, 1, "down"),
               ("plant_potted", 444, 372, 15, ()),
               ("bin", 662, 366, 7, ()),
               ("coffee_cup", 500, 340, 0, on_desk(18)),
@@ -862,7 +1061,7 @@ def museum():
               ("painting_framed", 410, 58, 26, ("flat",)),
               ("wall_plaque", 105, 56, 0, ("flat",)),
               ("wall_plaque", 285, 56, 0, ("flat",))]
-    props += row("rope_barrier", 40, 104, 10, 44, v0=0)
+    props += row("rope_barrier", 40, 104, 10, 44, v0=0, flags=("ground",))
     props += [("column", 20, 200, 1, ()), ("column", 20, 340, 3, ()),
               ("column", 424, 200, 5, ()), ("column", 424, 340, 7, ())]
     props += [("display_case", 104, 196, 2, ("ink:54x88",)),
@@ -870,17 +1069,17 @@ def museum():
               ("display_case", 288, 196, 4, ("ink:54x88",)),
               ("artefact_case", 382, 196, 0, ()),
               ("skeleton", 210, 300, 4, ()),
-              ("exhibit_platform", 210, 306, 1, ("flat",)),
+              ("exhibit_platform", 210, 306, 1, ("ground",)),
               ("statue", 70, 296, 2, ()), ("statue", 350, 296, 6, ()),
               ("amphora_on_plinth", 120, 300, 1, ()),
               ("vase_on_plinth", 300, 300, 2, ()),
-              ("plinth", 160, 300, 0, ()),
+              ("plinth", 148, 348, 0, ()),
               ("lectern", 250, 348, 3, ()),
               ("bench", 130, 366, 0, ()), ("bench", 290, 366, 1, ()),
-              ("sign_exit", 424, 120, 2, ("flat",)),
+              ("sign_exit", 430, 56, 2, ("flat",)),
               ("plant_potted", 24, 130, 1, ()),
-              ("laser_sensor", 60, 150, 0, ("flat",)),
-              ("laser_sensor", 390, 150, 3, ("flat",))]
+              ("laser_sensor", 60, 150, 0, ("ground",)),
+              ("laser_sensor", 390, 150, 3, ("ground",))]
     # Gift shop: shelves along the face, tables of merch, a counter.
     props += [("poster_shirt", 500, 58, 1, ("flat",)),
               ("poster_shirt", 560, 58, 3, ("flat",)),
@@ -894,22 +1093,21 @@ def museum():
               ("shirt_folded", 652, 174, 0, on_desk(26, (26, 24))),
               ("shirt_folded", 676, 174, 2, on_desk(26, (26, 24)))]
     # Entrance: ticket desk, turnstiles, benches, a big centrepiece.
-    props += [("sign_hanging", 560, 250, 0, ("flat",)),
-              ("picture_framed", 490, 254, 0, ("flat",))]
-    props += [("ticket_booth", 480, 320, 1, ()),
-              ("ticket_counter", 540, 320, 0, ()),
-              ("turnstile", 600, 316, 1, ()),
-              ("turnstile", 632, 316, 3, ()),
-              ("turnstile", 664, 316, 5, ()),
-              ("security_scanner", 470, 380, 0, ()),
-              ("bench", 550, 376, 2, ()),
+    props += [("sign_hanging", 648, 246, 0, ("flat",)),
+              ("picture_framed", 470, 250, 0, ("flat",))]
+    props += [("ticket_counter", 566, 318, 0, ()),
+              ("turnstile", 494, 376, 1, ()),
+              ("turnstile", 526, 376, 3, ()),
+              ("turnstile", 558, 376, 5, ()),
+              ("security_scanner", 478, 336, 0, ()),
+              ("bench", 640, 372, 2, ()),
               ("plant_potted", 676, 300, 2, ()),
               ("plant_potted", 456, 300, 0, ()),
               ("dinosaur_model", 590, 290, 0, ()),
               ("sign_exit", 690, 250, 4, ("flat",))]
     people = [("17", "idle", "up", 140, 150), ("07", "idle", "up", 320, 150),
-              ("09", "idle", "down", 220, 340), ("19", "idle", "left", 520, 184),
-              ("10", "idle", "up", 610, 350), ("06", "walk", "right", 470, 250)]
+              ("09", "idle", "down", 220, 340), ("19", "idle", "left", 542, 184),
+              ("10", "idle", "up", 610, 350), ("06", "walk", "right", 466, 288)]
     return {"name": "02-museum", "rooms": rooms, "props": props,
             "people": people}
 
@@ -943,19 +1141,19 @@ def hospital():
                   ("patient_lying", x - 2, 150, i * 2, on_desk(8, (44, 36))),
                   ("nightstand", x + 46, 160, 3 + i * 4, ("ink:30x38",)),
                   ("iv_stand", x - 44, 154, i, IV),
-                  ("board_schedule", x, 76, i, ("flat",))]
+                  ("board_schedule", x, 58, i, ("flat",))]
     for i, x in enumerate((66, 176, 286)):
         props += [("hospital_bed", x, 306, 3 + i, BED),
                   ("patient_lying", x - 2, 298, 1 + i * 2, on_desk(8, (44, 36))),
                   ("nightstand", x + 46, 308, 9 + i * 4, ("ink:30x38",)),
                   ("iv_stand", x - 44, 302, 3 + i, IV),
-                  ("chair_office_swivel", x + 20, 334, i, ("ink:22x42",))]
+                  chair(x + 20, 334, i, "down")]
     props += [("privacy_screen", 350, 190, 0, ()),
               ("room_divider", 350, 330, 1, ()),
-              ("cabinet_medical", 24, 210, 0, ()),
-              ("shelf_medical", 24, 250, 2, ()),
-              ("sink_wall", 350, 110, 0, ("flat",)),
-              ("dispenser_soap", 350, 90, 0, ("flat",)),
+              ("cabinet_medical", 36, 212, 0, ("ink:54x78",)),
+              ("shelf_medical", 38, 264, 0, ("ink:58x68",)),
+              ("sink_wall", 348, 60, 0, ("flat",)),
+              ("dispenser_soap", 318, 46, 0, ("flat",)),
               ("bin", 320, 372, 6, ()),
               ("plant_potted", 24, 372, 1, ()),
               ("wheelchair", 360, 372, 3, ())]
@@ -969,19 +1167,18 @@ def hospital():
               ("board_schedule", 560, 58, 3, ("flat",)),
               ("tv_wall", 640, 58, 2, ("flat",)),
               ("kiosk_touchscreen", 676, 150, 0, ())]
-    props += row("chair_waiting", 430, 186, 4, 66, v0=1, dv=2,
+    props += row("chair_waiting", 440, 186, 3, 66, v0=1, dv=2,
                  flags=("ink:62x36",))
-    props += [("table_coffee", 500, 182, 6, ()),
-              ("vending_machine", 660, 182, 4, ()),
-              ("plant_potted", 400, 182, 2, ()),
-              ("stanchion_rope", 424, 166, 0, ("flat",)),
-              ("stanchion_rope", 600, 166, 2, ("flat",)),
-              ("fire_extinguisher", 690, 120, 0, ("flat",))]
+    props += [("table_coffee", 620, 188, 6, ("ink:40x36",)),
+              ("vending_machine", 664, 188, 0, ("ink:48x68",)),
+              ("stanchion_rope", 424, 166, 0, ("ground",)),
+              ("stanchion_rope", 600, 166, 2, ("ground",)),
+              ("fire_extinguisher", 690, 58, 0, ("flat",))]
     # Play area: mats, kid chairs, toy boxes, easels.
     props += [("chalk_drawing", 470, 250, 0, ("flat",)),
-              ("chalk_drawing", 560, 250, 2, ("flat",)),
+              ("chalk_drawing", 612, 250, 2, ("flat",)),
               ("poster", 640, 248, 0, ("flat",))]
-    props += [("play_mat", 500, 320, 0, ("flat",)),
+    props += [("play_mat", 500, 320, 0, ("ground",)),
               ("table_round", 590, 320, 3, ("ink:54x54",)),
               ("chair_kids", 560, 316, 2, ()),
               ("chair_kids", 620, 316, 8, ()),
@@ -994,12 +1191,12 @@ def hospital():
               ("cabinet_kids", 510, 292, 9, ()),
               ("toy_plush", 520, 344, 1, ()),
               ("toy_plush", 546, 350, 4, ()),
-              ("toy_figure", 486, 356, 2, ("flat",)),
+              ("toy_figure", 486, 356, 2, ("ground",)),
               ("toy_stacking_ring", 630, 378, 0, ()),
-              ("toy_block", 466, 378, 0, ("flat",)),
+              ("toy_block", 466, 378, 0, ("ground",)),
               ("bench", 600, 380, 3, ())]
     people = [("17", "idle", "down", 120, 200), ("07", "idle", "left", 330, 250),
-              ("19", "idle", "down", 500, 132), ("09", "idle", "up", 470, 178),
+              ("19", "idle", "down", 500, 132), ("09", "idle", "down", 556, 296),
               ("10", "idle", "down", 590, 300), ("06", "walk", "down", 400, 120)]
     return {"name": "03-hospital", "rooms": rooms, "props": props,
             "people": people}
