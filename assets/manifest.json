@@ -5630,6 +5630,146 @@
           "n04"
         ]
       }
+    },
+    "plan": {
+      "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own grid, y up; a space's `h` includes the two rows its north wall eats. `doorways` are absolute tile columns cut clean through that wall \u2014 nothing is drawn in one, the space's own floor is already there. `line_edge`/`line_fill` are measured off the cap tile and are what a partition is drawn from, because every plain wall run in the sheet is a 12-14 px stripe on an otherwise empty tile and the import pass drops anything under 60%% opaque. Route geometry is not in here and never may be: RoomPlan.routeViolations(in:) is the assertion that this plan stands in nobody's way.",
+      "surfaces": {
+        "carpet": {
+          "floor": "assets/processed/room/32x32/builder/tile_r07_c14.png",
+          "cap": "assets/processed/room/32x32/builder/tile_r09_c01.png",
+          "body": "assets/processed/room/32x32/builder/tile_r10_c01.png",
+          "line_edge": [
+            154,
+            154,
+            170
+          ],
+          "line_fill": [
+            234,
+            234,
+            234
+          ]
+        },
+        "concrete": {
+          "floor": "assets/processed/room/32x32/builder/tile_r07_c11.png",
+          "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
+          "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
+          "line_edge": [
+            154,
+            154,
+            170
+          ],
+          "line_fill": [
+            234,
+            234,
+            234
+          ]
+        },
+        "lino": {
+          "floor": "assets/processed/room/32x32/builder/tile_r09_c11.png",
+          "cap": "assets/processed/room/32x32/builder/tile_r11_c01.png",
+          "body": "assets/processed/room/32x32/builder/tile_r12_c01.png",
+          "line_edge": [
+            154,
+            154,
+            170
+          ],
+          "line_fill": [
+            234,
+            234,
+            234
+          ]
+        },
+        "plank": {
+          "floor": "assets/processed/room/32x32/builder/tile_r05_c14.png",
+          "cap": "assets/processed/room/32x32/builder/tile_r05_c01.png",
+          "body": "assets/processed/room/32x32/builder/tile_r06_c01.png",
+          "line_edge": [
+            154,
+            154,
+            170
+          ],
+          "line_fill": [
+            234,
+            234,
+            234
+          ]
+        },
+        "slab": {
+          "floor": "assets/processed/room/32x32/builder/tile_r05_c11.png",
+          "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
+          "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
+          "line_edge": [
+            154,
+            154,
+            170
+          ],
+          "line_fill": [
+            234,
+            234,
+            234
+          ]
+        }
+      },
+      "spaces": [
+        {
+          "name": "walkway",
+          "surface": "concrete",
+          "x": -8,
+          "y": -6,
+          "w": 42,
+          "h": 8,
+          "band": false
+        },
+        {
+          "name": "open plan",
+          "surface": "slab",
+          "x": -8,
+          "y": 2,
+          "w": 42,
+          "h": 7,
+          "doorways": [
+            3,
+            12,
+            21
+          ]
+        },
+        {
+          "name": "store",
+          "surface": "plank",
+          "x": -8,
+          "y": 9,
+          "w": 13,
+          "h": 3
+        },
+        {
+          "name": "meeting",
+          "surface": "carpet",
+          "x": 5,
+          "y": 9,
+          "w": 12,
+          "h": 3
+        },
+        {
+          "name": "galley",
+          "surface": "lino",
+          "x": 17,
+          "y": 9,
+          "w": 17,
+          "h": 3
+        }
+      ],
+      "partitions": [
+        {
+          "x": 5,
+          "y": 9,
+          "h": 3
+        },
+        {
+          "x": 17,
+          "y": 9,
+          "h": 3
+        }
+      ]
     }
   },
   "badges": {
@@ -7484,6 +7624,146 @@
                 "w": 28,
                 "h": 34
               }
+            }
+          ]
+        },
+        "plan": {
+          "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own grid, y up; a space's `h` includes the two rows its north wall eats. `doorways` are absolute tile columns cut clean through that wall \u2014 nothing is drawn in one, the space's own floor is already there. `line_edge`/`line_fill` are measured off the cap tile and are what a partition is drawn from, because every plain wall run in the sheet is a 12-14 px stripe on an otherwise empty tile and the import pass drops anything under 60%% opaque. Route geometry is not in here and never may be: RoomPlan.routeViolations(in:) is the assertion that this plan stands in nobody's way.",
+          "surfaces": {
+            "carpet": {
+              "floor": "assets/processed/room/32x32/builder/tile_r07_c14.png",
+              "cap": "assets/processed/room/32x32/builder/tile_r09_c01.png",
+              "body": "assets/processed/room/32x32/builder/tile_r10_c01.png",
+              "line_edge": [
+                154,
+                154,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            },
+            "concrete": {
+              "floor": "assets/processed/room/32x32/builder/tile_r07_c11.png",
+              "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
+              "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
+              "line_edge": [
+                154,
+                154,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            },
+            "lino": {
+              "floor": "assets/processed/room/32x32/builder/tile_r09_c11.png",
+              "cap": "assets/processed/room/32x32/builder/tile_r11_c01.png",
+              "body": "assets/processed/room/32x32/builder/tile_r12_c01.png",
+              "line_edge": [
+                154,
+                154,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            },
+            "plank": {
+              "floor": "assets/processed/room/32x32/builder/tile_r05_c14.png",
+              "cap": "assets/processed/room/32x32/builder/tile_r05_c01.png",
+              "body": "assets/processed/room/32x32/builder/tile_r06_c01.png",
+              "line_edge": [
+                154,
+                154,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            },
+            "slab": {
+              "floor": "assets/processed/room/32x32/builder/tile_r05_c11.png",
+              "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
+              "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
+              "line_edge": [
+                154,
+                154,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            }
+          },
+          "spaces": [
+            {
+              "name": "walkway",
+              "surface": "concrete",
+              "x": -8,
+              "y": -6,
+              "w": 42,
+              "h": 8,
+              "band": false
+            },
+            {
+              "name": "open plan",
+              "surface": "slab",
+              "x": -8,
+              "y": 2,
+              "w": 42,
+              "h": 7,
+              "doorways": [
+                3,
+                12,
+                21
+              ]
+            },
+            {
+              "name": "store",
+              "surface": "plank",
+              "x": -8,
+              "y": 9,
+              "w": 13,
+              "h": 3
+            },
+            {
+              "name": "meeting",
+              "surface": "carpet",
+              "x": 5,
+              "y": 9,
+              "w": 12,
+              "h": 3
+            },
+            {
+              "name": "galley",
+              "surface": "lino",
+              "x": 17,
+              "y": 9,
+              "w": 17,
+              "h": 3
+            }
+          ],
+          "partitions": [
+            {
+              "x": 5,
+              "y": 9,
+              "h": 3
+            },
+            {
+              "x": 17,
+              "y": 9,
+              "h": 3
             }
           ]
         }

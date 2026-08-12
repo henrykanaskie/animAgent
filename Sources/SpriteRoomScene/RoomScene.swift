@@ -69,8 +69,15 @@ public final class RoomScene: SKScene {
     public init(
         manifest: Manifest, themeID: String? = nil, layout: RoomLayout = RoomLayout()
     ) {
-        self.layout = layout
-        self.store = TextureStore(manifest: manifest, themeID: themeID)
+        let store = TextureStore(manifest: manifest, themeID: themeID)
+        self.store = store
+        // **The plan is the theme's, so it is resolved here and nowhere else.**
+        // A caller hands in the route geometry — the seat pitch, the capacity,
+        // the tile — and the manifest hands in what that geometry is drawn on.
+        // Doing it in this order is what keeps a theme id out of every call site
+        // and out of `RoomLayout`, which has no access to a manifest and never
+        // reads a PNG. [ADR-007 §3, ADR-002 §8 item 5]
+        self.layout = layout.adopting(plan: store.room.plan)
         // The clearance is the plate's, measured, not a constant — see
         // `RoomLayout.deliveryClearance(plateWidth:plateHeight:tile:)`.
         self.deliveryFloor = DeliveryFloor(
@@ -82,7 +89,7 @@ public final class RoomScene: SKScene {
         scaleMode = .fill
         // Slightly darker than the room's value floor so the room never blends
         // into the void behind it.
-        backgroundColor = SKColor(red: 0.14, green: 0.13, blue: 0.17, alpha: 1)
+        backgroundColor = Self.voidColour
         addChild(world)
         addChild(camera_)
         camera = camera_
@@ -146,16 +153,10 @@ public final class RoomScene: SKScene {
     -> [(role: String, point: ScenePoint)] {
         let backdropRowY = layout.wallBaseY
         let accentRowY = layout.backSeatRowY + Double(layout.tile)
-        return (0..<layout.seatCapacity)
-            .map { layout.propColumnX(forSeat: $0) }
-            .filter { $0 < layout.width }
-            .sorted()
-            .enumerated()
-            .map { index, x in
-                let isBackdrop = index.isMultiple(of: 2)
-                return (isBackdrop ? backdropRole : accentRole,
-                        ScenePoint(x: x, y: isBackdrop ? backdropRowY : accentRowY))
-            }
+        return layout.decorationColumns.map { column in
+            (column.isBackdrop ? backdropRole : accentRole,
+             ScenePoint(x: column.x, y: column.isBackdrop ? backdropRowY : accentRowY))
+        }
     }
 
     /// How many times the room has been built. **One, for the life of a scene.**
@@ -174,18 +175,22 @@ public final class RoomScene: SKScene {
         let floorTexture = store.texture(path: tiles.floor)
         let wallTexture = store.texture(path: tiles.wall)
 
-        for row in layout.drawnRows {
-            for column in layout.drawnColumns {
-                let isWall = row >= layout.floorRows
-                let texture = isWall ? wallTexture : floorTexture
-                guard let texture else { continue }
-                let node = SKSpriteNode(texture: texture)
-                node.anchorPoint = CGPoint(x: 0, y: 0)
-                node.size = CGSize(width: tile, height: tile)
-                node.position = CGPoint(x: column * tile, y: row * tile)
-                node.zPosition = isWall ? -20 : -30
-                world.addChild(node)
+        if layout.plan.isEmpty {
+            for row in layout.drawnRows {
+                for column in layout.drawnColumns {
+                    let isWall = row >= layout.floorRows
+                    let texture = isWall ? wallTexture : floorTexture
+                    guard let texture else { continue }
+                    let node = SKSpriteNode(texture: texture)
+                    node.anchorPoint = CGPoint(x: 0, y: 0)
+                    node.size = CGSize(width: tile, height: tile)
+                    node.position = CGPoint(x: column * tile, y: row * tile)
+                    node.zPosition = isWall ? -20 : -30
+                    world.addChild(node)
+                }
             }
+        } else {
+            buildPlan(layout.plan)
         }
 
         // Furniture upstage of the seats. Deterministic positions, one per seat
@@ -361,6 +366,153 @@ public final class RoomScene: SKScene {
             emptySeatFurniture[seat, default: []].append(
                 SeatFurniture(node: node, path: ""))
         }
+    }
+
+    // MARK: The floor plan [ADR-007]
+
+    /// **Outside the room.** The scene's background and, under a plan, the field
+    /// past its edge — one constant, so the two can never disagree and a plan's
+    /// edge is always an edge against the same tone.
+    nonisolated static let voidColour = SKColor(red: 0.14, green: 0.13, blue: 0.17, alpha: 1)
+
+    /// Every node the plan painted, in draw order. Read-only, and it exists for
+    /// the same reason `propArtForTesting` does: node identity says a tile was
+    /// *placed* and says nothing about which picture, and the failure this has
+    /// to catch — a plan that decoded to nothing and fell back to one flat floor
+    /// — produces a perfectly correct set of nodes.
+    private var planNodes: [(node: SKSpriteNode, what: String)] = []
+
+    var planArtForTesting: [String] { planNodes.map(\.what) }
+    var planNodesForTesting: [SKSpriteNode] { planNodes.map(\.node) }
+
+    /// **Draws the plan: floors, wall bands, doorways, jambs, partitions.**
+    ///
+    /// The order is `scripts/compose-scene.py`'s `draw_plan`, step for step, and
+    /// the order is the whole of the correctness:
+    ///
+    /// 1. **Floors first, over each space's whole rect** — including the two
+    ///    rows its wall band will cover. So a doorway, which is simply a column
+    ///    the band skips, already has floor under it and needs nothing drawn in
+    ///    it. An earlier version of the reference script patched the gap with the
+    ///    floor of the space *beyond*, which stacked two materials and left a
+    ///    seam across every doorway that read as a step.
+    /// 2. **The band, per column, cap over body**, skipping doorway columns.
+    ///    Two tiles, because that is what the pack draws: 12 px of floor-plan
+    ///    line and 20 px of face in the cap, 30 px more face and a 2 px baseboard
+    ///    in the body. Everything above the topmost band is left unpainted, and
+    ///    what shows there is the scene's background — the *outside* of the plan,
+    ///    which is what makes the room read as a building seen from above rather
+    ///    than as a stage with an infinite backcloth. That single change gives
+    ///    the room a top edge, which it has never had.
+    /// 3. **The contact shadow the band casts on its own floor.** The pack's
+    ///    artists paint it in; without it the band floats.
+    /// 4. **Jambs**, because a doorway cut through a 64 px band leaves two raw
+    ///    edges.
+    /// 5. **Partitions**, last, so a vertical line closes over the bands it
+    ///    meets without any junction piece having to exist.
+    private func buildPlan(_ plan: RoomPlan) {
+        let tile = layout.tile
+
+        // **The outside, drawn rather than left to whatever is behind the
+        // scene.** A plan has an edge — that is most of what makes it a plan —
+        // and the pixels past that edge have to be a deliberate colour rather
+        // than the compositor's default, which is transparent black offscreen
+        // and the desktop behind a non-opaque panel. It is the scene's own
+        // background tone, so a room with no plan and a room with one meet the
+        // void at exactly the same colour.
+        let surround = SKSpriteNode(color: Self.voidColour, size: CGSize(
+            width: Double(layout.drawnColumns.count * tile),
+            height: Double(layout.drawnRows.count * tile)))
+        surround.anchorPoint = CGPoint(x: 0, y: 0)
+        surround.position = CGPoint(
+            x: layout.drawnColumns.lowerBound * tile, y: layout.drawnRows.lowerBound * tile)
+        surround.zPosition = -40
+        world.addChild(surround)
+        planNodes.append((surround, "outside"))
+
+        for space in plan.spaces {
+            guard let surface = plan.surface(space.surface),
+                  let floor = store.texture(path: surface.floor) else { continue }
+            for row in space.y..<(space.y + space.h) {
+                for column in space.columns {
+                    addPlanTile(floor, column: column, row: row, z: -30, what: surface.floor)
+                }
+            }
+        }
+
+        for space in plan.spaces {
+            guard let rows = space.bandRows, let surface = plan.surface(space.surface),
+                  let cap = store.texture(path: surface.cap),
+                  let body = store.texture(path: surface.body) else { continue }
+            for column in space.columns where !space.isDoorway(column: column) {
+                addPlanTile(body, column: column, row: rows.body, z: -20, what: surface.body)
+                addPlanTile(cap, column: column, row: rows.cap, z: -20, what: surface.cap)
+                addShadow(underColumn: column, atY: Double(rows.body * tile))
+            }
+            for column in space.doorways where space.columns.contains(column) {
+                for edge in [column, column + 1] {
+                    addJamb(
+                        atX: Double(edge * tile), fromY: Double(rows.body * tile),
+                        height: Double(RoomPlan.wallRowsFromTop * tile), colour: surface.lineEdge)
+                }
+            }
+        }
+
+        for partition in plan.partitions {
+            guard let surface = plan.spaces
+                .first(where: { $0.columns.contains(partition.x) })
+                .flatMap({ plan.surface($0.surface) })
+                ?? plan.surfaces.values.sorted(by: { $0.id < $1.id }).first else { continue }
+            let bitmap = SceneBitmaps.planLine(
+                height: partition.h * tile, edge: surface.lineEdge, fill: surface.lineFill)
+            guard let texture = store.texture(
+                bitmap: bitmap, key: "plan:partition:\(partition.h):\(surface.id)") else { continue }
+            let node = SKSpriteNode(texture: texture)
+            node.anchorPoint = CGPoint(x: 0.5, y: 0)
+            node.size = CGSize(width: bitmap.width, height: bitmap.height)
+            node.position = CGPoint(x: partition.x * tile, y: partition.y * tile)
+            node.zPosition = -18
+            world.addChild(node)
+            planNodes.append((node, "partition@\(partition.x)"))
+        }
+    }
+
+    private func addPlanTile(
+        _ texture: SKTexture, column: Int, row: Int, z: CGFloat, what: String
+    ) {
+        let tile = layout.tile
+        let node = SKSpriteNode(texture: texture)
+        node.anchorPoint = CGPoint(x: 0, y: 0)
+        node.size = CGSize(width: tile, height: tile)
+        node.position = CGPoint(x: column * tile, y: row * tile)
+        node.zPosition = z
+        world.addChild(node)
+        planNodes.append((node, what))
+    }
+
+    private func addShadow(underColumn column: Int, atY y: Double) {
+        let bitmap = SceneBitmaps.wallContactShadow(width: layout.tile)
+        guard let texture = store.texture(bitmap: bitmap, key: "plan:shadow") else { return }
+        let node = SKSpriteNode(texture: texture)
+        node.anchorPoint = CGPoint(x: 0, y: 1)
+        node.size = CGSize(width: bitmap.width, height: bitmap.height)
+        node.position = CGPoint(x: Double(column * layout.tile), y: y)
+        node.zPosition = -19
+        world.addChild(node)
+        planNodes.append((node, "shadow"))
+    }
+
+    private func addJamb(atX x: Double, fromY y: Double, height: Double, colour: Bitmap.RGBA) {
+        let bitmap = SceneBitmaps.planJamb(height: Int(height), colour: colour)
+        guard let texture = store.texture(
+            bitmap: bitmap, key: "plan:jamb:\(Int(height)):\(colour)") else { return }
+        let node = SKSpriteNode(texture: texture)
+        node.anchorPoint = CGPoint(x: 0.5, y: 0)
+        node.size = CGSize(width: bitmap.width, height: bitmap.height)
+        node.position = CGPoint(x: x, y: y)
+        node.zPosition = -19
+        world.addChild(node)
+        planNodes.append((node, "jamb"))
     }
 
     // MARK: Stations [ADR-002 §4, §8 items 4 and 6]
@@ -1401,7 +1553,14 @@ public final class RoomScene: SKScene {
     /// floor is `wallBaseY`, so a manifest that binds no backdrop at all still
     /// gets the wall line rather than a nonsense number.
     var decorationTopY: Double {
-        var top = layout.wallBaseY
+        // **Under a plan the room has a top edge, and it is the thing to keep in
+        // frame.** Without one the wall runs to the top of the overscan and
+        // there is nothing up there to aim at, which is why this used to start
+        // at the wall line. A plan's topmost band carries the 12 px floor-plan
+        // line that says where the building stops, and a frame that crops it
+        // turns the plan back into a backcloth. [ADR-007 §5]
+        var top = layout.plan.topRow()
+            .map { Double(($0 + 1) * layout.tile) } ?? layout.wallBaseY
         for placement in Self.decorationPlacements(layout: layout) {
             guard let prop = store.room.prop(placement.role) else { continue }
             top = max(top, placement.point.y + Double(prop.contentBox.height))

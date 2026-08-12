@@ -281,10 +281,33 @@ struct ThemeSceneTests {
     /// that the characters were identical and that the *count* of props matched
     /// — which a `RoomScene` that ignored `themeID` altogether would pass, since
     /// it would draw the same room every time. The count check is right and
-    /// stays: the layout is theme-independent, so the number and the positions
-    /// of props must match across themes. What was missing is the other half:
-    /// the props' *art* must differ, or the theme did nothing. Both halves are
-    /// needed, and neither implies the other.
+    /// stays. What was missing is the other half: the props' *art* must differ,
+    /// or the theme did nothing. Both halves are needed, and neither implies the
+    /// other.
+    ///
+    /// ## Amended at M8: the positions no longer have to match across *every*
+    /// theme, and that is ADR-007's whole cost stated as a test
+    ///
+    /// It used to assert `other.props == first.props` over all six themes, on
+    /// ADR-002 §2c's grounds that room geometry is theme-independent and changes
+    /// **never**. ADR-007 overturns that row for the four **scenery** bands and
+    /// for them only: a theme with a floor plan has a wall you can see the face
+    /// of, a strip of floor behind it and doorways cut through it, and a band
+    /// that stood where it stood on an open floor would hang its pictures on
+    /// nothing and put a vending machine through a wall.
+    ///
+    /// So the assertion is split, and the split is the point:
+    ///
+    /// - **The route geometry is still theme-independent, and now that is
+    ///   checked directly rather than as a side effect.** Every seat's chair and
+    ///   desk stands on exactly the same point in all six themes. That is the
+    ///   half of "geometry" that `RoomLayout`'s clearance arguments rest on, it
+    ///   is the half a plan may never touch, and the old blanket comparison
+    ///   never named it.
+    /// - **The dressing has to match only among themes that share a plan**,
+    ///   which is five of the six against each other and `office` against
+    ///   itself. A theme whose plan differs is *required* to place differently;
+    ///   asserting otherwise would be asserting the bug.
     @Test(.enabled(if: SceneArt.isAvailable))
     func changingTheThemeRedressesTheRoomAndMovesNoCharacter() throws {
         let manifest = try SceneFixtures.manifest()
@@ -301,7 +324,9 @@ struct ThemeSceneTests {
                 deadline: Date().addingTimeInterval(60))),
         ]
 
-        func render(_ themeID: String) -> (props: [String], art: [String], characters: [String]) {
+        func render(_ themeID: String)
+        -> (props: [String], art: [String], characters: [String],
+            seats: [String], plan: RoomPlan) {
             let scene = RoomScene(manifest: manifest, themeID: themeID)
             scene.setViewport(CGSize(width: 720, height: 400))
             var director = SceneDirector(manifest: manifest, themeID: themeID)
@@ -319,13 +344,29 @@ struct ThemeSceneTests {
                     "\(director.seats[agent] ?? -1)",
                 ].joined(separator: "|")
             }
-            return (props, art, characters)
+            // The seat furniture, which is what "the layout is theme-independent"
+            // actually means: a chair and a desk on every seat's own point.
+            let seats = (0..<scene.layout.seatCapacity).flatMap { seat in
+                scene.furnitureForTesting(seat: seat)
+                    .map { "\(seat):\(Int($0.x)),\(Int($0.y))" }
+            }.sorted()
+            return (props, art, characters, seats, scene.layout.plan)
         }
 
         let first = render(ids[0])
         #expect(!first.art.isEmpty,
                 "no theme drew a prop at all, so nothing here compares anything")
         #expect(first.art.count == first.props.count)
+        #expect(!first.seats.isEmpty, "no theme drew any seat furniture")
+
+        var planCounts: [Bool: Int] = [:]
+        for id in ids {
+            planCounts[render(id).plan.isEmpty, default: 0] += 1
+        }
+        #expect(planCounts[true] != nil && planCounts[false] != nil, Comment(rawValue:
+            "every theme has the same kind of room, so the two branches below are not"
+            + " both exercised — planned: \(planCounts[false] ?? 0),"
+            + " open: \(planCounts[true] ?? 0)"))
 
         for id in ids.dropFirst() {
             let other = render(id)
@@ -333,10 +374,20 @@ struct ThemeSceneTests {
                     "theme \(id) moved a character, its plate, its variant or its badge")
             #expect(other.props.count == first.props.count,
                     "theme \(id) placed a different number of props")
-            // Same geometry, different pictures. The positions are the layout,
-            // which is theme-independent by design; the paths are the theme.
-            #expect(other.props == first.props,
-                    "theme \(id) put a prop somewhere theme \(ids[0]) did not")
+            // **Route geometry, in every theme, planned or not.** A plan may
+            // redress a room; it may never move a seat. [ADR-007 §2]
+            #expect(other.seats == first.seats,
+                    "theme \(id) moved a chair or a desk off its seat's own point")
+            if other.plan == first.plan {
+                // Same plan, so same geometry and different pictures. The
+                // positions are the layout; the paths are the theme.
+                #expect(other.props == first.props,
+                        "theme \(id) put a prop somewhere theme \(ids[0]) did not")
+            } else {
+                #expect(other.props != first.props, Comment(rawValue:
+                    "theme \(id) is drawn on a different floor plan from \(ids[0]) and"
+                    + " placed every prop identically anyway — the plan reached nothing"))
+            }
             #expect(other.art != first.art, Comment(rawValue:
                 "theme \(id) drew exactly the art theme \(ids[0]) drew — the room was not"
                 + " redressed, so `themeID` reached nothing"))

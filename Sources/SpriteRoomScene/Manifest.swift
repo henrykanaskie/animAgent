@@ -507,14 +507,24 @@ public struct Manifest: Sendable, Hashable {
         /// `StationContractTests.noAssertingStationIsInThePoolTheHashDrawsFrom`.
         /// [I1]
         public let assignableStationIDs: [String]
+        /// **`plan` — the authored floor plan this theme's room is drawn on.**
+        /// [ADR-007]
+        ///
+        /// `RoomPlan.open` for a theme that declares none, which is five of the
+        /// six and is not a degraded state: a plan needs a builder sheet with
+        /// cap, body and several floor tiles in it, and only the Modern Office
+        /// sheet has one. A reader that knows nothing about plans draws the open
+        /// floor and is correct.
+        public let plan: RoomPlan
 
         public init(
             tile: Size, builderTiles: [String], declaredFloor: String?, declaredWall: String?,
             propCanvas: Size, propFiles: [String], propsIdentified: Bool,
             propRoles: [String: PropRole], stations: [String: Station],
             stationRoles: [String: String] = [:], assignableStationIDs: [String]? = nil,
-            scenery: [SceneryProp] = []
+            scenery: [SceneryProp] = [], plan: RoomPlan = .open
         ) {
+            self.plan = plan
             self.scenery = scenery
             self.tile = tile
             self.builderTiles = builderTiles
@@ -989,8 +999,58 @@ public struct Manifest: Sendable, Hashable {
                 stationRoles: effective.roles.filter { stations[$0.value] != nil },
                 assignableStationIDs: effective.declaredAssignable
                     .map { $0.filter { stations[$0] != nil }.sorted() },
-                scenery: scenery),
+                scenery: scenery,
+                plan: Self.plan(roomObject["plan"])),
             declared)
+    }
+
+    /// Decodes `plan`, or `RoomPlan.open` for anything it cannot read.
+    ///
+    /// **Never a throw, for the reason the scenery decoder never throws**: a
+    /// room that refuses to load because one wall moved is worse than a room
+    /// drawn on the open floor the app has always drawn. A space whose surface
+    /// is not declared, or whose rect is degenerate, is dropped and the rest
+    /// still draw — and `RoomPlanContractTests` is what turns that silence into
+    /// a red test rather than a quietly emptier room. [I1]
+    private static func plan(_ raw: Any?) -> RoomPlan {
+        guard let object = raw as? [String: Any] else { return .open }
+        var surfaces: [String: RoomPlan.Surface] = [:]
+        for (id, entry) in (object["surfaces"] as? [String: Any]) ?? [:] {
+            guard let entry = entry as? [String: Any],
+                  let floor = entry["floor"] as? String,
+                  let cap = entry["cap"] as? String,
+                  let body = entry["body"] as? String,
+                  let edge = Self.rgb(entry["line_edge"]),
+                  let fill = Self.rgb(entry["line_fill"]) else { continue }
+            surfaces[id] = RoomPlan.Surface(
+                id: id, floor: floor, cap: cap, body: body, lineEdge: edge, lineFill: fill)
+        }
+        var spaces: [RoomPlan.Space] = []
+        for entry in (object["spaces"] as? [[String: Any]]) ?? [] {
+            guard let surface = entry["surface"] as? String, surfaces[surface] != nil,
+                  let x = entry["x"] as? Int, let y = entry["y"] as? Int,
+                  let w = entry["w"] as? Int, let h = entry["h"] as? Int,
+                  w > 0, h > 0 else { continue }
+            spaces.append(RoomPlan.Space(
+                name: (entry["name"] as? String) ?? surface,
+                surface: surface, x: x, y: y, w: w, h: h,
+                doorways: (entry["doorways"] as? [Int]) ?? [],
+                hasBand: (entry["band"] as? Bool) ?? true))
+        }
+        var partitions: [RoomPlan.Partition] = []
+        for entry in (object["partitions"] as? [[String: Any]]) ?? [] {
+            guard let x = entry["x"] as? Int, let y = entry["y"] as? Int,
+                  let h = entry["h"] as? Int, h > 0 else { continue }
+            partitions.append(RoomPlan.Partition(x: x, y: y, h: h))
+        }
+        guard !spaces.isEmpty else { return .open }
+        return RoomPlan(spaces: spaces, surfaces: surfaces, partitions: partitions)
+    }
+
+    private static func rgb(_ raw: Any?) -> Bitmap.RGBA? {
+        guard let values = raw as? [Int], values.count >= 3,
+              values.allSatisfy({ (0...255).contains($0) }) else { return nil }
+        return Bitmap.RGBA(UInt8(values[0]), UInt8(values[1]), UInt8(values[2]))
     }
 
     /// `props.stations` as written, before a theme's own desk and chair have

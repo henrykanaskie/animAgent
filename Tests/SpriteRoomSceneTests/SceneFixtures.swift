@@ -95,6 +95,11 @@ enum SceneArt {
         for (_, art) in manifest.badges.states { declared.insert(art.file) }
         declared.formUnion(manifest.room.builderTiles)
         declared.formUnion(manifest.room.propFiles)
+        // The floor plan's tiles. Every one is also in `builderTiles` today, so
+        // this adds nothing to the set — and it is here anyway, because "it is
+        // covered by another walk" is exactly what was true of the animation
+        // frames until it was not. [ADR-007]
+        declared.formUnion(manifest.room.plan.declaredPaths)
         for (_, role) in manifest.room.propRoles { declared.formUnion(role.declaredPaths) }
         // Every theme's art too, since ADR-002 the scene draws it. A checkout
         // holding the Office room and none of the theme sets is exactly the
@@ -104,6 +109,7 @@ enum SceneArt {
             guard let theme = manifest.themes.theme(id) else { continue }
             declared.formUnion(theme.room.builderTiles)
             declared.formUnion(theme.room.propFiles)
+            declared.formUnion(theme.room.plan.declaredPaths)
             for (_, role) in theme.room.propRoles { declared.formUnion(role.declaredPaths) }
             for path in [theme.room.declaredFloor, theme.room.declaredWall] {
                 if let path { declared.insert(path) }
@@ -373,7 +379,7 @@ enum SceneArt {
     /// deliberately ungated: the travel rule and `RoomLayout`'s route geometry
     /// are both pure numbers, and a fresh clone should still catch an inverted
     /// axis.
-    static let expectedGatedTestCount = 102
+    static let expectedGatedTestCount = 105
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

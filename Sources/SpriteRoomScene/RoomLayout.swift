@@ -78,10 +78,30 @@ public struct RoomLayout: Sendable, Hashable {
     /// Floor rows are below this; wall rows at and above it.
     public let wallRows: Int
 
-    public init(tile: Int = 32, seatCapacity: Int = 7, seatSpacingTiles: Int = 3) {
+    /// **The authored floor plan the room is drawn on**, or `RoomPlan.open` for
+    /// the open floor five of the six themes still take. [ADR-007]
+    ///
+    /// It is a *drawing*, not a geometry: nothing in this file's route
+    /// arithmetic reads it, and `RoomPlan.routeViolations(in:)` is the assertion
+    /// that it never has to. What it does move is where the four **scenery
+    /// bands** stand, because a plan gives the room two wall faces and a strip
+    /// of floor behind the near one, and a band that stayed where it was would
+    /// hang its pictures on nothing. See `sceneryAnchors(_:)`.
+    ///
+    /// It is `let` and arrives through `adopting(plan:)` rather than through
+    /// `init`, so that every existing construction of a `RoomLayout` — and there
+    /// are dozens, in tests and in the app — is the open floor unless something
+    /// deliberately hands it a plan.
+    public let plan: RoomPlan
+
+    public init(
+        tile: Int = 32, seatCapacity: Int = 7, seatSpacingTiles: Int = 3,
+        plan: RoomPlan = .open
+    ) {
         self.tile = max(1, tile)
         self.seatCapacity = max(1, seatCapacity)
         self.seatSpacingTiles = max(2, seatSpacingTiles)
+        self.plan = plan
         // Enough columns for every seat plus its desk plus a margin each side.
         self.columns = self.seatCapacity * self.seatSpacingTiles + 4
         // **Seven floor rows, not four.** The room is drawn at `1x` whatever the
@@ -106,6 +126,16 @@ public struct RoomLayout: Sendable, Hashable {
         // for the backdrops, and it varies by theme, because the backdrops do.
         self.rows = 9
         self.wallRows = 2
+    }
+
+    /// The same layout, drawn on `plan`. Every route number is unchanged by
+    /// construction — this initialiser copies them rather than recomputing them
+    /// — which is what makes "a plan cannot move a seat" true in the type
+    /// system rather than in a comment.
+    public func adopting(plan: RoomPlan) -> RoomLayout {
+        RoomLayout(
+            tile: tile, seatCapacity: seatCapacity, seatSpacingTiles: seatSpacingTiles,
+            plan: plan)
     }
 
     /// **The seat pitch as a function of the nameplate, in tiles.**
@@ -280,6 +310,36 @@ public struct RoomLayout: Sendable, Hashable {
 
     /// Y where the wall meets the floor.
     public var wallBaseY: Double { Double(floorRows * tile) }
+
+    // MARK: The wall as a plan draws it [ADR-007]
+
+    /// **The strip of the near wall a picture may hang on**, in scene y.
+    ///
+    /// The two numbers subtracted here are the pack's, measured in
+    /// `docs/06-SET-BUILDING.md` §2 off `Office_Design_2.gif` and reproduced by
+    /// `scripts/compose-scene.py`: a body tile is 30 px of face over a **2 px
+    /// baseboard**, and a cap tile is 20 px more face under a **12 px
+    /// floor-plan line**. So of the 64 px band, 50 px is face and the rest is
+    /// the two edges that say where the wall starts and stops. Hanging a picture
+    /// on either of them would be hanging it on the skirting or on the room's
+    /// own outline.
+    ///
+    /// Meaningless without a plan — the open floor's wall is a single tile
+    /// repeated to the top of the overscan and has no face, no baseboard and no
+    /// line — which is why the two callers both ask `plan.isEmpty` first.
+    public var wallFace: (bottom: Double, top: Double) {
+        (wallBaseY + Double(RoomPlan.baseboardPx),
+         wallBaseY + Double(wallRows * tile) - Double(RoomPlan.planLinePx))
+    }
+
+    /// Where a picture's bottom edge sits on that face: a quarter tile up, which
+    /// centres the office's 34 px boards in the 50 px of face and leaves the
+    /// baseboard visible under them.
+    public var hungPropY: Double { wallBaseY + Double(tile) / 4 }
+
+    /// The floor line of the space one wall band upstage of the seats — the
+    /// **far** room. Where the `wallLine` scenery stands under a plan.
+    public var farFloorY: Double { wallBaseY + Double(wallRows * tile) }
 
     /// Seats fill outward from the centre: 0 centre, 1 right of it, 2 left of
     /// it, and so on. Deterministic, so a given arrival order always produces
@@ -519,6 +579,27 @@ public struct RoomLayout: Sendable, Hashable {
     /// touches a seat column. Half a pitch, less half a body.
     public var sceneryClearance: Double { Double(tile) * 1.5 - Double(tile) / 2 }
 
+    /// **The seven decoration columns and which of the two bands each carries**,
+    /// in x order: `true` for the backdrop standing on the wall line, `false`
+    /// for the accent a tile behind the back seat row.
+    ///
+    /// It lives here rather than in `RoomScene` because two other things now
+    /// need it and neither may re-derive it: the overflow plate's clearance is
+    /// argued against these points, and under a plan the wall band has to know
+    /// which columns already have a full-height board standing in front of them,
+    /// since a picture hung behind one is a picture nobody will ever see.
+    /// `RoomScene.decorationPlacements` reads this rather than repeating the
+    /// alternation — a transcription checked against a transcription is not a
+    /// check, and this file has paid for that twice.
+    public var decorationColumns: [(isBackdrop: Bool, x: Double)] {
+        (0..<seatCapacity)
+            .map { propColumnX(forSeat: $0) }
+            .filter { $0 < width }
+            .sorted()
+            .enumerated()
+            .map { (isBackdrop: $0.offset.isMultiple(of: 2), x: $0.element) }
+    }
+
     /// **The four depths scenery stands at**, far to near.
     ///
     /// They are declared by the *manifest* per prop and resolved to a point
@@ -565,14 +646,48 @@ public struct RoomLayout: Sendable, Hashable {
         let columns = sceneryColumns
         switch band {
         case .wall:
-            return (0..<seatCapacity)
-                .map { seatPosition($0).x }
+            // **Under a plan the near wall is a wall you can see the face of**,
+            // 50 px of it between a 2 px baseboard and the 12 px floor-plan
+            // line, so a picture hangs *on* it rather than floating two tiles up
+            // an infinite field of wall tiles. Without a plan the wall runs to
+            // the top of the overscan and the old point is still the only one
+            // that reads.
+            //
+            // **And a doorway column carries nothing.** A picture hung across a
+            // gap cut clean through the band is `06-SET-BUILDING.md`'s R1, and
+            // the doorways are on seat columns — the very columns this band
+            // uses — so it is not a hypothetical. [ADR-007 §4]
+            let seats = (0..<seatCapacity).map { seatPosition($0).x }
+            guard !plan.isEmpty else {
+                return seats.sorted().map {
+                    ScenePoint(x: $0, y: wallBaseY + Double(tile * 2))
+                }
+            }
+            // A face 50 px tall and 25 tiles wide is the largest empty surface
+            // the room has, so it takes every column that has nothing standing
+            // in front of it: the seat columns **and** the accent columns, less
+            // the doorways, less the column a backdrop or the overflow plate
+            // already occupies. A picture hung behind a 46 px board on a stand
+            // is a picture nobody sees.
+            let doorways = plan.doorwayColumns
+            let blocked = Set(decorationColumns.filter(\.isBackdrop).map(\.x))
+                .union([overflowPlatePosition.x])
+            return (seats + sceneryColumns)
+                .filter { !blocked.contains($0) }
+                .filter { !doorways.contains(Int(($0 - Double(tile) / 2).rounded()) / tile) }
                 .sorted()
-                .map { ScenePoint(x: $0, y: wallBaseY + Double(tile * 2)) }
+                .map { ScenePoint(x: $0, y: hungPropY) }
         case .wallLine:
+            // The line where the floor meets the wall — and under a plan that
+            // is the **far** room's floor line, one wall band upstage, because
+            // the near room's own is where the backdrops stand. The tall props
+            // this band carries (a cooler, a vending machine, a coffee counter,
+            // 60–68 px) then stand against a second wall face instead of poking
+            // out of the top of the first one.
+            let y = plan.isEmpty ? wallBaseY : farFloorY
             return columns.enumerated()
                 .filter { $0.offset.isMultiple(of: 2) && $0.element != overflowPlatePosition.x }
-                .map { ScenePoint(x: $0.element, y: wallBaseY) }
+                .map { ScenePoint(x: $0.element, y: y) }
         case .backFloor:
             return columns.enumerated()
                 .filter { $0.offset == 0 || !$0.offset.isMultiple(of: 2) }
@@ -603,7 +718,13 @@ public struct RoomLayout: Sendable, Hashable {
     /// and has nothing behind it, so it takes the whole two tiles of wall face.
     public func sceneryInkBound(_ band: SceneryBand) -> (width: Int, height: Int) {
         switch band {
-        case .wall: return (Int(sceneryClearance * 2) - 8, tile + tile / 2)
+        case .wall:
+            // Under a plan the ceiling is the wall's own top line, measured
+            // rather than budgeted: a picture may reach it and may not cross it.
+            guard plan.isEmpty else {
+                return (Int(sceneryClearance * 2) - 8, Int(wallFace.top - hungPropY))
+            }
+            return (Int(sceneryClearance * 2) - 8, tile + tile / 2)
         case .wallLine: return (Int(sceneryClearance * 2) - 8, tile * 2 + 8)
         case .backFloor, .midFloor: return (Int(sceneryClearance * 2) - 8, tile + tile / 4)
         }

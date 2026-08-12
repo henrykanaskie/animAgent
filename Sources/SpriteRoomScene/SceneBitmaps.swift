@@ -479,6 +479,63 @@ public enum SceneBitmaps {
     /// "manifest swap, zero code change" impossible. So: a flat block at the
     /// right size, in the room's value band, hatched so nobody mistakes it for
     /// final art. [04-ART-DIRECTION, "Placeholders"]
+    // MARK: The floor plan's own ink [ADR-007]
+
+    /// **A vertical floor-plan line**: 2 px dark, 10 px light, 2 px dark, with
+    /// the same 2 px dark closing each end.
+    ///
+    /// The section is measured, not chosen — `docs/06-SET-BUILDING.md` §2, down
+    /// x=16 of the pack's own `tile_r01_c01` — and the two colours are the
+    /// **manifest's**, taken off the cap tile this surface is drawn with. So
+    /// nothing about a partition's appearance lives in `Sources/`: the shape is
+    /// the pack's measurement and the ink is the theme's.
+    ///
+    /// It is authored rather than tiled from the pack because the pack's own
+    /// plain runs, T-junctions and jambs are 12–14 px stripes on otherwise empty
+    /// tiles, and `scripts/process-assets.py` drops every tile under 60% opaque
+    /// — correctly, since laying one as floor would show the void behind the
+    /// room. Twenty of the sheet's 161 tiles fall under that cut and they are
+    /// exactly the pieces a plan is drawn with. `scripts/compose-scene.py`
+    /// reached the same conclusion and draws its runs the same way.
+    public static func planLine(
+        height: Int, edge: Bitmap.RGBA, fill: Bitmap.RGBA
+    ) -> Bitmap {
+        let width = RoomPlan.partitionPx
+        let height = max(4, height)
+        var bitmap = Bitmap(width: width, height: height)
+        bitmap.fill(x: 0, y: 0, w: width, h: height, edge)
+        bitmap.fill(x: 2, y: 2, w: width - 4, h: height - 4, fill)
+        return bitmap
+    }
+
+    /// **A doorway jamb**: the 2 px dark edge a gap cut through a 64 px wall band
+    /// would otherwise leave raw.
+    public static func planJamb(height: Int, colour: Bitmap.RGBA) -> Bitmap {
+        var bitmap = Bitmap(width: 2, height: max(1, height))
+        bitmap.fillAll(colour)
+        return bitmap
+    }
+
+    /// **The contact shadow a wall band casts onto its own floor**, four rows
+    /// deep, y-down from the band's foot.
+    ///
+    /// The pack's artists paint one in; without it a 64 px band of wall sits on
+    /// the floor with a hard seam and reads as a poster rather than as a wall.
+    /// Four rows at 70/46/26/12 alpha, transcribed from
+    /// `scripts/compose-scene.py`'s `draw_plan` step 3, which measured them.
+    ///
+    /// **It is not a prop and it does not move.** It is drawn once at build
+    /// time, from the plan alone, and nothing in the delta stream can reach it —
+    /// so I7's motion budget has nothing to price here. [ADR-002 §6 rule 1]
+    public static func wallContactShadow(width: Int = 32) -> Bitmap {
+        let alphas: [UInt8] = [70, 46, 26, 12]
+        var bitmap = Bitmap(width: max(1, width), height: alphas.count)
+        for (row, alpha) in alphas.enumerated() {
+            bitmap.fill(x: 0, y: row, w: bitmap.width, h: 1, Bitmap.RGBA(24, 24, 34, alpha))
+        }
+        return bitmap
+    }
+
     public static func placeholderDesk(width: Int = 32, height: Int = 26) -> Bitmap {
         // Kept inside the room's value band [0.55, 0.92] so the placeholder
         // cannot own the darkest pixel on screen — that belongs to the

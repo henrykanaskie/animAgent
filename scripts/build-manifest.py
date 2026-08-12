@@ -138,6 +138,178 @@ PROP_ROLES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# The floor plan [ADR-007]
+#
+# The room drawn as a building rather than as a stage: floors that change
+# material, wall bands with the pack's own 12 px floor-plan line on top,
+# doorways cut clean through them, the dark *outside* above, and partitions
+# between the rooms behind. It is authored here, in the generator that owns
+# `assets/manifest.json`, for the same reason `process-assets.py` owns the
+# scenery bands: somebody rendered it and looked at it, and no pixel signal
+# recovers that judgement.
+#
+# **The surfaces are `scripts/compose-scene.py`'s, verbatim.** That file's
+# `SURFACES` table was established by rendering all 161 non-empty Room Builder
+# tiles to a labelled grid and confirming each candidate's pixel cross-section,
+# and its output is what the maintainer looked at and asked for. Copying the
+# triples rather than re-deriving them is deliberate: a second derivation is a
+# second chance to pick a mid-run cap tile whose top edge is missing, which is a
+# mistake that file already made and recorded.
+#
+# **Only the Modern Office builder sheet has these tiles.** Every other theme
+# ships four tiles — a cut floor, a flat wall, and the two patterns they came
+# from — so `build_plan` returns None for them and they keep the open floor.
+# That is not a gap to be filled later by guessing: a plan needs a cap, a body
+# and several floors that agree, and five of the six themes have no such set.
+#
+# **Every wall is column 1 of its row pair, and that is a measurement rather
+# than a preference.** Columns 0 and 2 of a cap or body row carry the wall's
+# *end* — a 2 px dark trim down the left edge or the right — because the sheet
+# is drawn for wall segments with corners. Laid across a 25-tile room they draw
+# a dark seam every 32 px, which at 1x reads as a row of panels rather than as a
+# wall. Column 1 is the mid-run piece: it carries the complete 12 px top edge
+# (columns 3–9 do not) and no vertical trim at all. Measured on all four row
+# pairs; `compose-scene.py` mixes c00 and c01 and has the seams to show for it.
+#
+# A surface is a **finish**, not a room: `concrete` and `slab` name two floors
+# under one wall, because the walkway and the work floor are one room with two
+# materials in it and their shared north wall has to match.
+PLAN_SURFACES = {
+    # name:      (floor,             cap,                body)
+    "concrete":  ("tile_r07_c11.png", "tile_r07_c01.png", "tile_r08_c01.png"),
+    "slab":      ("tile_r05_c11.png", "tile_r07_c01.png", "tile_r08_c01.png"),
+    "plank":     ("tile_r05_c14.png", "tile_r05_c01.png", "tile_r06_c01.png"),
+    "carpet":    ("tile_r07_c14.png", "tile_r09_c01.png", "tile_r10_c01.png"),
+    "lino":      ("tile_r09_c11.png", "tile_r11_c01.png", "tile_r12_c01.png"),
+}
+
+# Tile coordinates below are `RoomLayout`'s own grid: 32 px tiles, y **up**,
+# `(0, 0)` the bottom-left corner of the room's nominal 25x9 box. A space's `h`
+# includes the two rows its north wall eats, which is `06-SET-BUILDING.md` §2's
+# convention and the thing people get wrong.
+#
+# The room's routes decided this plan and not the other way round:
+#
+#   * The near space covers rows -6..8, which is exactly what the open floor
+#     painted, so the delivery row, the walkway and both seat rows are one
+#     unbroken floor and no wall stands anywhere a character walks.
+#   * Its band is at rows 7 and 8 — the wall line at y=224, where `upstageExit`
+#     already ends. A leaver walks into it and fades, as it always has.
+#   * `doorways` are on **seat columns** 3, 12 and 21 (seats 6, 0 and 5), so the
+#     three characters whose columns carry one walk out through a door rather
+#     than into a flat wall, and the rooms behind are reachable.
+#   * Everything behind the band — rows 9..11 — is floor no route ever touches,
+#     which is why the interior partitions are all there. It is the only part of
+#     this room where a north-south wall fits: below it, seven seat columns 96 px
+#     apart leave a 40 px gap between one seat's desk and the next seat's chair,
+#     and a station prop already stands in the middle of every one of them.
+ROOM_PLAN = {
+    "spaces": [
+        # The walkway: the delivery row, the aisle and the apron in front of
+        # them, which `RoomLayout` already calls "the room's thoroughfare". It
+        # carries **no band** — it is not a separate room, it is the circulation
+        # half of one — so what marks it is the finish changing at the seat row
+        # and nothing else. A line there would be a wall across seven columns
+        # and across the one row anybody travels along.
+        #
+        # It is 78 px of the panel that was flat grey and is now legible as
+        # something: the floor people cross. Nothing is *drawn* on it, so the
+        # rule that replaced M5's foreground row is untouched — a floor is what
+        # objects stand on, not an object. [ADR-007 §4, ADR-002 §1]
+        {"name": "walkway", "surface": "concrete",
+         "x": -8, "y": -6, "w": 42, "h": 8, "band": False},
+        # (`concrete` is the grey micro-tile and `slab` the pale one. The
+        # walkway takes the darker of the two so the work floor behind it is the
+        # lighter field the cast is read against — I7's "characters own the
+        # darkest values" is easier to hold over a pale floor than a grey one.)
+        {"name": "open plan", "surface": "slab",
+         "x": -8, "y": 2, "w": 42, "h": 7,
+         "doorways": [3, 12, 21]},
+        {"name": "store", "surface": "plank", "x": -8, "y": 9, "w": 13, "h": 3},
+        {"name": "meeting", "surface": "carpet", "x": 5, "y": 9, "w": 12, "h": 3},
+        {"name": "galley", "surface": "lino", "x": 17, "y": 9, "w": 17, "h": 3},
+    ],
+    # **Tiles 5 and 17, because those are the two boundaries no prop stands on.**
+    # The `wall_line` scenery stands on the back strip's floor at x=64, 256 and
+    # 640 — `RoomLayout.sceneryAnchors(.wallLine)` — and a partition at 8 or 20
+    # put a vending machine and a coffee counter across a wall, which is
+    # `06-SET-BUILDING.md`'s R3 and looked exactly as wrong as R3 says it does.
+    # 160 and 544 are the midpoints of those gaps: 96 px from the nearest anchor
+    # against props no wider than 56.
+    "partitions": [
+        {"x": 5, "y": 9, "h": 3},
+        {"x": 17, "y": 9, "h": 3},
+    ],
+}
+
+
+def plan_line_inks(path):
+    """`(edge, fill)` of a cap tile's floor-plan line, measured down its middle.
+
+    The section is 2 px dark / 8 px light / 2 px dark in the top 12 rows —
+    measured in `Office_Design_2.gif` and reproduced here off the shipped bytes
+    rather than transcribed, so a re-import that shifts a tone moves the
+    partitions with it. `None` for a tile that does not carry one, which is how
+    a surface that is not really a wall fails to be declared instead of being
+    declared wrong.
+    """
+    try:
+        w, h, px = pnglite.load(path)
+    except Exception:
+        return None
+    if w < 4 or h < 12:
+        return None
+    def at(x, y):
+        i = (y * w + x) * 4
+        return tuple(px[i:i + 4])
+    mid = w // 2
+    edge, fill = at(mid, 0), at(mid, 4)
+    if edge[3] != 255 or fill[3] != 255 or edge == fill:
+        return None
+    if at(mid, 1) != edge or at(mid, 10) != edge or at(mid, 11) != edge:
+        return None
+    return list(edge[:3]), list(fill[:3])
+
+
+def build_plan(builder_tiles):
+    """`plan` for a builder listing that has the tiles for one, else None.
+
+    Gated on the **files**, not on a theme name: a theme whose sheet carries a
+    cap, a body and the floors is one this plan can be drawn on, and every other
+    theme keeps the open floor with no special case anywhere. [ADR-007 §6]
+    """
+    have = {os.path.basename(t): t for t in builder_tiles}
+    surfaces = {}
+    for name, (floor, cap, body) in sorted(PLAN_SURFACES.items()):
+        if floor not in have or cap not in have or body not in have:
+            return None
+        inks = plan_line_inks(os.path.join(REPO, have[cap]))
+        if inks is None:
+            return None
+        surfaces[name] = {
+            "floor": have[floor], "cap": have[cap], "body": have[body],
+            "line_edge": inks[0], "line_fill": inks[1],
+        }
+    if not surfaces:
+        return None
+    return {
+        "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own "
+                "grid, y up; a space's `h` includes the two rows its north wall "
+                "eats. `doorways` are absolute tile columns cut clean through that "
+                "wall — nothing is drawn in one, the space's own floor is already "
+                "there. `line_edge`/`line_fill` are measured off the cap tile and "
+                "are what a partition is drawn from, because every plain wall run "
+                "in the sheet is a 12-14 px stripe on an otherwise empty tile and "
+                "the import pass drops anything under 60%% opaque. Route geometry "
+                "is not in here and never may be: RoomPlan.routeViolations(in:) is "
+                "the assertion that this plan stands in nobody's way.",
+        "surfaces": surfaces,
+        "spaces": [dict(s) for s in ROOM_PLAN["spaces"]],
+        "partitions": [dict(p) for p in ROOM_PLAN["partitions"]],
+    }
+
+
 def rel(p):
     return os.path.relpath(p, REPO).replace(os.sep, "/")
 
@@ -521,6 +693,11 @@ def build_room():
     stations = build_stations(base)
     if stations is not None:
         out["props"]["stations"] = stations
+    # `room` IS the resolved default theme [ADR-002 §14a], so it takes the same
+    # plan `themes.sets.office` does or the same room would be two rooms.
+    plan = build_plan(builder)
+    if plan is not None:
+        out["plan"] = plan
     return out
 
 
@@ -962,6 +1139,7 @@ def build_themes():
 
         if not roles:
             continue
+        plan = build_plan(tiles)
         sets[name] = {
             "title": spec.get("title", name),
             "what": spec.get("what", ""),
@@ -1038,6 +1216,8 @@ def build_themes():
                         tdir, "scenery", "%02d_%s.png" % (i, band))),
             },
         }
+        if plan is not None:
+            sets[name]["plan"] = plan
     if not sets:
         return None
     return {

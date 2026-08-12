@@ -128,6 +128,8 @@ SHORTEST_HEAD = 44
 # The direction the seated pose is drawn in. `RoomLayout.seatedFacing`.
 SEATED_FACING = "right"
 VOID = (18, 18, 22, 255)
+# `RoomScene.voidColour` as 8-bit sRGB: SKColor(0.14, 0.13, 0.17) truncated.
+VOID_ROOM = (35, 33, 43, 255)
 
 
 def load(path):
@@ -191,19 +193,82 @@ SCENERY_COLUMNS = sorted(
 OVERFLOW_PLATE_X = seat_x(0) + TILE * 1.5
 
 
-def scenery_anchors(band):
-    """Transcribed from `RoomLayout.sceneryAnchors(_:)`. [M8 Phase 2b]
+# `RoomLayout.decorationColumns`: the seven prop columns, alternating backdrop
+# (on the wall line) and accent (a tile behind the back seat row) along x.
+DECORATION_COLUMNS = sorted(seat_x(s) + TILE * 1.5 for s in range(SEAT_CAPACITY))
+BACKDROP_COLUMNS = [x for i, x in enumerate(DECORATION_COLUMNS) if i % 2 == 0]
+
+# `RoomPlan`: a wall band is two tiles, of which 2 px is baseboard and 12 px is
+# the floor-plan line, leaving 50 px of face. [ADR-007]
+BASEBOARD_PX = 2
+PLAN_LINE_PX = 12
+PARTITION_PX = 14
+WALL_FACE_TOP = WALL_BASE_Y + WALL_ROWS * TILE - PLAN_LINE_PX   # 276
+HUNG_PROP_Y = WALL_BASE_Y + TILE // 4                           # 232
+FAR_FLOOR_Y = WALL_BASE_Y + WALL_ROWS * TILE                    # 288
+
+
+def plan_of(theme):
+    """The theme's floor plan, or None for the open floor. [ADR-007]"""
+    plan = theme.get("plan")
+    if not plan or not plan.get("spaces") or not plan.get("surfaces"):
+        return None
+    return plan
+
+
+def painted_field(_plan=None):
+    """`(x0, x1, y0, y1)` tile bounds of everything the room paints, inclusive.
+
+    The overscan rectangle, with or without a plan — **a planned room paints the
+    same field, it just paints most of it as surround.** `RoomScene.buildPlan`
+    lays a flat quad of the scene's own background tone over the whole drawn
+    range before anything else, precisely so that a plan's edge meets a
+    deliberate colour rather than whatever is behind the scene: offscreen that is
+    the renderer's black clear, on the panel it is the SKView's background, and a
+    room whose surround changed with the host would be a room with a different
+    edge in every screenshot.
+
+    So both pictures are registered on one rectangle, and this function exists to
+    say that rather than to compute it.
+    """
+    return (DRAWN_COLUMNS[0], DRAWN_COLUMNS[-1], DRAWN_ROWS[0], DRAWN_ROWS[-1])
+
+
+def plan_doorway_columns(plan):
+    out = set()
+    for space in plan["spaces"]:
+        out.update(space.get("doorways") or [])
+    return out
+
+
+def scenery_anchors(band, plan=None):
+    """Transcribed from `RoomLayout.sceneryAnchors(_:)`. [M8 Phase 2b, ADR-007]
 
     The eight columns are the gaps between the seat columns, which are the only
-    floor in this room no route ever crosses. `wall` is the exception: it hangs
-    two tiles up the wall face, above the line where a leaver's feet stop, so it
-    may use the seat columns and is behind everything.
+    floor in this room no route ever crosses. `wall` is the exception: with no
+    plan it hangs two tiles up the wall face, above the line where a leaver's
+    feet stop, so it may use the seat columns and is behind everything.
+
+    **Under a plan the two upper bands move**, and they move onto the two things
+    a plan gives the room that an open floor has not got: a wall you can see the
+    face of, and a strip of floor behind it. A picture hangs on the face, clear
+    of the doorways and of anything standing in front of it; the tall floor props
+    stand on the far room's floor line instead of poking out of the top of the
+    near wall. The two lower bands are unmoved.
     """
     if band == "wall":
-        return [(x, WALL_BASE_Y + TILE * 2)
-                for x in sorted(seat_x(s) for s in range(SEAT_CAPACITY))]
+        if not plan:
+            return [(x, WALL_BASE_Y + TILE * 2)
+                    for x in sorted(seat_x(s) for s in range(SEAT_CAPACITY))]
+        doorways = plan_doorway_columns(plan)
+        blocked = set(BACKDROP_COLUMNS) | {OVERFLOW_PLATE_X}
+        xs = [float(seat_x(s)) for s in range(SEAT_CAPACITY)] + list(SCENERY_COLUMNS)
+        return [(x, HUNG_PROP_Y) for x in sorted(xs)
+                if x not in blocked
+                and int(round(x - TILE / 2.0)) // TILE not in doorways]
     if band == "wall_line":
-        return [(x, WALL_BASE_Y) for i, x in enumerate(SCENERY_COLUMNS)
+        y = FAR_FLOOR_Y if plan else WALL_BASE_Y
+        return [(x, y) for i, x in enumerate(SCENERY_COLUMNS)
                 if i % 2 == 0 and x != OVERFLOW_PLATE_X]
     if band == "back_floor":
         return [(x, WALL_BASE_Y - TILE) for i, x in enumerate(SCENERY_COLUMNS)
@@ -229,12 +294,13 @@ def scenery_layout(theme):
     make the budget's own table harder to read for nothing.
     """
     declared = theme.get("props", {}).get("scenery", []) or []
+    plan = plan_of(theme)
     placed = []
     for band in SCENERY_BANDS:
         props = [e for e in declared if e.get("band") == band]
         if not props:
             continue
-        for i, (x, y) in enumerate(scenery_anchors(band)):
+        for i, (x, y) in enumerate(scenery_anchors(band, plan)):
             placed.append((props[i % len(props)], x, y))
     return placed
 
@@ -614,6 +680,92 @@ def camera(panel_w, panel_h):
     return to_screen, (x0, y0)
 
 
+def _solid(w, h, rgba):
+    px = bytearray()
+    for _ in range(w * h):
+        px += bytes(rgba)
+    return bytes(px)
+
+
+def draw_plan(buf, panel_w, panel_h, to_screen, plan):
+    """`RoomScene.buildPlan(_:)`, step for step. [ADR-007]
+
+    Transcribed, and `--verify` is what stops that being an excuse: the two
+    pictures are compared pixel for pixel over the field both paint, so a jamb
+    one column out or a shadow one row low is a failure here rather than a
+    surprise in the panel.
+
+    The surround comes first and covers the whole drawn range, which is what
+    `RoomScene.voidColour` renders to: `SKColor(0.14, 0.13, 0.17)` truncated to
+    8 bits. It is the one colour in this file that is a transcription of a Swift
+    constant rather than of a measurement, and `--verify` is what keeps it
+    honest.
+    """
+    surfaces = plan["surfaces"]
+    sx, sy = to_screen(DRAWN_COLUMNS[0] * TILE, (DRAWN_ROWS[-1] + 1) * TILE)
+    blit(buf, panel_w, panel_h,
+         _solid(len(DRAWN_COLUMNS) * TILE, len(DRAWN_ROWS) * TILE, VOID_ROOM),
+         len(DRAWN_COLUMNS) * TILE, len(DRAWN_ROWS) * TILE, sx, sy)
+
+    def tile_at(path, column, row):
+        w, h, px = load(path)
+        sx, sy = to_screen(column * TILE, (row + 1) * TILE)
+        blit(buf, panel_w, panel_h, px, w, h, sx, sy)
+
+    for space in plan["spaces"]:
+        surface = surfaces[space["surface"]]
+        for row in range(space["y"], space["y"] + space["h"]):
+            for column in range(space["x"], space["x"] + space["w"]):
+                tile_at(surface["floor"], column, row)
+
+    for space in plan["spaces"]:
+        if not space.get("band", True) or space["h"] < WALL_ROWS:
+            continue
+        surface = surfaces[space["surface"]]
+        body_row = space["y"] + space["h"] - 2
+        cap_row = space["y"] + space["h"] - 1
+        doorways = set(space.get("doorways") or [])
+        for column in range(space["x"], space["x"] + space["w"]):
+            if column in doorways:
+                continue
+            tile_at(surface["body"], column, body_row)
+            tile_at(surface["cap"], column, cap_row)
+            # The contact shadow, anchored by its TOP edge on the band's foot
+            # and four rows deep — `SceneBitmaps.wallContactShadow`.
+            for i, alpha in enumerate((70, 46, 26, 12)):
+                sx, sy = to_screen(column * TILE, body_row * TILE - i)
+                blit(buf, panel_w, panel_h, _solid(TILE, 1, (24, 24, 34, alpha)),
+                     TILE, 1, sx, sy)
+        edge = tuple(surface["line_edge"]) + (255,)
+        for column in doorways:
+            if not space["x"] <= column < space["x"] + space["w"]:
+                continue
+            for side in (column, column + 1):
+                sx, sy = to_screen(side * TILE - 1, (body_row + WALL_ROWS) * TILE)
+                blit(buf, panel_w, panel_h, _solid(2, WALL_ROWS * TILE, edge),
+                     2, WALL_ROWS * TILE, sx, sy)
+
+    for partition in plan.get("partitions") or []:
+        surface = None
+        for space in plan["spaces"]:
+            if space["x"] <= partition["x"] < space["x"] + space["w"]:
+                surface = surfaces[space["surface"]]
+                break
+        if surface is None:
+            surface = surfaces[sorted(surfaces)[0]]
+        h = partition["h"] * TILE
+        edge = tuple(surface["line_edge"]) + (255,)
+        fill = tuple(surface["line_fill"]) + (255,)
+        px = bytearray(_solid(PARTITION_PX, h, edge))
+        for y in range(2, h - 2):
+            for x in range(2, PARTITION_PX - 2):
+                i = (y * PARTITION_PX + x) * 4
+                px[i:i + 4] = bytes(fill)
+        sx, sy = to_screen(partition["x"] * TILE - PARTITION_PX // 2,
+                           (partition["y"] * TILE) + h)
+        blit(buf, panel_w, panel_h, bytes(px), PARTITION_PX, h, sx, sy)
+
+
 def render(theme, name, population, out_path, characters, seed_variants,
            badge=None, animated=None, frame=0, panel=None):
     panel_w, panel_h = panel or (PANEL_W, PANEL_H)
@@ -624,13 +776,17 @@ def render(theme, name, population, out_path, characters, seed_variants,
     buf = bytearray(bytes(VOID) * (panel_w * panel_h))
     to_screen, _origin = camera(panel_w, panel_h)
 
-    # Floor and wall, over the drawn range so no zoom shows the void.
-    for r in DRAWN_ROWS:
-        y0 = r * TILE
-        src = wall_px if y0 >= WALL_BASE_Y else floor_px
-        for c in DRAWN_COLUMNS:
-            sx, sy = to_screen(c * TILE, y0 + TILE)
-            blit(buf, panel_w, panel_h, src, TILE, TILE, sx, sy)
+    plan = plan_of(theme)
+    if plan:
+        draw_plan(buf, panel_w, panel_h, to_screen, plan)
+    else:
+        # Floor and wall, over the drawn range so no zoom shows the void.
+        for r in DRAWN_ROWS:
+            y0 = r * TILE
+            src = wall_px if y0 >= WALL_BASE_Y else floor_px
+            for c in DRAWN_COLUMNS:
+                sx, sy = to_screen(c * TILE, y0 + TILE)
+                blit(buf, panel_w, panel_h, src, TILE, TILE, sx, sy)
 
     canvas = theme["props"]["canvas"]
     roles = dict(theme["props"]["roles"])
@@ -930,28 +1086,29 @@ def field_box(w, h, px):
     return (minx, miny, maxx, maxy)
 
 
-def field_origin(image):
+def field_origin(image, plan=None):
     """`(x0, y0)`: the panel pixel of scene (0, 0), recovered from the picture.
 
     Panel x is `x0 + sx` and panel y is `y0 - sy`. Returns
     `(origin, None)` or `(None, complaint)`.
+
+    The field is the overscan rectangle for an open floor and the plan's own
+    rect under a plan — a plan stops, and everything above it is surround.
     """
     w, h, px = image
     box = field_box(w, h, px)
     if box is None:
         return None, ("the drawn tile field touches a panel edge, so the "
                       "picture cannot be registered — render it larger")
-    want_w = len(DRAWN_COLUMNS) * TILE
-    want_h = len(DRAWN_ROWS) * TILE
+    x0, x1, y0, y1 = painted_field(plan)
+    want_w = (x1 - x0 + 1) * TILE
+    want_h = (y1 - y0 + 1) * TILE
     got_w, got_h = box[2] - box[0] + 1, box[3] - box[1] + 1
     if (got_w, got_h) != (want_w, want_h):
         return None, ("the drawn tile field is %dx%d px where this layout paints "
                       "%dx%d (columns %d..%d, rows %d..%d) — the drawn range has "
-                      "drifted"
-                      % (got_w, got_h, want_w, want_h, DRAWN_COLUMNS[0],
-                         DRAWN_COLUMNS[-1], DRAWN_ROWS[0], DRAWN_ROWS[-1]))
-    return (box[0] - DRAWN_COLUMNS[0] * TILE,
-            box[1] + (DRAWN_ROWS[-1] + 1) * TILE), None
+                      "drifted" % (got_w, got_h, want_w, want_h, x0, x1, y0, y1))
+    return (box[0] - x0 * TILE, box[1] + (y1 + 1) * TILE), None
 
 
 def max_saturation(image):
@@ -1165,7 +1322,8 @@ def verify_theme(theme, name, binary, out_dir, scratch, fixture=VERIFY_FIXTURE,
             % (at, peak, VERIFY_EMPTY_MAX_SAT))
         return report
 
-    scene_origin, complaint = field_origin(scene)
+    plan = plan_of(theme)
+    scene_origin, complaint = field_origin(scene, plan)
     if complaint:
         report["failures"].append("scene render: " + complaint)
         return report
@@ -1178,7 +1336,7 @@ def verify_theme(theme, name, binary, out_dir, scratch, fixture=VERIFY_FIXTURE,
     bare_theme["props"] = {"canvas": theme["props"]["canvas"], "roles": {}}
     _how, room = render(bare_theme, name, 0, None, {}, [], panel=panel)
 
-    preview_origin, complaint = field_origin(room)
+    preview_origin, complaint = field_origin(room, plan)
     if complaint:
         report["failures"].append("preview: " + complaint)
         return report
@@ -1204,11 +1362,12 @@ def verify_theme(theme, name, binary, out_dir, scratch, fixture=VERIFY_FIXTURE,
     # both pictures draw, and by construction of `offset` the scene's field
     # lands on exactly this rectangle. Outside it both are their own void
     # colour, which are different colours and mean nothing.
-    left = preview_origin[0] + DRAWN_COLUMNS[0] * TILE
-    top = preview_origin[1] - (DRAWN_ROWS[-1] + 1) * TILE
+    fx0, fx1, fy0, fy1 = painted_field(plan)
+    left = preview_origin[0] + fx0 * TILE
+    top = preview_origin[1] - (fy1 + 1) * TILE
     box = (left, top,
-           left + len(DRAWN_COLUMNS) * TILE - 1,
-           top + len(DRAWN_ROWS) * TILE - 1)
+           left + (fx1 - fx0 + 1) * TILE - 1,
+           top + (fy1 - fy0 + 1) * TILE - 1)
 
     boxes_by_role = role_boxes(theme)
     loop = max([len(role_frames(r)) for r in theme["props"]["roles"].values()] or [1])
