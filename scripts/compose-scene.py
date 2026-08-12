@@ -997,7 +997,7 @@ def engineering():
     props += row("table_metal", 522, 160, 2, 52, v0=0, dv=3,
                  flags=("ink:52x40",))
     props += [chair(512 + i * 26, 116, i, "down") for i in range(4)]
-    props += [chair(512 + i * 26, 190, i, "up") for i in range(4)]
+    props += [chair(514 + i * 34, 192, i, "up") for i in range(3)]
     props += [("plant_potted", 442, 110, 8, ()),
               ("plant_potted", 690, 112, 12, ()),
               ("water_cooler", 688, 182, 0, ()),
@@ -1030,7 +1030,9 @@ def engineering():
               ("table_metal", 500, 356, 1, ("ink:40x34",)),
               ("table_metal", 592, 356, 2, ("ink:48x40",)),
               chair(474, 330, 0, "down"), chair(526, 330, 1, "down"),
+              chair(500, 382, 0, "up"),
               chair(566, 332, 0, "down"), chair(620, 332, 1, "down"),
+              chair(592, 384, 1, "up"),
               ("plant_potted", 444, 372, 15, ()),
               ("bin", 662, 366, 7, ()),
               ("coffee_cup", 500, 340, 0, on_desk(18)),
