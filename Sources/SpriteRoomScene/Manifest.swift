@@ -1218,7 +1218,22 @@ public struct Manifest: Sendable, Hashable {
             dressing.append(RoomPlan.Dressing(
                 piece: piece, x: x, y: y, what: (entry["what"] as? String) ?? ""))
         }
-        guard !spaces.isEmpty else { return .open }
+        // **A theme may hand-place its dressing without drawing a floor plan.**
+        //
+        // The two arrived together and are not the same thing. Drawing a plan
+        // needs a builder sheet with a cap, a body and the floors, which one
+        // theme has; composing where the furniture stands needs nothing but
+        // somebody deciding, which every theme could use. Requiring the first
+        // for the second left five themes on the four-band lattice for no
+        // reason but where the field happened to be declared.
+        //
+        // A plan with dressing and no spaces is still `isEmpty`, so nothing
+        // draws a floor, a wall band or a partition, and every `plan.isEmpty`
+        // branch in `RoomScene` and `RoomLayout` behaves exactly as it did on
+        // the open floor. The only thing that changes is that `dressing` is
+        // carried, and `RoomScene.buildRoom` already keys the lattice off
+        // `dressing.isEmpty` rather than off the plan.
+        guard !spaces.isEmpty || !dressing.isEmpty else { return .open }
         return RoomPlan(
             spaces: spaces, surfaces: surfaces, partitions: partitions, dressing: dressing)
     }
