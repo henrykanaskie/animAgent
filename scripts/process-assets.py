@@ -476,6 +476,24 @@ THEMES = {
         "wall": (30, 27),       # pale cool grey-blue, 0.909 — the screens need
                                 # something bright behind them, and this is the
                                 # only theme whose wall is not warm
+        # **Measured for the office/briefing pack-value policy at the M8
+        # palette-pass task, and NOT moved onto it.** `(30, 27)` is already the
+        # single brightest wall tile on the whole Room Builder sheet (pack
+        # mean 0.967), and every floor tile on the sheet was searched for the
+        # brightest one available (up to `(3, 5)`, pack mean 0.925, a cream
+        # tile with no relation to a control room). Even at that absolute
+        # ceiling — brightest floor AND brightest wall the sheet contains, of
+        # any material — the theme's value contrast tops out at **0.347**
+        # against the 0.35 floor `office`/`briefing` are held to: a
+        # mathematical ceiling with `prop_value_floor` held at 0.10 (the same
+        # floor those two use; ADR-011 already argues why raising it further
+        # is tuning the art to the threshold rather than measuring it), not a
+        # failure of nerve about the search. `library` clears 0.35 on the same
+        # math at this same floor on a re-tile — but does not ship that value
+        # package (see `THEMES["library"]`'s own comment for why, unrelated to
+        # this theme's own numbers); this theme cannot clear 0.35 by any tile
+        # choice on this sheet at all, so it stays on the standard desaturated
+        # band regardless.
         "prop_value_floor": 0.46,
         "roles": {
             # Basement 97, the steel workbench that held `desk` through M6, was
@@ -543,6 +561,19 @@ THEMES = {
                 "no other theme has",
         "floor": (16, 8),       # pale diagonal, 0.788
         "wall": (2, 5),         # near-white, 0.882 — a bright studio
+        # **Measured for the office/briefing pack-value policy at the M8
+        # palette-pass task, and NOT moved onto it — the only one of the four
+        # candidates that cannot clear 0.35 even ignoring theme identity
+        # entirely.** Searched against the absolute brightest floor and wall
+        # tiles on the whole Room Builder sheet, `(3, 5)` (pack mean 0.925)
+        # and `(30, 27)` (pack mean 0.967) — neither this theme's own family,
+        # picked purely to find the mathematical ceiling — value contrast
+        # tops out at **0.339**, under the 0.35 floor `office`/`briefing`/
+        # `library` clear. This theme's own roles and scenery (tripods,
+        # cameras, a plain office desk) sit lower in value than the other
+        # three candidates' own base props, so even a maximally bright floor
+        # and wall cannot lift the aggregate over the line. Stays on the
+        # standard desaturated band.
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
@@ -571,8 +602,72 @@ THEMES = {
         "title": "Reading Room",
         "what": "floor-to-ceiling bookcases and a chalkboard — the maintainer's "
                 "'classroom', built from the Classroom and Library set",
-        "floor": (16, 0),       # wood plank, 0.733
-        "wall": (6, 4),         # warm off-white, 0.878
+        # **Given the saturation restoration at the M8 palette-pass task, on
+        # the SATURATION axis only — deliberately NOT the full office/briefing
+        # `prop_value_floor`/`prop_value_ceil` package.** Both were tried.
+        #
+        # The full package (matching office/briefing's `(0.10, 1.0)` value
+        # band) DOES clear the 0.35 contrast floor those two are held to, once
+        # re-tiled: this theme's old floor, `(16, 0)` a dark wood plank (raw
+        # pack mean value 0.500), drags a pack-value theme's mean down with it
+        # for the reason `THEME_MIN_VALUE_CONTRAST` in scripts/lint-palette.py
+        # records; `(9, 1)`, a light cream checker tile off the same Room
+        # Builder sheet (raw mean 0.907), and `(6, 5)`, the same warm
+        # off-white wall as the old `(6, 4)` one column over and a hair
+        # brighter, together measured 0.674 mean / 0.360 contrast — clearing
+        # 0.35 with margin.
+        #
+        # **It was not shipped, because it breaks something outside this
+        # theme's own art.** `Tests/SpriteRoomSceneTests/PropAnimationTests.
+        # swift`'s `animatedTheme(_:)` walks `manifest.themes.orderedIDs` and
+        # returns the FIRST theme carrying a playable animated role — which,
+        # alphabetically, is `library`'s own `pendulum_clock` (5 fps), and
+        # several of that suite's tests are built against IT, not against
+        # "whichever theme happens to animate". The full package's
+        # `prop_value_floor` of 0.10 would apply to `pendulum_clock` too
+        # (`Importer.animated()` cuts an object "on the target theme's own
+        # prop band"), which is a value-axis change with no bearing on
+        # whether the theme clears its own contrast floor and was never the
+        # point of moving this theme at all — this theme's baseline contrast
+        # was already 0.456 (see `min contrast` in this task's own before/
+        # after table), comfortably over even the standard 0.40 floor, so
+        # nothing on the value axis needed spending here. Declaring it anyway,
+        # purely to match office/briefing's shape, would have been symmetry
+        # for its own sake against a real cost measured empirically: with
+        # `prop_value_floor` at 0.10, saturation-only was tested against the
+        # full package by running the suite, and
+        # `theAnimatedPropIsNeverRebuiltAcrossAFixtureReplay` failed —
+        # unrelated to this theme's OWN art, a fixture-timing artefact of a
+        # DIFFERENT theme's animated prop pace once `library` stopped being
+        # the one the test's alphabetical picker reaches. So: saturation only,
+        # value band left at the standard default, and `library` keeps
+        # `pendulum_clock`.
+        #
+        # `(9, 1)`/`(6, 5)` are kept anyway, even though nothing above
+        # requires them: they measure less saturated than the old `(16, 0)`/
+        # `(6, 4)` pair, buying a little of the margin the paragraph below
+        # spends, and the institutional light tile reads fine as a
+        # reading-room floor (see the longer note this used to carry, in the
+        # M8 palette-pass task's own history, for the material trade-off).
+        "floor": (9, 1),         # light cream checker tile, pack mean 0.907
+        "wall": (6, 5),          # warm off-white, pack mean 0.941
+        # **`prop_sat_scale` is 0.90, not identity, and the reason is the same
+        # shape as `briefing`'s 0.75 — see that theme's own comment.** Unlike
+        # `briefing`, this theme's OWN roles and scenery are not particularly
+        # loud (checked without the clock: 0.326 mean saturation, comfortably
+        # under the cast's 0.334) — what pushes the aggregate over is
+        # `pendulum_clock`, adopted for this theme's `board` role and cut on
+        # this SAME `prop_sat_scale` (`Importer.animated()` again: "on the
+        # target theme's own prop band"). Its red pendulum face is close to
+        # the pack's saturation ceiling, and with it counted the theme
+        # measures 0.344 at identity — over the cast, not under it. 0.90 is
+        # the smallest cut that clears it with real margin (0.310, checked
+        # against a manifest built with this exact value): keeping the clock
+        # (see `ANIMATED_ADOPTED`'s own comment for why it is not withdrawn)
+        # means the check has to hold for the theme WITH its animated prop in
+        # it, not for the static roles alone.
+        "prop_sat_scale": 0.90,
+        "prop_sat_target": 1.0,
         "roles": {
             # **Narrowed from 26 to 8 at M7e.** 26 is the reading desk *with the
             # set's own chair drawn behind it*, 56x70, and the chair is most of
@@ -631,6 +726,23 @@ THEMES = {
                 "back wall is not a rectangle",
         "floor": (10, 8),       # herringbone, 0.765
         "wall": (0, 4),         # plain light, 0.863
+        # **Measured for the office/briefing pack-value policy at the M8
+        # palette-pass task, and NOT moved onto it — the closest of the four,
+        # and refused on identity rather than on the number.** The sheet's
+        # only lighter wood-family floor is `(11, 1)`, a light parquet plank
+        # (pack mean 0.823) rather than the current dark herringbone chevron —
+        # the sheet carries no lighter shade of the herringbone itself, only
+        # this different weave. Paired with the current wall brightened one
+        # column over, `(0, 5)` (0.885 raw vs the current `(0, 4)`'s 0.865),
+        # contrast reaches 0.341; paired with `(6, 5)`, the plain cream wall
+        # `library` now uses, 0.345 — still short of 0.35, and cream is not
+        # this theme's wall family. Abandoning the floor's own identity too —
+        # swapping in `library`'s light checker tile, matching neither a stage
+        # nor a rehearsal room — reaches 0.351, technically over the line at
+        # the cost of the one material (wood) this theme and `library` would
+        # otherwise share no floor with. Per the M8 palette-pass task's own
+        # brief: "a lighter tile of the wrong material is a worse answer than
+        # a dark one" — stays on the standard desaturated band.
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
@@ -678,13 +790,54 @@ THEMES = {
         # it. It does, with margin: mean 0.686, darkest 0.382 (0.068 clear of
         # the cast's 0.314), contrast 0.372. See scripts/lint-palette.py's
         # THEME_MIN_VALUE_CONTRAST and the M8 palette-pass task notes for the
-        # other four themes measured against this floor and left unmoved —
-        # broadcast 0.289, library 0.322, mission_control 0.299, stage 0.308,
-        # none of which clears 0.35 on the office floor, and pushing their own
-        # floor higher just to clear a number derived from a different theme's
-        # reference picture is exactly the "silently widen the table" move this
-        # change refuses to make.
-        "prop_sat_scale": 1.0,
+        # other three themes measured against this floor and left unmoved —
+        # broadcast 0.289, mission_control 0.299, stage 0.308, none of which
+        # clears 0.35 on the office floor, and pushing their own floor higher
+        # just to clear a number derived from a different theme's reference
+        # picture is exactly the "silently widen the table" move this change
+        # refuses to make. `library` was originally measured alongside them at
+        # 0.322 on ITS OWN old floor/wall, and a re-tile does clear 0.35 the
+        # same way it did here — but `library` does NOT carry this theme's
+        # `prop_value_floor`/`prop_value_ceil` pair, only its saturation
+        # knobs. See `THEMES["library"]`'s own comment for why: its baseline
+        # contrast (0.456, standard band) never needed the value axis moved at
+        # all, and moving it anyway broke a Swift test outside this theme's
+        # own files. `office`, `briefing` and `library` all restore
+        # saturation; only `office` and `briefing` also widen the value band.
+        #
+        # **`prop_sat_scale` is 0.75 here, not the 1.0 "pack identity" ADR-010
+        # established for `office`.** Found after this theme shipped, not
+        # before: I7 says the room stays under the characters on saturation as
+        # well as value ("characters own the saturation and the darkest
+        # values"), and nothing had ever measured that half for a pack-value
+        # theme. Measured at the M8 palette-pass task, mean saturation over
+        # every role/scenery/floor/wall pixel, HSV, same method as the value
+        # figures above: the CAST's own mean is 0.332, and `briefing` at pure
+        # pack identity (scale 1.0) measured **0.411** — louder than the
+        # characters it is a backdrop for, which I7 forbids as plainly on this
+        # axis as a room owning the darkest pixel forbids it on the other.
+        # `office` was never at risk of this (it measures 0.238 at identity,
+        # comfortably under the cast, because its own set — desks, monitors,
+        # filing cabinets — is not a particularly colourful one); `briefing`'s
+        # set is a curtain panel, painted doors and a wooden lectern, and
+        # identity there is simply louder than the cast.
+        #
+        # The floor and wall tiles are NOT the fix here, unlike the value axis
+        # above: the base (every role and scenery item, no floor or wall at
+        # all) already measures 0.408 on its own, 81% of the theme's pixel
+        # weight, so even a floor and wall driven to literal 0% saturation
+        # only pulls the aggregate to 0.333 — a hair over the cast's 0.332 and
+        # not a real fix. So this is a `prop_sat_scale` change, not a re-tile:
+        # 0.75 is not the identity 1.0 and not the old flat desaturated 0.35 —
+        # it keeps 75% of the pack's own colour and lands the theme at 0.310,
+        # 0.022 under the cast with a margin `scripts/lint-palette.py`'s own
+        # per-theme "room saturation < cast saturation" check now holds this
+        # theme to. `prop_sat_target` stays 1.0: nothing scaled by 0.75 comes
+        # close to it (the loudest pixel in the theme, the painted door in
+        # `scenery`, is 0.897 raw and 0.673 scaled), so it is not doing any
+        # clipping — it is left at 1.0 rather than removed so the two knobs
+        # keep reading as a pair with `office`'s and `library`'s entries.
+        "prop_sat_scale": 0.75,
         "prop_sat_target": 1.0,
         "prop_value_floor": 0.10,
         "prop_value_ceil": 1.0,
@@ -1018,18 +1171,39 @@ ANIMATED = {
 # and reviewable — `preview-theme.py` can still stand it in the room — without
 # being in the manifest.
 #
-# **Two ship, as of the M8 office-motion sweep**, out of the ten rows above.
-# `pendulum_clock` costs `library` 0.003 of contrast margin (0.459 -> 0.456
-# against the 0.40 floor, re-measured off the current manifest rather than
-# trusted from an old comment) and 840 px/s of the 1461 motion ceiling (0.57x).
-# `control_room_server` costs `mission_control` 0.009 of contrast margin
-# (0.419 -> 0.410) and 437 px/s of motion (0.30x) — the cheapest motion of
-# everything tried in the sweep, because only its LED grid moves. Every other
-# row in `ANIMATED` is refused above its own entry, on a measured ground: a
-# motion-budget overrun, an I7 saturation ceiling this task could not touch,
-# a prop that reads as furniture floating on nothing, or a prop that deletes
-# its own theme's signature silhouette. `office` and `briefing` ship none —
-# see the note above this constant for why, in full.
+# **Two ship, as of the M8 office-motion sweep, and both survive the M8
+# palette-pass task's saturation restoration unchanged.** `pendulum_clock`
+# (library) and `control_room_server` (mission_control) — see the M8
+# office-motion sweep's own comment above this constant's earlier revisions
+# for their motion-budget cost, which nothing here touches.
+#
+# **`library`'s move to full pack saturation deliberately did NOT touch the
+# value band `Importer.animated()` cuts this clock on**, and that restraint
+# is why it is still adopted. The office/briefing-style full package
+# (`prop_value_floor` 0.10 as well as saturation identity) was tried against
+# `library` at the M8 palette-pass task specifically because it clears that
+# theme's own 0.35 contrast test on a re-tile — but `Importer.animated()`
+# cuts every object "on the target theme's own prop band" (that method's own
+# docstring), so the wider band would have applied to `pendulum_clock` too,
+# and running the test suite with it in found
+# `theAnimatedPropIsNeverRebuiltAcrossAFixtureReplay` failing —
+# `Tests/SpriteRoomSceneTests/PropAnimationTests.swift`'s `animatedTheme(_:)`
+# finds `library` first (alphabetically, over `mission_control`) whenever it
+# carries an animated role, and several of that suite's own tests are tuned
+# against `pendulum_clock`'s 5 fps specifically, not against "whichever theme
+# happens to animate" — dropping this clock to make room for the value
+# package would have swapped which theme those tests measure and broken a
+# swift test outside this task's own files to satisfy a value-axis threshold
+# `library` never needed clearing (see `THEMES["library"]`'s own comment: its
+# baseline contrast was already 0.456). So the value band was left alone,
+# `pendulum_clock` was never withdrawn, and this set is unchanged from the
+# M8 office-motion sweep.
+#
+# Every other row in `ANIMATED` is refused above its own entry, on a measured
+# ground: a motion-budget overrun, an I7 saturation ceiling this task could
+# not touch, a prop that reads as furniture floating on nothing, or a prop
+# that deletes its own theme's signature silhouette. `office` and `briefing`
+# ship none — see the note above this constant for why, in full.
 #
 # Emptying this set reverts every animated prop in one line and nothing else
 # changes; the art stays cut either way.
