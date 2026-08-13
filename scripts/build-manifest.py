@@ -596,6 +596,12 @@ STAGE_DRESSING = [
 # band lattice spent on the same object, because a hand-placed room draws
 # `board` exactly as many times as it is written down rather than once per
 # even back-row seat.
+# Re-homed when briefing gained a floor plan: the composition was authored
+# across the full 800px room and the plan spans 64..736 with an outer wall at
+# each edge, so its outermost props stood in the void. The 32px margins cannot
+# hold anything once the wall is there — the partition line spans 57..71 and a
+# 26px prop needs x >= 84 while the seat column caps it at 83 — so these went
+# to lanes, at their own depths.
 BRIEFING_DRESSING = [
     # Wall hangs, on the wall face above the wall line (y >= 224, exempt from
     # the seat-corridor rule). Posters and the one door the set ships.
@@ -647,13 +653,13 @@ BRIEFING_DRESSING = [
     {"scenery": 3, "x": 624, "y": 90, "what": "grey lectern with a microphone"},
     # Edges and gaps: narrow items only, and one more lectern pair (a second
     # stacks corner).
-    {"scenery": 9, "x": 40, "y": 90, "what": "microphone stand"},
-    {"scenery": 6, "x": 764, "y": 190, "what": "stacking chair, back view"},
-    {"scenery": 7, "x": 38, "y": 148, "what": "step ladder"},
-    {"scenery": 10, "x": 760, "y": 132, "what": "wall shelf edge"},
-    {"scenery": 11, "x": 35, "y": 220, "what": "fire extinguisher"},
+    {"scenery": 9, "x": 160, "y": 90, "what": "microphone stand"},
+    {"scenery": 6, "x": 160, "y": 172, "what": "stacking chair, back view"},
+    {"scenery": 7, "x": 160, "y": 148, "what": "step ladder"},
+    {"scenery": 10, "x": 160, "y": 132, "what": "wall shelf edge"},
+    {"scenery": 11, "x": 160, "y": 220, "what": "fire extinguisher"},
     {"scenery": 11, "x": 630, "y": 70, "what": "fire extinguisher"},
-    {"scenery": 8, "x": 764, "y": 100, "what": "lectern top"},
+    {"scenery": 8, "x": 160, "y": 100, "what": "lectern top"},
 ]
 
 # **Re-homed when this theme gained a floor plan.** The composition was

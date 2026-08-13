@@ -1017,6 +1017,15 @@ THEME_PLAN_WALLS = {
     # measures 0.125 darker in value than the wall its dressing is already hung
     # against, and a band that dark under this theme's props reads as a shadow
     # rather than as a wall.
+    # **briefing, after looking at it without one.** It was left out because its
+    # best candidate cap measures 0.125 darker in value than its own wall tile —
+    # a fair test if the wall stays on screen, and it does not: under a plan the
+    # theme's flat wall field is never drawn. Cap, body and the back rooms' floor
+    # replace it. Rendered plan-less beside the other five, briefing was the only
+    # room whose top third was a flat saturated blue reading as *sky over a brick
+    # patio* rather than as a wall. A band that is darker than a field nobody
+    # sees beats no band at all.
+    "briefing": (10, 23),
     "mission_control": (30, 23),
     "broadcast": (4, 1),
     "library": (6, 1),

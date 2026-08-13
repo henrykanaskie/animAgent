@@ -476,10 +476,27 @@ struct ThemeSceneTests {
         for id in ids {
             planCounts[render(id).plan.isEmpty, default: 0] += 1
         }
-        #expect(planCounts[true] != nil && planCounts[false] != nil, Comment(rawValue:
-            "every theme has the same kind of room, so the two branches below are not"
-            + " both exercised — planned: \(planCounts[false] ?? 0),"
-            + " open: \(planCounts[true] ?? 0)"))
+        // **The planned arm must run; the open-floor one may have nothing left
+        // to run over, and says so.**
+        //
+        // This required both kinds of room to exist among the shipped themes.
+        // That was true while a plan needed builder tiles only `office` had; it
+        // stopped being true when the walls subfile every theme already indexes
+        // turned out to carry the pack's floor-plan line, and all six gained a
+        // plan. Failing here would mean keeping one room on a flat wall to
+        // satisfy a test — the third time this suite has been able to decide the
+        // art, after a pinned board/plant count and an alphabetical "the plan".
+        //
+        // `RoomPlan.open` is still the fallback for a theme whose builder cannot
+        // draw a plan, and `RoomScene` still branches on `plan.isEmpty`, so the
+        // arm resumes the moment such a theme ships.
+        #expect(planCounts[false] != nil, Comment(rawValue:
+            "no theme draws a floor plan, so the planned arm below runs over nothing"))
+        if planCounts[true] == nil {
+            print("""
+                NOTICE: all \(planCounts[false] ?? 0) themes draw a floor plan, so the                 open-floor arm of changingTheThemeRedressesTheRoomAndMovesNoCharacter                 checked nothing. RoomPlan.open remains the fallback for a theme whose                 builder sheet carries no floor-plan line.
+                """)
+        }
 
         // **How many props a room draws is a function of its dressing
         // mechanism, and there are two.** [M8]
