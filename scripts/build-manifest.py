@@ -256,6 +256,17 @@ ROOM_PLAN = {
     "partitions": [
         {"x": 10, "y": 9, "h": 3},
         {"x": 16, "y": 9, "h": 3},
+        # **The outer wall**, both edges, the full depth of the plan. [ADR-013]
+        # Without these the plan simply stops and the floor gives way to the
+        # void, which reads as a crop rather than as the end of a building —
+        # every one of `scripts/compose-scene.py`'s reference scenes is bordered.
+        # They run rows -6..11, the whole of the walkway and the rooms above it,
+        # and they are admissible downstage of the seat row because they occlude
+        # nobody: the line at tile 2 spans x 57..71 against a leftmost seat body
+        # at 96..128. `RoomPlan.routeViolations` is what checks that rather than
+        # this comment.
+        {"x": 2, "y": -6, "h": 18},
+        {"x": 23, "y": -6, "h": 18},
     ],
 }
 
@@ -321,7 +332,7 @@ ROOM_DRESSING = [
     {"role": "plant", "x": 634, "y": 198, "what": "small potted plant"},
     {"scenery": 17, "x": 648, "y": 100, "what": "backpack on the floor"},
     # The right edge: the second stack, mirroring the first without matching it.
-    {"scenery": 11, "x": 720, "y": 176, "what": "office printer"},
+    {"scenery": 11, "x": 640, "y": 212, "what": "office printer"},
     {"scenery": 14, "x": 640, "y": 186, "what": "wooden two-drawer cabinet"},
     {"role": "plant", "x": 544, "y": 178, "what": "small potted plant"},
     {"scenery": 18, "x": 160, "y": 214, "what": "waste bin, full"},

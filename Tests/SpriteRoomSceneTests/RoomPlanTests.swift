@@ -462,39 +462,67 @@ struct RoomPlanTests {
     /// be declared today.
     @Test func nothingStandsOnAPartition() throws {
         let plan = try Self.officePlan()
+        let room = try Self.handPlacedTheme().room
         let layout = RoomLayout().adopting(plan: plan)
         let half = Double(RoomPlan.partitionPx) / 2
-        for band in RoomLayout.SceneryBand.allCases {
-            let reach = Double(layout.sceneryInkBound(band).width) / 2
-            for point in layout.sceneryAnchors(band) {
-                for partition in plan.partitions {
-                    let low = Double(partition.y * layout.tile)
-                    let high = Double((partition.y + partition.h) * layout.tile)
-                    guard point.y >= low, point.y <= high else { continue }
-                    let gap = abs(point.x - Double(partition.x * layout.tile))
-                    #expect(gap >= reach + half, Comment(rawValue:
-                        "a \(band) prop at x=\(Int(point.x)) reaches the partition at "
-                        + "x=\(partition.x * layout.tile) — \(Int(gap)) px apart, needs "
-                        + "\(Int(reach + half))"))
-                }
+        // **Whatever this plan actually draws**, which since the office was
+        // hand-placed is not the bands. Walking `sceneryAnchors` here asserted a
+        // clearance for props the room does not put anywhere — vacuously true
+        // while the two interior partitions stood clear of the lattice, and
+        // then loudly false the moment an outer wall landed on a band column
+        // that nothing stands in. A test that fails about absent props is worse
+        // than one that passes about them, because it invites deleting the rule.
+        for placement in plan.dressing {
+            guard let prop = room.piece(placement.piece) else { continue }
+            let box = prop.contentBox
+            let point = ScenePoint(x: Double(placement.x), y: Double(placement.y))
+            let reach = Double(box.width) / 2
+            for partition in plan.partitions {
+                let low = Double(partition.y * layout.tile)
+                let high = Double((partition.y + partition.h) * layout.tile)
+                guard point.y >= low, point.y <= high else { continue }
+                let gap = abs(point.x - Double(partition.x * layout.tile))
+                #expect(gap >= reach + half, Comment(rawValue:
+                    "'\(placement.what)' at x=\(Int(point.x)) reaches the partition at "
+                    + "x=\(partition.x * layout.tile) — \(Int(gap)) px apart, needs "
+                    + "\(Int(reach + half))"))
             }
         }
     }
 
-    /// Every partition is upstage of the wall line, which is the *reason* there
-    /// is no north-south wall in the working half of the room and is worth
-    /// pinning rather than leaving to the prose: below that line seven seat
-    /// columns 96 px apart leave a 40 px gap between one seat's desk and the
-    /// next seat's chair, and a station prop stands in the middle of every one.
-    @Test func everyPartitionIsUpstageOfTheWallLine() throws {
+    /// Every partition is upstage of the wall line **or outside the span the
+    /// cast travels**, which is the *reason* there is no north-south wall in the
+    /// working half of the room and is worth pinning rather than leaving to the
+    /// prose: below that line seven seat columns 96 px apart leave a 40 px gap
+    /// between one seat's desk and the next seat's chair, and a station prop
+    /// stands in the middle of every one.
+    ///
+    /// **The second arm is the building's outer wall and nothing else.** [ADR-013]
+    /// That argument is about the gaps *between* seats; beyond the outermost
+    /// seat column there are no gaps and no routes, so a wall there may run the
+    /// full depth of the floor — and it has to, or it is a wall with a gap in it
+    /// where the camera is looking. Written as a disjunction rather than
+    /// loosened to "upstage or at the edge", so an interior partition that
+    /// wandered downstage still fails on the first arm.
+    @Test func everyPartitionIsUpstageOfTheWallLineOrOutsideEveryRoute() throws {
         let plan = try Self.officePlan()
         let layout = RoomLayout()
+        let seatXs = (0..<layout.seatCapacity).map { layout.seatPosition($0).x }
+        let low = (seatXs.min() ?? 0) - Double(layout.tile) / 2
+        let high = (seatXs.max() ?? 0) + Double(layout.tile) / 2
         #expect(!plan.partitions.isEmpty, "the plan draws no interior wall at all")
+        var outside = 0
         for partition in plan.partitions {
+            let left = Double(partition.x * layout.tile) - Double(RoomPlan.partitionPx) / 2
+            let right = Double(partition.x * layout.tile) + Double(RoomPlan.partitionPx) / 2
+            if right <= low || left >= high { outside += 1; continue }
             #expect(Double(partition.y * layout.tile) >= layout.wallBaseY, Comment(rawValue:
                 "a partition starts at y=\(partition.y * layout.tile), downstage of the "
-                + "wall line at \(Int(layout.wallBaseY))"))
+                + "wall line at \(Int(layout.wallBaseY)), inside the travelled span"))
         }
+        #expect(outside == 2, Comment(rawValue:
+            "the plan should carry exactly two walls outside every route — its own "
+            + "left and right edges — and carries \(outside)"))
     }
 
     /// The plan is a plan: more than one room, more than one finish, and rooms

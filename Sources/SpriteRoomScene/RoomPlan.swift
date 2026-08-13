@@ -19,7 +19,11 @@ import Foundation
 ///   `entranceRoute`, `homeRoute` and `upstageExit` are all "straight up its own
 ///   column";
 /// - the delivery row keeps a clear lateral corridor across the whole width;
-/// - nothing is drawn nearer the camera than the seat row.
+/// - nothing is drawn nearer the camera than the seat row **inside the span the
+///   cast travels**. Beyond the outermost seat column there are no routes at
+///   all, and that is where the building's own outer wall stands — it has to run
+///   the full depth of the floor or it is a wall with a gap in it where the
+///   camera is looking. [ADR-013]
 ///
 /// `RoomPlan.routeViolations(in:)` is those three sentences as a function, and
 /// `RoomPlanTests` runs it over the shipped plan. A plan that fails it is a bug
@@ -314,11 +318,43 @@ public struct RoomPlan: Sendable, Hashable {
 
         let frontRow = layout.baselineY
         for partition in partitions {
+            // **Clause 3 binds a partition inside the span characters travel.**
+            // [ADR-013]
+            //
+            // It used to be positional: any partition reaching downstage of the
+            // front seat row was rejected, full stop. That is right for every
+            // partition the plan had, and wrong for the one it needs — the
+            // building's own outer wall, which has to run the full depth of the
+            // floor or it is a wall with a gap where the camera is looking.
+            //
+            // **The exemption is "outside the travel span", and the first thing
+            // tried was "clear of every seat body", which is wrong.** Clause 2
+            // is that the delivery row is clear across the whole width, because
+            // it is the one row a character moves *along*: a reporter walking
+            // from seat 6's column to seat 0's crosses every lane between them.
+            // A partition standing in one of those lanes touches no seat and
+            // closes the corridor anyway.
+            // `RoomPlanTests.aPartitionAcrossTheDeliveryCorridorIsCaught` is
+            // that case and it is what refuted the first rule.
+            //
+            // So the test is whether the line falls outside the whole lateral
+            // reach of the cast — beyond the outermost seat column plus half a
+            // body, where no route of any kind goes. The plan's edges do; the
+            // interior partitions between the back rooms do not, and they are
+            // upstage of the seat row anyway, so nothing that passed before
+            // stops passing.
+            let seatXs = (0..<layout.seatCapacity).map { layout.seatPosition($0).x }
+            let travelLow = (seatXs.min() ?? 0) - Double(tile) / 2
+            let travelHigh = (seatXs.max() ?? 0) + Double(tile) / 2
+            let left = Double(partition.x * tile) - 7
+            let right = Double(partition.x * tile) + 7
+            let insideTravelSpan = right > travelLow && left < travelHigh
             let lowY = Double(partition.y * tile)
-            if lowY < frontRow {
+            if lowY < frontRow, insideTravelSpan {
                 out.append(
                     "a partition at x=\(partition.x) reaches y=\(Int(lowY)), "
-                    + "nearer the camera than the seat row at \(Int(frontRow))")
+                    + "nearer the camera than the seat row at \(Int(frontRow)), "
+                    + "inside the span characters travel")
             }
         }
         for space in spaces {
