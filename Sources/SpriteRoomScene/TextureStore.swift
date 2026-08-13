@@ -21,6 +21,9 @@ public final class TextureStore {
     /// a branch at each call site.
     public let room: Manifest.Room
     private var cache: [String: SKTexture] = [:]
+    /// `inkBox(path:)`'s memo. The value is itself optional, so a file that will
+    /// not load is decoded once rather than once per seat.
+    private var inkBoxes: [String: Manifest.PropRole.Box?] = [:]
     private var accents: [String: Bitmap.RGBA] = [:]
     private var roomTiles: RoomTiles?
 
@@ -78,6 +81,47 @@ public final class TextureStore {
         guard let texture = PixelImage.texture(from: bitmap) else { return nil }
         cache[key] = texture
         return texture
+    }
+
+    /// **One file's opaque bounding box**, in the same frame `content_box` is
+    /// written in — image space, y down. `nil` when the art will not load.
+    ///
+    /// **This is a measurement the manifest should be carrying and does not,
+    /// and it is called from exactly one place for that reason.** `content_box`
+    /// is declared per *role*, and a role's `variants` are separate singles
+    /// dropped into a 64×96 canvas wherever they sat on their own source sheet
+    /// — the office `desk_kit` stock measures `8,72 24×22`, `16,50 32×24`,
+    /// `16,78 30×18` and `24,66 18×18`, four boxes that share no edge. Placing
+    /// entry 3 against entry 0's box would put a mug 20 px into the air, so the
+    /// scene measures what the manifest did not declare rather than drawing it
+    /// wrong. `variants[0]` never comes through here: `file`'s own declared box
+    /// is a measurement someone made deliberately and outranks this one.
+    ///
+    /// The right fix is a per-variant `content_box` in the manifest, at which
+    /// point this function loses its only caller.
+    ///
+    /// Cached, misses included, because it is read once per placed prop at
+    /// room-build time and a re-decode per seat would be seven decodes of the
+    /// same four files.
+    public func inkBox(path: String) -> Manifest.PropRole.Box? {
+        if let cached = inkBoxes[path] { return cached }
+        let box = Self.inkBox(of: try? PixelImage.bitmap(contentsOf: manifest.url(path)))
+        inkBoxes[path] = box
+        return box
+    }
+
+    static func inkBox(of bitmap: Bitmap?) -> Manifest.PropRole.Box? {
+        guard let bitmap else { return nil }
+        var minX = Int.max, minY = Int.max, maxX = Int.min, maxY = Int.min
+        for y in 0..<bitmap.height {
+            for x in 0..<bitmap.width where bitmap.at(x, y).a > 0 {
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        guard minX <= maxX, minY <= maxY else { return nil }
+        return Manifest.PropRole.Box(
+            x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
     }
 
     /// Animation frames for one state of one variant.

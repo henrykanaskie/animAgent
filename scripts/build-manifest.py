@@ -1280,6 +1280,25 @@ def build_themes():
                 if surface is not None:
                     roles[role]["surface_y"] = surface
 
+            # `role_variants` is extra stock for this role beyond `roles[role]`
+            # itself — scripts/process-assets.py writes it to `<role>_<n>.png`
+            # for n = 1, 2, .... `variants[0]` is always `roles[role]["file"]`,
+            # unpicked, so a reader that has never heard of `variants` draws it
+            # and is correct — same contract as `animation`'s `frames`. Missing
+            # or unfittable stock is skipped rather than failing the build: a
+            # pool that came up short of the source table is a real finding
+            # (recorded beside the table in scripts/process-assets.py), not a
+            # reason to drop the entries that did survive.
+            wanted = spec.get("role_variants", {}).get(role)
+            if wanted:
+                variants = [roles[role]["file"]]
+                for i in range(1, len(wanted) + 1):
+                    vpath = os.path.join(tdir, "singles", "%s_%d.png" % (role, i))
+                    if os.path.exists(vpath) and content_box(vpath) is not None:
+                        variants.append(rel(vpath))
+                if len(variants) > 1:
+                    roles[role]["variants"] = variants
+
         bdir = os.path.join(tdir, "builder")
         tiles, declared = [], {}
         if os.path.isdir(bdir):
@@ -1390,6 +1409,15 @@ def build_themes():
                                   "mean(transition_px) * fps, summed over every copy the "
                                   "room draws, against the quietest looping animation in "
                                   "the cast.",
+                "variants_note": "A role may carry `variants` beside `file`: an ordered "
+                                 "list of file paths, `file` first, so a reader that "
+                                 "knows nothing about `variants` draws `file` and is "
+                                 "correct — the same contract `animation` states for "
+                                 "`frames`, in the same voice. What indexes it is the "
+                                 "seat, at build time, identically for every agent: §6 "
+                                 "rule 1 says the room does not change with activity at "
+                                 "all, so nothing in the delta stream may reach this list "
+                                 "after the room is built [ADR-002 SS6 rule 1, I1].",
                 "scenery_note": SCENERY_NOTE,
                 "roles": roles,
                 "scenery": scenery_entries(

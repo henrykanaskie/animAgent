@@ -346,8 +346,92 @@ public struct Manifest: Sendable, Hashable {
         /// the answer the room drew before this key existed.
         public let surfaceY: Int?
 
+        /// `props.roles.<role>.variants` — **every file this role may be drawn
+        /// with, `file` first**. Never empty, and `variants[0] == file` always.
+        ///
+        /// **Additive beside `file`, exactly as `animation` is**, and the
+        /// manifest says so in its own `variants_note`: a reader that has never
+        /// heard of this key draws `file` and is correct. That is why a manifest
+        /// without it needs no special case here — absence decodes to `[file]`,
+        /// which is what every theme but `office` gets and what every caller
+        /// that asks for variant 0 gets everywhere.
+        ///
+        /// **Nothing in a `WorldDelta` may choose an entry.** What indexes it is
+        /// the seat, once, at room-build time — a seat is stable for the life of
+        /// a scene, so the room is still built once and never rebuilt. A prop
+        /// that changed because an agent did something would be the fiction
+        /// ADR-002 §6 rule 1 exists to prevent. [I1]
+        public let variants: [String]
+
         public struct Box: Sendable, Hashable {
             public let x: Int, y: Int, width: Int, height: Int
+
+            public init(x: Int, y: Int, width: Int, height: Int) {
+                self.x = x
+                self.y = y
+                self.width = width
+                self.height = height
+            }
+        }
+
+        public init(
+            file: String, contentBox: Box, animation: Animation?, surfaceY: Int?,
+            variants: [String]? = nil
+        ) {
+            self.file = file
+            self.contentBox = contentBox
+            self.animation = animation
+            self.surfaceY = surfaceY
+            // The one place the "`file` first, always" contract is enforced, so
+            // no caller has to check it. A list that does not lead with `file`
+            // is a list this reader cannot index safely — variant 0 would draw
+            // something other than what a variant-blind reader draws — so it is
+            // discarded whole rather than repaired.
+            let declared = variants ?? []
+            self.variants = declared.first == file && !declared.contains(where: \.isEmpty)
+                ? declared : [file]
+        }
+
+        /// **This role drawn with one of its `variants`.** Out-of-range and
+        /// negative indices wrap, so a caller may hand this a seat number
+        /// without knowing how much stock the manifest declared.
+        ///
+        /// The copy keeps the role's own `content_box` and `surface_y` — a
+        /// variant is the same slot in the same theme — and **drops
+        /// `animation`**, because `animation.frames[0]` is `file` and a variant
+        /// that is not `file` has no frames of its own. A role that both idles
+        /// and carries stock would otherwise play frame 0 of the wrong picture.
+        /// No shipped role does both; this is what stops the first one that does
+        /// from being a defect.
+        ///
+        /// **The caller is responsible for the box when a variant's art is not
+        /// registered with `file`'s.** `RoomScene` measures it — see
+        /// `TextureStore.inkBox(path:)` — because the manifest declares one
+        /// `content_box` per role and the office `desk_kit` stock is four
+        /// objects cut from four different source sheets.
+        public func variant(_ index: Int) -> PropRole {
+            guard variants.count > 1 else { return self }
+            let wrapped = ((index % variants.count) + variants.count) % variants.count
+            guard wrapped != 0 else { return self }
+            return PropRole(
+                file: variants[wrapped], contentBox: contentBox, animation: nil,
+                surfaceY: surfaceY)
+        }
+
+        /// The same role drawn with `variant`'s file **and that file's own
+        /// measured ink box**, which is the pair `RoomScene` places.
+        ///
+        /// `box` is ignored where the index resolves to variant 0: the manifest
+        /// measured `file` itself and a declared box outranks a measured one
+        /// wherever there is a declaration to read. So a theme with no stock, or
+        /// a seat that lands on entry 0, draws exactly what it drew before this
+        /// key existed — including if the measurement is unavailable.
+        public func variant(_ index: Int, box: Box?) -> PropRole {
+            let picked = variant(index)
+            guard picked.file != file, let box else { return picked }
+            return PropRole(
+                file: picked.file, contentBox: box, animation: picked.animation,
+                surfaceY: picked.surfaceY)
         }
 
         /// A prop that idles on its own loop.
@@ -382,8 +466,14 @@ public struct Manifest: Sendable, Hashable {
         /// blind to frames 1..N, which would have let
         /// `SPRITE_ROOM_REQUIRE_ART=1` pass with an animation half on disk.
         public var declaredPaths: [String] {
-            guard let animation, !animation.frames.isEmpty else { return [file] }
-            return animation.frames.contains(file) ? animation.frames : [file] + animation.frames
+            var paths = [file]
+            if let animation, !animation.frames.isEmpty {
+                paths = animation.frames.contains(file) ? animation.frames : paths + animation.frames
+            }
+            // Stock is art this room draws, so a declared variant missing from
+            // disk has to fail the art gate rather than vanish quietly at a
+            // seat. Frame 0 is already here, hence the filter.
+            return paths + variants.filter { !paths.contains($0) }
         }
 
         /// SpriteKit anchor (y-up, fractions of the canvas) that puts the
@@ -1244,7 +1334,15 @@ public struct Manifest: Sendable, Hashable {
             // Not defaulted to the box height here: the fallback is a *drawing*
             // decision and belongs where the drawing happens, so that a reader
             // of this type can still tell "measured 24" from "nobody measured".
-            surfaceY: entry["surface_y"] as? Int)
+            surfaceY: entry["surface_y"] as? Int,
+            // **Never throws, and never for anything.** A list of anything but
+            // strings, a list that does not lead with `file`, an empty list, the
+            // key absent — every one of them decodes to `[file]`, which is the
+            // picture the room drew before the key existed. Losing a seat's
+            // stock is a smaller failure than losing the room, and it is the
+            // same call `propAnimation` makes for a malformed `animation`. The
+            // `file`-first invariant itself is enforced in `PropRole.init`.
+            variants: entry["variants"] as? [String])
     }
 
     /// A `{frames, fps, loop}` entry. `nil` for anything that is not one,

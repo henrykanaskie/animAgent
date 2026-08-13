@@ -401,11 +401,24 @@ struct ThemeSceneTests {
             // layout's own answer for its own theme** below, and what is compared
             // across themes is the furniture whose point is genuinely the seat's:
             // the chair, and the station prop beside it.
+            // **A piece is named by the role it came from, not by its file.** A
+            // role may be drawn with any of its `variants` — the office pod's
+            // desktop stock is four objects and its rig four rigs — so the
+            // basename of what was drawn is `desk_kit_2`, and classifying on that
+            // would put a stocked role in the theme-independent bucket below and
+            // compare a picture across themes that do not have it.
+            let room = manifest.room(theme: themeID)
+            let roleOfFile: [String: String] = [
+                RoomScene.surfaceRole, RoomScene.monitorRole, RoomScene.deskKitRole,
+            ].reduce(into: [:]) { out, role in
+                for file in room.prop(role)?.variants ?? [] { out[file] = role }
+            }
             let byRole = (0..<scene.layout.seatCapacity).flatMap { seat in
                 scene.furnitureForTesting(seat: seat).map {
                     (seat: seat,
-                     role: URL(fileURLWithPath: $0.path).deletingPathExtension()
-                        .lastPathComponent,
+                     role: roleOfFile[$0.path]
+                        ?? URL(fileURLWithPath: $0.path).deletingPathExtension()
+                            .lastPathComponent,
                      x: Int($0.x))
                 }
             }
@@ -427,8 +440,17 @@ struct ThemeSceneTests {
                 if let point = scene.layout.monitorPosition(seat, metrics: metrics) {
                     out.append("\(seat):monitor:\(Int(point.x))")
                 }
-                if let point = scene.layout.deskKitPosition(seat, metrics: metrics) {
-                    out.append("\(seat):desk_kit:\(Int(point.x))")
+                // One entry per desktop slot, at that slot's own object's
+                // measured ink — the slot decides the column, but whether an
+                // object may stand there at all is a function of its height.
+                for slot in RoomLayout.PodKitSlot.drawOrder {
+                    guard let kit = room.prop(RoomScene.deskKitRole) else { break }
+                    let file = kit.variant(slot.rawValue + seat).file
+                    let box = SceneFixtures.inkBox(manifest, path: file) ?? kit.contentBox
+                    if let point = scene.layout.deskKitPosition(
+                        seat, slot: slot, inkHeight: Double(box.height), metrics: metrics) {
+                        out.append("\(seat):desk_kit:\(Int(point.x))")
+                    }
                 }
                 return out
             }.sorted()

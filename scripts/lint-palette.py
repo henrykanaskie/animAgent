@@ -405,6 +405,18 @@ def pack_saturation_cross_check(mod, theme_name, size="32x32"):
     for role, spec in sorted(theme.get("roles", {}).items()):
         dst_rel = "assets/processed/themes/%s/%s/singles/%s.png" % (theme_name, size, role)
         _measure_pack_pair(imp, size, spec, dst_rel, "role:%s" % role, out)
+    # **The extra stock a role carries, on the same terms as the role itself.**
+    # `role_variants` writes `singles/<role>_<n>.png` for n from 1, and this
+    # walked only `roles`, so seven files entered the manifest with nothing
+    # checking their saturation against the pack. They were verified by hand
+    # once, which is exactly the thing this cross-check exists so that nobody
+    # has to do — a check that does not cover new art is not a check, it is a
+    # check-shaped record of the art that existed when it was written.
+    for role, variants in sorted(theme.get("role_variants", {}).items()):
+        for n, spec in enumerate(variants, start=1):
+            dst_rel = "assets/processed/themes/%s/%s/singles/%s_%d.png" % (
+                theme_name, size, role, n)
+            _measure_pack_pair(imp, size, spec, dst_rel, "role:%s[%d]" % (role, n), out)
     for i, entry in enumerate(theme.get("scenery", ())):
         band, spec = entry[0], entry[1:]
         dst_rel = "assets/processed/themes/%s/%s/scenery/%02d_%s.png" % (
@@ -522,7 +534,9 @@ def role_placements(theme=None):
     # a count vouched for by the wrong copy of the layout.
     plan_of = getattr(mod, "plan_of", None)
     plan = plan_of(theme) if (theme and plan_of) else None
-    return dict(fn(metrics(theme), plan) if (theme and metrics) else fn(plan=plan))
+    roles = ((theme or {}).get("props", {}) or {}).get("roles") or None
+    return dict(fn(metrics(theme), plan, roles) if (theme and metrics)
+                else fn(plan=plan, roles=roles))
 
 
 def scene_agreement(sets, names):
@@ -980,7 +994,14 @@ def main(argv=None):
     # all about. So: measure the pixels, then assert the manifest agrees, and
     # fail loudly if it does not. Two sources that can disagree is how 10.4%
     # became 27.9%; two sources that are *compared* is how that gets caught.
-    placements = role_placements()
+    # **Censused on the default theme, not on no theme at all.** The room the
+    # panel actually draws is `themes.default`, and since ADR-009 the count is a
+    # property of that theme's art rather than of the layout alone — a pod puts
+    # four objects on a camera-facing desktop where a flat desk puts none. Asking
+    # for the census with no theme returned the lattice's numbers for a room that
+    # has not drawn a lattice since ADR-011.
+    default_theme = m.get("themes", {}).get("default")
+    placements = role_placements(themes.get(default_theme) if default_theme else None)
     if not placements:
         failures.append(
             "motion budget: scripts/preview-theme.py did not supply a role "
@@ -1131,7 +1152,12 @@ def main(argv=None):
             standard_sat_ok = (tname in sat_themes
                                 or st["max_sat"][0] < ROOM_MAX_SAT)
             bad = (not standard_sat_ok
-                   or (wc is not None and wc[1] < MIN_VALUE_CONTRAST))
+                   # The same per-theme floor the failure above is raised
+                   # against — this flag used to read the global constant, so
+                   # `office` printed FAIL beside a contrast the lint had
+                   # already accepted. A summary that disagrees with the
+                   # failure list is worse than no summary. [ADR-011]
+                   or (wc is not None and wc[1] < min_value_contrast(tname)))
             print("            %-16s %-7d %-9.3f %-9.3f %-9.3f %-16s %.3f (%s) %s"
                   % (tname, st["files"], st["mean"], st["max_sat"][0],
                      st["darkest"][0], st["sat_policy"],

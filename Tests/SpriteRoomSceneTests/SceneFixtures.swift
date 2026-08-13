@@ -407,7 +407,27 @@ enum SceneArt {
     /// fail on purpose — read `assets/manifest.json`, which is tracked, and the
     /// question whose wrong answer is a plant standing in a corridor is one a
     /// fresh clone can and should still answer.
-    static let expectedGatedTestCount = 108
+    /// 112 with the pod's desktop stock: **four**, and all four are gated on a
+    /// measurement the manifest does not carry. A role declares `variants` as
+    /// file paths and one `content_box`, so where the office `desk_kit`'s folder,
+    /// clipboard and mug stand can only be answered by measuring those three
+    /// files — which is what `SceneFixtures.inkBox` does and what a fresh clone
+    /// cannot do.
+    ///
+    /// - `everyObjectTheShippedStockPutsOnADesktopClearsTheFace` — the four
+    ///   objects at their own ink against the desk's own band.
+    /// - `variantZeroSMeasuredBoxIsTheOneTheManifestDeclares` — the measurement
+    ///   tied to the manifest's own declaration on the one file both can see.
+    /// - `everyCameraFacingSeatCarriesTheWholeStockAndTwoSeatsArrangeItDifferently`
+    ///   and `theSameSeatDrawsTheSameStockWhoeverIsSittingInIt` — a real
+    ///   `RoomScene`, which places nothing without the pack.
+    ///
+    /// The rest is deliberately **not** gated, and it is the larger half: that a
+    /// role with no stock still draws `file`, that a malformed list degrades to
+    /// it, that the wrap is total, and — through `deskKitLift` — that *no* object
+    /// of *any* height can rise above its own desk's back edge. A fresh clone
+    /// still checks the whole rule; what it cannot check is the four files.
+    static let expectedGatedTestCount = 112
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.
@@ -605,6 +625,36 @@ enum SceneFixtures {
         seatMetrics(
             room: theme.flatMap { manifest.themes.theme($0)?.room } ?? manifest.room,
             manifest: manifest)
+    }
+
+    /// **One art file's opaque bounding box, measured here** — the same thing a
+    /// `content_box` records, read off the pixels rather than out of the
+    /// manifest. `nil` when the art is not on disk, so every caller is gated on
+    /// `SceneArt.isAvailable`.
+    ///
+    /// It exists because a role's `variants` are separate singles and the
+    /// manifest declares one `content_box` for the role, so the only way to check
+    /// where the scene stands entry 3 of the office `desk_kit` stock is to
+    /// measure entry 3. **Written out here rather than calling
+    /// `TextureStore.inkBox`**, which is the function under test — a
+    /// transcription checked against itself is not a check, which is the lesson
+    /// `decorationPlacements` and `scripts/preview-theme.py` both carry. The two
+    /// are tied together at variant 0, where the manifest's own declaration is a
+    /// third opinion: see `variantZeroSMeasuredBoxIsTheOneTheManifestDeclares`.
+    static func inkBox(_ manifest: Manifest, path: String) -> Manifest.PropRole.Box? {
+        guard let bitmap = try? PixelImage.bitmap(contentsOf: manifest.url(path)) else {
+            return nil
+        }
+        var left = bitmap.width, top = bitmap.height, right = -1, bottom = -1
+        for y in 0..<bitmap.height {
+            for x in 0..<bitmap.width where bitmap.at(x, y).a > 0 {
+                left = min(left, x); right = max(right, x)
+                top = min(top, y); bottom = max(bottom, y)
+            }
+        }
+        guard right >= left, bottom >= top else { return nil }
+        return Manifest.PropRole.Box(
+            x: left, y: top, width: right - left + 1, height: bottom - top + 1)
     }
 
     /// The same, for a caller that already holds the room — the theme walk in

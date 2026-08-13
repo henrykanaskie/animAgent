@@ -724,39 +724,119 @@ public struct RoomLayout: Sendable, Hashable {
                                     metrics: metrics))
     }
 
-    /// **Bottom-centre of the orientation-neutral object on a camera-facing pod's
-    /// desktop**, or `nil` for a seat that has none.
+    /// **The four places an object may stand on a camera-facing pod's desktop**,
+    /// in draw order: both back-row objects, then both front-row ones, so a
+    /// front-row object is always added to the tree after the thing it stands in
+    /// front of.
+    ///
+    /// `scripts/compose-scene.py`'s `desk_pod` puts four objects on a
+    /// camera-facing desktop — *"folder, clipboard on the left, paper stack and
+    /// mug on the right"* — where this file used to put one, and these are those
+    /// four places. Two columns, because a pod has exactly two kit slots
+    /// (`podSlotOffsetX`); two rows, because the desktop is 38 px deep and one
+    /// row of objects across a slab that wide reads as a shelf.
+    ///
+    /// **The declaration order is the office theme's own stock order**, so a seat
+    /// that takes `variants[slot.rawValue]` gets the reference's arrangement: the
+    /// paper stack — `variants[0]`, the only object this room drew before — stays
+    /// in the right-hand slot it has always stood in, and the folder, clipboard
+    /// and mug land where `desk_pod` draws them. `RoomScene` rotates that by the
+    /// seat, which is why the order has to be a fact rather than a preference.
+    public enum PodKitSlot: Int, CaseIterable, Sendable, Hashable {
+        case backRight, backLeft, frontLeft, frontRight
+
+        /// Which of the pod's two kit slots this stands in.
+        var isLeft: Bool { self == .backLeft || self == .frontLeft }
+        /// **Whether the object's top lands on the desk's back edge** — the back
+        /// row — or on the desktop's mid-line, which is the front row.
+        var isBackRow: Bool { self == .backLeft || self == .backRight }
+        /// The back row first, so a front-row object is added to the tree after
+        /// the object it overlaps. The depth bias is what actually sorts them;
+        /// this makes the order deterministic rather than relying on it.
+        public static var drawOrder: [PodKitSlot] {
+            allCases.filter(\.isBackRow) + allCases.filter { !$0.isBackRow }
+        }
+        /// How many objects stand between this one and the desk. The depth rank
+        /// `RoomScene` turns into a bias, so a front-row object draws over the
+        /// back-row one it overlaps rather than tying with it on the desk's own
+        /// row.
+        var depthRank: Int { isBackRow ? 0 : 1 }
+    }
+
+    /// **How far above the desk's floor point an object of ink height `h`
+    /// stands** in one of the four desktop slots.
+    ///
+    /// This is where "it cannot cover a face" is enforced, and it is enforced by
+    /// construction rather than by checking afterwards:
+    ///
+    /// | row | lift | the object's top |
+    /// |---|---|---|
+    /// | back | `H − h` | exactly the desk's back edge |
+    /// | front | `(H − h) / 2` | the desktop's mid-line, `(H + h) / 2` |
+    ///
+    /// so for any object no taller than the desk, every pixel of it is inside
+    /// the band the desk already covers and it stands in front of pixels the
+    /// viewer could not see anyway. Whatever its width.
+    ///
+    /// **The lift is derived per object rather than shared, and that is the
+    /// change.** One lift for every object is what the single-kit version had,
+    /// and it survived only because the one object it placed was 22 px tall
+    /// against a 38 px desk and a 16 px lift. The office folder is 24 px: at that
+    /// same 16 it reaches 40 and crosses the desk's back edge into the torso,
+    /// which is why `compose-scene.py`'s own `on_desk(16)` for that object cannot
+    /// be transcribed. Deriving it costs the reference 2 px on one object of four
+    /// and makes the sentence true for every object anyone adds later.
+    ///
+    /// The shipped 24×22 paper stack does not move: `38 − 22 = 16` is the same
+    /// number `deskTopLift` returns for the office pod, reached from the object's
+    /// own art instead of from the rig's.
+    ///
+    /// `nil` for an object **taller than the desk**, which has no lift that
+    /// satisfies the bound: its top can only reach the back edge by hanging its
+    /// base below the desk's front edge. Nothing in the shipped stock is — the
+    /// tallest is 24 against 38 — and I1's answer where you cannot draw something
+    /// truthfully is to draw nothing.
+    public func deskKitLift(inkHeight: Double, slot: PodKitSlot, metrics: SeatMetrics)
+    -> Double? {
+        guard inkHeight > 0, inkHeight <= metrics.deskInkHeight else { return nil }
+        let onBackEdge = metrics.deskInkHeight - inkHeight
+        return slot.isBackRow ? onBackEdge : onBackEdge / 2
+    }
+
+    /// **Bottom-centre of one orientation-neutral object on a camera-facing pod's
+    /// desktop**, or `nil` for a seat that has none and for an object this slot
+    /// cannot hold.
     ///
     /// ADR-008 §5 left a camera-facing desk bare and gave two independent reasons.
-    /// The first still holds and is why this is not a rig: an object there faces
-    /// upstage, and a screen has no honest rear view. **The second has expired.**
-    /// It was geometric — *"the theme desk is 32 px wide and the body occupies all
-    /// of it"* — and a pod is 64 px wide with 16 px of desktop outside the body's
-    /// canvas on either side.
+    /// The first still holds and is why none of these is a rig: an object there
+    /// faces upstage, and a screen has no honest rear view. **The second has
+    /// expired.** It was geometric — *"the theme desk is 32 px wide and the body
+    /// occupies all of it"* — and a pod is 64 px wide with 16 px of desktop
+    /// outside the body's canvas on either side.
     ///
     /// What stands here is therefore theme furniture that says nothing about any
-    /// agent [I1]: a paper stack, which reads the same from either side. It is
-    /// still not ADR-006's work-kind slot, and a camera-facing seat still carries
-    /// none of that — `SeatFacing.showsDeskTopObject` is unchanged.
+    /// agent [I1]: paper, a folder, a clipboard, a mug — objects that read the
+    /// same from either side. It is still not ADR-006's work-kind slot, and a
+    /// camera-facing seat still carries none of that —
+    /// `SeatFacing.showsDeskTopObject` is unchanged.
     ///
-    /// **It cannot cover a face, and that is arithmetic rather than care.** The
-    /// lift plus the kit's own ink height comes to the desk's back edge, so the
-    /// object is drawn entirely inside the band the desk already covers. Whatever
-    /// its width, it stands in front of pixels the viewer could not see anyway.
+    /// **It cannot cover a face, and that is arithmetic rather than care.** See
+    /// `deskKitLift(inkHeight:slot:metrics:)`, which is the whole of it.
     ///
-    /// **The right slot, which is the same slot ADR-006's object takes at an
-    /// away-facing seat.** One rule covers the room: the right slot carries the
-    /// seat's own kit and the left one carries the theme's rig where a rig is
-    /// honest. It also balances the seat, because `stationPropPosition` is a tile
-    /// to the character's *left* and a kit in the left slot puts everything a
-    /// pod owns on one side of its occupant.
-    public func deskKitPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint? {
-        guard metrics.isDeskPod, seatFacing(index) == .towardCamera else { return nil }
+    /// **Both slots, where the rig gets one.** An away-facing pod keeps its left
+    /// slot for the rig and its right for ADR-006's object, so it has nowhere
+    /// else to put anything; a camera-facing pod carries neither of those and its
+    /// whole desktop is free. Nothing here can collide with the work-kind object
+    /// because that object is never drawn at this facing.
+    public func deskKitPosition(
+        _ index: Int, slot: PodKitSlot, inkHeight: Double, metrics: SeatMetrics
+    ) -> ScenePoint? {
+        guard metrics.isDeskPod, seatFacing(index) == .towardCamera,
+              let lift = deskKitLift(inkHeight: inkHeight, slot: slot, metrics: metrics)
+        else { return nil }
         let desk = deskPosition(index, metrics: metrics)
-        return ScenePoint(
-            x: desk.x + podSlotOffsetX(metrics: metrics),
-            y: desk.y + deskTopLift(surfaceHeightAboveFloor: metrics.deskInkHeight,
-                                    metrics: metrics))
+        let offset = podSlotOffsetX(metrics: metrics)
+        return ScenePoint(x: desk.x + (slot.isLeft ? -offset : offset), y: desk.y + lift)
     }
 
     /// **Which row of the body a toward-camera desk's top edge lands on**, above

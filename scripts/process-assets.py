@@ -316,6 +316,81 @@ THEMES = {
             "board": ("office", 171, "presentation board on a stand, chart on the face"),
             "plant": ("office", 99, "small potted plant, floor standing"),
         },
+        # M8's own reference room — `output/01-engineering-office.png`, built by
+        # `scripts/compose-scene.py` straight off the pack — cycles a POOL for
+        # three of these roles instead of binding one variant, which is why the
+        # shipped desk pods read as identical where the reference's do not. Each
+        # entry here is extra stock for the role above it: `roles[role]` stays
+        # `variants[0]`, unpicked, so a reader that has never heard of
+        # `role_variants` still gets the file it always got. Nothing below was
+        # written from the reference script's arithmetic — every index was
+        # rendered with `scripts/contact-sheet.py --pick` and looked at, same as
+        # every entry in `roles` above.
+        "role_variants": {
+            # `compose-scene.py`'s `LIT_RIGS = (0, 1, 3, 4)` picks four of the
+            # six 32x42 `workstation_composite` singles in the Jail set (147-152,
+            # in file order) as the *lit* ones — 149 and 152 render a dark
+            # switched-off panel, confirmed by eye alongside the rest of this
+            # family (`scripts/contact-sheet.py --pick 18:147,18:148,18:149,
+            # 18:150,18:151,18:152`). 147 is already `roles["monitor"]`
+            # (`LIT_RIGS[0]`); these are the other three. 147/150 share one
+            # screen (a document, grey/olive bezel) and 148/151 the other (a
+            # blue chat app), so the four together are two bezel colours by two
+            # screen contents, not four unrelated rigs.
+            "monitor": [
+                (18, 148, "workstation rig - blue chat app on screen, lit, "
+                          "32x42, grey bezel - LIT_RIGS[1]"),
+                (18, 150, "workstation rig - document on screen, lit, 32x42, "
+                          "olive bezel - LIT_RIGS[2], the same document as "
+                          "single 147 in the other bezel colour"),
+                (18, 151, "workstation rig - blue chat app on screen, lit, "
+                          "32x42, olive bezel - LIT_RIGS[3], the same app as "
+                          "single 148 in the other bezel colour"),
+            ],
+            # **No chair_back pool.** `chair_pool()`'s "five colours of two
+            # profiles each way" describes the LEFT/RIGHT ink pool of
+            # `chair_office_swivel` — the camera-facing chair, which this app
+            # seats nobody in at all (ADR-008: a camera-facing seat gets no
+            # chair, the body covers it entirely) — not the back view. Measured
+            # instead of trusted: `chair_office_back` at ink 32x46 has exactly
+            # **two** entries in the catalogue, singles 101 (already
+            # `roles["chair_back"]`) and 102, and both are the same dark grey.
+            # A pool of one extra, same-colour entry buys nothing, so none is
+            # bound; see the M8 handoff for the 101-vs-102 legibility call.
+            #
+            # `desk_kit` — the reference's `desk_pod()` (camera-facing branch) sets a
+            # camera-facing desk with FOUR objects at once — folder, clipboard,
+            # paper_stack, coffee_cup — not four alternatives to one slot.
+            # `roles["desk_kit"]` already binds the fourth, `paper_stack`
+            # (office 153, the loose 24x24 sheaf `desk_pod`'s own comment
+            # prefers over the 32x42 "filing tower" — which, measured here,
+            # turns out not to exist in the current catalogue naming; only one
+            # `folder`-named single exists at all, see below). These three are
+            # the other objects that same function draws, sourced from whatever
+            # pack the catalogue found them in — `compose-scene.py` mixes packs
+            # for this kit already, same as `roles["monitor"]` mixes Jail into
+            # an office theme.
+            "desk_kit": [
+                # Only one `folder`-catalogued single exists anywhere in the
+                # 12,279-prop catalogue: Hospital Singles set 19 #36, 32x24 — a
+                # leaning stack of three manila folder tabs. Measured, not
+                # assumed: there is no 32x42 filing-tower entry under this name
+                # to avoid today, contrary to `desk_pod`'s own comment, which
+                # is stale against the current catalogue.
+                (19, 36, "stack of manila folders, three tabs, leaning, 32x24 "
+                         "- Hospital Singles set 19, catalogued as 'folder'"),
+                # Five colours of clipboard exist (Hospital 43-47, all 30x18);
+                # 46 is the palest (light blue-grey) and sits closest to the
+                # room's own low-saturation neighbours without repeating
+                # `desk_kit`'s own orange/green catalogue mates.
+                (19, 46, "clipboard with a pencil across it, pale blue-grey, "
+                         "30x18 - Hospital Singles set 19, catalogued as "
+                         "'clipboard'"),
+                # The only `coffee_cup`-catalogued single in either pack.
+                (12, 394, "coffee mug, 18x18 - Kitchen Singles set 12, "
+                          "catalogued as 'coffee_cup'"),
+            ],
+        },
         # The reference room. `Office_Design_2.gif` is what this is aimed at:
         # boards and paper on the wall, a printer row and filing cabinets against
         # it, bins and towers in the gaps.
@@ -1883,6 +1958,37 @@ class Importer:
                     recolour(buf, self.cache, prop_floor, prop_sat_scale, prop_sat_target,
                              prop_ceil)
                     self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
+
+                # Extra stock for a role's pool, beyond `roles[role]` itself.
+                # Same cut, same band, same canvas — the only difference is the
+                # filename, `<role>_<n>.png` for n = 1, 2, ..., so `roles[role]`
+                # keeps writing exactly `<role>.png` and a build that has never
+                # heard of `role_variants` sees no change at all.
+                for role, variants in sorted(theme.get("role_variants", {}).items()):
+                    for i, spec in enumerate(variants, start=1):
+                        src = self._theme_source(size, spec)
+                        if src is None:
+                            self.log("  themes/%s: %s variant %d source missing "
+                                     "(%s:%s)" % (name, role, i, spec[0], spec[1]))
+                            continue
+                        dst = os.path.join(base, "singles", "%s_%d.png" % (role, i))
+                        key = ("pad%dx%d:band%.3f:sat%.3f,%.3f:"
+                               % (PROP_CANVAS + (prop_floor, prop_sat_scale, prop_sat_target))
+                               + "ceil%.3f:" % prop_ceil
+                               + _digest(src))
+                        if self._fresh(dst, key):
+                            continue
+                        w, h, px = pnglite.load(src)
+                        self.shadow_px += strip_shadow(w, h, px)
+                        buf = self._pad(w, h, px, *PROP_CANVAS)
+                        if buf is None:
+                            self.log("  themes/%s: %s variant %d is %dx%d and does "
+                                     "not fit the %dx%d prop canvas — skipped"
+                                     % ((name, role, i, w, h) + PROP_CANVAS))
+                            continue
+                        recolour(buf, self.cache, prop_floor, prop_sat_scale,
+                                 prop_sat_target, prop_ceil)
+                        self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
                 # Scenery. Same cut, same shadow strip, same value band, same
                 # canvas as a role — the only difference is that the filename

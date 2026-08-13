@@ -501,44 +501,110 @@ public final class RoomScene: SKScene {
         for seat in 0..<layout.seatCapacity {
             for piece in podFurniture(seat: seat, metrics: metrics) {
                 guard let node = place(
-                    role: piece.role, at: piece.point, depthBias: piece.depthBias),
-                      let path = store.room.prop(piece.role)?.file else { continue }
+                    roomProp: piece.prop, at: piece.point,
+                    depthBias: piece.depthBias) else { continue }
                 emptySeatFurniture[seat, default: []].append(
-                    SeatFurniture(node: node, path: path))
+                    SeatFurniture(node: node, path: piece.prop.file))
             }
         }
     }
 
-    /// **Everything standing on one seat's desktop that is furniture**, as
-    /// `(role, bottom-centre, depth bias)`. Empty for a theme that is not a pod
-    /// and for a seat whose facing carries nothing. [ADR-009]
+    /// **One piece of a pod's desktop**: which role it came from, the resolved
+    /// prop — which carries both the file this seat draws and the ink box it is
+    /// placed against — and where it stands.
+    struct PodPiece {
+        let role: String
+        let prop: Manifest.PropRole
+        let point: ScenePoint
+        let depthBias: CGFloat
+    }
+
+    /// **Everything standing on one seat's desktop that is furniture.** Empty for
+    /// a theme that is not a pod and for a seat whose facing carries nothing.
+    /// [ADR-009]
     ///
     /// One list, read by `buildRoom` for the empty desk and by `placeStation` for
     /// an occupied one, so the two cannot draw different desktops — the same
     /// reason `decorationPlacements` is a function rather than two loops.
     ///
-    /// **The bias is `lift + deskObjectInFrontStep` and it has to be.** `place`
-    /// sorts on the point it is given, and a prop lifted onto a desktop is `lift`
-    /// px *above* the desk's floor point — which sorts it `lift` px **behind** the
-    /// desk, so the desk paints over everything below its own back edge and what
-    /// survives is a screen apparently hovering with no base. That is
-    /// `compose-scene.py`'s `on_desk` docstring, which records the symptom being
-    /// on screen for two renders before anyone read it correctly. Adding the lift
-    /// back puts the prop on its desk's own row and the step puts it one notch in
-    /// front — the same construction the ADR-006 object already uses.
-    func podFurniture(seat: Int, metrics: RoomLayout.SeatMetrics)
-    -> [(role: String, point: ScenePoint, depthBias: CGFloat)] {
-        let lift = layout.deskTopLift(
-            surfaceHeightAboveFloor: metrics.deskInkHeight, metrics: metrics)
-        let bias = CGFloat(lift) + Self.deskObjectInFrontStep
-        var pieces: [(role: String, point: ScenePoint, depthBias: CGFloat)] = []
-        if let point = layout.monitorPosition(seat, metrics: metrics) {
-            pieces.append((Self.monitorRole, point, bias))
+    /// ## Which picture, and what may choose it
+    ///
+    /// A role may declare `variants`, and **the seat is the whole of the key**:
+    /// entry `(slot.rawValue + seat) % count`. Not the agent, not the tool, not
+    /// the open-call count, not anything hashed out of a payload. A seat is fixed
+    /// for the life of a scene, so this is evaluated at room-build time and never
+    /// again — the room is still built once, still never rebuilt, and a prop that
+    /// changed because an agent did something would be exactly the fiction
+    /// ADR-002 §6 rule 1 and I1 forbid. The rotation is by slot as well as by
+    /// seat because a camera-facing pod carries **all four** objects at once;
+    /// what the seat changes is which object stands where, not how many there
+    /// are.
+    ///
+    /// ## Why the prop is resolved here rather than by name at the call site
+    ///
+    /// `content_box` is declared per role, and the office `desk_kit` stock is
+    /// four singles cut from four source sheets at four unrelated offsets in the
+    /// 64×96 canvas. So a variant carries its own **measured** box — see
+    /// `TextureStore.inkBox(path:)` — and that box decides the lift, which is
+    /// what makes "it cannot cover a face" true of each object at its own ink
+    /// height rather than of the one object that used to stand here.
+    ///
+    /// ## The bias
+    ///
+    /// **`lift + deskObjectInFrontStep × (depth rank + 1)`, and the lift has to
+    /// be in it.** `place` sorts on the point it is given, and a prop lifted onto
+    /// a desktop is `lift` px *above* the desk's floor point — which sorts it
+    /// `lift` px **behind** the desk, so the desk paints over everything below
+    /// its own back edge and what survives is a screen apparently hovering with
+    /// no base. That is `compose-scene.py`'s `on_desk` docstring, which records
+    /// the symptom being on screen for two renders before anyone read it
+    /// correctly. Adding the lift back puts the prop on its desk's own row and
+    /// the step puts it one notch in front — the same construction the ADR-006
+    /// object already uses.
+    ///
+    /// The **rank** is what the second row needs: adding the lift back collapses
+    /// every desktop object onto one z, so a front-row object drawn over the
+    /// back-row one it overlaps would be relying on child order. One extra step
+    /// per rank is 0.25, four orders of magnitude below the gap to any other
+    /// layer.
+    func podFurniture(seat: Int, metrics: RoomLayout.SeatMetrics) -> [PodPiece] {
+        var pieces: [PodPiece] = []
+        if let point = layout.monitorPosition(seat, metrics: metrics),
+           let rig = store.room.prop(Self.monitorRole) {
+            // The rig's lift is the pod's own — a screen is *meant* to clear the
+            // desk's back edge, by `monitorScreenClearance`, and it stands at a
+            // facing with no face in front of it to cover.
+            let lift = layout.deskTopLift(
+                surfaceHeightAboveFloor: metrics.deskInkHeight, metrics: metrics)
+            pieces.append(PodPiece(
+                role: Self.monitorRole, prop: variantProp(rig, seat), point: point,
+                depthBias: CGFloat(lift) + Self.deskObjectInFrontStep))
         }
-        if let point = layout.deskKitPosition(seat, metrics: metrics) {
-            pieces.append((Self.deskKitRole, point, bias))
+        if let kit = store.room.prop(Self.deskKitRole) {
+            for slot in RoomLayout.PodKitSlot.drawOrder {
+                let prop = variantProp(kit, slot.rawValue + seat)
+                let height = Double(prop.contentBox.height)
+                guard let lift = layout.deskKitLift(
+                        inkHeight: height, slot: slot, metrics: metrics),
+                      let point = layout.deskKitPosition(
+                        seat, slot: slot, inkHeight: height, metrics: metrics)
+                else { continue }
+                pieces.append(PodPiece(
+                    role: Self.deskKitRole, prop: prop, point: point,
+                    depthBias: CGFloat(lift)
+                        + Self.deskObjectInFrontStep * CGFloat(slot.depthRank + 1)))
+            }
         }
         return pieces
+    }
+
+    /// A role drawn with entry `index` of its `variants`, carrying that file's
+    /// own ink box where the art can be measured and the role's declared box
+    /// where it cannot. Entry 0 is the role itself, declared box included.
+    private func variantProp(_ prop: Manifest.PropRole, _ index: Int) -> Manifest.PropRole {
+        let picked = prop.variant(index)
+        guard picked.file != prop.file else { return prop }
+        return prop.variant(index, box: store.inkBox(path: picked.file))
     }
 
     // MARK: The floor plan [ADR-007]
@@ -952,8 +1018,7 @@ public final class RoomScene: SKScene {
         // redrawn here rather than left showing because `placeStation` hides the
         // whole of `emptySeatFurniture`, the kit included. [ADR-009]
         for piece in podFurniture(seat: seat, metrics: metrics) {
-            guard let prop = store.room.prop(piece.role) else { continue }
-            draw(prop, at: piece.point, depthBias: piece.depthBias)
+            draw(piece.prop, at: piece.point, depthBias: piece.depthBias)
         }
         if let prop = station.prop {
             draw(prop, at: layout.stationPropPosition(seat), depthBias: Self.seatDepthBias)
@@ -1313,8 +1378,19 @@ public final class RoomScene: SKScene {
     @discardableResult
     private func place(role: String, at point: ScenePoint, depthBias: CGFloat = 0)
     -> SKSpriteNode? {
-        guard let prop = store.room.prop(role),
-              let node = place(prop: prop, at: point, depthBias: depthBias) else { return nil }
+        guard let prop = store.room.prop(role) else { return nil }
+        return place(roomProp: prop, at: point, depthBias: depthBias)
+    }
+
+    /// The same, for a prop the caller has already resolved — a role drawn with
+    /// one of its `variants`, which is a picture the role name alone no longer
+    /// identifies. Everything else is identical, the registration in `propNodes`
+    /// included, because a variant is the room's own furniture exactly as entry 0
+    /// is.
+    @discardableResult
+    private func place(roomProp prop: Manifest.PropRole, at point: ScenePoint,
+                       depthBias: CGFloat = 0) -> SKSpriteNode? {
+        guard let node = place(prop: prop, at: point, depthBias: depthBias) else { return nil }
         propNodes.append(node)
         propPaths.append(prop.file)
 

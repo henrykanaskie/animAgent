@@ -563,7 +563,8 @@ def default_seat_metrics():
     return seat_metrics(theme)
 
 
-def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None):
+def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None,
+                roles=None):
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
     Scene coordinates, y-up, the point being the content box's bottom-centre.
@@ -607,7 +608,7 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None):
     dressing = [d for d in ((plan or {}).get("dressing") or []) if d.get("role")]
     if dressing:
         for item in dressing:
-            placed.append((item["role"], float(item["x"]), float(item["y"]), 0.0))
+            placed.append((item["role"], float(item["x"]), float(item["y"]), 0.0, 0))
     else:
         columns = sorted(
             x for x in (seat_column(s) * TILE + TILE // 2 + TILE * 1.5
@@ -616,7 +617,7 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None):
         for index, x in enumerate(columns):
             backdrop = index % 2 == 0
             placed.append(("board" if backdrop else "plant", x,
-                           BACKDROP_ROW_Y if backdrop else ACCENT_ROW_Y, 0.0))
+                           BACKDROP_ROW_Y if backdrop else ACCENT_ROW_Y, 0.0, 0))
     # No foreground row. `4e7b43d` removed it from the scene and replaced it
     # with a stronger rule than the one it lost: nothing decorative is drawn
     # nearer the camera than the seat row. This preview drew seven plants that
@@ -650,11 +651,11 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None):
         if role is not None:
             placed.append((role, seat_x(seat),
                            chair_y(seat, chair_height, costume_top),
-                           -0.25 if facing == "side_on" else 0.0))
+                           -0.25 if facing == "side_on" else 0.0, 0))
     for seat in range(SEAT_CAPACITY):
         facing = seat_facing(seat)
         x, y = desk_point(seat, metrics)
-        placed.append(("desk", x, y, bias if facing == "side_on" else 0.0))
+        placed.append(("desk", x, y, bias if facing == "side_on" else 0.0, 0))
     # **The kit on the desktop.** [ADR-009] `RoomScene.podFurniture(seat:metrics:)`:
     # a screen rig at every away-facing seat and a paper stack at every
     # camera-facing one, both lifted onto the desktop and both biased by
@@ -662,18 +663,40 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None):
     # Nothing at all for a theme that is not a pod.
     if is_desk_pod(metrics):
         lift = desk_top_lift(desk_height, metrics)
-        slot = pod_slot_offset_x(metrics)
+        offset = pod_slot_offset_x(metrics)
+        roles = roles or manifest_json().get("room", {}).get("props", {}).get("roles", {})
         for seat in range(SEAT_CAPACITY):
             facing = seat_facing(seat)
             x, y = desk_point(seat, metrics)
             if facing == "away_from_camera":
-                placed.append(("monitor", x - slot, y + lift, lift + 0.25))
+                # The rig keeps the pod's own lift: a screen is *meant* to clear
+                # the desk's back edge, and it stands at a facing with no face in
+                # front of it to cover.
+                placed.append(("monitor", x - offset, y + lift, lift + 0.25, seat))
             elif facing == "toward_camera":
-                placed.append(("desk_kit", x + slot, y + lift, lift + 0.25))
+                # Four objects, not one, each on a lift derived from its own ink
+                # height. The seat rotates which object stands in which slot, so
+                # `slot + seat` is the variant index — build-time, keyed on the
+                # seat and on nothing in the delta stream. [I1, ADR-002 SS6 rule 1]
+                kit = roles.get("desk_kit")
+                for slot in POD_KIT_DRAW_ORDER:
+                    index = POD_KIT_SLOTS.index(slot) + seat
+                    drawn_role = variant_role(kit, index)
+                    if drawn_role is None:
+                        continue
+                    ink_h = float(drawn_role["content_box"]["h"])
+                    kit_lift = desk_kit_lift(ink_h, slot, metrics)
+                    if kit_lift is None:
+                        continue
+                    rank = 0 if _slot_is_back_row(slot) else 1
+                    placed.append((
+                        "desk_kit",
+                        x - offset if _slot_is_left(slot) else x + offset,
+                        y + kit_lift, kit_lift + 0.25 * (rank + 1), index))
     return placed
 
 
-def role_placements(metrics=None, plan=None):
+def role_placements(metrics=None, plan=None, roles=None):
     """How many times the room draws each prop role on one panel.
 
     **It used to be a fact about the layout alone and it is not one any more.**
@@ -704,8 +727,9 @@ def role_placements(metrics=None, plan=None):
     """
     counts = {"board": 0, "plant": 0, "chair": 0, "chair_back": 0, "desk": 0,
               "monitor": 0, "desk_kit": 0}
-    for role, _x, _y, _bias in prop_layout(
-            metrics if metrics is not None else default_seat_metrics(), plan=plan):
+    for role, _x, _y, _bias, _v in prop_layout(
+            metrics if metrics is not None else default_seat_metrics(), plan=plan,
+            roles=roles):
         counts[role] = counts.get(role, 0) + 1
     return counts
 
@@ -738,6 +762,91 @@ def pick_tiles(theme):
         return first, first, "fallback"
     flats.sort()
     return flats[0][1], flats[-1][1], "heuristic"
+
+
+# **The four desktop slots of a camera-facing pod.** [ADR-009]
+# `RoomLayout.PodKitSlot`, transcribed: declaration order is the raw value the
+# variant index is offset by, `drawOrder` puts the back row first, and `isLeft`
+# / `isBackRow` are the two facts the position and the lift are derived from.
+POD_KIT_SLOTS = ("back_right", "back_left", "front_left", "front_right")
+POD_KIT_DRAW_ORDER = ("back_right", "back_left", "front_left", "front_right")
+
+
+def _slot_is_left(slot):
+    return slot in ("back_left", "front_left")
+
+
+def _slot_is_back_row(slot):
+    return slot in ("back_left", "back_right")
+
+
+def desk_kit_lift(ink_h, slot, metrics):
+    """`RoomLayout.deskKitLift(inkHeight:slot:metrics:)`.
+
+    Back row `H - h`, so the object's top lands exactly on the desk's back edge;
+    front row half that, so its top lands on the desktop's mid-line. Either way
+    every pixel is inside the band the desk already covers, which is the whole
+    of "it cannot cover a face" — for any object no taller than the desk, and
+    `None` for one that is, which has no lift that satisfies the bound.
+    """
+    desk_h = metrics[0]
+    if ink_h <= 0 or ink_h > desk_h:
+        return None
+    on_back_edge = desk_h - ink_h
+    return on_back_edge if _slot_is_back_row(slot) else on_back_edge / 2.0
+
+
+_ink_boxes = {}
+
+
+def ink_box(path):
+    """`TextureStore.inkBox(path:)` — the opaque bounding box of one PNG.
+
+    The manifest declares **one** `content_box` per role and the `desk_kit`
+    variants are not co-registered in their canvases: four boxes sharing no
+    edge. Placing a variant against the role's box puts the mug 20 px in the
+    air, so the box is measured off the file exactly as the scene measures it.
+    Alpha `> 0`, matching `TextureStore.inkBox(of:)` rather than this file's own
+    `ALPHA_FLOOR`, because that is the function being transcribed.
+    """
+    if path in _ink_boxes:
+        return _ink_boxes[path]
+    w, h, px = pnglite.load(os.path.join(REPO, path))
+    min_x, min_y, max_x, max_y = w, h, -1, -1
+    for y in range(h):
+        for x in range(w):
+            if px[(y * w + x) * 4 + 3] > 0:
+                if x < min_x: min_x = x
+                if x > max_x: max_x = x
+                if y < min_y: min_y = y
+                if y > max_y: max_y = y
+    box = None if max_x < min_x or max_y < min_y else {
+        "x": min_x, "y": min_y, "w": max_x - min_x + 1, "h": max_y - min_y + 1}
+    _ink_boxes[path] = box
+    return box
+
+
+def variant_role(role, index):
+    """`RoomScene.variantProp(_:_:)` — a role drawn with entry `index` of its
+    `variants`, carrying that file's own measured ink box.
+
+    Entry 0 is the role itself, declared box included, so a role with no
+    `variants` and a request for entry 0 both return the role untouched.
+    """
+    variants = (role or {}).get("variants") or []
+    if not role or len(variants) < 2:
+        return role
+    path = variants[index % len(variants)]
+    if path == role["file"]:
+        return role
+    box = ink_box(path)
+    if box is None:
+        return role
+    out = dict(role)
+    out["file"] = path
+    out["content_box"] = box
+    out.pop("animation", None)
+    return out
 
 
 def prop_origin(role, canvas, x, y):
@@ -1004,8 +1113,13 @@ def render(theme, name, population, out_path, characters, seed_variants,
     drawn = []   # (depth, kind, payload) — painter's order, matching zPosition
     census = {}  # role -> how many copies this render actually placed
 
-    def add_prop(role_name, x, y, bias=0.0):
-        role = roles.get(role_name)
+    def add_prop(role_name, x, y, bias=0.0, variant=0):
+        # **The variant is resolved here, not at placement.** `prop_layout()`
+        # decides *which* entry a seat draws; this turns that index into a file
+        # and the file's own measured ink box, exactly as
+        # `RoomScene.variantProp(_:_:)` does. The census still counts the role,
+        # because a variant is the same role drawn from different stock.
+        role = variant_role(roles.get(role_name), variant)
         if role is None:
             return
         frames = role_frames(role)
@@ -1024,9 +1138,9 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # across the body. `RoomScene.surfaceNearEdgeX(of:layout:)`.
     near_edge = (TILE * 0.875 - desk["content_box"]["w"] / 2.0) if desk else None
     metrics = seat_metrics(theme)
-    for role_name, x, y, bias in prop_layout(metrics, near_edge, manifest_json(),
-                                             plan_of(theme)):
-        add_prop(role_name, x, y, bias=bias)
+    for role_name, x, y, bias, variant in prop_layout(
+            metrics, near_edge, manifest_json(), plan_of(theme), roles):
+        add_prop(role_name, x, y, bias=bias, variant=variant)
 
     # The scenery, drawn from `scenery_layout()` and deliberately not counted:
     # see that function for why it stays out of the census.
@@ -1056,7 +1170,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # with nothing the scene draws. `--verify` is the tie now. Only roles this
     # theme actually declares are compared — a theme missing a role draws none
     # of it, which is not a drift.
-    expected = role_placements(metrics, plan_of(theme))
+    expected = role_placements(metrics, plan_of(theme), roles)
     for role_name, n in sorted(census.items()):
         if expected.get(role_name) != n:
             raise SystemExit(
@@ -1507,11 +1621,11 @@ def role_boxes(theme, roles=None):
     declared = theme["props"]["roles"]
     to_screen, _origin = camera(*VERIFY_PANEL)
     boxes = {}
-    for role_name, x, y, _bias in prop_layout(
-            seat_metrics(theme), None, manifest_json(), plan_of(theme)):
+    for role_name, x, y, _bias, _v in prop_layout(
+            seat_metrics(theme), None, manifest_json(), plan_of(theme), declared):
         if roles is not None and role_name not in roles:
             continue
-        role = declared.get(role_name)
+        role = variant_role(declared.get(role_name), _v)
         if role is None:
             continue
         left, top = prop_origin(role, canvas, x, y)
