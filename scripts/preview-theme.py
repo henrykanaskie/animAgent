@@ -1154,6 +1154,27 @@ VERIFY_AT = 60.0
 # I7 on the real renderer's output as a side effect.
 VERIFY_EMPTY_MAX_SAT = 0.25
 
+# ADR-010 gave `office` its own props the pack's own saturation — up to 0.873,
+# measured — so the flat ceiling above no longer means "somebody is on stage"
+# for that theme; its own furniture already clears it with nobody in the room.
+# `verify_theme` below raises the ceiling, per theme, to whatever that theme's
+# OWN dressed-but-uninhabited room actually measures (via this script's own
+# `render()`, not the compiled binary), plus this margin for the small
+# rendering differences `scene_agreement`'s known-defect register already
+# tolerates elsewhere in this file.
+#
+# **What this gives up, named rather than quietly absorbed.** The check can no
+# longer catch every straggling character in `office`: cast variant 06 peaks at
+# 0.598, which is *below* office's own 0.873, so a variant-06 character still
+# on stage at t=`VERIFY_AT` would not trip this specific assertion there. The
+# render is still guaranteed empty by the fixture's own timing — `VERIFY_AT` is
+# chosen to be well after `SessionEnd` — so this was always a second,
+# independent sanity check rather than the mechanism of emptiness; for `office`
+# it is a weaker second check, not a missing one, and it still catches a
+# render that is more saturated than the theme's own furniture, whatever the
+# cause.
+VERIFY_EMPTY_SAT_MARGIN = 0.03
+
 # ---------------------------------------------------------------------------
 # The known-defect register
 # ---------------------------------------------------------------------------
@@ -1491,13 +1512,25 @@ def verify_theme(theme, name, binary, out_dir, scratch, fixture=VERIFY_FIXTURE,
         report["failures"].append(complaint)
         return report
 
+    # ADR-010: the ceiling is per theme — `office`'s own dressed-but-empty room
+    # (this tool's own `render()`, no characters, so it cannot itself be the
+    # thing tripping the check) measures its true furniture peak, and anything
+    # over that plus a small margin is not explained by furniture. Every other
+    # theme's furniture peaks at ~0.18, so `max(VERIFY_EMPTY_MAX_SAT, ...)`
+    # leaves the flat 0.25 exactly where it was for them. See
+    # VERIFY_EMPTY_SAT_MARGIN for what this gives up for `office`.
+    _how, empty_room = render(theme, name, 0, None, {}, [], panel=panel)
+    empty_ceiling = max(VERIFY_EMPTY_MAX_SAT,
+                        max_saturation(empty_room) + VERIFY_EMPTY_SAT_MARGIN)
+
     peak = max_saturation(scene)
-    if peak > VERIFY_EMPTY_MAX_SAT:
+    if peak > empty_ceiling:
         report["failures"].append(
             "the scene render at t=%g is not an empty room: a pixel carries "
-            "saturation %.3f, over the %.2f the import transform allows any room "
-            "pixel, so a character is still on stage. Render later."
-            % (at, peak, VERIFY_EMPTY_MAX_SAT))
+            "saturation %.3f, over the %.2f this theme's own dressed-but-empty "
+            "room measures (%.2f margin), so a character is still on stage. "
+            "Render later."
+            % (at, peak, empty_ceiling, VERIFY_EMPTY_SAT_MARGIN))
         return report
 
     plan = plan_of(theme)
