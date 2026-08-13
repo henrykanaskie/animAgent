@@ -209,11 +209,31 @@ FAR_FLOOR_Y = WALL_BASE_Y + WALL_ROWS * TILE                    # 288
 
 
 def plan_of(theme):
-    """The theme's floor plan, or None for the open floor. [ADR-007]"""
+    """The theme's floor **plan**, or None for the open floor. [ADR-007]
+
+    Strictly the drawing: spaces and the surfaces they are painted from. A plan
+    that carries only `dressing` is not one of these — it draws no floor, no
+    band and no partition, and the room under it is the open floor exactly as
+    before. Ask `dressing_of` for that, and keep the two questions apart: the
+    first draft of this admitted a dressing-only plan here, which made the
+    preview skip the open-floor paint entirely and disagree with the scene by
+    840,000 pixels of bare floor.
+    """
     plan = theme.get("plan")
     if not plan or not plan.get("spaces") or not plan.get("surfaces"):
         return None
     return plan
+
+
+def dressing_of(theme):
+    """The theme's hand-placed dressing, or `[]` for one that takes the bands.
+
+    Independent of `plan_of`: a theme may compose its room without drawing a
+    floor plan [`Manifest.plan(_:)`, which admits
+    `!spaces.isEmpty || !dressing.isEmpty`], and `office` does both while
+    `library` and `stage` do only this.
+    """
+    return ((theme or {}).get("plan") or {}).get("dressing") or []
 
 
 def painted_field(_plan=None):
@@ -236,7 +256,7 @@ def painted_field(_plan=None):
 
 def plan_doorway_columns(plan):
     out = set()
-    for space in plan["spaces"]:
+    for space in (plan.get("spaces") or []):
         out.update(space.get("doorways") or [])
     return out
 
@@ -301,7 +321,7 @@ def scenery_layout(theme):
     # all-or-nothing choice on the same condition. The role-typed entries in the
     # list are `prop_layout`'s, not this function's; the two split the list on
     # the same key the scene does.
-    dressing = (plan or {}).get("dressing") or []
+    dressing = dressing_of(theme)
     if dressing:
         for item in dressing:
             index = item.get("scenery")
@@ -571,7 +591,7 @@ def default_seat_metrics():
     return seat_metrics(theme)
 
 
-def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None,
+def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, dressing=None,
                 roles=None):
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
@@ -613,7 +633,7 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None,
     # with everything else, so this lattice is skipped exactly as the scene
     # skips it. The census the motion budget reads therefore counts the copies
     # the panel actually draws, which is the only reason it is a census.
-    dressing = [d for d in ((plan or {}).get("dressing") or []) if d.get("role")]
+    dressing = [d for d in (dressing or []) if d.get("role")]
     if dressing:
         for item in dressing:
             placed.append((item["role"], float(item["x"]), float(item["y"]), 0.0, 0))
@@ -715,7 +735,7 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None,
     return placed
 
 
-def role_placements(metrics=None, plan=None, roles=None):
+def role_placements(metrics=None, dressing=None, roles=None):
     """How many times the room draws each prop role on one panel.
 
     **It used to be a fact about the layout alone and it is not one any more.**
@@ -747,8 +767,8 @@ def role_placements(metrics=None, plan=None, roles=None):
     counts = {"board": 0, "plant": 0, "chair": 0, "chair_back": 0, "desk": 0,
               "monitor": 0, "desk_kit": 0}
     for role, _x, _y, _bias, _v in prop_layout(
-            metrics if metrics is not None else default_seat_metrics(), plan=plan,
-            roles=roles):
+            metrics if metrics is not None else default_seat_metrics(),
+            dressing=dressing, roles=roles):
         counts[role] = counts.get(role, 0) + 1
     return counts
 
@@ -1027,7 +1047,7 @@ def draw_plan(buf, panel_w, panel_h, to_screen, plan):
     constant rather than of a measurement, and `--verify` is what keeps it
     honest.
     """
-    surfaces = plan["surfaces"]
+    surfaces = plan.get("surfaces") or {}
     sx, sy = to_screen(DRAWN_COLUMNS[0] * TILE, (DRAWN_ROWS[-1] + 1) * TILE)
     blit(buf, panel_w, panel_h,
          _solid(len(DRAWN_COLUMNS) * TILE, len(DRAWN_ROWS) * TILE, VOID_ROOM),
@@ -1038,13 +1058,13 @@ def draw_plan(buf, panel_w, panel_h, to_screen, plan):
         sx, sy = to_screen(column * TILE, (row + 1) * TILE)
         blit(buf, panel_w, panel_h, px, w, h, sx, sy)
 
-    for space in plan["spaces"]:
+    for space in (plan.get("spaces") or []):
         surface = surfaces[space["surface"]]
         for row in range(space["y"], space["y"] + space["h"]):
             for column in range(space["x"], space["x"] + space["w"]):
                 tile_at(surface["floor"], column, row)
 
-    for space in plan["spaces"]:
+    for space in (plan.get("spaces") or []):
         if not space.get("band", True) or space["h"] < WALL_ROWS:
             continue
         surface = surfaces[space["surface"]]
@@ -1073,7 +1093,7 @@ def draw_plan(buf, panel_w, panel_h, to_screen, plan):
 
     for partition in plan.get("partitions") or []:
         surface = None
-        for space in plan["spaces"]:
+        for space in (plan.get("spaces") or []):
             if space["x"] <= partition["x"] < space["x"] + space["w"]:
                 surface = surfaces[space["surface"]]
                 break
@@ -1158,7 +1178,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
     near_edge = (TILE * 0.875 - desk["content_box"]["w"] / 2.0) if desk else None
     metrics = seat_metrics(theme)
     for role_name, x, y, bias, variant in prop_layout(
-            metrics, near_edge, manifest_json(), plan_of(theme), roles):
+            metrics, near_edge, manifest_json(), dressing_of(theme), roles):
         add_prop(role_name, x, y, bias=bias, variant=variant)
 
     # The scenery, drawn from `scenery_layout()` and deliberately not counted:
@@ -1189,7 +1209,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # with nothing the scene draws. `--verify` is the tie now. Only roles this
     # theme actually declares are compared — a theme missing a role draws none
     # of it, which is not a drift.
-    expected = role_placements(metrics, plan_of(theme), roles)
+    expected = role_placements(metrics, dressing_of(theme), roles)
     for role_name, n in sorted(census.items()):
         if expected.get(role_name) != n:
             raise SystemExit(
@@ -1641,7 +1661,7 @@ def role_boxes(theme, roles=None):
     to_screen, _origin = camera(*VERIFY_PANEL)
     boxes = {}
     for role_name, x, y, _bias, _v in prop_layout(
-            seat_metrics(theme), None, manifest_json(), plan_of(theme), declared):
+            seat_metrics(theme), None, manifest_json(), dressing_of(theme), declared):
         if roles is not None and role_name not in roles:
             continue
         role = variant_role(declared.get(role_name), _v)

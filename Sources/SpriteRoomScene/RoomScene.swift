@@ -352,11 +352,18 @@ public final class RoomScene: SKScene {
         // It is all-or-nothing per theme rather than additive. A hand-placed
         // room with the bands still running underneath is a room with 20 props
         // on a lattice *and* 45 off it, and the lattice would still read.
+        // **`place(roomProp:)`, not `place(prop:)`** — the first is the room's
+        // own placement primitive and it does three things this loop was doing
+        // two of: the node lists, and **starting the prop's idle animation**.
+        // Going through the raw primitive meant a hand-placed theme could not
+        // have an animated prop at all, silently: the manifest would still stamp
+        // the role `animation` and nothing would ever play it. It surfaced as
+        // `library` losing its pendulum clock the moment that theme was composed
+        // by hand, which is a room quietly getting stiller because of where its
+        // furniture is listed.
         for placement in Self.dressingPlacements(store: store) {
-            guard let node = place(prop: placement.prop, at: placement.point, depthBias: 0)
+            guard let node = place(roomProp: placement.prop, at: placement.point)
             else { continue }
-            propNodes.append(node)
-            propPaths.append(placement.prop.file)
             sceneryNodes.append(node)
         }
         if store.room.plan.dressing.isEmpty {

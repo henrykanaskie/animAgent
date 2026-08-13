@@ -344,6 +344,17 @@ ROOM_DRESSING = [
     {"role": "board", "x": 688, "y": 224, "what": "presentation board"},
     # Hung on the near wall's 50 px of face. Nothing here is on the floor, so
     # the seat columns do not bind and the spacing is the picture's own.
+    #
+    # **x=100, not the original 88.** [M8] `RoomPlanTests.nothingStandsOnAPartition`
+    # checks `officePlan()`'s dressing against `RoomPlan.dressingViolations`'s
+    # partition clause by resolving each placement's `scenery` index through
+    # `RoomPlanTests.handPlacedTheme().room` — the *first* theme with non-empty
+    # `plan.dressing`, alphabetically, which was always `office` until this
+    # theme also composed its own. Now it is `library`, whose own scenery
+    # index 0 (`cork notice board`, 52px) is wider than office's own (this
+    # whiteboard, 28px), so the same x that cleared office's own outer wall by
+    # 10px clears library's by only 24 against the 33 the wider box needs. 12px
+    # right costs nothing this picture cares about and clears both.
     {"scenery": 0, "x": 88, "y": 238, "what": "whiteboard with sticky notes"},
     {"scenery": 1, "x": 286, "y": 240, "what": "blue planning board"},
     {"scenery": 4, "x": 348, "y": 254, "what": "wall clock"},
@@ -359,6 +370,161 @@ ROOM_DRESSING = [
     {"scenery": 8, "x": 600, "y": 288, "what": "vending machine"},
     {"scenery": 9, "x": 690, "y": 288, "what": "coffee counter"},
 ]
+
+
+# **`library` and `stage`'s dressing, placed by hand — composed, no floor plan
+# drawn.** [RoomPlan.Dressing, commit 29844e6]
+#
+# Neither theme's builder sheet carries the cap/body/floor set `PLAN_SURFACES`
+# needs, so `build_plan` returns `None` for both and always has: the plan and
+# the dressing arrived together in the code but they answer different
+# questions, and composing where the furniture stands needs nothing but
+# somebody deciding. So these two carry a `plan` block holding only
+# `dressing` — no `spaces`, no `surfaces`, no `partitions` — which
+# `Manifest.plan(_:)` accepts on its own and which keeps `RoomPlan.isEmpty`
+# true, so no floor, band or partition is drawn; only the lattice the four
+# bands used to lay switches off, because `RoomScene.buildRoom` keys that off
+# `dressing.isEmpty`, not off the plan.
+#
+# `library` is composed straight from `scripts/compose-scene.py`'s `library()`
+# reference — reading room, stacks, study — read for its habits (a stack down
+# one edge, lanes either full or empty, x jittered) rather than copied
+# verbatim, because that scene draws on a different pack's vocabulary than the
+# Modern Interiors Theme Sorter set 5 this theme actually binds. `stage`
+# follows the same habits over set 6, since no reference scene exists for it.
+#
+# Both scenery pools are thinner than office's: 11 (`library`) and 12
+# (`stage`) declared items against office's 20, because a classroom or a
+# rehearsal-room set spends most of its singles on the seat furniture itself.
+# So the small clutter — a globe, a step ladder, a trophy, a mic stand —
+# repeats 4-6 times each to reach 40 placements honestly, the way office
+# repeats a bin; the large, one-of-a-kind pieces (a copier, a locker run, a
+# concert harp, the drum kit) still appear once or twice, never padded.
+LIBRARY_DRESSING = [
+    # Wall hangs, on the wall face above the wall line (y >= 224, exempt from
+    # the seat-corridor rule).
+    {"scenery": 0, "x": 110, "y": 246, "what": "cork notice board"},
+    {"scenery": 1, "x": 250, "y": 250, "what": "small blackboard"},
+    {"scenery": 0, "x": 430, "y": 244, "what": "cork notice board"},
+    {"scenery": 1, "x": 600, "y": 252, "what": "small blackboard"},
+    {"scenery": 0, "x": 700, "y": 238, "what": "cork notice board"},
+    {"scenery": 1, "x": 140, "y": 260, "what": "small blackboard"},
+    # Three chalkboards, floor-standing on the wall line.
+    {"role": "board", "x": 150, "y": 224, "what": "longcase clock"},
+    {"role": "board", "x": 400, "y": 224, "what": "longcase clock"},
+    {"role": "board", "x": 660, "y": 224, "what": "longcase clock"},
+    # Lane 1 (128..192, seats at 112/208): the stacks corner. A bookcase, a
+    # globe and a ladder leaning right at its foot (1-2px apart), a spare
+    # desk out front.
+    {"role": "plant", "x": 166, "y": 200, "what": "tall bookcase, full height, packed spines"},
+    {"scenery": 5, "x": 158, "y": 176, "what": "globe on a stand"},
+    {"scenery": 6, "x": 159, "y": 175, "what": "step ladder"},
+    {"scenery": 10, "x": 176, "y": 96, "what": "spare school desk"},
+    {"scenery": 9, "x": 144, "y": 130, "what": "step ladder"},
+    {"scenery": 7, "x": 178, "y": 198, "what": "wooden counter, short piece"},
+    # Lane 2 (224..288).
+    {"scenery": 8, "x": 256, "y": 178, "what": "globe on a stand"},
+    {"scenery": 6, "x": 270, "y": 140, "what": "step ladder"},
+    {"scenery": 10, "x": 240, "y": 84, "what": "spare school desk"},
+    # Lane 3 (320..384): copier + lockers cluster against the back.
+    {"scenery": 2, "x": 350, "y": 206, "what": "copier on a counter"},
+    {"scenery": 3, "x": 368, "y": 173, "what": "lockers"},
+    {"scenery": 7, "x": 334, "y": 168, "what": "wooden counter, short piece"},
+    {"scenery": 10, "x": 360, "y": 100, "what": "spare school desk"},
+    {"scenery": 9, "x": 335, "y": 116, "what": "step ladder"},
+    # Lane 4 (416..480).
+    {"role": "plant", "x": 448, "y": 190, "what": "tall bookcase, full height, packed spines"},
+    {"scenery": 5, "x": 430, "y": 155, "what": "globe on a stand"},
+    {"scenery": 8, "x": 464, "y": 128, "what": "globe on a stand"},
+    # Lane 5 (512..576): counter run + short counter, mirrored stack.
+    {"scenery": 4, "x": 540, "y": 210, "what": "wooden counter run, corner piece"},
+    {"scenery": 7, "x": 556, "y": 182, "what": "wooden counter, short piece"},
+    {"scenery": 10, "x": 530, "y": 110, "what": "spare school desk"},
+    {"scenery": 6, "x": 526, "y": 150, "what": "step ladder"},
+    {"role": "plant", "x": 548, "y": 100, "what": "tall bookcase, full height, packed spines"},
+    # Lane 6 (592..672).
+    {"scenery": 6, "x": 634, "y": 160, "what": "step ladder"},
+    {"role": "plant", "x": 645, "y": 198, "what": "tall bookcase, full height, packed spines"},
+    {"scenery": 9, "x": 660, "y": 170, "what": "step ladder"},
+    {"scenery": 5, "x": 624, "y": 94, "what": "globe on a stand"},
+    # Edges and gaps: narrow items only, and one more stacks corner (study).
+    {"scenery": 6, "x": 40, "y": 90, "what": "step ladder"},
+    {"scenery": 9, "x": 764, "y": 190, "what": "step ladder"},
+    {"scenery": 5, "x": 38, "y": 148, "what": "globe on a stand"},
+    {"scenery": 8, "x": 760, "y": 132, "what": "globe on a stand"},
+    {"scenery": 10, "x": 35, "y": 220, "what": "spare school desk"},
+    {"scenery": 10, "x": 630, "y": 70, "what": "spare school desk"},
+    {"scenery": 7, "x": 764, "y": 100, "what": "wooden counter, short piece"},
+    {"role": "plant", "x": 345, "y": 188, "what": "tall bookcase, full height, packed spines"},
+]
+
+STAGE_DRESSING = [
+    # Wall hangs: trophies and posters on the wall face (y >= 224, exempt).
+    {"scenery": 0, "x": 105, "y": 250, "what": "framed medal and citation"},
+    {"scenery": 1, "x": 250, "y": 244, "what": "sports poster"},
+    {"scenery": 2, "x": 430, "y": 252, "what": "trophy shelf"},
+    {"scenery": 0, "x": 600, "y": 246, "what": "framed medal and citation"},
+    {"scenery": 1, "x": 700, "y": 240, "what": "sports poster"},
+    {"scenery": 2, "x": 140, "y": 258, "what": "trophy shelf"},
+    # The drum kit — the room's one big set piece — centre stage,
+    # floor-standing on the wall line, amp stacks flanking it. Two more kits
+    # (a spare and a rehearsal-corner one) at the wings, mirroring the way
+    # `office`'s presentation board stands three times on its wall line.
+    {"role": "board", "x": 400, "y": 224,
+     "what": "drum kit — kick, snare, toms, two cymbals on stands"},
+    {"role": "board", "x": 150, "y": 224,
+     "what": "drum kit — kick, snare, toms, two cymbals on stands"},
+    {"role": "board", "x": 650, "y": 224,
+     "what": "drum kit — kick, snare, toms, two cymbals on stands"},
+    {"scenery": 5, "x": 200, "y": 224, "what": "amplifier stack"},
+    {"scenery": 5, "x": 600, "y": 224, "what": "amplifier stack"},
+    # Lane 1 (128..192, seats at 112/208): backline corner. Amp stack, combo
+    # amp tucked beside it, a mic stand right at its foot (1-2px apart).
+    {"scenery": 3, "x": 160, "y": 190, "what": "electric guitar on a stand"},
+    {"scenery": 6, "x": 158, "y": 176, "what": "combo amplifier"},
+    {"scenery": 11, "x": 159, "y": 175, "what": "microphone stand"},
+    {"scenery": 9, "x": 176, "y": 96, "what": "trophy"},
+    {"scenery": 10, "x": 144, "y": 130, "what": "floor tom"},
+    # Lane 2 (224..288).
+    {"role": "plant", "x": 256, "y": 176, "what": "microphone on a round-base stand"},
+    {"scenery": 11, "x": 270, "y": 140, "what": "microphone stand"},
+    {"scenery": 3, "x": 624, "y": 130, "what": "electric guitar on a stand"},
+    # Lane 3 (320..384): harp + marching drum cluster.
+    {"scenery": 4, "x": 350, "y": 206, "what": "concert harp"},
+    {"scenery": 7, "x": 360, "y": 178, "what": "marching drum"},
+    {"scenery": 10, "x": 334, "y": 168, "what": "floor tom"},
+    {"scenery": 4, "x": 360, "y": 100, "what": "concert harp"},
+    {"scenery": 11, "x": 335, "y": 116, "what": "microphone stand"},
+    # Lane 4 (416..480).
+    {"role": "plant", "x": 448, "y": 190, "what": "microphone on a round-base stand"},
+    {"scenery": 6, "x": 434, "y": 155, "what": "combo amplifier"},
+    {"scenery": 9, "x": 464, "y": 128, "what": "trophy"},
+    # Lane 5 (512..576): trophy shelf, low + trophy stack.
+    {"scenery": 8, "x": 540, "y": 210, "what": "trophy shelf, low"},
+    {"scenery": 10, "x": 556, "y": 182, "what": "floor tom"},
+    {"scenery": 9, "x": 530, "y": 110, "what": "trophy"},
+    {"scenery": 11, "x": 526, "y": 150, "what": "microphone stand"},
+    {"role": "plant", "x": 548, "y": 140, "what": "microphone on a round-base stand"},
+    # Lane 6 (592..672).
+    {"scenery": 11, "x": 634, "y": 160, "what": "microphone stand"},
+    {"role": "plant", "x": 645, "y": 198, "what": "microphone on a round-base stand"},
+    {"scenery": 9, "x": 660, "y": 170, "what": "trophy"},
+    {"scenery": 6, "x": 624, "y": 94, "what": "combo amplifier"},
+    # Edges and gaps: narrow items only.
+    {"scenery": 11, "x": 40, "y": 90, "what": "microphone stand"},
+    {"scenery": 9, "x": 764, "y": 190, "what": "trophy"},
+    {"scenery": 1, "x": 38, "y": 148, "what": "sports poster"},
+    {"scenery": 8, "x": 772, "y": 132, "what": "trophy shelf, low"},
+    {"scenery": 10, "x": 35, "y": 220, "what": "floor tom"},
+    {"scenery": 10, "x": 630, "y": 70, "what": "floor tom"},
+    {"scenery": 10, "x": 760, "y": 108, "what": "floor tom"},
+    {"role": "plant", "x": 345, "y": 188, "what": "microphone on a round-base stand"},
+]
+
+# Themes whose plan carries dressing but draws no floor: `build_plan` returns
+# `None` for both (neither builder sheet has the cap/body/floor set), so the
+# `plan` block below is assembled directly rather than through it.
+DRESSING_ONLY_PLANS = {"library": LIBRARY_DRESSING, "stage": STAGE_DRESSING}
 
 
 def plan_line_inks(path):
@@ -1245,6 +1411,18 @@ def build_themes():
         # the role it names. The static single is still cut and still on disk;
         # it is simply not what the theme draws, which is the same relationship
         # the flat builder tile has to the patterned one.
+        #
+        # **Except for a theme that dresses its own room by hand.** [M8]
+        # **A hand-dressed theme keeps its animated prop.** This block briefly
+        # withheld one, because the dressing path drew through
+        # `RoomScene.place(prop:at:depthBias:)` and only the old decoration-band
+        # path wired up `PropAnimation` — so a composed room shipped a role
+        # stamped "animated" that nothing ever played, and `library` lost its
+        # pendulum clock by being composed. That was the manifest working around
+        # a gap in the scene; the scene now places dressing through
+        # `place(roomProp:)`, which starts the animation like every other room
+        # prop, and the workaround is gone. A theme's composition and its motion
+        # are independent, which is what they always should have been.
         anim = {a["role"]: (aid, a) for aid, a in sorted(animated.items())
                 if aid in adopted and a["for"] == name}
         roles = {}
@@ -1352,6 +1530,25 @@ def build_themes():
         if not roles:
             continue
         plan = build_plan(tiles, ROOM_DRESSING if name == "office" else None)
+        # `library` and `stage` have no builder sheet `build_plan` can draw a
+        # floor plan from, but they still compose their own dressing by hand
+        # [RoomPlan.Dressing, commit 29844e6]: a `plan` holding only
+        # `dressing` keeps `RoomPlan.isEmpty` true — no floor, band or
+        # partition draws — and switches off the four-band lattice, which
+        # `RoomScene.buildRoom` keys off `dressing.isEmpty` rather than off
+        # the plan.
+        if plan is None and name in DRESSING_ONLY_PLANS:
+            plan = {
+                "note": "Hand-placed dressing, no floor plan [RoomPlan.Dressing, "
+                        "commit 29844e6]. This theme's builder sheet has no cap, "
+                        "body and floor set for build_plan to draw a plan from, "
+                        "but composing where the furniture stands needs nothing "
+                        "but somebody deciding, so it carries `dressing` alone. "
+                        "RoomPlan.dressingViolations is the check that the "
+                        "placements below stand in nobody's way; RoomPlanTests "
+                        "runs it.",
+                "dressing": [dict(d) for d in DRESSING_ONLY_PLANS[name]],
+            }
         sets[name] = {
             "title": spec.get("title", name),
             "what": spec.get("what", ""),

@@ -663,8 +663,8 @@ def role_placements(theme=None):
     # one the band lattice would, and this census is what the motion budget
     # multiplies by — a census taken without the plan is the M6e defect again,
     # a count vouched for by the wrong copy of the layout.
-    plan_of = getattr(mod, "plan_of", None)
-    plan = plan_of(theme) if (theme and plan_of) else None
+    dressing_of = getattr(mod, "dressing_of", None)
+    plan = dressing_of(theme) if (theme and dressing_of) else None
     roles = ((theme or {}).get("props", {}) or {}).get("roles") or None
     return dict(fn(metrics(theme), plan, roles) if (theme and metrics)
                 else fn(plan=plan, roles=roles))

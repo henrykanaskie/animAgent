@@ -7134,6 +7134,269 @@
               }
             }
           ]
+        },
+        "plan": {
+          "note": "Hand-placed dressing, no floor plan [RoomPlan.Dressing, commit 29844e6]. This theme's builder sheet has no cap, body and floor set for build_plan to draw a plan from, but composing where the furniture stands needs nothing but somebody deciding, so it carries `dressing` alone. RoomPlan.dressingViolations is the check that the placements below stand in nobody's way; RoomPlanTests runs it.",
+          "dressing": [
+            {
+              "scenery": 0,
+              "x": 110,
+              "y": 246,
+              "what": "cork notice board"
+            },
+            {
+              "scenery": 1,
+              "x": 250,
+              "y": 250,
+              "what": "small blackboard"
+            },
+            {
+              "scenery": 0,
+              "x": 430,
+              "y": 244,
+              "what": "cork notice board"
+            },
+            {
+              "scenery": 1,
+              "x": 600,
+              "y": 252,
+              "what": "small blackboard"
+            },
+            {
+              "scenery": 0,
+              "x": 700,
+              "y": 238,
+              "what": "cork notice board"
+            },
+            {
+              "scenery": 1,
+              "x": 140,
+              "y": 260,
+              "what": "small blackboard"
+            },
+            {
+              "role": "board",
+              "x": 150,
+              "y": 224,
+              "what": "longcase clock"
+            },
+            {
+              "role": "board",
+              "x": 400,
+              "y": 224,
+              "what": "longcase clock"
+            },
+            {
+              "role": "board",
+              "x": 660,
+              "y": 224,
+              "what": "longcase clock"
+            },
+            {
+              "role": "plant",
+              "x": 166,
+              "y": 200,
+              "what": "tall bookcase, full height, packed spines"
+            },
+            {
+              "scenery": 5,
+              "x": 158,
+              "y": 176,
+              "what": "globe on a stand"
+            },
+            {
+              "scenery": 6,
+              "x": 159,
+              "y": 175,
+              "what": "step ladder"
+            },
+            {
+              "scenery": 10,
+              "x": 176,
+              "y": 96,
+              "what": "spare school desk"
+            },
+            {
+              "scenery": 9,
+              "x": 144,
+              "y": 130,
+              "what": "step ladder"
+            },
+            {
+              "scenery": 7,
+              "x": 178,
+              "y": 198,
+              "what": "wooden counter, short piece"
+            },
+            {
+              "scenery": 8,
+              "x": 256,
+              "y": 178,
+              "what": "globe on a stand"
+            },
+            {
+              "scenery": 6,
+              "x": 270,
+              "y": 140,
+              "what": "step ladder"
+            },
+            {
+              "scenery": 10,
+              "x": 240,
+              "y": 84,
+              "what": "spare school desk"
+            },
+            {
+              "scenery": 2,
+              "x": 350,
+              "y": 206,
+              "what": "copier on a counter"
+            },
+            {
+              "scenery": 3,
+              "x": 368,
+              "y": 173,
+              "what": "lockers"
+            },
+            {
+              "scenery": 7,
+              "x": 334,
+              "y": 168,
+              "what": "wooden counter, short piece"
+            },
+            {
+              "scenery": 10,
+              "x": 360,
+              "y": 100,
+              "what": "spare school desk"
+            },
+            {
+              "scenery": 9,
+              "x": 335,
+              "y": 116,
+              "what": "step ladder"
+            },
+            {
+              "role": "plant",
+              "x": 448,
+              "y": 190,
+              "what": "tall bookcase, full height, packed spines"
+            },
+            {
+              "scenery": 5,
+              "x": 430,
+              "y": 155,
+              "what": "globe on a stand"
+            },
+            {
+              "scenery": 8,
+              "x": 464,
+              "y": 128,
+              "what": "globe on a stand"
+            },
+            {
+              "scenery": 4,
+              "x": 540,
+              "y": 210,
+              "what": "wooden counter run, corner piece"
+            },
+            {
+              "scenery": 7,
+              "x": 556,
+              "y": 182,
+              "what": "wooden counter, short piece"
+            },
+            {
+              "scenery": 10,
+              "x": 530,
+              "y": 110,
+              "what": "spare school desk"
+            },
+            {
+              "scenery": 6,
+              "x": 526,
+              "y": 150,
+              "what": "step ladder"
+            },
+            {
+              "role": "plant",
+              "x": 548,
+              "y": 100,
+              "what": "tall bookcase, full height, packed spines"
+            },
+            {
+              "scenery": 6,
+              "x": 634,
+              "y": 160,
+              "what": "step ladder"
+            },
+            {
+              "role": "plant",
+              "x": 645,
+              "y": 198,
+              "what": "tall bookcase, full height, packed spines"
+            },
+            {
+              "scenery": 9,
+              "x": 660,
+              "y": 170,
+              "what": "step ladder"
+            },
+            {
+              "scenery": 5,
+              "x": 624,
+              "y": 94,
+              "what": "globe on a stand"
+            },
+            {
+              "scenery": 6,
+              "x": 40,
+              "y": 90,
+              "what": "step ladder"
+            },
+            {
+              "scenery": 9,
+              "x": 764,
+              "y": 190,
+              "what": "step ladder"
+            },
+            {
+              "scenery": 5,
+              "x": 38,
+              "y": 148,
+              "what": "globe on a stand"
+            },
+            {
+              "scenery": 8,
+              "x": 760,
+              "y": 132,
+              "what": "globe on a stand"
+            },
+            {
+              "scenery": 10,
+              "x": 35,
+              "y": 220,
+              "what": "spare school desk"
+            },
+            {
+              "scenery": 10,
+              "x": 630,
+              "y": 70,
+              "what": "spare school desk"
+            },
+            {
+              "scenery": 7,
+              "x": 764,
+              "y": 100,
+              "what": "wooden counter, short piece"
+            },
+            {
+              "role": "plant",
+              "x": 345,
+              "y": 188,
+              "what": "tall bookcase, full height, packed spines"
+            }
+          ]
         }
       },
       "mission_control": {
@@ -8754,6 +9017,275 @@
                 "w": 24,
                 "h": 34
               }
+            }
+          ]
+        },
+        "plan": {
+          "note": "Hand-placed dressing, no floor plan [RoomPlan.Dressing, commit 29844e6]. This theme's builder sheet has no cap, body and floor set for build_plan to draw a plan from, but composing where the furniture stands needs nothing but somebody deciding, so it carries `dressing` alone. RoomPlan.dressingViolations is the check that the placements below stand in nobody's way; RoomPlanTests runs it.",
+          "dressing": [
+            {
+              "scenery": 0,
+              "x": 105,
+              "y": 250,
+              "what": "framed medal and citation"
+            },
+            {
+              "scenery": 1,
+              "x": 250,
+              "y": 244,
+              "what": "sports poster"
+            },
+            {
+              "scenery": 2,
+              "x": 430,
+              "y": 252,
+              "what": "trophy shelf"
+            },
+            {
+              "scenery": 0,
+              "x": 600,
+              "y": 246,
+              "what": "framed medal and citation"
+            },
+            {
+              "scenery": 1,
+              "x": 700,
+              "y": 240,
+              "what": "sports poster"
+            },
+            {
+              "scenery": 2,
+              "x": 140,
+              "y": 258,
+              "what": "trophy shelf"
+            },
+            {
+              "role": "board",
+              "x": 400,
+              "y": 224,
+              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands"
+            },
+            {
+              "role": "board",
+              "x": 150,
+              "y": 224,
+              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands"
+            },
+            {
+              "role": "board",
+              "x": 650,
+              "y": 224,
+              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands"
+            },
+            {
+              "scenery": 5,
+              "x": 200,
+              "y": 224,
+              "what": "amplifier stack"
+            },
+            {
+              "scenery": 5,
+              "x": 600,
+              "y": 224,
+              "what": "amplifier stack"
+            },
+            {
+              "scenery": 3,
+              "x": 160,
+              "y": 190,
+              "what": "electric guitar on a stand"
+            },
+            {
+              "scenery": 6,
+              "x": 158,
+              "y": 176,
+              "what": "combo amplifier"
+            },
+            {
+              "scenery": 11,
+              "x": 159,
+              "y": 175,
+              "what": "microphone stand"
+            },
+            {
+              "scenery": 9,
+              "x": 176,
+              "y": 96,
+              "what": "trophy"
+            },
+            {
+              "scenery": 10,
+              "x": 144,
+              "y": 130,
+              "what": "floor tom"
+            },
+            {
+              "role": "plant",
+              "x": 256,
+              "y": 176,
+              "what": "microphone on a round-base stand"
+            },
+            {
+              "scenery": 11,
+              "x": 270,
+              "y": 140,
+              "what": "microphone stand"
+            },
+            {
+              "scenery": 3,
+              "x": 624,
+              "y": 130,
+              "what": "electric guitar on a stand"
+            },
+            {
+              "scenery": 4,
+              "x": 350,
+              "y": 206,
+              "what": "concert harp"
+            },
+            {
+              "scenery": 7,
+              "x": 360,
+              "y": 178,
+              "what": "marching drum"
+            },
+            {
+              "scenery": 10,
+              "x": 334,
+              "y": 168,
+              "what": "floor tom"
+            },
+            {
+              "scenery": 4,
+              "x": 360,
+              "y": 100,
+              "what": "concert harp"
+            },
+            {
+              "scenery": 11,
+              "x": 335,
+              "y": 116,
+              "what": "microphone stand"
+            },
+            {
+              "role": "plant",
+              "x": 448,
+              "y": 190,
+              "what": "microphone on a round-base stand"
+            },
+            {
+              "scenery": 6,
+              "x": 434,
+              "y": 155,
+              "what": "combo amplifier"
+            },
+            {
+              "scenery": 9,
+              "x": 464,
+              "y": 128,
+              "what": "trophy"
+            },
+            {
+              "scenery": 8,
+              "x": 540,
+              "y": 210,
+              "what": "trophy shelf, low"
+            },
+            {
+              "scenery": 10,
+              "x": 556,
+              "y": 182,
+              "what": "floor tom"
+            },
+            {
+              "scenery": 9,
+              "x": 530,
+              "y": 110,
+              "what": "trophy"
+            },
+            {
+              "scenery": 11,
+              "x": 526,
+              "y": 150,
+              "what": "microphone stand"
+            },
+            {
+              "role": "plant",
+              "x": 548,
+              "y": 140,
+              "what": "microphone on a round-base stand"
+            },
+            {
+              "scenery": 11,
+              "x": 634,
+              "y": 160,
+              "what": "microphone stand"
+            },
+            {
+              "role": "plant",
+              "x": 645,
+              "y": 198,
+              "what": "microphone on a round-base stand"
+            },
+            {
+              "scenery": 9,
+              "x": 660,
+              "y": 170,
+              "what": "trophy"
+            },
+            {
+              "scenery": 6,
+              "x": 624,
+              "y": 94,
+              "what": "combo amplifier"
+            },
+            {
+              "scenery": 11,
+              "x": 40,
+              "y": 90,
+              "what": "microphone stand"
+            },
+            {
+              "scenery": 9,
+              "x": 764,
+              "y": 190,
+              "what": "trophy"
+            },
+            {
+              "scenery": 1,
+              "x": 38,
+              "y": 148,
+              "what": "sports poster"
+            },
+            {
+              "scenery": 8,
+              "x": 772,
+              "y": 132,
+              "what": "trophy shelf, low"
+            },
+            {
+              "scenery": 10,
+              "x": 35,
+              "y": 220,
+              "what": "floor tom"
+            },
+            {
+              "scenery": 10,
+              "x": 630,
+              "y": 70,
+              "what": "floor tom"
+            },
+            {
+              "scenery": 10,
+              "x": 760,
+              "y": 108,
+              "what": "floor tom"
+            },
+            {
+              "role": "plant",
+              "x": 345,
+              "y": 188,
+              "what": "microphone on a round-base stand"
             }
           ]
         }

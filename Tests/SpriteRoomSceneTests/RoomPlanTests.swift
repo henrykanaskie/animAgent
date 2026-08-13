@@ -460,9 +460,26 @@ struct RoomPlanTests {
     /// **Nothing stands on a partition** — R2 and R3, measured against the
     /// widest prop each band admits rather than against the props that happen to
     /// be declared today.
+    /// **The plan and the art come from the same theme.** This paired
+    /// `officePlan()` with `handPlacedTheme().room`, which named one theme
+    /// while there was one hand-placed theme and two the moment a second gained
+    /// dressing — office's placements were then measured against another
+    /// theme's content boxes, and a clearance office had always had failed
+    /// against art it does not draw. Every theme that declares partitions is
+    /// checked here, each against its own room.
     @Test func nothingStandsOnAPartition() throws {
-        let plan = try Self.officePlan()
-        let room = try Self.handPlacedTheme().room
+        let manifest = try Manifest.load(root: SceneFixtures.repositoryRoot)
+        let planned = manifest.themes.orderedIDs
+            .compactMap { id in manifest.themes.theme(id).map { (id: id, room: $0.room) } }
+            .filter { !$0.room.plan.partitions.isEmpty }
+        #expect(!planned.isEmpty, "no theme declares a partition, so this checks nothing")
+        for (id, room) in planned {
+            try Self.checkPartitionClearance(id: id, room: room)
+        }
+    }
+
+    private static func checkPartitionClearance(id: String, room: Manifest.Room) throws {
+        let plan = room.plan
         let layout = RoomLayout().adopting(plan: plan)
         let half = Double(RoomPlan.partitionPx) / 2
         // **Whatever this plan actually draws**, which since the office was
@@ -483,8 +500,8 @@ struct RoomPlanTests {
                 guard point.y >= low, point.y <= high else { continue }
                 let gap = abs(point.x - Double(partition.x * layout.tile))
                 #expect(gap >= reach + half, Comment(rawValue:
-                    "'\(placement.what)' at x=\(Int(point.x)) reaches the partition at "
-                    + "x=\(partition.x * layout.tile) — \(Int(gap)) px apart, needs "
+                    "\(id): '\(placement.what)' at x=\(Int(point.x)) reaches the partition "
+                    + "at x=\(partition.x * layout.tile) — \(Int(gap)) px apart, needs "
                     + "\(Int(reach + half))"))
             }
         }
