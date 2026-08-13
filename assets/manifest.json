@@ -6046,6 +6046,48 @@
           "what": "framed landscape painting"
         },
         {
+          "scenery": 16,
+          "x": 258,
+          "y": 174,
+          "what": "PC tower"
+        },
+        {
+          "scenery": 15,
+          "x": 258,
+          "y": 204,
+          "what": "waste bin"
+        },
+        {
+          "scenery": 14,
+          "x": 460,
+          "y": 196,
+          "what": "wooden two-drawer cabinet"
+        },
+        {
+          "scenery": 16,
+          "x": 624,
+          "y": 190,
+          "what": "PC tower"
+        },
+        {
+          "scenery": 18,
+          "x": 240,
+          "y": 120,
+          "what": "waste bin, full"
+        },
+        {
+          "role": "plant",
+          "x": 336,
+          "y": 148,
+          "what": "small potted plant"
+        },
+        {
+          "scenery": 10,
+          "x": 528,
+          "y": 150,
+          "what": "two-drawer filing cabinet"
+        },
+        {
           "scenery": 7,
           "x": 100,
           "y": 288,
@@ -9475,6 +9517,48 @@
               "x": 616,
               "y": 250,
               "what": "framed landscape painting"
+            },
+            {
+              "scenery": 16,
+              "x": 258,
+              "y": 174,
+              "what": "PC tower"
+            },
+            {
+              "scenery": 15,
+              "x": 258,
+              "y": 204,
+              "what": "waste bin"
+            },
+            {
+              "scenery": 14,
+              "x": 460,
+              "y": 196,
+              "what": "wooden two-drawer cabinet"
+            },
+            {
+              "scenery": 16,
+              "x": 624,
+              "y": 190,
+              "what": "PC tower"
+            },
+            {
+              "scenery": 18,
+              "x": 240,
+              "y": 120,
+              "what": "waste bin, full"
+            },
+            {
+              "role": "plant",
+              "x": 336,
+              "y": 148,
+              "what": "small potted plant"
+            },
+            {
+              "scenery": 10,
+              "x": 528,
+              "y": 150,
+              "what": "two-drawer filing cabinet"
             },
             {
               "scenery": 7,

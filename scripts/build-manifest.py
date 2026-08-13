@@ -362,6 +362,36 @@ ROOM_DRESSING = [
     {"scenery": 3, "x": 520, "y": 252, "what": "small framed picture"},
     {"scenery": 5, "x": 560, "y": 238, "what": "cork noticeboard with pinned notes"},
     {"scenery": 6, "x": 616, "y": 250, "what": "framed landscape painting"},
+    # **Two piles, and five props simply added.** [task 8]
+    #
+    # This room's nearest-neighbour minimum was 33 px where every other composed
+    # room is 1.4 and `scripts/compose-scene.py`'s scenes are 1-2: no two office
+    # props touched, so the floor read as arranged rather than lived in. Those
+    # scenes get there by *piling* — a paper stack on a printer, a mug on a
+    # folder — and `dressingViolations` has always allowed it, since only a
+    # **wholly** hidden box is refused.
+    #
+    # **Seven piles were authored and five were wrong, which the number could
+    # not tell me.** A pile reads only when the two props differ in *size*: a
+    # small object on a large one leaves the large one showing on both sides and
+    # the eye gets two things. Leaning a 26 px cabinet on a 26 px cabinet hit
+    # 1.4 px exactly and drew one cabinet with a pixel of another behind it —
+    # and it passed the validator, because a 1 px offset means the box is not
+    # *wholly* contained. That is a real weakness in the check and it is worth
+    # knowing: `dressingViolations` can only catch a prop that is 100% hidden,
+    # not one that is 99% hidden. Only looking at the render at 5x caught it.
+    #
+    # So the two that survive are both small-on-large — a 24 px tower on the
+    # 50 px printer, a 28 px bin on the 52 px scanner — and each sits one pixel
+    # downstage so it draws in front and cannot itself be the hidden one. The
+    # other five are placed clear, in their own lanes, to carry the count.
+    {"scenery": 16, "x": 258, "y": 174, "what": "PC tower"},
+    {"scenery": 15, "x": 258, "y": 204, "what": "waste bin"},
+    {"scenery": 14, "x": 460, "y": 196, "what": "wooden two-drawer cabinet"},
+    {"scenery": 16, "x": 624, "y": 190, "what": "PC tower"},
+    {"scenery": 18, "x": 240, "y": 120, "what": "waste bin, full"},
+    {"role": "plant", "x": 336, "y": 148, "what": "small potted plant"},
+    {"scenery": 10, "x": 528, "y": 150, "what": "two-drawer filing cabinet"},
     # The back rooms' own floor, at y=288. The tall appliances stand against the
     # far wall's face, which is how the pack draws them, and clear of the two
     # partitions at x=160 and x=544.

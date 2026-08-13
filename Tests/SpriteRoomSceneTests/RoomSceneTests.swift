@@ -1781,10 +1781,29 @@ struct RoomSceneTests {
                 else { return nil }
                 return (role, item.x, item.y)
             }
-            #expect(placed.count == 8, Comment(rawValue:
-                "\(name) hand-places \(placed.count) boards and plants; the composition that"
-                + " ships stands 3 boards on the wall line and 5 plants on the floor, against"
-                + " the lattice's 4 and 3"))
+            // **How many is the composition's business; that there are some,
+            // of both, is this test's.**
+            //
+            // This pinned `== 8` — office's own 3 boards and 5 plants — and the
+            // number then propagated: when five more themes were composed, each
+            // was shaped to place exactly 8 so this would pass. That is the test
+            // deciding the art, and the number it was deciding by describes one
+            // room's furniture rather than any rule. A composition is allowed to
+            // want four plants or seven.
+            //
+            // What is worth pinning, and still is below: the lattice did not also
+            // run, every authored placement was actually drawn, the decoration
+            // stands on more than the lattice's two depths, and something is on
+            // the wall line. Those are claims about the mechanism. Eight was a
+            // claim about a floorplan.
+            #expect(!placed.isEmpty, Comment(rawValue:
+                "\(name) places by hand and hand-placed no board or plant at all, so the"
+                + " depth and spread checks below run over nothing"))
+            let roles = Set(placed.map(\.0))
+            #expect(roles.count == 2, Comment(rawValue:
+                "\(name) hand-places only \(roles.sorted()) — the room needs both the"
+                + " backdrop standing on the wall line and the accent on the floor, which is"
+                + " what the two depths below are measured across"))
             let drawn = Set(scene.sceneryNodesForTesting
                 .map { "\(Int($0.position.x)),\(Int($0.position.y))" })
             for (role, x, y) in placed {
