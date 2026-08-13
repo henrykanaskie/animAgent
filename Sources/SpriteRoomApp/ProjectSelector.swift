@@ -46,11 +46,24 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     /// a derived one, indistinguishable here, because §3c is one function and
     /// the room is always showing whatever it returned.
     var currentThemeID: String?
+    /// The room the app *derives* for the selected project — what **Automatic**
+    /// gives back. Equal to `currentThemeID` whenever the project has no pick
+    /// of its own, which is the ordinary case and is why the two are separate
+    /// properties rather than one.
+    var derivedThemeID: String?
+    /// Whether the selected project's room is a pick of its own. The one thing
+    /// the menu shows that §3c's single function cannot answer, and the only
+    /// thing it governs is whether **Automatic** is something to click.
+    var isThemePinned = false
     /// The second menu item in this app that writes anything, and it is
     /// justified the same way the hooks toggle is: it does not touch a running
     /// agent. It changes what the room is *made of*. The panel stays a pure
     /// display surface and keeps `ignoresMouseEvents`; nothing about I8 moves.
     var onPickTheme: ((String) -> Void)?
+    /// **Automatic** — forget this project's pick and go back to the room the
+    /// app derives from its `cwd`. The same kind of write as `onPickTheme` and
+    /// justified identically; it removes a key rather than adding one.
+    var onRevertTheme: (() -> Void)?
 
     init(credit: String, creditURL: String) {
         self.credit = credit
@@ -183,8 +196,21 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     /// rather than deleted, and an empty roster says "No sessions yet" instead
     /// of showing a blank. A menu item that disappears is indistinguishable
     /// from a feature that broke.
+    ///
+    /// **The parent item names the room it is showing**, when there is one to
+    /// name. The maintainer's complaint that started this was not "I cannot
+    /// change it", it was *"I don't understand how you're deciding what the
+    /// environment should look like"* — and a submenu called "Room" answers
+    /// that only for someone who opens it. The title carries the answer to the
+    /// level of the menu they are already looking at, in the same
+    /// `name  ·  fact` shape the project rows use.
     private func roomItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "Room", action: nil, keyEquivalent: "")
+        // Only with a project selected: the theme is a per-project preference,
+        // so with nothing selected there is no room being shown and naming one
+        // would be naming a room for nobody.
+        let showing = selected == nil ? nil : currentThemeID.flatMap { themes.title(for: $0) }
+        let item = NSMenuItem(
+            title: showing.map { "Room  ·  \($0)" } ?? "Room", action: nil, keyEquivalent: "")
         let submenu = NSMenu(title: "Room")
         submenu.autoenablesItems = false
         item.submenu = submenu
@@ -202,6 +228,9 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             ? "Pick a project first — the room is a per-project choice"
             : "What this project's room is made of"
 
+        submenu.addItem(automaticItem())
+        submenu.addItem(.separator())
+
         for theme in themes.themes {
             // No key equivalent, anywhere in this menu. [I8]
             let entry = NSMenuItem(
@@ -217,6 +246,55 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
         return item
     }
 
+    /// **Automatic** — the way back out of a pick.
+    ///
+    /// A preference that can be set and not un-set is a trap: the only other
+    /// exit would be hand-editing `themes.json`, which ADR-002 §3d says is not
+    /// what that file is for. So the derived room is an item like any other,
+    /// and it *names* the room it would give you — "Automatic" alone would be a
+    /// word the user has to trust, and the whole complaint behind this change
+    /// was not being able to tell what the app had decided.
+    ///
+    /// **No checkmark, deliberately.** The tick in this submenu means "this is
+    /// the room you are looking at", and §3c makes a derived room and a chosen
+    /// one indistinguishable in that respect — the derived theme's own row is
+    /// already ticked when it is in use, and a second tick here would claim
+    /// there are two rooms on screen. What this item carries instead is whether
+    /// there is anything to undo, and it carries it the way the rest of this
+    /// menu does: by being enabled or not, and by saying so in the title.
+    ///
+    /// It is never hidden. An item that disappears is indistinguishable from a
+    /// feature that broke — the same reason an ended project is marked rather
+    /// than deleted and an empty roster says "No sessions yet".
+    private func automaticItem() -> NSMenuItem {
+        // The room the app derives, by name. `nil` only if the manifest gave us
+        // an id it does not itself declare, in which case saying nothing beats
+        // showing a raw key.
+        let derived = derivedThemeID.flatMap { themes.title(for: $0) }
+        let named = derived.map { "Automatic  ·  \($0)" } ?? "Automatic"
+        // No key equivalent, anywhere in this menu. [I8]
+        let item = NSMenuItem(
+            title: isThemePinned ? named : "\(named)  (in use)",
+            action: #selector(revertTheme),
+            keyEquivalent: "")
+        item.target = self
+        // Enabled exactly when there is a choice to forget. With no project
+        // there is no `cwd` to key the removal on, which is the same reason the
+        // parent item is disabled.
+        item.isEnabled = selected != nil && isThemePinned
+        item.toolTip = item.isEnabled
+            ? "Forget this project's choice and go back to the room derived from its folder"
+            : "This project already uses the room derived from its folder"
+        if !item.isEnabled {
+            // Greyed by drawing as well as by state, the way an ended project
+            // is: `autoenablesItems` is off, so nothing else would draw it.
+            item.attributedTitle = NSAttributedString(
+                string: item.title,
+                attributes: [.foregroundColor: NSColor.secondaryLabelColor])
+        }
+        return item
+    }
+
     @objc private func pick(_ sender: NSMenuItem) {
         guard let project = sender.representedObject as? String else { return }
         onSelect?(project)
@@ -225,6 +303,10 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     @objc private func pickTheme(_ sender: NSMenuItem) {
         guard let themeID = sender.representedObject as? String else { return }
         onPickTheme?(themeID)
+    }
+
+    @objc private func revertTheme() {
+        onRevertTheme?()
     }
 
     @objc private func toggleHooks() {

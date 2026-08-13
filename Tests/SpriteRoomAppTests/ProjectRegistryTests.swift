@@ -425,6 +425,82 @@ struct ProjectRegistryTests {
         #expect(expected.isSubset(of: appeared))
     }
 
+    /// **The rebuilt room is seated the way the live one was.**
+    ///
+    /// `SceneDirector` hands out a seat and a costume in the order agents
+    /// appear, so the order of the `agentAppeared` deltas *is* the seating
+    /// plan. This walked `agents.keys.sorted()` — deterministic, so switching
+    /// to a project twice looked identical both times, and nobody noticed that
+    /// neither of them matched the room the live stream had built. Picking a
+    /// theme rebuilds the room you are looking at, which is where two
+    /// characters were seen swapping desks and outfits.
+    @Test func reconstructionSeatsTheRoomInTheOrderTheAgentsArrived() async throws {
+        var registry = ProjectRegistry()
+        let all = try await Self.deltas("three-subagents", project: "/work/alpha")
+        let live = Array(all.prefix(while: { delta in
+            if case .agentDeparted = delta { return false }
+            return true
+        }))
+        registry.absorb(live, at: Self.t0)
+
+        var arrivals: [AgentRef] = []
+        for delta in live {
+            guard case let .agentAppeared(agent, _, _) = delta else { continue }
+            if !arrivals.contains(agent) { arrivals.append(agent) }
+        }
+
+        let rebuilt = registry.reconstruct("/work/alpha")
+        let seated = rebuilt.compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta else { return nil }
+            return agent
+        }
+        #expect(seated == arrivals)
+        // The claim is *arrival* order, so it is worth nothing unless this
+        // fixture's arrival order and its sorted order actually differ.
+        #expect(
+            arrivals != arrivals.sorted(),
+            "this fixture arrives in sorted order, so it cannot tell the two apart")
+
+        // And still deterministic, which is what the sort was there for: the
+        // same registry reconstructs the same seating every time.
+        let again = registry.reconstruct("/work/alpha").compactMap { delta -> AgentRef? in
+            guard case let .agentAppeared(agent, _, _) = delta else { return nil }
+            return agent
+        }
+        #expect(again == seated)
+    }
+
+    /// An agent that leaves and comes back is a new arrival and goes to the end
+    /// of the room — the same thing the live stream does with it, which is the
+    /// only claim arrival order makes.
+    @Test func anAgentThatLeavesAndReturnsIsSeatedAsANewArrival() async throws {
+        var registry = ProjectRegistry()
+        let all = try await Self.deltas("three-subagents", project: "/work/alpha")
+        let live = Array(all.prefix(while: { delta in
+            if case .agentDeparted = delta { return false }
+            return true
+        }))
+        registry.absorb(live, at: Self.t0)
+
+        let seated = { (deltas: [WorldDelta]) in
+            deltas.compactMap { delta -> AgentRef? in
+                guard case let .agentAppeared(agent, _, _) = delta else { return nil }
+                return agent
+            }
+        }
+        let before = seated(registry.reconstruct("/work/alpha"))
+        let first = try #require(before.first)
+
+        registry.absorb([.agentDeparted(agent: first)], at: Self.t(1))
+        #expect(!seated(registry.reconstruct("/work/alpha")).contains(first))
+
+        registry.absorb(
+            [.agentAppeared(agent: first, agentType: nil, lifecycle: .active)], at: Self.t(2))
+        let after = seated(registry.reconstruct("/work/alpha"))
+        #expect(after.last == first)
+        #expect(Set(after) == Set(before))
+    }
+
     /// **A character whose turn ended is still standing after a project
     /// switch.** [ADR-005 §3]
     ///

@@ -143,17 +143,27 @@ enum PanelWindowServer {
     /// trait is reported rather than absorbed. Update deliberately, in the same
     /// change that moves a test across the line.
     ///
-    /// 28 as of the ghost-panel fix: 8 in `NotchPanelTests` (the three I8
+    /// 46 as of the theme picker: 8 in `NotchPanelTests` (the three I8
     /// assertions, plus menu-bar constraint, controller phase, the
     /// keyboard-capable-view walk, and the two `hide()` teardown tests), 10 in
-    /// `ProjectSelectorTests`, 10 in `ThemeMenuTests`. All three build real
-    /// AppKit objects.
+    /// `ProjectSelectorTests`, 19 in `ThemeMenuTests`, 9 in `ThemePickTests`.
+    /// All four build real AppKit objects.
     ///
     /// Was 26 before `hidingTakesThePanelOffTheScreenFromTheRevealedState` and
     /// `hidingIsSafeToDoTwiceAndFromTheHiddenState` — the two that assert the
     /// panel is actually off the screen after teardown, which needs a real
     /// window to be off it.
-    static let expectedGatedTestCount = 28
+    ///
+    /// Was 28 before the room picker learned to write. `ThemeMenuTests` gained
+    /// nine — two that the **Room** item names the room on screen, six for the
+    /// **Automatic** item that takes a pick back, and
+    /// `noItemAnywhereInTheMenuTreeHasAKeyEquivalent`, the I8 tripwire that
+    /// walks every submenu in every state the menu has. `ThemePickTests` is new
+    /// and all nine of it are gated: it builds a real `RoomHost` (an `SKView`)
+    /// and a real `ProjectSelector` (an `NSStatusItem`), neither of which
+    /// exists without a window server. None of the nine reads a pixel, so they
+    /// are gated on the window server alone and not on the art.
+    static let expectedGatedTestCount = 46
 
     /// The notice, as a pure function of what was surveyed, so the branch this
     /// machine cannot reach can still be rendered and asserted on. Rendering it

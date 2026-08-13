@@ -84,8 +84,17 @@ final class ThemeStore {
 
     subscript(cwd: String) -> String? { stored[cwd] }
 
-    /// The user picked a theme for this project. The only thing that writes
-    /// this file.
+    /// Whether this project has a pick of its own, as opposed to the room §3c
+    /// derives for it from `cwd`.
+    ///
+    /// The menu needs this and `themeID` cannot answer it: §3c is one function
+    /// and a stored choice and a derived one come back indistinguishable, which
+    /// is right for *what the room is* and useless for *whether there is
+    /// anything to undo*.
+    func hasChoice(for cwd: String) -> Bool { stored[cwd] != nil }
+
+    /// The user picked a theme for this project. One of the two things that
+    /// write this file.
     ///
     /// In memory first, then to disk: a write that cannot happen must not cost
     /// the user the pick they just made for the session they are in.
@@ -96,6 +105,28 @@ final class ThemeStore {
     /// left alone too — the theme may come back.
     func choose(_ themeID: String, for cwd: String) {
         stored[cwd] = themeID
+        persist()
+    }
+
+    /// The user asked for the derived room back. The other thing that writes
+    /// this file, and the inverse of `choose`.
+    ///
+    /// **This is not eviction.** §3d's "no eviction" is about what *this app*
+    /// may drop on its own — nothing here ages an entry out, garbage-collects
+    /// one, or drops the choice of a project you have not opened in a year. A
+    /// person taking their own pin out is the opposite: a preference that can
+    /// be set and not un-set is a trap, and the way out of a bad pick would
+    /// otherwise be hand-editing a file §3d says is not for hand-editing.
+    ///
+    /// Removing the key rather than storing a sentinel keeps §3c's first line
+    /// exactly as written — "`stored[cwd]` if it names a theme in the manifest"
+    /// — and keeps the file's shape to the one schema 1 declares.
+    ///
+    /// A project with no entry is already the common case, so this writes
+    /// nothing when there is nothing to remove: no file is created by asking a
+    /// question whose answer is already "the derived one".
+    func clearChoice(for cwd: String) {
+        guard stored.removeValue(forKey: cwd) != nil else { return }
         persist()
     }
 

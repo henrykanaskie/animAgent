@@ -799,6 +799,53 @@ final class WindowDelegate: NSObject, NSApplicationDelegate {
 
 // MARK: - Panel (the product)
 
+/// The one knot in the composition root: the menu bar and the room, tied
+/// together in the only direction the architecture allows.
+///
+/// Everything here is a **push** downstream — the host tells the selector what
+/// exists; the selector's callbacks hand the user's intent back to the host and
+/// then forget about it. The selector never reads `RoomHost`, which is why the
+/// three theme properties are assigned on the roster callback rather than
+/// computed on demand from a reference the selector holds.
+///
+/// It is a function rather than four lines inside `applicationDidFinishLaunching`
+/// so that a test can drive the wiring the app actually ships. Four closures
+/// re-typed in a test file are four closures that can go on passing after the
+/// app's own copy has rotted — and this knot is exactly where a theme pick would
+/// stop reaching disk without anything failing.
+@MainActor
+func connect(host: RoomHost, selector: ProjectSelector) {
+    // The derived half of ADR-002 §3c. Without this the hash never runs, every
+    // project falls straight to `themes.default`, and the picker is the only way
+    // a room is ever anything but the default — which is not the design, it is
+    // half of it. `rendezvous` lives in `SpriteRoomScene` beside its pinned
+    // FNV-1a vector; implementing it here as well would leave that vector
+    // guarding half the mapping. [§11 risk 7]
+    host.derive = { cwd, pool in ThemeSelector.rendezvous(key: cwd, over: pool) }
+    selector.themes = host.themes
+
+    // Push, one way. The selector is told what exists; it never asks.
+    host.onRosterChanged = { [weak selector, weak host] entries, selected in
+        selector?.currentThemeID = host?.themeID
+        // What **Automatic** would give back, and whether it has anything to
+        // give back. Pushed on the same callback as the theme itself, because
+        // `rebuild()` is what fires it and a pick, a revert and a project switch
+        // all go through `rebuild()` — so the three can never disagree.
+        selector?.derivedThemeID = host?.derivedThemeID
+        selector?.isThemePinned = host?.isThemePinned ?? false
+        selector?.update(entries: entries, selected: selected)
+    }
+    selector.onSelect = { [weak host] project in
+        host?.select(project)
+    }
+    selector.onPickTheme = { [weak host] themeID in
+        host?.chooseTheme(themeID)
+    }
+    selector.onRevertTheme = { [weak host] in
+        host?.revertTheme()
+    }
+}
+
 @MainActor
 final class PanelDelegate: NSObject, NSApplicationDelegate {
     let options: Options
@@ -843,30 +890,10 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                 viewport: PanelSize.room.cgSize,
                 themes: ThemeCatalog.declared(in: manifest),
                 themeStore: themeStore)
-            // The derived half of ADR-002 §3c. Without this the hash never
-            // runs, every project falls straight to `themes.default`, and the
-            // picker is the only way a room is ever anything but the default —
-            // which is not the design, it is half of it. `rendezvous` lives in
-            // `SpriteRoomScene` beside its pinned FNV-1a vector; implementing
-            // it here as well would leave that vector guarding half the
-            // mapping. [§11 risk 7]
-            host.derive = { cwd, pool in ThemeSelector.rendezvous(key: cwd, over: pool) }
             let controller = NotchPanelController(contentView: host.view, size: .room)
             let selector = ProjectSelector(
                 credit: manifest.credit.text, creditURL: manifest.credit.url)
-            selector.themes = host.themes
-
-            // Push, one way. The selector is told what exists; it never asks.
-            host.onRosterChanged = { [weak selector, weak host] entries, selected in
-                selector?.currentThemeID = host?.themeID
-                selector?.update(entries: entries, selected: selected)
-            }
-            selector.onSelect = { [weak host] project in
-                host?.select(project)
-            }
-            selector.onPickTheme = { [weak host] themeID in
-                host?.chooseTheme(themeID)
-            }
+            connect(host: host, selector: selector)
             if case .discarded(let path) = themeStore.load {
                 print("themes.json was unreadable and has been set aside at \(path); "
                     + "every project starts on its derived room")

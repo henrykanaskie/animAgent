@@ -90,6 +90,29 @@ final class RoomHost {
         return themes.themeID(for: selected, stored: themeStore.stored, derive: derive)
     }
 
+    /// The room §3c would derive for the selected project **if it had no stored
+    /// pick** — the answer the second and third lines of that function give.
+    ///
+    /// Resolved through the same `themeID(for:stored:derive:)` with an empty
+    /// `stored`, rather than by calling `derive` directly, so the floor under
+    /// an empty assignable pool is the same floor the real answer uses. A
+    /// second path to a theme id is how the menu ends up naming a room the app
+    /// would not actually draw.
+    ///
+    /// The menu names it, so "Automatic" is a room the user can see rather than
+    /// a word they have to trust.
+    var derivedThemeID: String? {
+        guard let selected else { return nil }
+        return themes.themeID(for: selected, stored: [:], derive: derive)
+    }
+
+    /// Whether the room on screen is this project's own pick. Drives whether
+    /// there is anything for **Automatic** to undo, and nothing else.
+    var isThemePinned: Bool {
+        guard let selected else { return false }
+        return themeStore.hasChoice(for: selected)
+    }
+
     /// The user picked a room off the menu bar.
     ///
     /// Writes through `ThemeStore` and rebuilds. **A theme change is a rebuild,
@@ -103,6 +126,24 @@ final class RoomHost {
     func chooseTheme(_ themeID: String) {
         guard let selected, themes.contains(themeID) else { return }
         themeStore.choose(themeID, for: selected)
+        rebuild()
+    }
+
+    /// The user asked for the derived room back.
+    ///
+    /// The same write-then-rebuild as `chooseTheme`, and deliberately so: from
+    /// the room's point of view there is no difference between the two, because
+    /// §3c is one function and the only thing that changed is which of its
+    /// lines answers. A pick that cannot be un-picked is a trap — the only
+    /// other way out would be editing `themes.json` by hand, which §3d says is
+    /// not what that file is for.
+    ///
+    /// Ignored when this project never had a pick: the menu already disables
+    /// the item, and a write with nothing to write is a file created for
+    /// nothing.
+    func revertTheme() {
+        guard let selected, themeStore.hasChoice(for: selected) else { return }
+        themeStore.clearChoice(for: selected)
         rebuild()
     }
 

@@ -146,6 +146,23 @@ struct ProjectRegistry: Sendable {
 
     private struct ProjectState: Sendable {
         var agents: [AgentRef: AgentState] = [:]
+        /// First-seen order, for the same reason `order` holds it for projects:
+        /// a rebuild must not reshuffle the room.
+        ///
+        /// `reconstruct` used to walk `agents.keys.sorted()`, which is
+        /// deterministic — switching to a project twice seated it identically
+        /// both times — but is *not the order the live stream arrived in*, and
+        /// `SceneDirector` assigns a seat and a costume in arrival order. So a
+        /// rebuild of the room you were already looking at swapped two
+        /// characters' desks and outfits. Nobody had noticed, because a rebuild
+        /// only ever followed a project switch, where the room you were shown
+        /// was one you had not just been staring at. A theme pick rebuilds the
+        /// room *in front of you*, which is what made it visible.
+        ///
+        /// Arrival order keeps the determinism — this list is a function of the
+        /// deltas absorbed, nothing else — and adds the property the sort could
+        /// not have: the rebuilt room is seated the way the live one was.
+        var agentOrder: [AgentRef] = []
         /// When this project's population last became 0. `nil` while anyone is
         /// in the room. The only clock reading the registry retains, and it is
         /// one it was handed.
@@ -185,6 +202,12 @@ struct ProjectRegistry: Sendable {
             case let .agentAppeared(agent, agentType, lifecycle):
                 var state = states[project]?.agents[agent]
                     ?? AgentState(agentType: agentType, lifecycle: lifecycle)
+                // The only place an agent enters the roster: every other case
+                // reaches it through `agents[agent]?`, which cannot insert. So
+                // this is the only place arrival order is recorded.
+                if states[project]?.agents[agent] == nil {
+                    states[project]?.agentOrder.append(agent)
+                }
                 state.agentType = agentType ?? state.agentType
                 state.lifecycle = lifecycle
                 states[project]?.agents[agent] = state
@@ -193,7 +216,12 @@ struct ProjectRegistry: Sendable {
             case let .agentTasked(agent, task):
                 states[project]?.agents[agent]?.task = task
             case let .agentDeparted(agent):
-                states[project]?.agents.removeValue(forKey: agent)
+                if states[project]?.agents.removeValue(forKey: agent) != nil {
+                    // Kept in step with the roster it orders. An agent that
+                    // leaves and comes back is a new arrival and goes to the
+                    // end, which is what the live stream does with it too.
+                    states[project]?.agentOrder.removeAll { $0 == agent }
+                }
             case let .callOpened(agent, call):
                 states[project]?.agents[agent]?.openCalls[call.toolUseID] = call
             case let .callClosed(agent, toolUseID, _, _),
@@ -307,13 +335,23 @@ struct ProjectRegistry: Sendable {
     /// The deltas that would bring an empty room to this project's current
     /// state, in an order a fresh `SceneDirector` accepts.
     ///
-    /// Used when the selection changes: the scene is rebuilt from nothing and
-    /// fed this. Sorted, so switching to a project twice produces the same
-    /// seating both times.
+    /// Used whenever the scene is rebuilt from nothing — a project switch, and
+    /// now a theme pick.
+    ///
+    /// **In arrival order**, so a rebuild seats the room the way the live
+    /// stream seated it. It used to be `keys.sorted()`, which was deterministic
+    /// but was not the live order, and `SceneDirector` hands out seats and
+    /// costumes in the order agents appear: rebuilding swapped two characters'
+    /// desks and outfits. See `ProjectState.agentOrder`. Determinism is
+    /// unchanged — arrival order is a function of the deltas absorbed and of
+    /// nothing else, so switching to a project twice still seats it identically
+    /// both times.
     func reconstruct(_ project: String) -> [WorldDelta] {
-        guard let roster = states[project]?.agents else { return [] }
+        guard let state = states[project] else { return [] }
+        let roster = state.agents
+        let arrivals = state.agentOrder
         var deltas: [WorldDelta] = []
-        for ref in roster.keys.sorted() {
+        for ref in arrivals {
             guard let state = roster[ref] else { continue }
             deltas.append(
                 .agentAppeared(
@@ -350,7 +388,7 @@ struct ProjectRegistry: Sendable {
                 deltas.append(.gateChanged(agent: ref, isGated: true))
             }
         }
-        for ref in roster.keys.sorted() {
+        for ref in arrivals {
             guard let state = roster[ref] else { continue }
             for call in state.openCalls.values.sorted() {
                 deltas.append(.callOpened(agent: ref, call: call))
@@ -373,7 +411,7 @@ struct ProjectRegistry: Sendable {
         // Only the `false` direction, for the same reason `dormancyChanged` and
         // `gateChanged` emit only theirs: `true` is what the rebuild already
         // produces.
-        for ref in roster.keys.sorted() where roster[ref]?.hasTurn == false {
+        for ref in arrivals where roster[ref]?.hasTurn == false {
             deltas.append(.turnChanged(agent: ref, hasTurn: false))
         }
         deltas.append(.populationChanged(project: project, count: roster.count))
