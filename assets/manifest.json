@@ -6845,8 +6845,12 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/broadcast/32x32/builder/flat_floor.png",
+            "assets/processed/themes/broadcast/32x32/builder/flat_plan_body.png",
+            "assets/processed/themes/broadcast/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/broadcast/32x32/builder/flat_wall.png",
             "assets/processed/themes/broadcast/32x32/builder/floor.png",
+            "assets/processed/themes/broadcast/32x32/builder/plan_body.png",
+            "assets/processed/themes/broadcast/32x32/builder/plan_cap.png",
             "assets/processed/themes/broadcast/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
@@ -7128,7 +7132,68 @@
           ]
         },
         "plan": {
-          "note": "Hand-placed dressing, no floor plan [RoomPlan.Dressing, commit 29844e6]. This theme's builder sheet has no cap, body and floor set for build_plan to draw a plan from, but composing where the furniture stands needs nothing but somebody deciding, so it carries `dressing` alone. RoomPlan.dressingViolations is the check that the placements below stand in nobody's way; RoomPlanTests runs it.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "surfaces": {
+            "broadcast": {
+              "floor": "assets/processed/themes/broadcast/32x32/builder/floor.png",
+              "cap": "assets/processed/themes/broadcast/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/broadcast/32x32/builder/plan_body.png",
+              "line_edge": [
+                130,
+                130,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            }
+          },
+          "spaces": [
+            {
+              "name": "walkway",
+              "x": 2,
+              "y": -6,
+              "w": 21,
+              "h": 8,
+              "band": false,
+              "surface": "broadcast"
+            },
+            {
+              "name": "open plan",
+              "x": 2,
+              "y": 2,
+              "w": 21,
+              "h": 7,
+              "doorways": [
+                3,
+                12,
+                21
+              ],
+              "surface": "broadcast"
+            },
+            {
+              "name": "back",
+              "x": 2,
+              "y": 9,
+              "w": 21,
+              "h": 3,
+              "surface": "broadcast"
+            }
+          ],
+          "partitions": [
+            {
+              "x": 2,
+              "y": -6,
+              "h": 18
+            },
+            {
+              "x": 23,
+              "y": -6,
+              "h": 18
+            }
+          ],
           "dressing": [
             {
               "scenery": 0,
@@ -7348,31 +7413,31 @@
             },
             {
               "scenery": 10,
-              "x": 40,
+              "x": 160,
               "y": 90,
               "what": "script pages on the floor"
             },
             {
               "scenery": 9,
-              "x": 764,
-              "y": 190,
+              "x": 160,
+              "y": 172,
               "what": "round studio stool"
             },
             {
               "scenery": 4,
-              "x": 38,
+              "x": 160,
               "y": 148,
               "what": "film camera on a short tripod"
             },
             {
               "scenery": 11,
-              "x": 760,
+              "x": 160,
               "y": 132,
               "what": "round studio stool"
             },
             {
               "scenery": 7,
-              "x": 35,
+              "x": 160,
               "y": 220,
               "what": "round studio stool"
             },
@@ -7415,8 +7480,12 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/library/32x32/builder/flat_floor.png",
+            "assets/processed/themes/library/32x32/builder/flat_plan_body.png",
+            "assets/processed/themes/library/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/library/32x32/builder/flat_wall.png",
             "assets/processed/themes/library/32x32/builder/floor.png",
+            "assets/processed/themes/library/32x32/builder/plan_body.png",
+            "assets/processed/themes/library/32x32/builder/plan_cap.png",
             "assets/processed/themes/library/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
@@ -7704,7 +7773,68 @@
           ]
         },
         "plan": {
-          "note": "Hand-placed dressing, no floor plan [RoomPlan.Dressing, commit 29844e6]. This theme's builder sheet has no cap, body and floor set for build_plan to draw a plan from, but composing where the furniture stands needs nothing but somebody deciding, so it carries `dressing` alone. RoomPlan.dressingViolations is the check that the placements below stand in nobody's way; RoomPlanTests runs it.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "surfaces": {
+            "library": {
+              "floor": "assets/processed/themes/library/32x32/builder/floor.png",
+              "cap": "assets/processed/themes/library/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/library/32x32/builder/plan_body.png",
+              "line_edge": [
+                128,
+                128,
+                170
+              ],
+              "line_fill": [
+                232,
+                232,
+                232
+              ]
+            }
+          },
+          "spaces": [
+            {
+              "name": "walkway",
+              "x": 2,
+              "y": -6,
+              "w": 21,
+              "h": 8,
+              "band": false,
+              "surface": "library"
+            },
+            {
+              "name": "open plan",
+              "x": 2,
+              "y": 2,
+              "w": 21,
+              "h": 7,
+              "doorways": [
+                3,
+                12,
+                21
+              ],
+              "surface": "library"
+            },
+            {
+              "name": "back",
+              "x": 2,
+              "y": 9,
+              "w": 21,
+              "h": 3,
+              "surface": "library"
+            }
+          ],
+          "partitions": [
+            {
+              "x": 2,
+              "y": -6,
+              "h": 18
+            },
+            {
+              "x": 23,
+              "y": -6,
+              "h": 18
+            }
+          ],
           "dressing": [
             {
               "scenery": 0,
@@ -7918,32 +8048,32 @@
             },
             {
               "scenery": 6,
-              "x": 40,
+              "x": 160,
               "y": 90,
               "what": "step ladder"
             },
             {
               "scenery": 9,
-              "x": 764,
+              "x": 160,
               "y": 190,
               "what": "step ladder"
             },
             {
               "scenery": 5,
-              "x": 38,
+              "x": 160,
               "y": 148,
               "what": "globe on a stand"
             },
             {
               "scenery": 8,
-              "x": 760,
+              "x": 160,
               "y": 132,
               "what": "globe on a stand"
             },
             {
               "scenery": 10,
-              "x": 35,
-              "y": 220,
+              "x": 160,
+              "y": 196,
               "what": "spare school desk"
             },
             {
@@ -7954,8 +8084,8 @@
             },
             {
               "scenery": 7,
-              "x": 764,
-              "y": 100,
+              "x": 160,
+              "y": 106,
               "what": "wooden counter, short piece"
             },
             {
@@ -7991,8 +8121,12 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/mission_control/32x32/builder/flat_floor.png",
+            "assets/processed/themes/mission_control/32x32/builder/flat_plan_body.png",
+            "assets/processed/themes/mission_control/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/mission_control/32x32/builder/flat_wall.png",
             "assets/processed/themes/mission_control/32x32/builder/floor.png",
+            "assets/processed/themes/mission_control/32x32/builder/plan_body.png",
+            "assets/processed/themes/mission_control/32x32/builder/plan_cap.png",
             "assets/processed/themes/mission_control/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
@@ -8308,7 +8442,68 @@
           ]
         },
         "plan": {
-          "note": "Hand-placed dressing, no floor plan [RoomPlan.Dressing, commit 29844e6]. This theme's builder sheet has no cap, body and floor set for build_plan to draw a plan from, but composing where the furniture stands needs nothing but somebody deciding, so it carries `dressing` alone. RoomPlan.dressingViolations is the check that the placements below stand in nobody's way; RoomPlanTests runs it.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "surfaces": {
+            "mission_control": {
+              "floor": "assets/processed/themes/mission_control/32x32/builder/floor.png",
+              "cap": "assets/processed/themes/mission_control/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/mission_control/32x32/builder/plan_body.png",
+              "line_edge": [
+                118,
+                118,
+                154
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            }
+          },
+          "spaces": [
+            {
+              "name": "walkway",
+              "x": 2,
+              "y": -6,
+              "w": 21,
+              "h": 8,
+              "band": false,
+              "surface": "mission_control"
+            },
+            {
+              "name": "open plan",
+              "x": 2,
+              "y": 2,
+              "w": 21,
+              "h": 7,
+              "doorways": [
+                3,
+                12,
+                21
+              ],
+              "surface": "mission_control"
+            },
+            {
+              "name": "back",
+              "x": 2,
+              "y": 9,
+              "w": 21,
+              "h": 3,
+              "surface": "mission_control"
+            }
+          ],
+          "partitions": [
+            {
+              "x": 2,
+              "y": -6,
+              "h": 18
+            },
+            {
+              "x": 23,
+              "y": -6,
+              "h": 18
+            }
+          ],
           "dressing": [
             {
               "scenery": 0,
@@ -8522,31 +8717,31 @@
             },
             {
               "scenery": 12,
-              "x": 40,
+              "x": 160,
               "y": 90,
               "what": "small waste bin"
             },
             {
               "scenery": 9,
-              "x": 764,
+              "x": 160,
               "y": 190,
               "what": "control box"
             },
             {
               "scenery": 10,
-              "x": 38,
+              "x": 160,
               "y": 148,
               "what": "waste bin"
             },
             {
               "scenery": 11,
-              "x": 760,
+              "x": 160,
               "y": 132,
               "what": "spare security monitor on the floor"
             },
             {
               "scenery": 8,
-              "x": 35,
+              "x": 160,
               "y": 220,
               "what": "two-drawer filing cabinet"
             },
@@ -8558,14 +8753,14 @@
             },
             {
               "scenery": 7,
-              "x": 764,
+              "x": 160,
               "y": 100,
               "what": "console keyboard unit"
             },
             {
               "scenery": 10,
-              "x": 774,
-              "y": 150,
+              "x": 160,
+              "y": 144,
               "what": "waste bin"
             }
           ]
@@ -10179,31 +10374,31 @@
             },
             {
               "scenery": 11,
-              "x": 40,
+              "x": 160,
               "y": 90,
               "what": "microphone stand"
             },
             {
               "scenery": 9,
-              "x": 764,
+              "x": 160,
               "y": 190,
               "what": "trophy"
             },
             {
               "scenery": 1,
-              "x": 38,
+              "x": 160,
               "y": 148,
               "what": "sports poster"
             },
             {
               "scenery": 8,
-              "x": 772,
+              "x": 160,
               "y": 132,
               "what": "trophy shelf, low"
             },
             {
               "scenery": 10,
-              "x": 35,
+              "x": 160,
               "y": 220,
               "what": "floor tom"
             },
@@ -10215,7 +10410,7 @@
             },
             {
               "scenery": 10,
-              "x": 760,
+              "x": 160,
               "y": 108,
               "what": "floor tom"
             },

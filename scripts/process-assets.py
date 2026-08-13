@@ -1001,6 +1001,25 @@ THEMES = {
 # height would sit against, visibly.
 THEME_PLAN_WALLS = {
     "stage": (2, 1),
+    # **The three that were refused by a test, not by their art.** Each was
+    # measured against its own existing wall and matches it closely:
+    #   mission_control (30,23)  S=0.197/V=0.885 vs wall S=0.185/V=0.905
+    #   broadcast       (4,1)    S=0.012/V=0.830 vs wall S=0.018/V=0.882
+    #   library         (6,1)    S=0.038/V=0.850 vs wall S=0.057/V=0.898
+    # They could not ship when they were picked because `RoomPlanTests`
+    # resolved "the plan" as the alphabetically-first theme that had one, and
+    # all three sort before `office` — so giving any of them a plain wall band
+    # redirected every plan test onto it. That helper now resolves the plan with
+    # the most spaces, which is what those tests always meant, so the art can
+    # decide again.
+    #
+    # `briefing` is still absent and that one IS its own art: its best candidate
+    # measures 0.125 darker in value than the wall its dressing is already hung
+    # against, and a band that dark under this theme's props reads as a shadow
+    # rather than as a wall.
+    "mission_control": (30, 23),
+    "broadcast": (4, 1),
+    "library": (6, 1),
 }
 
 # ---------------------------------------------------------------------------

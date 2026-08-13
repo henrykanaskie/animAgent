@@ -22,15 +22,34 @@ import SpriteRoomCore
 /// fail is not a check.
 struct RoomPlanTests {
 
-    static func officePlan() throws -> RoomPlan {
+    /// **The richest floor plan in the manifest**, by space count.
+    ///
+    /// It resolved "the alphabetically-first theme with a non-empty plan",
+    /// which named `office` for exactly as long as `office` was the only theme
+    /// with a plan. The moment a second one had one, the helper silently
+    /// pointed somewhere else — and because `orderedIDs` is `keys.sorted()`,
+    /// **four of the five themes that wanted a plan could not have one**:
+    /// `briefing`, `broadcast`, `library` and `mission_control` all sort before
+    /// `office`, so giving any of them a single-band plan redirected every test
+    /// below onto it and failed `theShippedPlanIsMoreThanOneRoom`. A theme was
+    /// left on a worse room to satisfy a test's idea of which plan it was
+    /// looking at. That is the second time a proxy in this suite has decided
+    /// the art; the first was a pinned `board`/`plant` count.
+    ///
+    /// Resolving by **most spaces** says what the callers below actually mean —
+    /// they want the multi-room plan, the one with doorways and partitions and
+    /// more than one finish — and it keeps meaning it however many themes gain
+    /// a plain wall band. It is also stable: `spaces.count` is a property of
+    /// the plan rather than of where its theme lands in an alphabet.
+    static func richestPlan() throws -> RoomPlan {
         let manifest = try Manifest.load(root: SceneFixtures.repositoryRoot)
-        let planned = manifest.themes.orderedIDs
-            .compactMap { manifest.themes.theme($0) }
-            .first { !$0.room.plan.isEmpty }
-        let plan = try #require(
-            planned?.room.plan,
+        let plans: [RoomPlan] = manifest.themes.orderedIDs
+            .compactMap { manifest.themes.theme($0)?.room.plan }
+            .filter { !$0.isEmpty }
+        let richest = plans.max(by: { $0.spaces.count < $1.spaces.count })
+        return try #require(
+            richest,
             "no theme in the manifest declares a floor plan, so this suite checks nothing")
-        return plan
     }
 
     /// The theme that dresses its room by hand, as the two things the dressing
@@ -115,7 +134,7 @@ struct RoomPlanTests {
     /// camera than the front seat row. This runs it over the plan the app
     /// actually ships.
     @Test func theShippedPlanStandsInNobodysWay() throws {
-        let plan = try Self.officePlan()
+        let plan = try Self.richestPlan()
         let violations = plan.routeViolations(in: RoomLayout())
         #expect(violations.isEmpty, Comment(rawValue: violations.joined(separator: "; ")))
     }
@@ -177,7 +196,7 @@ struct RoomPlanTests {
     /// its own column into the wall line, and a doorway there is the difference
     /// between walking out of the room and dissolving into a flat wall.
     @Test func everyDoorwayIsOnASeatColumn() throws {
-        let plan = try Self.officePlan()
+        let plan = try Self.richestPlan()
         let layout = RoomLayout()
         let seatColumns = Set((0..<layout.seatCapacity).map {
             Int(layout.seatPosition($0).x - Double(layout.tile) / 2) / layout.tile
@@ -423,7 +442,7 @@ struct RoomPlanTests {
 
     @Test func adoptingAPlanMovesNoRouteNumber() throws {
         let open = RoomLayout()
-        let planned = open.adopting(plan: try Self.officePlan())
+        let planned = open.adopting(plan: try Self.richestPlan())
         // Any metrics at all: the assertion is that a plan changes nothing, and
         // the two sides are asked the same question. [ADR-008]
         let metrics = RoomLayout.SeatMetrics(
@@ -470,7 +489,7 @@ struct RoomPlanTests {
     /// the room that an open floor does not have: a wall **face**, and a strip
     /// of floor behind it.
     @Test func aPlanPutsTheUpperBandsOnTheWallFaceAndTheFarFloor() throws {
-        let layout = RoomLayout().adopting(plan: try Self.officePlan())
+        let layout = RoomLayout().adopting(plan: try Self.richestPlan())
         let hung = layout.sceneryAnchors(.wall)
         #expect(!hung.isEmpty)
         for point in hung {
@@ -492,7 +511,7 @@ struct RoomPlanTests {
     /// hypothetical: the doorways are on seat columns and the wall band uses
     /// seat columns.
     @Test func nothingHangsInADoorway() throws {
-        let plan = try Self.officePlan()
+        let plan = try Self.richestPlan()
         let layout = RoomLayout().adopting(plan: plan)
         for point in layout.sceneryAnchors(.wall) {
             let column = Int((point.x - Double(layout.tile) / 2).rounded()) / layout.tile
@@ -505,7 +524,7 @@ struct RoomPlanTests {
     /// widest prop each band admits rather than against the props that happen to
     /// be declared today.
     /// **The plan and the art come from the same theme.** This paired
-    /// `officePlan()` with `handPlacedTheme().room`, which named one theme
+    /// `richestPlan()` with `handPlacedTheme().room`, which named one theme
     /// while there was one hand-placed theme and two the moment a second gained
     /// dressing — office's placements were then measured against another
     /// theme's content boxes, and a clearance office had always had failed
@@ -566,7 +585,7 @@ struct RoomPlanTests {
     /// loosened to "upstage or at the edge", so an interior partition that
     /// wandered downstage still fails on the first arm.
     @Test func everyPartitionIsUpstageOfTheWallLineOrOutsideEveryRoute() throws {
-        let plan = try Self.officePlan()
+        let plan = try Self.richestPlan()
         let layout = RoomLayout()
         let seatXs = (0..<layout.seatCapacity).map { layout.seatPosition($0).x }
         let low = (seatXs.min() ?? 0) - Double(layout.tile) / 2
@@ -590,7 +609,7 @@ struct RoomPlanTests {
     /// that do not overlap. Cheap, and it is what fails if a regeneration drops
     /// half the table.
     @Test func theShippedPlanIsMoreThanOneRoom() throws {
-        let plan = try Self.officePlan()
+        let plan = try Self.richestPlan()
         #expect(plan.spaces.count >= 3, "\(plan.spaces.count) spaces")
         #expect(Set(plan.spaces.map(\.surface)).count >= 3, "one finish over three rooms")
         #expect(plan.spaces.filter { $0.bandRows != nil }.count >= 2,

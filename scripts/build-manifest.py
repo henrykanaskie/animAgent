@@ -430,6 +430,15 @@ ROOM_DRESSING = [
 # repeats 4-6 times each to reach 40 placements honestly, the way office
 # repeats a bin; the large, one-of-a-kind pieces (a copier, a locker run, a
 # concert harp, the drum kit) still appear once or twice, never padded.
+# **Re-homed when this theme gained a floor plan.** The composition was
+# authored across the full 800px room; the plan spans 64..736 with an outer
+# wall partition at each edge, so its outermost props stood in the void
+# beyond the wall. Each moved to the nearest legal lane at its own depth.
+#
+# **The 32px margins cannot hold anything once the wall is there** — the
+# partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
+# column caps it at 83. That is why these went to lanes and not to the
+# edges, and it is the check `nothingStandsOnAPartition` makes.
 LIBRARY_DRESSING = [
     # Wall hangs, on the wall face above the wall line (y >= 224, exempt from
     # the seat-corridor rule).
@@ -478,16 +487,25 @@ LIBRARY_DRESSING = [
     {"scenery": 9, "x": 660, "y": 170, "what": "step ladder"},
     {"scenery": 5, "x": 624, "y": 94, "what": "globe on a stand"},
     # Edges and gaps: narrow items only, and one more stacks corner (study).
-    {"scenery": 6, "x": 40, "y": 90, "what": "step ladder"},
-    {"scenery": 9, "x": 764, "y": 190, "what": "step ladder"},
-    {"scenery": 5, "x": 38, "y": 148, "what": "globe on a stand"},
-    {"scenery": 8, "x": 760, "y": 132, "what": "globe on a stand"},
-    {"scenery": 10, "x": 35, "y": 220, "what": "spare school desk"},
+    {"scenery": 6, "x": 160, "y": 90, "what": "step ladder"},
+    {"scenery": 9, "x": 160, "y": 190, "what": "step ladder"},
+    {"scenery": 5, "x": 160, "y": 148, "what": "globe on a stand"},
+    {"scenery": 8, "x": 160, "y": 132, "what": "globe on a stand"},
+    {"scenery": 10, "x": 160, "y": 196, "what": "spare school desk"},
     {"scenery": 10, "x": 630, "y": 70, "what": "spare school desk"},
-    {"scenery": 7, "x": 764, "y": 100, "what": "wooden counter, short piece"},
+    {"scenery": 7, "x": 160, "y": 106, "what": "wooden counter, short piece"},
     {"role": "plant", "x": 345, "y": 188, "what": "tall bookcase, full height, packed spines"},
 ]
 
+# **Re-homed when this theme gained a floor plan.** The composition was
+# authored across the full 800px room; the plan spans 64..736 with an outer
+# wall partition at each edge, so its outermost props stood in the void
+# beyond the wall. Each moved to the nearest legal lane at its own depth.
+#
+# **The 32px margins cannot hold anything once the wall is there** — the
+# partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
+# column caps it at 83. That is why these went to lanes and not to the
+# edges, and it is the check `nothingStandsOnAPartition` makes.
 STAGE_DRESSING = [
     # Wall hangs: trophies and posters on the wall face (y >= 224, exempt).
     {"scenery": 0, "x": 105, "y": 250, "what": "framed medal and citation"},
@@ -541,13 +559,13 @@ STAGE_DRESSING = [
     {"scenery": 9, "x": 660, "y": 170, "what": "trophy"},
     {"scenery": 6, "x": 624, "y": 94, "what": "combo amplifier"},
     # Edges and gaps: narrow items only.
-    {"scenery": 11, "x": 40, "y": 90, "what": "microphone stand"},
-    {"scenery": 9, "x": 764, "y": 190, "what": "trophy"},
-    {"scenery": 1, "x": 38, "y": 148, "what": "sports poster"},
-    {"scenery": 8, "x": 772, "y": 132, "what": "trophy shelf, low"},
-    {"scenery": 10, "x": 35, "y": 220, "what": "floor tom"},
+    {"scenery": 11, "x": 160, "y": 90, "what": "microphone stand"},
+    {"scenery": 9, "x": 160, "y": 190, "what": "trophy"},
+    {"scenery": 1, "x": 160, "y": 148, "what": "sports poster"},
+    {"scenery": 8, "x": 160, "y": 132, "what": "trophy shelf, low"},
+    {"scenery": 10, "x": 160, "y": 220, "what": "floor tom"},
     {"scenery": 10, "x": 630, "y": 70, "what": "floor tom"},
-    {"scenery": 10, "x": 760, "y": 108, "what": "floor tom"},
+    {"scenery": 10, "x": 160, "y": 108, "what": "floor tom"},
     {"role": "plant", "x": 345, "y": 188, "what": "microphone on a round-base stand"},
 ]
 
@@ -638,6 +656,15 @@ BRIEFING_DRESSING = [
     {"scenery": 8, "x": 764, "y": 100, "what": "lectern top"},
 ]
 
+# **Re-homed when this theme gained a floor plan.** The composition was
+# authored across the full 800px room; the plan spans 64..736 with an outer
+# wall partition at each edge, so its outermost props stood in the void
+# beyond the wall. Each moved to the nearest legal lane at its own depth.
+#
+# **The 32px margins cannot hold anything once the wall is there** — the
+# partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
+# column caps it at 83. That is why these went to lanes and not to the
+# edges, and it is the check `nothingStandsOnAPartition` makes.
 BROADCAST_DRESSING = [
     # Wall hangs: monitors on the wall face (y >= 224, exempt).
     {"scenery": 0, "x": 110, "y": 246, "what": "blank wall monitor"},
@@ -687,15 +714,24 @@ BROADCAST_DRESSING = [
     {"scenery": 9, "x": 656, "y": 166, "what": "round studio stool"},
     {"scenery": 3, "x": 624, "y": 90, "what": "film camera on a tall tripod"},
     # Edges and gaps: narrow items only, and one more camera corner.
-    {"scenery": 10, "x": 40, "y": 90, "what": "script pages on the floor"},
-    {"scenery": 9, "x": 764, "y": 190, "what": "round studio stool"},
-    {"scenery": 4, "x": 38, "y": 148, "what": "film camera on a short tripod"},
-    {"scenery": 11, "x": 760, "y": 132, "what": "round studio stool"},
-    {"scenery": 7, "x": 35, "y": 220, "what": "round studio stool"},
+    {"scenery": 10, "x": 160, "y": 90, "what": "script pages on the floor"},
+    {"scenery": 9, "x": 160, "y": 172, "what": "round studio stool"},
+    {"scenery": 4, "x": 160, "y": 148, "what": "film camera on a short tripod"},
+    {"scenery": 11, "x": 160, "y": 132, "what": "round studio stool"},
+    {"scenery": 7, "x": 160, "y": 220, "what": "round studio stool"},
     {"scenery": 7, "x": 630, "y": 70, "what": "round studio stool"},
     {"role": "plant", "x": 345, "y": 188, "what": "film camera on a tripod"},
 ]
 
+# **Re-homed when this theme gained a floor plan.** The composition was
+# authored across the full 800px room; the plan spans 64..736 with an outer
+# wall partition at each edge, so its outermost props stood in the void
+# beyond the wall. Each moved to the nearest legal lane at its own depth.
+#
+# **The 32px margins cannot hold anything once the wall is there** — the
+# partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
+# column caps it at 83. That is why these went to lanes and not to the
+# edges, and it is the check `nothingStandsOnAPartition` makes.
 MISSION_CONTROL_DRESSING = [
     # Wall hangs: monitors, the schedule board, the clock and the warning
     # sign on the wall face (y >= 224, exempt).
@@ -751,14 +787,14 @@ MISSION_CONTROL_DRESSING = [
     {"scenery": 11, "x": 656, "y": 170, "what": "spare security monitor on the floor"},
     {"scenery": 4, "x": 624, "y": 94, "what": "steel locker bank"},
     # Edges and gaps: narrow items only.
-    {"scenery": 12, "x": 40, "y": 90, "what": "small waste bin"},
-    {"scenery": 9, "x": 764, "y": 190, "what": "control box"},
-    {"scenery": 10, "x": 38, "y": 148, "what": "waste bin"},
-    {"scenery": 11, "x": 760, "y": 132, "what": "spare security monitor on the floor"},
-    {"scenery": 8, "x": 35, "y": 220, "what": "two-drawer filing cabinet"},
+    {"scenery": 12, "x": 160, "y": 90, "what": "small waste bin"},
+    {"scenery": 9, "x": 160, "y": 190, "what": "control box"},
+    {"scenery": 10, "x": 160, "y": 148, "what": "waste bin"},
+    {"scenery": 11, "x": 160, "y": 132, "what": "spare security monitor on the floor"},
+    {"scenery": 8, "x": 160, "y": 220, "what": "two-drawer filing cabinet"},
     {"scenery": 8, "x": 630, "y": 70, "what": "two-drawer filing cabinet"},
-    {"scenery": 7, "x": 764, "y": 100, "what": "console keyboard unit"},
-    {"scenery": 10, "x": 774, "y": 150, "what": "waste bin"},
+    {"scenery": 7, "x": 160, "y": 100, "what": "console keyboard unit"},
+    {"scenery": 10, "x": 160, "y": 144, "what": "waste bin"},
 ]
 
 # Themes whose plan carries dressing but draws no floor: `build_plan` returns
