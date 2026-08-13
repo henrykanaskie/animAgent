@@ -421,13 +421,21 @@ enum SceneArt {
     /// - `everyCameraFacingSeatCarriesTheWholeStockAndTwoSeatsArrangeItDifferently`
     ///   and `theSameSeatDrawsTheSameStockWhoeverIsSittingInIt` — a real
     ///   `RoomScene`, which places nothing without the pack.
+    /// - `aWorkKindObjectStandsInFrontOfItsSlotsRigAndNeverInPlaceOfIt` — **the
+    ///   +1 at M8**, and gated for the same reason as the two above: it seats a
+    ///   cast in a real `RoomScene` and reads back what the desktop drew, which
+    ///   on a fresh clone is nothing. Its companion,
+    ///   `aTurnedSeatTakesAChairOnlyIfOneFitsUnderItsOwnNameplate`, is
+    ///   deliberately **un**gated — the window and the chair's height are both
+    ///   manifest numbers, so the measurement that took the away-facing chair
+    ///   away is checked on a machine with no art at all.
     ///
     /// The rest is deliberately **not** gated, and it is the larger half: that a
     /// role with no stock still draws `file`, that a malformed list degrades to
     /// it, that the wrap is total, and — through `deskKitLift` — that *no* object
     /// of *any* height can rise above its own desk's back edge. A fresh clone
     /// still checks the whole rule; what it cannot check is the four files.
-    static let expectedGatedTestCount = 112
+    static let expectedGatedTestCount = 113
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

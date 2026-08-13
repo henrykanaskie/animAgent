@@ -437,8 +437,14 @@ struct ThemeSceneTests {
             let expected = (0..<scene.layout.seatCapacity).flatMap { seat -> [String] in
                 var out = ["\(seat):desk:"
                            + "\(Int(scene.layout.deskPosition(seat, metrics: metrics).x))"]
-                if let point = scene.layout.monitorPosition(seat, metrics: metrics) {
-                    out.append("\(seat):monitor:\(Int(point.x))")
+                // One entry per rig slot: a pod stands a rig in both, because the
+                // `monitor` role carries its own desk surface and one of them
+                // covers half a slab.
+                for slot in RoomLayout.PodRigSlot.allCases {
+                    if let point = scene.layout.monitorPosition(
+                        seat, slot: slot, metrics: metrics) {
+                        out.append("\(seat):monitor:\(Int(point.x))")
+                    }
                 }
                 // One entry per desktop slot, at that slot's own object's
                 // measured ink — the slot decides the column, but whether an

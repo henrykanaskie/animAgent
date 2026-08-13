@@ -511,10 +511,58 @@ public struct RoomLayout: Sendable, Hashable {
         /// drawing one would be a chair nobody can see standing where a person
         /// is. That is what the pack's own room does, and it is the only reason
         /// the toward-camera seat costs one prop rather than two.
+        ///
+        /// ## An away-facing seat has none either, and it is a measurement — M8
+        ///
+        /// It was `chair_back` from ADR-008 until here. The maintainer, looking at
+        /// the shipped room: *"the chairs that are facing forward, and they look
+        /// weird. So I don't really think those are doing well, so they might be
+        /// removed."* The sprite is not the problem — single 101 is genuinely the
+        /// pack's back view, and a **vacant** away-facing pod renders correctly
+        /// with it. What does not fit is the chair between the two things an
+        /// *occupied* seat already draws in the same 32 px column:
+        ///
+        /// | bound | the furthest it may go | why |
+        /// |---|---:|---|
+        /// | the chair's top may not reach the head | feet **+22** | the head band of a turned body is canvas rows 0…40, `canvas.height − 1 − costumes.ink_top_px`, so row 41 — feet +22 — is the highest row furniture may occupy. `StationAndCostumeTests.nothingTheRoomDrawsInFrontOfASeatedBodyCoversItsHead` is that as a shipped invariant, and a top at feet +33 reports up to 256 px of head covered per variant in all seven rooms |
+        /// | the chair's base may not hang below the nameplate | feet **−13** | `RoomScene.seatedPlateDrop`, `maximumNameplateHeight + 2` |
+        ///
+        /// A chair standing on the second and reaching no higher than the first
+        /// may be **36 px** tall. `chair_back` is **46**: it is 10 px too tall, so
+        /// no standoff satisfies both. The shipped 30 satisfies the first and
+        /// misses the second by 17 px, which is the picture that was reported — a
+        /// grey column with the plate drawn across its back and a foot below it.
+        /// Every candidate was rendered at the panel's own 720×400 before this was
+        /// written: 30 (shipped), 24, 13, and none.
+        ///
+        /// **Neither side of the window can move.** Hanging the plate below the
+        /// chair instead costs 17 px of `contentBand`, which stands at 192 against
+        /// the 200 a `2x` view of that panel gives — so every room in the corpus
+        /// would fall to `1x` to tidy one seat. Raising the chair to feet −13
+        /// takes its top to feet +33 and breaks the head invariant, and it also
+        /// cuts the occupant's visible ink from **68% to 28–33%** (measured on
+        /// `idle_up`, variants 07 and 19, 1248 and 1256 ink px).
+        ///
+        /// **What it costs, named rather than discovered.** ADR-008's table gives
+        /// the chair back as what hides an `idle_up` figure's legs, and nothing
+        /// hides them now — an away-facing occupant is a whole standing back view
+        /// at its own desk, and only its position says it is seated. The four
+        /// vacant back seats of a normal room lose a prop each, and with
+        /// `SeatFacing.towardCamera` already at `nil` and no seat in the shipped
+        /// lattice side-on, **the room now draws no chair anywhere**; both `chair`
+        /// roles stay bound and stay unread.
+        ///
+        /// **What would restore it**, so that this is a bound and not a verdict on
+        /// chairs: a back view no taller than 36 px. The office suite has none —
+        /// `chair_office_back` is the 46 — but `scripts/compose-scene.py`'s own
+        /// `CHAIR_SUITES` records two that would fit, `chair_school` at 30 and
+        /// `chair_ornate` at 32, both up-views of families the manifest does not
+        /// bind here and neither of them an office chair. Binding one is an
+        /// `assets/` change and an ADR-008 amendment, and both are outside the
+        /// change that found this.
         public var seatRole: String? {
             switch self {
-            case .towardCamera: return nil
-            case .awayFromCamera: return "chair_back"
+            case .towardCamera, .awayFromCamera: return nil
             case .sideOn: return "chair"
             }
         }
@@ -697,7 +745,18 @@ public struct RoomLayout: Sendable, Hashable {
         return (metrics.deskInkWidth - metrics.monitorInkWidth) / 2
     }
 
-    /// **Bottom-centre of the screen rig standing on a seat's desk**, or `nil`
+    /// **Which of a pod's two kit slots a screen rig stands in.**
+    ///
+    /// Both of them, and that is the correction. See
+    /// `monitorPosition(_:slot:metrics:)`.
+    public enum PodRigSlot: Int, CaseIterable, Sendable, Hashable {
+        case left, right
+
+        /// The sign `podSlotOffsetX` is applied with.
+        public var offsetSign: Double { self == .left ? -1 : 1 }
+    }
+
+    /// **Bottom-centre of a screen rig standing on a seat's desk**, or `nil`
     /// for a seat that may not have one.
     ///
     /// **Away-facing seats only, and that is a fact about the art rather than a
@@ -709,17 +768,54 @@ public struct RoomLayout: Sendable, Hashable {
     /// the first three renders of that scene showed exactly that, six times over.
     /// A camera-facing pod carries `deskKitPosition(_:metrics:)` instead.
     ///
-    /// **The left slot, because the right one is spoken for.** ADR-006's
-    /// work-kind object stands in the other one — see
-    /// `RoomScene.showDeskObject(_:for:)`. The pod has two slots and the room has
-    /// two things to put in them: one that says *this is a workstation* and one
-    /// that says *this is the work*. Drawing a rig in both would be the second of
-    /// those competing with a prop that means nothing.
-    public func monitorPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint? {
+    /// ## Two rigs, because the `monitor` role is not a monitor
+    ///
+    /// This took the left slot alone until M8, on the argument that the right one
+    /// was ADR-006's and *"drawing a rig in both would be the second of those
+    /// competing with a prop that means nothing"*. That argument is about what
+    /// the two slots **mean** and it is still right. It was wrong about what the
+    /// left slot alone **draws**, and the maintainer saw the consequence before
+    /// anyone re-read the sentence: *"you have, like, the computer that should be
+    /// on the corner of a desk, but it's actually not because it's, like, flipped
+    /// the wrong way."*
+    ///
+    /// The `monitor` role is `workstation_composite` — a 32×42 rig carrying **its
+    /// own desk surface, front edge, keyboard and mouse**, drawn in the pack's
+    /// oblique projection. One of them on a 64 px slab covers the left half in
+    /// desktop-seen-from-a-workstation and leaves the right half in
+    /// slab-seen-from-the-room, with the rig's own front edge stopping dead in the
+    /// middle of the desk. Two surfaces, two apparent angles, abutting: the pod
+    /// reads as two desks rather than as one.
+    ///
+    /// `compose-scene.py`'s `desk_pod` never had the defect and its own comment
+    /// says why — *"Ink 32 wide against 64, so x-16 and x+16 tile it exactly"* —
+    /// so this is that file's arrangement rather than a new one.
+    ///
+    /// **What ADR-006 keeps, and what was tried first.** The right slot is still
+    /// where the work-kind object stands [`RoomScene.showDeskObject(_:for:)`], and
+    /// the object now stands **in front of** that slot's rig rather than in place
+    /// of it — one depth step nearer the camera, on the rig's own desktop, the way
+    /// anything else on a desk sits in front of the screen behind it.
+    ///
+    /// The first attempt had the object *replace* the rig, hiding it for as long
+    /// as one stood there. It is the smaller change and it is wrong, and the thing
+    /// that says so is a shipped test rather than an opinion:
+    /// `DeskPodTests.theSameSeatDrawsTheSameStockWhoeverIsSittingInIt` fails,
+    /// because a *theme prop* would then be absent because an agent had run a
+    /// tool. ADR-006 licenses an **object appearing** in that slot; it does not
+    /// license the room's own furniture disappearing, which is the failure
+    /// ADR-002 §6 rule 1 and I1 both name. Standing the object in front costs
+    /// nothing that mattered — the rig's screen is 24 px of its 42 and the tallest
+    /// object is 22, so what an object covers is the keyboard, the stalk and at
+    /// most the screen's bottom four rows — and it buys the whole of the defect
+    /// above, at an occupied seat as well as an empty one. [I2] Nothing animates
+    /// either way.
+    public func monitorPosition(_ index: Int, slot: PodRigSlot, metrics: SeatMetrics)
+    -> ScenePoint? {
         guard metrics.isDeskPod, seatFacing(index) == .awayFromCamera else { return nil }
         let desk = deskPosition(index, metrics: metrics)
         return ScenePoint(
-            x: desk.x - podSlotOffsetX(metrics: metrics),
+            x: desk.x + slot.offsetSign * podSlotOffsetX(metrics: metrics),
             y: desk.y + deskTopLift(surfaceHeightAboveFloor: metrics.deskInkHeight,
                                     metrics: metrics))
     }
@@ -921,6 +1017,14 @@ public struct RoomLayout: Sendable, Hashable {
     /// already measured at a 0.00% silhouette difference [ADR-005 §9.6], so what
     /// is being spent is the weakest identity channel the room owns, on the only
     /// orientation that shows the back of a head.
+    ///
+    /// **Nothing asks for this at an away-facing seat any more**, and the reason
+    /// is one subtraction. See `SeatFacing.seatRole`: a 46 px chair back does not
+    /// fit between an occupant's chin and the bottom of its own nameplate, at any
+    /// standoff. This is kept because it is still the right answer to *where a
+    /// chair stands behind a figure*, it is what `chairPosition(_:metrics:)`
+    /// computes, and a room that ever binds a shorter back view needs it
+    /// unchanged.
     public func awayChairStandoff(metrics: SeatMetrics) -> Double {
         max(0, metrics.chairInkHeight - metrics.costumeTopAboveFeet + Self.collarRowsAboveChair)
     }
@@ -1029,10 +1133,15 @@ public struct RoomLayout: Sendable, Hashable {
     /// Bottom-centre of a seat's chair, or `nil` for a seat that has none.
     ///
     /// Side-on keeps what it always had: the chair on the seat's own point, with
-    /// the body drawn a hair in front of it. Away-facing puts the chair back
-    /// `awayChairStandoff(metrics:)` downstage, which is what makes an `idle_up`
-    /// figure read as sitting in it. Toward-camera has no chair at all —
-    /// `SeatFacing.seatRole`.
+    /// the body drawn a hair in front of it. **Neither turned facing has a chair
+    /// at all** — `SeatFacing.seatRole`, which carries the measurement that took
+    /// the away-facing one away.
+    ///
+    /// The away-facing arm is kept rather than deleted, and it is not dead: it is
+    /// where a 36-px-or-shorter back view would stand, it is the only reader of
+    /// `awayChairStandoff(metrics:)`, and it is what the two callers ask before
+    /// they ask for a role. A seat with a `nil` role draws nothing whatever this
+    /// returns.
     public func chairPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint? {
         let seat = seatPosition(index)
         switch seatFacing(index) {

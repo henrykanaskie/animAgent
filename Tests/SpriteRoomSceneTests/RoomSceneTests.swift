@@ -560,6 +560,64 @@ struct RoomSceneTests {
         #expect(seen == [.towardCamera, .awayFromCamera])
     }
 
+    /// **A seat gets a chair exactly when one would fit between its occupant's
+    /// head and its occupant's own nameplate**, and the shipped `chair_back` does
+    /// not. [M8, `RoomLayout.SeatFacing.seatRole`]
+    ///
+    /// The maintainer, on the shipped room: *"the chairs that are facing forward,
+    /// and they look weird."* The sprite is right — 101 is genuinely the pack's
+    /// back view — and a vacant away-facing pod renders correctly with it. What
+    /// does not fit is the chair between the two things an occupied seat draws in
+    /// the same 32 px column, and the two bounds are both already in the codebase:
+    ///
+    /// - the head band of a turned body is everything above `ink_top_px`, so
+    ///   furniture may reach no higher than **feet + `ink_top_px`** —
+    ///   `SeatedHeadOcclusionTests.nothingTheRoomDrawsInFrontOfASeatedBodyCovers
+    ///   ItsHead` is that as a shipped invariant;
+    /// - a plate hangs `maximumNameplateHeight + 2` below the feet, so a chair
+    ///   standing lower than that is drawn through the character's own label.
+    ///
+    /// **This is written as a biconditional on purpose.** It is not "there is no
+    /// chair"; it is "there is a chair if and only if the art allows one". A
+    /// manifest that ever binds a back view inside the window — the same manifest
+    /// swap the art direction promises is all final art costs — fails this test
+    /// until the seat draws it again, and a manifest that keeps this one fails it
+    /// the moment somebody puts the chair back.
+    @Test func aTurnedSeatTakesAChairOnlyIfOneFitsUnderItsOwnNameplate() throws {
+        let manifest = try SceneFixtures.manifest()
+        let plateDrop = Double(SceneBitmaps.maximumNameplateHeight + 2)
+        let headFloor = Double(manifest.characters.costumes.inkTopAboveFeet)
+        // A chair based at the plate's own lowest row and reaching no higher than
+        // the head's lowest row occupies `plateDrop + headFloor + 1` rows.
+        let window = plateDrop + headFloor + 1
+        #expect(window == 36, Comment(rawValue:
+            "the window is \(window)px; 36 is what M8 measured it at, and every"
+            + " number in it is the manifest's or `SceneBitmaps`'"))
+
+        var checked = 0
+        for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
+            let room = manifest.room(theme: theme)
+            let chair = try #require(room.prop(RoomScene.backSeatRole), Comment(rawValue:
+                "\(theme ?? "room") binds no \(RoomScene.backSeatRole) role at all"))
+            let height = Double(chair.contentBox.height)
+            checked += 1
+            let fits = height <= window
+            #expect(!fits, Comment(rawValue:
+                "\(theme ?? "room") binds a \(height)px back view, which fits the"
+                + " \(window)px window — so `SeatFacing.awayFromCamera.seatRole` should"
+                + " be drawing it again and the measurement in its doc comment is stale"))
+            #expect(RoomLayout.SeatFacing.awayFromCamera.seatRole == nil, Comment(rawValue:
+                "\(theme ?? "room")'s \(height)px back view is \(height - window)px too"
+                + " tall for the \(window)px window, and the seat draws it anyway"))
+        }
+        #expect(checked >= 7, "only \(checked) rooms were measured")
+
+        // And the side-on seat is untouched: its chair is a profile, it stands on
+        // the seat's own point, and nothing above bears on it.
+        #expect(RoomLayout.SeatFacing.sideOn.seatRole == RoomScene.seatRole)
+        #expect(RoomLayout.SeatFacing.towardCamera.seatRole == nil)
+    }
+
     // MARK: Criterion 1, end to end
 
     /// Drives the real fixture through the real model, director and scene, and

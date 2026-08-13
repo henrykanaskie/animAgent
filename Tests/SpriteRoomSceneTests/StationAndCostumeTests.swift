@@ -1278,14 +1278,25 @@ struct SeatedHeadOcclusionTests {
         // of anybody" is itself a defect, because the near-edge cue is the reason
         // the in-front branch exists.
         #expect(themesChecked >= 7, "only \(themesChecked) rooms were dressed")
-        // **126, not 140**, and the number that moved is the *count*, not the
-        // pin: 147 pieces were examined before ADR-008 and 126 after, a drop of
-        // exactly 21 — three chairs in each of the seven rooms. A camera-facing
-        // seat draws no chair at all, because the body covers one entirely
-        // [ADR-008, `SeatFacing.seatRole`], and three of the seven seats face
-        // the camera. The old pin sat seven below its own count; this one is
-        // tight, so a piece disappearing for any other reason fails here.
-        #expect(piecesChecked >= 126, "only \(piecesChecked) pieces of furniture were examined")
+        // **118, and both halves of the move are measured.** The walk counted
+        // **142** pieces before M8 — 28 chairs and 4 screen rigs among them — and
+        // counts 118 after, with **0 chairs and 8 rigs**:
+        //
+        // - **−28.** No seat draws a chair any more. A 46 px `chair_back` does not
+        //   fit between an occupant's head and its own nameplate at any standoff
+        //   [`RoomLayout.SeatFacing.seatRole`, which carries the subtraction], so
+        //   the away-facing seat lost the one it had — four seats in each of the
+        //   seven rooms. The camera-facing seats never had one.
+        // - **+4.** The office's four away-facing pods stand a rig in **both** kit
+        //   slots rather than one, because the `monitor` role is a whole
+        //   workstation and one of them covers half a slab
+        //   [`RoomLayout.monitorPosition(_:slot:metrics:)`].
+        //
+        // The pin the ADR-008 note claimed was "tight" was not — it read 126
+        // against an actual 142, 16 pieces of slack, which is how four chairs a
+        // room could have vanished without this failing. This one is tight against
+        // its own count, so a piece disappearing for any other reason fails here.
+        #expect(piecesChecked >= 118, "only \(piecesChecked) pieces of furniture were examined")
         #expect(inFrontChecked >= 30, """
             only \(inFrontChecked) pieces were drawn in front of a body. Either the \
             walk found nothing, or every desk in the product has gone behind the \

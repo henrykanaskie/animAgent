@@ -444,7 +444,15 @@ def desk_depth_bias(desk_height, near_edge_x=None, manifest=None):
 # Transcribed from `RoomLayout.SeatFacing` and `RoomLayout.seatFacing(_:)`: the
 # back row faces away from the camera because it is the only row with the 30 px
 # of clear floor its chair needs, and the front row faces the camera.
-SEAT_ROLE = {"toward_camera": None, "away_from_camera": "chair_back",
+# **No seat draws a chair.** `RoomLayout.SeatFacing.seatRole` measures why: a
+# chair under an occupant has to clear the head band at feet +22
+# (`SeatedHeadOcclusionTests`) and stay above the nameplate at feet -13
+# (`RoomScene.seatedPlateDrop`), which leaves 36 px, and `chair_back` is 46. Ten
+# px too tall and no standoff exists. `side_on` keeps its entry because the rule
+# is about the art and not about the facing — a suite with a back view under
+# 36 px would bring the chair straight back — but the shipped lattice has no
+# side-on seat, so in practice this map is empty.
+SEAT_ROLE = {"toward_camera": None, "away_from_camera": None,
              "side_on": "chair"}
 # How far above the feet a costume's ink reaches, and how far the top edge of an
 # away-facing chair is allowed inside that band. `RoomLayout.awayChairStandoff`.
@@ -669,10 +677,21 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None,
             facing = seat_facing(seat)
             x, y = desk_point(seat, metrics)
             if facing == "away_from_camera":
+                # **Both slots, always.** `RoomLayout.PodRigSlot`: the `monitor`
+                # role is not a monitor, it is a whole workstation carrying its
+                # own desk surface, keyboard and front edge, so one of them on a
+                # 64 px slab leaves the slab's own top exposed beside it and the
+                # pod reads as two desks at two angles. Two tile it exactly.
+                #
+                # The variant is keyed `seat + slot`, so the two slots of one pod
+                # never draw the same picture — `compose-scene.py`'s `desk_pod`
+                # does the same with `LIT_RIGS[(3v)%4]` beside `[(3v+1)%4]`.
                 # The rig keeps the pod's own lift: a screen is *meant* to clear
                 # the desk's back edge, and it stands at a facing with no face in
                 # front of it to cover.
-                placed.append(("monitor", x - offset, y + lift, lift + 0.25, seat))
+                for rig, sign in ((0, -1), (1, 1)):
+                    placed.append(("monitor", x + sign * offset, y + lift,
+                                   lift + 0.25, seat + rig))
             elif facing == "toward_camera":
                 # Four objects, not one, each on a lift derived from its own ink
                 # height. The seat rotates which object stands in which slot, so

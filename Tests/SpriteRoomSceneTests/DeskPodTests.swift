@@ -103,7 +103,9 @@ import SpriteRoomCore
         var rigs: [Int] = []
         var kits: [Int] = []
         for seat in 0..<layout.seatCapacity {
-            if layout.monitorPosition(seat, metrics: metrics) != nil { rigs.append(seat) }
+            if RoomLayout.PodRigSlot.allCases.contains(where: {
+                layout.monitorPosition(seat, slot: $0, metrics: metrics) != nil
+            }) { rigs.append(seat) }
             if RoomLayout.PodKitSlot.allCases.contains(where: {
                 layout.deskKitPosition(
                     seat, slot: $0, inkHeight: kitHeight, metrics: metrics) != nil
@@ -121,7 +123,10 @@ import SpriteRoomCore
             let other = Self.metrics(manifest, theme: id)
             guard !other.isDeskPod else { continue }
             for seat in 0..<layout.seatCapacity {
-                #expect(layout.monitorPosition(seat, metrics: other) == nil, "\(name)")
+                for slot in RoomLayout.PodRigSlot.allCases {
+                    #expect(layout.monitorPosition(
+                        seat, slot: slot, metrics: other) == nil, "\(name)")
+                }
                 for slot in RoomLayout.PodKitSlot.allCases {
                     #expect(layout.deskKitPosition(
                         seat, slot: slot, inkHeight: kitHeight, metrics: other) == nil, "\(name)")
@@ -130,13 +135,22 @@ import SpriteRoomCore
         }
     }
 
-    /// **The pod has two kit slots and they hold two different things.**
+    /// **The pod's two kit slots tile its slab exactly, and a rig stands in each
+    /// of them.**
     ///
-    /// The theme's screen rig takes the left one; ADR-006's work-kind object —
-    /// the thing that says what this agent is doing — takes the right. Drawing a
-    /// rig in both would leave nowhere for the live signal, which is why this
-    /// asserts the two are a whole slot apart rather than merely different.
-    @Test func theTwoPodSlotsHoldTwoDifferentThingsAWholeSlotApart() throws {
+    /// This asserted the opposite until M8 — *"the theme's screen rig takes the
+    /// left one; ADR-006's work-kind object takes the right"* — and the picture
+    /// that produced is why it changed: the `monitor` role is
+    /// `workstation_composite`, a rig carrying its own desk surface and front
+    /// edge, so one of them covers half the slab and the other half stays plain
+    /// desktop. Two surfaces at two apparent angles, abutting.
+    /// [`RoomLayout.monitorPosition(_:slot:metrics:)`]
+    ///
+    /// **What ADR-006 keeps is unchanged and is asserted next door**: the right
+    /// slot is still the work-kind object's, and the rig standing in it is
+    /// furniture the object replaces —
+    /// `theWorkKindObjectStandsInTheRightRigSlotAndTakesItsRigDown`.
+    @Test func bothPodRigSlotsAreFilledAndTheyTileTheSlabExactly() throws {
         let manifest = try SceneFixtures.manifest()
         let layout = RoomLayout()
         let metrics = Self.metrics(manifest, theme: "office")
@@ -146,16 +160,36 @@ import SpriteRoomCore
             "the two slots are \(slot * 2)px apart against a \(metrics.monitorInkWidth)px"
             + " rig, so they overlap or leave a gap"))
 
+        var checked = 0
         for seat in 0..<layout.seatCapacity {
             let desk = layout.deskPosition(seat, metrics: metrics)
-            guard let rig = layout.monitorPosition(seat, metrics: metrics) else { continue }
-            #expect(rig.x == desk.x - slot)
-            // Both slots are wholly on the desk they stand on.
             let deskLeft = desk.x - metrics.deskInkWidth / 2
             let deskRight = desk.x + metrics.deskInkWidth / 2
-            #expect(rig.x - metrics.monitorInkWidth / 2 >= deskLeft)
-            #expect(desk.x + slot + metrics.monitorInkWidth / 2 <= deskRight)
+            var spans: [(Double, Double)] = []
+            for rigSlot in RoomLayout.PodRigSlot.allCases {
+                guard let rig = layout.monitorPosition(
+                    seat, slot: rigSlot, metrics: metrics) else { continue }
+                #expect(rig.x == desk.x + rigSlot.offsetSign * slot)
+                #expect(rig.y == layout.monitorPosition(
+                    seat, slot: .left, metrics: metrics)?.y,
+                    "the two rigs stand at one height or the desktop is not flat")
+                spans.append((rig.x - metrics.monitorInkWidth / 2,
+                              rig.x + metrics.monitorInkWidth / 2))
+            }
+            guard !spans.isEmpty else { continue }
+            checked += 1
+            // Two rigs, tiling the slab edge to edge with no gap and no overhang.
+            #expect(spans.count == 2, "an away-facing pod stands \(spans.count) rigs")
+            let sorted = spans.sorted { $0.0 < $1.0 }
+            #expect(sorted[0].0 == deskLeft, Comment(rawValue:
+                "the left rig starts \(sorted[0].0 - deskLeft)px inside the slab's edge"))
+            #expect(sorted[0].1 == sorted[1].0, Comment(rawValue:
+                "the two rigs leave a \(sorted[1].0 - sorted[0].1)px seam of bare desktop"
+                + " between them, which is the join that reads as two desks"))
+            #expect(sorted[1].1 == deskRight, Comment(rawValue:
+                "the right rig overhangs the slab's edge by \(sorted[1].1 - deskRight)px"))
         }
+        #expect(checked > 0, "no seat in the lattice stood a rig at all")
     }
 
     /// **Nothing standing on a camera-facing pod's desktop can cover a face**,
@@ -428,8 +462,12 @@ import SpriteRoomCore
                 let drawn = scene.furnitureForTesting(seat: seat)
                 for piece in drawn where rigStock.contains(piece.path) {
                     rigs += 1
-                    let point = try #require(scene.layout.monitorPosition(seat, metrics: metrics))
-                    #expect(piece.x == point.x && piece.y == point.y, "\(name) seat \(seat)")
+                    let points = RoomLayout.PodRigSlot.allCases.compactMap {
+                        scene.layout.monitorPosition(seat, slot: $0, metrics: metrics)
+                    }
+                    #expect(points.contains { $0.x == piece.x && $0.y == piece.y }, Comment(
+                        rawValue: "\(name) seat \(seat) drew \(piece.path) at"
+                        + " \(piece.x),\(piece.y); its rig slots are \(points)"))
                 }
                 // **Each object against the slot the layout puts it in**, at its
                 // own measured ink height — the whole point of the stock being
@@ -452,7 +490,9 @@ import SpriteRoomCore
                 .filter { scene.layout.seatFacing($0) == .awayFromCamera }.count
             let toward = scene.layout.seatCapacity - away
             let slots = RoomLayout.PodKitSlot.allCases.count
-            #expect(rigs == (metrics.isDeskPod ? away : 0), "\(name) drew \(rigs) rigs")
+            let rigSlots = RoomLayout.PodRigSlot.allCases.count
+            #expect(rigs == (metrics.isDeskPod ? away * rigSlots : 0),
+                    "\(name) drew \(rigs) rigs")
             #expect(kits == (metrics.isDeskPod ? toward * slots : 0),
                     "\(name) drew \(kits) desktop objects")
         }
@@ -683,5 +723,75 @@ import SpriteRoomCore
         #expect(!empty.values.flatMap { $0 }.isEmpty, "no seat drew any stock at all")
         #expect(first == empty, "an occupied desktop differs from an empty one")
         #expect(second == empty, "the desktop is a function of who is sitting at it")
+    }
+
+    /// **ADR-006's object stands in front of the right-hand rig, not in place of
+    /// it**, and both rigs are still on the desktop while it is there.
+    ///
+    /// This is the guard on the repair that was tried first and refused. Standing
+    /// the object in the right slot and hiding that slot's rig is the obvious
+    /// reading of "the right slot is ADR-006's", and it makes a *theme prop*
+    /// absent because an agent ran a tool — the thing ADR-002 §6 rule 1 and I1
+    /// forbid, and the thing
+    /// `theSameSeatDrawsTheSameStockWhoeverIsSittingInIt` next door catches from
+    /// the other side. This one catches it from this side, and it also pins the
+    /// two facts that make the object still legible: it is in the rig's column,
+    /// and it sorts in front of it.
+    @MainActor @Test(.enabled(if: SceneArt.isAvailable))
+    func aWorkKindObjectStandsInFrontOfItsSlotsRigAndNeverInPlaceOfIt() throws {
+        let manifest = try SceneFixtures.manifest()
+        let scene = RoomScene(manifest: manifest, themeID: "office")
+        scene.setViewport(CGSize(width: 720, height: 400))
+        let metrics = Self.metrics(manifest, theme: "office")
+        let rigStock = Set(manifest.room(theme: "office")
+            .prop(RoomScene.monitorRole)?.variants ?? [])
+
+        // Every away-facing seat filled, so the assertion is not about one seat.
+        var director = SceneDirector(manifest: manifest, themeID: "office")
+        let away = (0..<scene.layout.seatCapacity)
+            .filter { scene.layout.seatFacing($0) == .awayFromCamera }
+        #expect(!away.isEmpty, "the lattice turns no seat away from the camera")
+        let cast = (0..<scene.layout.seatCapacity).map {
+            AgentRef(project: "/p", session: "s",
+                     agent: .subagent(String(format: "a%015xf", $0)))
+        }
+        let start = Date(timeIntervalSince1970: 1)
+        scene.apply(director.apply(
+            cast.map { .agentAppeared(agent: $0, agentType: "Explore", lifecycle: .active) },
+            at: Date(timeIntervalSince1970: 0)))
+        scene.apply(director.apply(
+            cast.map {
+                .callOpened(agent: $0, call: OpenCall(
+                    toolUseID: ToolUseID("c\($0.description)"), toolName: "Bash",
+                    startedAt: start, deadline: start.addingTimeInterval(60)))
+            },
+            at: start))
+
+        var objectsSeen = 0
+        for (agent, object) in scene.deskObjectsForTesting() {
+            guard let seat = scene.seatOfForTesting(agent),
+                  scene.layout.seatFacing(seat) == .awayFromCamera else { continue }
+            objectsSeen += 1
+            let rigs = scene.furnitureForTesting(seat: seat).filter { rigStock.contains($0.path) }
+            // Both rigs, with the object standing there. This is the assertion.
+            #expect(rigs.count == RoomLayout.PodRigSlot.allCases.count, Comment(rawValue:
+                "seat \(seat) draws \(rigs.count) rigs while a work-kind object stands"
+                + " on it, against \(RoomLayout.PodRigSlot.allCases.count) at an empty"
+                + " seat — the object took a piece of theme furniture down with it"))
+            // In the right slot's column…
+            let slot = try #require(scene.layout.monitorPosition(
+                0 + seat, slot: .right, metrics: metrics))
+            #expect(object.x == slot.x, Comment(rawValue:
+                "seat \(seat) put its object at x=\(object.x); its right rig slot is"
+                + " \(slot.x)"))
+            // …and in front of the rig standing in it, or it is behind a screen.
+            let rig = try #require(rigs.first { $0.x == slot.x })
+            #expect(object.z > rig.z, Comment(rawValue:
+                "seat \(seat) sorts its object at z=\(object.z) against its own slot's"
+                + " rig at \(rig.z), so the rig paints over it"))
+        }
+        #expect(objectsSeen == away.count, Comment(rawValue:
+            "\(objectsSeen) of \(away.count) away-facing seats drew a work-kind object,"
+            + " so the assertion above ran on fewer seats than the room has"))
     }
 }

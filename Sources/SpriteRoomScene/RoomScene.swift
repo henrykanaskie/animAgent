@@ -110,6 +110,10 @@ public final class RoomScene: SKScene {
     /// the report walk is exactly when two characters share the frame.
     public var charactersOnScreen: [Character] { animated }
 
+    /// Which seat a live character holds, for tests that have to ask the scene
+    /// where it put somebody rather than re-deriving it from the director.
+    func seatOfForTesting(_ agent: AgentRef) -> Int? { seatOf[agent] }
+
     /// Diagnostics for the render harness. Read-only; nothing depends on it.
     public var debugRoster: [String] {
         characters.map { agent, character in
@@ -142,6 +146,12 @@ public final class RoomScene: SKScene {
     /// what that returns for a side-on seat. Kept as the name of the slot for
     /// the same reason the other three are constants. [ADR-008]
     nonisolated static let seatRole = "chair"
+    /// The back view of the same chair. **No seat draws it** — see
+    /// `RoomLayout.SeatFacing.seatRole`, which measures why — and the name is
+    /// kept because `seatMetrics` still reads the role's own `content_box`: the
+    /// height that does not fit is what the refusal is derived from, so it has to
+    /// come from the manifest rather than from a number written down here.
+    nonisolated static let backSeatRole = "chair_back"
     nonisolated static let backdropRole = "board"
     nonisolated static let accentRole = "plant"
 
@@ -175,8 +185,7 @@ public final class RoomScene: SKScene {
             deskInkHeight: Double(
                 desk?.contentBox.height ?? SceneBitmaps.placeholderDesk().height),
             chairInkHeight: Double(
-                store.room.prop(RoomLayout.SeatFacing.awayFromCamera.seatRole ?? "")?
-                    .contentBox.height ?? 0),
+                store.room.prop(Self.backSeatRole)?.contentBox.height ?? 0),
             costumeTopAboveFeet: Double(store.manifest.characters.costumes.inkTopAboveFeet),
             deskInkWidth: Double(
                 desk?.contentBox.width ?? SceneBitmaps.placeholderDesk().width),
@@ -569,16 +578,31 @@ public final class RoomScene: SKScene {
     /// layer.
     func podFurniture(seat: Int, metrics: RoomLayout.SeatMetrics) -> [PodPiece] {
         var pieces: [PodPiece] = []
-        if let point = layout.monitorPosition(seat, metrics: metrics),
-           let rig = store.room.prop(Self.monitorRole) {
+        if let rig = store.room.prop(Self.monitorRole) {
             // The rig's lift is the pod's own — a screen is *meant* to clear the
             // desk's back edge, by `monitorScreenClearance`, and it stands at a
             // facing with no face in front of it to cover.
             let lift = layout.deskTopLift(
                 surfaceHeightAboveFloor: metrics.deskInkHeight, metrics: metrics)
-            pieces.append(PodPiece(
-                role: Self.monitorRole, prop: variantProp(rig, seat), point: point,
-                depthBias: CGFloat(lift) + Self.deskObjectInFrontStep))
+            // **Both slots**, because the `monitor` role carries its own desk
+            // surface and one of them covers half a slab — see
+            // `RoomLayout.monitorPosition(_:slot:metrics:)` for the picture that
+            // produced and for what ADR-006 keeps. The two never overlap: 32 px of
+            // ink each on a 64 px slab, so the tie their equal bias leaves is
+            // between disjoint rectangles.
+            for slot in RoomLayout.PodRigSlot.allCases {
+                guard let point = layout.monitorPosition(
+                    seat, slot: slot, metrics: metrics) else { continue }
+                // **A different picture in each slot, keyed by slot and seat** —
+                // the same construction the kit uses, and `desk_pod`'s own
+                // `LIT_RIGS[(3v)%4]` beside `LIT_RIGS[(3v+1)%4]`. Two identical
+                // rigs side by side read as one sprite tiled, which is the thing
+                // a variant list exists to avoid.
+                pieces.append(PodPiece(
+                    role: Self.monitorRole, prop: variantProp(rig, seat + slot.rawValue),
+                    point: point,
+                    depthBias: CGFloat(lift) + Self.deskObjectInFrontStep))
+            }
         }
         if let kit = store.room.prop(Self.deskKitRole) {
             for slot in RoomLayout.PodKitSlot.drawOrder {
@@ -1196,11 +1220,13 @@ public final class RoomScene: SKScene {
         // A camera-facing seat never reaches this line.
         let nearEdge = layout.seatPosition(seat).x
             + Self.deskObjectNearEdgeX(manifest: store.manifest)
-        // **On a pod it stands in the other rig slot instead.** [ADR-009] The pod
-        // has two 32 px slots on a 64 px slab; the theme's screen rig takes the
-        // left one and this takes the right, so the desktop carries one prop that
-        // says *this is a workstation* and one that says *this is the work*,
-        // rather than two competing for one column.
+        // **On a pod it stands in the right-hand rig slot instead** — on that
+        // rig's own desktop, one depth step in front of it. [ADR-009] Both slots
+        // carry a rig as theme furniture, because the `monitor` role is a whole
+        // workstation and one of them covers half the slab
+        // [`RoomLayout.monitorPosition(_:slot:metrics:)`], so the desktop says
+        // *this is a workstation* whoever is sitting at it and this object says
+        // *this is the work* on top of it.
         //
         // **The near-edge rule is not weakened, it is inapplicable here.** ADR-006
         // §2c pushes the object clear of the body so it cannot cover a head pixel
@@ -1219,9 +1245,20 @@ public final class RoomScene: SKScene {
         node.anchorPoint = art.anchor
         node.size = art.size
         node.position = CGPoint(x: objectX, y: surface.y)
+        // **In front of the rig it shares a slot with, and the rig's own lift has
+        // to be in the bias to get there.** `podFurniture` gives each rig
+        // `lift + deskObjectInFrontStep`, for the reason that function's own
+        // comment records: a prop standing `lift` px above its desk's floor point
+        // sorts `lift` px *behind* the desk unless the lift is added back. This
+        // takes the same lift and one more step, so it lands one notch in front of
+        // the rig and stays behind everything the rig was already behind.
         node.zPosition = Character.Layer.rowDepth(deskPoint.y)
             + (facing == .sideOn ? surfaceDepthBias(for: desk) : 0)
-            + Self.deskObjectInFrontStep
+            + (metrics.isDeskPod
+               ? CGFloat(layout.deskTopLift(surfaceHeightAboveFloor: surfaceHeight,
+                                            metrics: metrics))
+                 + Self.deskObjectInFrontStep * 2
+               : Self.deskObjectInFrontStep)
         node.isHidden = false
         deskObjectPaths[agent] = art.path
     }
