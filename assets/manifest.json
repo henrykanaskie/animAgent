@@ -5780,18 +5780,18 @@
         {
           "name": "walkway",
           "surface": "concrete",
-          "x": -8,
+          "x": 2,
           "y": -6,
-          "w": 42,
+          "w": 21,
           "h": 8,
           "band": false
         },
         {
           "name": "open plan",
           "surface": "slab",
-          "x": -8,
+          "x": 2,
           "y": 2,
-          "w": 42,
+          "w": 21,
           "h": 7,
           "doorways": [
             3,
@@ -5802,36 +5802,36 @@
         {
           "name": "store",
           "surface": "plank",
-          "x": -8,
+          "x": 2,
           "y": 9,
-          "w": 13,
+          "w": 8,
           "h": 3
         },
         {
           "name": "meeting",
           "surface": "carpet",
-          "x": 5,
+          "x": 10,
           "y": 9,
-          "w": 12,
+          "w": 6,
           "h": 3
         },
         {
           "name": "galley",
           "surface": "lino",
-          "x": 17,
+          "x": 16,
           "y": 9,
-          "w": 17,
+          "w": 7,
           "h": 3
         }
       ],
       "partitions": [
         {
-          "x": 5,
+          "x": 10,
           "y": 9,
           "h": 3
         },
         {
-          "x": 17,
+          "x": 16,
           "y": 9,
           "h": 3
         }
@@ -5839,26 +5839,26 @@
       "dressing": [
         {
           "scenery": 13,
-          "x": 50,
-          "y": 190,
+          "x": 256,
+          "y": 176,
           "what": "printer with a sheet"
         },
         {
           "scenery": 10,
-          "x": 34,
-          "y": 150,
+          "x": 160,
+          "y": 186,
           "what": "two-drawer filing cabinet"
         },
         {
           "scenery": 16,
-          "x": 62,
-          "y": 112,
+          "x": 352,
+          "y": 180,
           "what": "PC tower"
         },
         {
           "scenery": 15,
-          "x": 40,
-          "y": 78,
+          "x": 448,
+          "y": 184,
           "what": "waste bin"
         },
         {
@@ -5953,26 +5953,26 @@
         },
         {
           "scenery": 11,
-          "x": 744,
-          "y": 192,
+          "x": 720,
+          "y": 176,
           "what": "office printer"
         },
         {
           "scenery": 14,
-          "x": 756,
-          "y": 146,
+          "x": 640,
+          "y": 186,
           "what": "wooden two-drawer cabinet"
         },
         {
           "role": "plant",
-          "x": 734,
-          "y": 100,
+          "x": 544,
+          "y": 178,
           "what": "small potted plant"
         },
         {
           "scenery": 18,
-          "x": 762,
-          "y": 76,
+          "x": 160,
+          "y": 214,
           "what": "waste bin, full"
         },
         {
@@ -5989,13 +5989,13 @@
         },
         {
           "role": "board",
-          "x": 712,
+          "x": 688,
           "y": 224,
           "what": "presentation board"
         },
         {
           "scenery": 0,
-          "x": 64,
+          "x": 88,
           "y": 238,
           "what": "whiteboard with sticky notes"
         },
@@ -8149,18 +8149,18 @@
             {
               "name": "walkway",
               "surface": "concrete",
-              "x": -8,
+              "x": 2,
               "y": -6,
-              "w": 42,
+              "w": 21,
               "h": 8,
               "band": false
             },
             {
               "name": "open plan",
               "surface": "slab",
-              "x": -8,
+              "x": 2,
               "y": 2,
-              "w": 42,
+              "w": 21,
               "h": 7,
               "doorways": [
                 3,
@@ -8171,36 +8171,36 @@
             {
               "name": "store",
               "surface": "plank",
-              "x": -8,
+              "x": 2,
               "y": 9,
-              "w": 13,
+              "w": 8,
               "h": 3
             },
             {
               "name": "meeting",
               "surface": "carpet",
-              "x": 5,
+              "x": 10,
               "y": 9,
-              "w": 12,
+              "w": 6,
               "h": 3
             },
             {
               "name": "galley",
               "surface": "lino",
-              "x": 17,
+              "x": 16,
               "y": 9,
-              "w": 17,
+              "w": 7,
               "h": 3
             }
           ],
           "partitions": [
             {
-              "x": 5,
+              "x": 10,
               "y": 9,
               "h": 3
             },
             {
-              "x": 17,
+              "x": 16,
               "y": 9,
               "h": 3
             }
@@ -8208,26 +8208,26 @@
           "dressing": [
             {
               "scenery": 13,
-              "x": 50,
-              "y": 190,
+              "x": 256,
+              "y": 176,
               "what": "printer with a sheet"
             },
             {
               "scenery": 10,
-              "x": 34,
-              "y": 150,
+              "x": 160,
+              "y": 186,
               "what": "two-drawer filing cabinet"
             },
             {
               "scenery": 16,
-              "x": 62,
-              "y": 112,
+              "x": 352,
+              "y": 180,
               "what": "PC tower"
             },
             {
               "scenery": 15,
-              "x": 40,
-              "y": 78,
+              "x": 448,
+              "y": 184,
               "what": "waste bin"
             },
             {
@@ -8322,26 +8322,26 @@
             },
             {
               "scenery": 11,
-              "x": 744,
-              "y": 192,
+              "x": 720,
+              "y": 176,
               "what": "office printer"
             },
             {
               "scenery": 14,
-              "x": 756,
-              "y": 146,
+              "x": 640,
+              "y": 186,
               "what": "wooden two-drawer cabinet"
             },
             {
               "role": "plant",
-              "x": 734,
-              "y": 100,
+              "x": 544,
+              "y": 178,
               "what": "small potted plant"
             },
             {
               "scenery": 18,
-              "x": 762,
-              "y": 76,
+              "x": 160,
+              "y": 214,
               "what": "waste bin, full"
             },
             {
@@ -8358,13 +8358,13 @@
             },
             {
               "role": "board",
-              "x": 712,
+              "x": 688,
               "y": 224,
               "what": "presentation board"
             },
             {
               "scenery": 0,
-              "x": 64,
+              "x": 88,
               "y": 238,
               "what": "whiteboard with sticky notes"
             },

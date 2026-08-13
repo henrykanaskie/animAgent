@@ -234,17 +234,17 @@ ROOM_PLAN = {
         # rule that replaced M5's foreground row is untouched — a floor is what
         # objects stand on, not an object. [ADR-007 §4, ADR-002 §1]
         {"name": "walkway", "surface": "concrete",
-         "x": -8, "y": -6, "w": 42, "h": 8, "band": False},
+         "x": 2, "y": -6, "w": 21, "h": 8, "band": False},
         # (`concrete` is the grey micro-tile and `slab` the pale one. The
         # walkway takes the darker of the two so the work floor behind it is the
         # lighter field the cast is read against — I7's "characters own the
         # darkest values" is easier to hold over a pale floor than a grey one.)
         {"name": "open plan", "surface": "slab",
-         "x": -8, "y": 2, "w": 42, "h": 7,
+         "x": 2, "y": 2, "w": 21, "h": 7,
          "doorways": [3, 12, 21]},
-        {"name": "store", "surface": "plank", "x": -8, "y": 9, "w": 13, "h": 3},
-        {"name": "meeting", "surface": "carpet", "x": 5, "y": 9, "w": 12, "h": 3},
-        {"name": "galley", "surface": "lino", "x": 17, "y": 9, "w": 17, "h": 3},
+        {"name": "store", "surface": "plank", "x": 2, "y": 9, "w": 8, "h": 3},
+        {"name": "meeting", "surface": "carpet", "x": 10, "y": 9, "w": 6, "h": 3},
+        {"name": "galley", "surface": "lino", "x": 16, "y": 9, "w": 7, "h": 3},
     ],
     # **Tiles 5 and 17, because those are the two boundaries no prop stands on.**
     # The `wall_line` scenery stands on the back strip's floor at x=64, 256 and
@@ -254,8 +254,8 @@ ROOM_PLAN = {
     # 160 and 544 are the midpoints of those gaps: 96 px from the nearest anchor
     # against props no wider than 56.
     "partitions": [
-        {"x": 5, "y": 9, "h": 3},
-        {"x": 17, "y": 9, "h": 3},
+        {"x": 10, "y": 9, "h": 3},
+        {"x": 16, "y": 9, "h": 3},
     ],
 }
 
@@ -294,10 +294,10 @@ ROOM_PLAN = {
 #     used exactly once each looks like a catalogue.
 ROOM_DRESSING = [
     # The left edge: the five-piece stack.
-    {"scenery": 13, "x": 50, "y": 190, "what": "printer with a sheet"},
-    {"scenery": 10, "x": 34, "y": 150, "what": "two-drawer filing cabinet"},
-    {"scenery": 16, "x": 62, "y": 112, "what": "PC tower"},
-    {"scenery": 15, "x": 40, "y": 78, "what": "waste bin"},
+    {"scenery": 13, "x": 256, "y": 176, "what": "printer with a sheet"},
+    {"scenery": 10, "x": 160, "y": 186, "what": "two-drawer filing cabinet"},
+    {"scenery": 16, "x": 352, "y": 180, "what": "PC tower"},
+    {"scenery": 15, "x": 448, "y": 184, "what": "waste bin"},
     # Lane 1 (x 128..192, between seats at 112 and 208).
     {"role": "plant", "x": 158, "y": 196, "what": "small potted plant"},
     {"scenery": 16, "x": 170, "y": 124, "what": "PC tower"},
@@ -321,19 +321,19 @@ ROOM_DRESSING = [
     {"role": "plant", "x": 634, "y": 198, "what": "small potted plant"},
     {"scenery": 17, "x": 648, "y": 100, "what": "backpack on the floor"},
     # The right edge: the second stack, mirroring the first without matching it.
-    {"scenery": 11, "x": 744, "y": 192, "what": "office printer"},
-    {"scenery": 14, "x": 756, "y": 146, "what": "wooden two-drawer cabinet"},
-    {"role": "plant", "x": 734, "y": 100, "what": "small potted plant"},
-    {"scenery": 18, "x": 762, "y": 76, "what": "waste bin, full"},
+    {"scenery": 11, "x": 720, "y": 176, "what": "office printer"},
+    {"scenery": 14, "x": 640, "y": 186, "what": "wooden two-drawer cabinet"},
+    {"role": "plant", "x": 544, "y": 178, "what": "small potted plant"},
+    {"scenery": 18, "x": 160, "y": 214, "what": "waste bin, full"},
     # Standing on the wall line: the three boards. They are 60 px wide and 46
     # tall, so they are what the upstage half of the room reads as, and the
     # pictures below are hung in the gaps they leave.
     {"role": "board", "x": 176, "y": 224, "what": "presentation board"},
     {"role": "board", "x": 456, "y": 224, "what": "presentation board"},
-    {"role": "board", "x": 712, "y": 224, "what": "presentation board"},
+    {"role": "board", "x": 688, "y": 224, "what": "presentation board"},
     # Hung on the near wall's 50 px of face. Nothing here is on the floor, so
     # the seat columns do not bind and the spacing is the picture's own.
-    {"scenery": 0, "x": 64, "y": 238, "what": "whiteboard with sticky notes"},
+    {"scenery": 0, "x": 88, "y": 238, "what": "whiteboard with sticky notes"},
     {"scenery": 1, "x": 286, "y": 240, "what": "blue planning board"},
     {"scenery": 4, "x": 348, "y": 254, "what": "wall clock"},
     {"scenery": 2, "x": 382, "y": 236, "what": "framed certificate with a medal"},
