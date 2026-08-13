@@ -191,12 +191,19 @@ struct BadgeSlotTests {
         #expect(Int(bubble.width) == manifest.badges.canvas.width)
         #expect(Int(bubble.height) == manifest.badges.canvas.height)
 
+        // **Dormancy is a bubble, and the corner is what this test is for.**
+        // It also asserted the dormancy picture stayed under a quarter of the
+        // bubble's area, which pinned the authored 9x11 tab — reverted, because
+        // at 1x that tab read as a black text box in a slot where every other
+        // badge is pack art. The size claim went with it; the *anchor* claim did
+        // not, and it is the one that catches a picture drifting off the head.
         character.apply(badge: BadgeSelection.select(openToolNames: [String](), isDormant: true))
-        let tab = character.badgeRect
-        #expect(tab.maxY == bubble.maxY, "the tab fell off the head line")
-        #expect(tab.minX == bubble.minX, "the tab drifted away from the head")
-        #expect(tab.width * tab.height * 4 < bubble.width * bubble.height,
-                "the tab is bubble-sized again")
+        let sleeping = character.badgeRect
+        #expect(sleeping.maxY == bubble.maxY, "the sleep badge fell off the head line")
+        #expect(sleeping.minX == bubble.minX, "the sleep badge drifted away from the head")
+        #expect(Int(sleeping.width) == manifest.badges.canvas.width,
+                "the sleep badge is not drawn on the badge canvas")
+        #expect(Int(sleeping.height) == manifest.badges.canvas.height)
 
         // Back to a bubble, at the bubble's own size and in the bubble's own
         // place — the tab resized the node, and a slot anchored at its top means

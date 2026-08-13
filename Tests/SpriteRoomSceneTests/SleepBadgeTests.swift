@@ -291,8 +291,8 @@ struct SleepBadgeTests {
     /// it, and clearing the attention gives it back.
     ///
     /// **What dormancy draws is no longer the pack's bubble.** It is
-    /// `SceneBitmaps.dormancyTab` — see that symbol for the measurement, and
-    /// `theDormancyTabIsNotABubble` below for the property. The precedence this
+    /// an authored 9x11 dark tab, since removed — see `Character`'s badge layer for
+    /// the reversal. The precedence this
     /// test was written for is untouched: attention still takes the slot and
     /// still gives it back.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -303,14 +303,19 @@ struct SleepBadgeTests {
         let variant = try #require(manifest.characters.orderedVariantIDs.first)
         let character = Character(
             variant: variant, nameplate: NameplateText(lead: "8DE", role: "Explore"), store: store)
-        let tab = SceneBitmaps.dormancyTab()
-
+        // **Dormancy is the pack's own bubble again.** This asserted the
+        // opposite — that the slot held the authored 9x11 dark tab and
+        // explicitly *not* `sleepTexture()` — which pinned a decision the
+        // maintainer reversed on sight: at 1x the tab reads as a black text
+        // box, in the room's lettering family, where every other badge is art.
+        // The distinction the tab bought is carried by hue instead: attention
+        // is a red exclamation, sleep a blue `Z`, on identical bubbles.
         character.apply(badge: BadgeSelection.select(openToolNames: [String](), isDormant: true))
         #expect(character.isBadgeVisible)
         let drawn = try #require(character.badgeTextureForTesting)
-        #expect(drawn !== store.sleepTexture(), "dormancy is back in the bubble")
-        #expect(Int(drawn.size().width) == tab.width)
-        #expect(Int(drawn.size().height) == tab.height)
+        #expect(drawn === store.sleepTexture(), "dormancy is not drawing the pack's sleep art")
+        #expect(Int(drawn.size().width) == manifest.badges.canvas.width)
+        #expect(Int(drawn.size().height) == manifest.badges.canvas.height)
         #expect(!character.isBadgeCountVisible)
 
         character.apply(badge: BadgeSelection.select(
@@ -332,30 +337,4 @@ struct SleepBadgeTests {
         #expect(!character.isBadgeVisible)
     }
 
-    /// **The one that had to be true and was not.**
-    ///
-    /// At `1x` the badge slot's *presence* is the loudest thing in the room, and
-    /// the pack's `sleep` glyph put a bubble there for an agent that had stopped
-    /// — 84% of a working badge's footprint, in a silhouette that is a strict
-    /// subset of every tool bubble. Six bubbles read as six busy agents when all
-    /// six were `Z`. This pins the fix as a size relation rather than as "the
-    /// texture changed", because the texture changing is not what fixed it.
-    ///
-    /// A quarter is not a threshold anybody tuned to pass: the tab measures 99
-    /// px against a bubble's 816, which is 12%, and `dim` — the same bubble at
-    /// `alpha 0.3`, the alternative that was tried — measures 100% here, because
-    /// alpha does not change extent. That is the whole reason it lost.
-    @Test func theDormancyTabIsNotABubble() throws {
-        let manifest = try SceneFixtures.manifest()
-        let tab = SceneBitmaps.dormancyTab()
-        let canvas = manifest.badges.canvas
-        #expect(tab.width * tab.height * 4 < canvas.width * canvas.height,
-                "the dormancy tab is bubble-sized again")
-        // Dark, not white: the bubbles are the bright family and the room's own
-        // lettering is the dark one. The tab belongs to the lettering. [I7]
-        #expect(tab.at(0, 0) == SceneBitmaps.nameplatePlate)
-        // It is drawn, not loaded, so it exists on a checkout with no art — the
-        // reason this test needs no `SceneArt` gate while the one above does.
-        #expect(tab.opaquePixelCount == tab.width * tab.height)
-    }
 }

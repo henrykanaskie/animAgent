@@ -366,39 +366,6 @@ public enum SceneBitmaps {
     ///
     /// # What this draws instead, and why this shape
     ///
-    /// The `×N` chip's construction, one glyph wide: the plate colour, the room's
-    /// own font, 1 px of air. **9x11 px — 15-19% of a working badge's slot
-    /// footprint**, against `dim`'s 72% (the same bubble at `alpha 0.3`, tested
-    /// and rejected). Extent is what "there is a bubble over that head" is read
-    /// from at a glance; value is what it is read from once you have already
-    /// looked. Dimming fixes the second and leaves the first, which is why the
-    /// tab is small rather than faint.
-    ///
-    /// It also lands in a **different family**. Every white bubble in this room
-    /// is pack art about a tool call; every dark plate is the room's own
-    /// lettering about identity. A dormancy tab is a statement about the
-    /// character, not about a call, so it belongs to the lettering. Nobody has to
-    /// resolve 9 px of `Z` for that to work — telling a dark tab from a white
-    /// bubble is a value-and-size judgement, which is what survives `1x`. [I7]
-    ///
-    /// **It occupies the one badge anchor, not a new one.** The manifest carries
-    /// exactly one, and this project has twice refused a second position as "an
-    /// eyeballed offset dressed as data". A smaller picture in the same
-    /// bottom-centre anchor is not a second anchor.
-    ///
-    /// **What it gives up.** The pack's `sleep` art is no longer drawn — it stays
-    /// declared in `badges.states.sleep`, and `TextureStore.sleepTexture()` stays
-    /// with it, because the fact it illustrates is unchanged and the manifest is
-    /// where that is recorded. Losing it costs a `Z` nobody could read at `1x`
-    /// and buys the distinction the room exists to make.
-    public static func dormancyTab(font: PixelFont = .standard) -> Bitmap {
-        let width = font.width(of: dormancyLabel) + 4
-        let height = font.glyphHeight + 4
-        var bitmap = Bitmap(width: width, height: height)
-        bitmap.fill(x: 0, y: 0, w: width, h: height, nameplatePlate)
-        font.draw(dormancyLabel, into: &bitmap, x: 2, y: 2, colour: nameplateInk)
-        return bitmap
-    }
 
     /// The `×N` that rides beside the badge when several calls are open.
     public static func badgeCount(_ count: Int, font: PixelFont = .standard) -> Bitmap {

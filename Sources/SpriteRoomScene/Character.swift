@@ -392,7 +392,7 @@ public final class Character: SKNode {
     /// **Two pictures, and the split is the point.** A white speech bubble in
     /// this slot means a tool call — open, just closed inside an ADR-003 beat, or
     /// parked at a gate waiting on you. Nothing else puts one there. Dormancy
-    /// gets `SceneBitmaps.dormancyTab` instead, which is small, dark and shaped
+    /// gets `badges.states.sleep` — the pack's blue `Z` bubble, distinguished from
     /// like the room's lettering rather than like a bubble; that file carries the
     /// measurement that made it necessary. So at `1x` the question "is this agent
     /// working right now" is answered by *whether there is a bubble*, which is
@@ -432,22 +432,46 @@ public final class Character: SKNode {
         // that is not about a tool call, and while it was drawn from the pack's
         // speech bubble it was 84% of a working badge's footprint in the same
         // shape family — so at `1x` the room's loudest signal fired for
-        // *finished* exactly as it fired for *working*. `SceneBitmaps.dormancyTab`
+        // *finished* exactly as it fired for *working*. The sleep bubble
         // carries the measurement and the argument. The tab goes in the same
         // slot, at the tab's own size rather than the badge canvas's, and
         // `placeBadgePicture` is what keeps 9x11 and 24x34 in the same corner of
         // it — the corner beside the head. **The distinction is still extent and
         // not brightness**: the tab covers 99 px of a slot the bubble fills with
         // 816, and moving the slot changed neither number.
+        // **The pack's own sleep bubble, not the authored tab.**
+        //
+        // The tab was 9x11 of dark plate carrying a `Z`, chosen so dormancy took
+        // 15-19% of the slot a working badge fills — the argument being that
+        // *extent* is what "there is a bubble over that head" is read from at a
+        // glance, and that a 9 px `Z` nobody can resolve at 1x is a fair price
+        // for that distinction.
+        //
+        // The maintainer looked at the shipped room and read it as **a black
+        // text box**, which is what it is: the room's lettering family, the same
+        // dark plate a nameplate is drawn from, sitting where every other badge
+        // is pack art. The distinction it bought is real and it is not lost by
+        // reverting, because it was never the only one available —
+        // `badges.states.attention` is a **red** exclamation and
+        // `badges.states.sleep` a **blue** `Z`, on identical bubbles. Hue
+        // separates alarm from status at 1x at least as well as size does, and
+        // unlike a 9 px glyph it does not depend on resolving a letter.
+        //
+        // What this gives up, stated: a dormant character's badge is now the
+        // same size as a working one, so "someone has a bubble" no longer means
+        // "someone is doing something". Priority is unchanged — attention still
+        // wins over sleep, and sleep over a tool badge — so the one badge a
+        // glance can act on is still the one that shows.
         if selection.isSleeping {
             badgeCountNode.isHidden = true
-            let bitmap = SceneBitmaps.dormancyTab()
-            guard let tab = store.texture(bitmap: bitmap, key: "dormancy") else {
+            guard let bubble = store.sleepTexture() else {
                 badgeNode.isHidden = true
                 return
             }
-            badgeNode.texture = tab
-            placeBadgePicture(width: Double(bitmap.width), height: Double(bitmap.height))
+            badgeNode.texture = bubble
+            placeBadgePicture(
+                width: Double(store.manifest.badges.canvas.width),
+                height: Double(store.manifest.badges.canvas.height))
             badgeNode.isHidden = false
             return
         }
