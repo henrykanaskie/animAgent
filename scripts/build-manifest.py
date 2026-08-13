@@ -843,6 +843,94 @@ def build_plan(builder_tiles, dressing=None):
     }
 
 
+# **A single-surface wall band for the five themes that compose their own
+# dressing.** [M8 face-the-camera]
+#
+# `office`'s `ROOM_PLAN` carves five rooms out of its floor because its own
+# builder sheet ships five floor materials that agree with one wall. These
+# five themes ship one — their own `floor`, cut once, same as it always was
+# — so they get one banded space instead of five, and the shape is office's
+# own with the interior partitions and its three back-room surfaces dropped
+# to a single un-dressed one.
+#
+# **Why a second, un-dressed space at all, when a theme's own composed room
+# already ends at the wall line.** `RoomPlan.topRow()` is what
+# `RoomScene.decorationTopY` measures to aim the camera, and it is a function
+# of a space's own `y + h` alone — not of what the space is used for. A
+# single space whose band sits exactly on the existing wall line (matching
+# `RoomLayout.wallBaseY`, which is where every one of these five themes
+# already hangs its dressing) raises `topRow()` no further than the dressing
+# already does, because `decorationTopY` already counts every dressing
+# placement's own top [`RoomScene.decorationTopY`, the `dressingPlacements`
+# loop]. Office's own back rooms are what buy it 384 over the ~290-306 these
+# five themes measure with no plan at all: a second wall face, further
+# upstage, with nothing hung on it. `back` is that second face — the same
+# surface repeated, since these five themes have no second material to spend
+# on it — and it is un-dressed on purpose: the composed placements in
+# `LIBRARY_DRESSING` and its four siblings all assume the wall stands where
+# it already visually does, at `wallBaseY`, and moving that face would leave
+# every wall hang floating over open floor instead of mounted on one.
+WALL_BAND_SPACES = [
+    {"name": "walkway", "x": 2, "y": -6, "w": 21, "h": 8, "band": False},
+    {"name": "open plan", "x": 2, "y": 2, "w": 21, "h": 7, "doorways": [3, 12, 21]},
+    {"name": "back", "x": 2, "y": 9, "w": 21, "h": 3},
+]
+WALL_BAND_PARTITIONS = [
+    {"x": 2, "y": -6, "h": 18},
+    {"x": 23, "y": -6, "h": 18},
+]
+
+
+def build_wall_band_plan(name, builder_tiles, dressing):
+    """A one-surface wall band for a theme with no combined builder sheet.
+
+    `build_plan` reads `PLAN_SURFACES`, five names keyed to the office room's
+    combined `Room_Builder_Office_32x32.png` — a different sheet and a
+    different coordinate space from the one `scripts/process-assets.py` cuts
+    a themed `floor`/`wall` from. This is that same idea over the sheet the
+    themes actually bind: one surface, named for the theme, built from its
+    already-declared `floor` and the `plan_cap`/`plan_body` pair
+    `scripts/process-assets.py`'s `THEME_PLAN_WALLS` cuts for it.
+
+    `None` for a theme whose sheet has no `floor`, `plan_cap` or `plan_body`
+    — every theme not in `THEME_PLAN_WALLS`, and not a defect: that table
+    only names a theme once somebody looked at the cap's tone against its
+    existing wall and floor and judged it a match. A theme absent from it,
+    or whose cap fails `plan_line_inks`, keeps composing its dressing on the
+    open floor exactly as it always has. [ADR-007 §6]
+    """
+    have = {os.path.basename(t): t for t in builder_tiles}
+    if "floor.png" not in have or "plan_cap.png" not in have or "plan_body.png" not in have:
+        return None
+    inks = plan_line_inks(os.path.join(REPO, have["plan_cap.png"]))
+    if inks is None:
+        return None
+    surfaces = {
+        name: {
+            "floor": have["floor.png"], "cap": have["plan_cap.png"],
+            "body": have["plan_body.png"],
+            "line_edge": inks[0], "line_fill": inks[1],
+        },
+    }
+    spaces = [dict(s, surface=name) for s in WALL_BAND_SPACES]
+    return {
+        "note": "An authored floor plan [ADR-007], one surface [M8 "
+                "face-the-camera]. Same shape as office's own ROOM_PLAN with the "
+                "interior partitions and its three back-room surfaces dropped to "
+                "one: this theme's sheet carries a single floor/cap/body set "
+                "rather than five that agree. `back` is undressed and un-doored "
+                "on purpose — it exists only to give RoomPlan.topRow() a second "
+                "wall face, upstage of the one this theme's own dressing is hung "
+                "on, which is what closes the empty floor below the seat row the "
+                "same way office's own back rooms do. RoomPlan.routeViolations(in:) "
+                "is the assertion that it still stands in nobody's way.",
+        "surfaces": surfaces,
+        "spaces": spaces,
+        "partitions": [dict(p) for p in WALL_BAND_PARTITIONS],
+        "dressing": [dict(d) for d in (dressing or [])],
+    }
+
+
 def rel(p):
     return os.path.relpath(p, REPO).replace(os.sep, "/")
 
@@ -1774,6 +1862,15 @@ def build_themes():
         if not roles:
             continue
         plan = build_plan(tiles, ROOM_DRESSING if name == "office" else None)
+        # **`library`, `stage`, `briefing`, `broadcast` and `mission_control`
+        # get a one-surface wall band when their sheet has a cap and body that
+        # suit them** [M8 face-the-camera] — `THEME_PLAN_WALLS` in
+        # `scripts/process-assets.py` is what says a theme suits one; this is
+        # just where the pick is turned into a plan. `build_wall_band_plan`
+        # returns `None` for a theme absent from that table, or whose cut cap
+        # fails `plan_line_inks`, and the fallback below is unchanged for it.
+        if plan is None and name in DRESSING_ONLY_PLANS:
+            plan = build_wall_band_plan(name, tiles, DRESSING_ONLY_PLANS[name])
         # `library` and `stage` have no builder sheet `build_plan` can draw a
         # floor plan from, but they still compose their own dressing by hand
         # [RoomPlan.Dressing, commit 29844e6]: a `plan` holding only

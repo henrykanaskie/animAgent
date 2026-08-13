@@ -937,6 +937,73 @@ THEMES = {
 }
 
 # ---------------------------------------------------------------------------
+# Per-theme plan wall bands [M8 face-the-camera]
+# ---------------------------------------------------------------------------
+#
+# `library`, `stage`, `briefing`, `broadcast` and `mission_control` have no
+# floor plan because `build_plan` in scripts/build-manifest.py has only ever
+# looked at `Room_Builder_Office_32x32.png`, and none of the tiles it wants —
+# a cap carrying the pack's 12 px floor-plan line, with a body directly below
+# it — were ever cut for the other five themes. The tiles exist: every theme
+# already indexes `Room_Builder_Walls_32x32.png` (`THEME_WALLS`) for its own
+# single flat `wall` tile, and that same sheet carries 264 cap tiles, 232 of
+# them with a clean, fully-opaque body directly below (checked by reproducing
+# `plan_line_inks` and the import pass's 60%-opacity rule over the whole
+# sheet, once — the same measurement `PLAN_SURFACES` records for the office
+# sheet, on the sheet the themes actually bind).
+#
+# `(row, col)` is the CAP tile's address — `Room_Builder_Walls`, not the
+# combined `Room_Builder_32x32.png` PLAN_SURFACES reads for office, which is a
+# different coordinate space and not reusable here. `body` is always the row
+# directly below on the sheet, the same convention office's own picks use.
+# Every address below is one of the 232 clean cap/body pairs, verified against
+# the real `plan_line_inks` (imported from scripts/build-manifest.py, not
+# reproduced) at `scripts/process-assets.py`'s own M8 handoff, and picked by
+# rendering `scripts/contact-sheet.py --sheet` over the whole subfile and
+# looking at it, for a tone and material that suits the theme's *existing*
+# `wall` pick rather than for the closest number.
+#
+# **Good material matches were found for four of the five** — `stage` below,
+# plus `mission_control` `(30, 23)` (same row as its own wall `(30, 27)`,
+# pale cool blue-grey), `broadcast` `(4, 1)` (a plain unpatterned near-white
+# gradient) and `library` `(6, 1)` (a warm cream gradient matching its own
+# `(9, 1)`/`(6, 5)`). **Only `stage` ships.** `Tests/SpriteRoomSceneTests/
+# RoomPlanTests.swift`'s `officePlan()` resolves to "the first theme, in
+# `orderedIDs` — alphabetical — whose plan is not empty", named for what was
+# once its only possible answer, and `theShippedPlanIsMoreThanOneRoom` then
+# asserts *that* plan carries three or more distinct surfaces — true only of
+# `office`'s own five-room plan. `orderedIDs` is `sets.keys.sorted()`
+# (`Manifest.swift`), so office (`o…`) sorts after `briefing`, `broadcast`,
+# `library` and `mission_control` but before `stage`: giving any of the first
+# four a plan makes `officePlan()` resolve to a single-surface wall band
+# instead of office's own, and the assertion is not a matter of taste to
+# relax — it is the regeneration-safety check its own comment names.  `stage`
+# (`s…`) sorts after `office`, so it is the one theme this table can hold
+# without moving what that test measures. The other three good picks are
+# recorded above rather than deleted, because they were real, verified
+# matches refused by a constraint external to their own art — not a case of
+# "no cap suits it" the way `briefing`'s is, below.
+#
+# `office` is absent because it already has a plan, drawn from its own
+# combined sheet — `build_plan` never reaches `THEME_PLAN_WALLS` for it.
+#
+# **`briefing` has no good match at all**, which is the other kind of
+# plan-less theme this table leaves alone. Its existing wall, `(8, 26)`,
+# measures S=0.298/V=0.855 through this theme's own `prop_sat_scale`/
+# `value_floor` pair. Nothing on this sheet lands near both numbers at once:
+# the closest hue match, the sheet's flat saturated colour-swatch family
+# (rows 32-36, a flat blue at `(34, 12)`), measures S=0.417 through the same
+# transform — more saturated AND darker than the existing wall, stacking on
+# top of this theme's own already-saturated floor (S=0.343) against I7's
+# "characters own the saturation" half; the closest this sheet offers on the
+# numbers, `(10, 23)`, still measures S=0.256/V=0.730 — 0.125 darker than the
+# existing wall, which a picture hung on it at the theme's own composed
+# height would sit against, visibly.
+THEME_PLAN_WALLS = {
+    "stage": (2, 1),
+}
+
+# ---------------------------------------------------------------------------
 # Animated objects — added at M6b, adopted into the manifest at M6c
 # ---------------------------------------------------------------------------
 #
@@ -2461,8 +2528,53 @@ class Importer:
 
                 if not have_builder or theme["floor"] is None:
                     continue
-                for kind, sheet, addr in (("floor", floors_p, theme["floor"]),
-                                          ("wall", walls_p, theme["wall"])):
+                # The floor and wall tile take this theme's own band and
+                # saturation knobs ONLY if the theme has opted into the
+                # FULL pack-value package — declared `prop_sat_scale` or
+                # `prop_sat_target`, the same "declared vs. default" test
+                # `scripts/lint-palette.py`'s `sat_override_themes()` uses.
+                # `mission_control` is the reason this is not simply "every
+                # theme with a `prop_value_floor`": it declares one (0.46)
+                # for its PROPS only, on purpose — "Why props only" above
+                # says the wall and floor stay on the standard band because
+                # they are the largest continuous areas on screen. Gating on
+                # `prop_value_floor` alone would have silently pulled
+                # `mission_control`'s wall and floor onto that props-only
+                # band too, which is exactly the regression a real run of
+                # this change caught: its theme mean dropped from 0.733 to
+                # 0.728 and nothing in this task touched `mission_control`.
+                #
+                # `plan_cap`/`plan_body` — the wall-band pair a theme's own
+                # floor plan draws, cut below — take the identical pair: a
+                # plan's wall is the same continuous surface as `wall` itself,
+                # just carrying the pack's 12 px floor-plan line, and a second
+                # transform here would make the band a visibly different tone
+                # from the flat wall the room drew before it had one.
+                tile_floor, tile_ceil, tile_sat_scale, tile_sat_target = (
+                    (prop_floor, prop_ceil, prop_sat_scale, prop_sat_target)
+                    if ("prop_sat_scale" in theme or "prop_sat_target" in theme)
+                    else (VALUE_FLOOR, VALUE_CEIL, SAT_SCALE, SAT_TARGET))
+                cuts = [("floor", floors_p, theme["floor"]),
+                        ("wall", walls_p, theme["wall"])]
+                # **The plan wall-band pair.** [M8 face-the-camera] Cut from
+                # `Room_Builder_Walls`, the same sheet `wall` itself already
+                # comes from — not the combined `Room_Builder_32x32.png`
+                # `PLAN_SURFACES` reads for `office`, which is a different
+                # coordinate space. `cap` carries the pack's 12 px floor-plan
+                # line over 20 px of face; `body`, the row directly below it
+                # on the sheet, carries 30 px more face over a 2 px
+                # baseboard — the same cap/body convention
+                # `scripts/build-manifest.py`'s `PLAN_SURFACES` already
+                # documents for office's own sheet. Only themes with a pick in
+                # `THEME_PLAN_WALLS` get one; a theme absent from that table
+                # stays plan-less rather than drawing a wall band that does
+                # not suit it. [ADR-007 §6]
+                plan_wall = THEME_PLAN_WALLS.get(name)
+                if plan_wall is not None:
+                    pr, pc = plan_wall
+                    cuts += [("plan_cap", walls_p, (pr, pc)),
+                             ("plan_body", walls_p, (pr + 1, pc))]
+                for kind, sheet, addr in cuts:
                     r, c = addr
                     sw, sh, spx = pnglite.load(sheet)
                     if (r + 1) * tile > sh or (c + 1) * tile > sw:
@@ -2475,25 +2587,6 @@ class Importer:
                         for x in range(tile):
                             si = (sy + c * tile + x) * 4
                             buf[(y * tile + x) * 4:(y * tile + x) * 4 + 4] = spx[si:si + 4]
-                    # The floor and wall tile take this theme's own band and
-                    # saturation knobs ONLY if the theme has opted into the
-                    # FULL pack-value package — declared `prop_sat_scale` or
-                    # `prop_sat_target`, the same "declared vs. default" test
-                    # `scripts/lint-palette.py`'s `sat_override_themes()` uses.
-                    # `mission_control` is the reason this is not simply "every
-                    # theme with a `prop_value_floor`": it declares one (0.46)
-                    # for its PROPS only, on purpose — "Why props only" above
-                    # says the wall and floor stay on the standard band because
-                    # they are the largest continuous areas on screen. Gating on
-                    # `prop_value_floor` alone would have silently pulled
-                    # `mission_control`'s wall and floor onto that props-only
-                    # band too, which is exactly the regression a real run of
-                    # this change caught: its theme mean dropped from 0.733 to
-                    # 0.728 and nothing in this task touched `mission_control`.
-                    tile_floor, tile_ceil, tile_sat_scale, tile_sat_target = (
-                        (prop_floor, prop_ceil, prop_sat_scale, prop_sat_target)
-                        if ("prop_sat_scale" in theme or "prop_sat_target" in theme)
-                        else (VALUE_FLOOR, VALUE_CEIL, SAT_SCALE, SAT_TARGET))
                     recolour(buf, self.cache, tile_floor, tile_sat_scale,
                              tile_sat_target, tile_ceil)
                     key = ("band%.3f:sat%.3f,%.3f:ceil%.3f:tile:%d,%d:"

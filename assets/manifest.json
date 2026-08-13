@@ -9611,8 +9611,12 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/stage/32x32/builder/flat_floor.png",
+            "assets/processed/themes/stage/32x32/builder/flat_plan_body.png",
+            "assets/processed/themes/stage/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/stage/32x32/builder/flat_wall.png",
             "assets/processed/themes/stage/32x32/builder/floor.png",
+            "assets/processed/themes/stage/32x32/builder/plan_body.png",
+            "assets/processed/themes/stage/32x32/builder/plan_cap.png",
             "assets/processed/themes/stage/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
@@ -9894,7 +9898,68 @@
           ]
         },
         "plan": {
-          "note": "Hand-placed dressing, no floor plan [RoomPlan.Dressing, commit 29844e6]. This theme's builder sheet has no cap, body and floor set for build_plan to draw a plan from, but composing where the furniture stands needs nothing but somebody deciding, so it carries `dressing` alone. RoomPlan.dressingViolations is the check that the placements below stand in nobody's way; RoomPlanTests runs it.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "surfaces": {
+            "stage": {
+              "floor": "assets/processed/themes/stage/32x32/builder/floor.png",
+              "cap": "assets/processed/themes/stage/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/stage/32x32/builder/plan_body.png",
+              "line_edge": [
+                130,
+                130,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            }
+          },
+          "spaces": [
+            {
+              "name": "walkway",
+              "x": 2,
+              "y": -6,
+              "w": 21,
+              "h": 8,
+              "band": false,
+              "surface": "stage"
+            },
+            {
+              "name": "open plan",
+              "x": 2,
+              "y": 2,
+              "w": 21,
+              "h": 7,
+              "doorways": [
+                3,
+                12,
+                21
+              ],
+              "surface": "stage"
+            },
+            {
+              "name": "back",
+              "x": 2,
+              "y": 9,
+              "w": 21,
+              "h": 3,
+              "surface": "stage"
+            }
+          ],
+          "partitions": [
+            {
+              "x": 2,
+              "y": -6,
+              "h": 18
+            },
+            {
+              "x": 23,
+              "y": -6,
+              "h": 18
+            }
+          ],
           "dressing": [
             {
               "scenery": 0,
