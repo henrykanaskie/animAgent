@@ -393,9 +393,28 @@ import Testing
                     + " list, resolves to nothing and is dropped without a word"))
             }
         }
-        #expect(banded > 0 && handPlaced > 0, Comment(rawValue:
-            "\(banded) themes stand their props on the lattice and \(handPlaced) place by hand,"
-            + " so one of the two arms above ran over nothing"))
+        // **The hand-placed arm must run; the banded one may have nothing left
+        // to run over, and says so out loud.**
+        //
+        // Every shipped theme now composes its own room, so the lattice is a
+        // fallback rather than a mechanism in use — a theme that declares no
+        // dressing still takes it, and `RoomScene` still branches on exactly
+        // that. Failing here would mean keeping one theme on four stripes to
+        // satisfy a test, which is the tail wagging the dog.
+        //
+        // It is the same bargain `ArtAvailabilityTests` strikes for missing
+        // art: gating on a precondition the test cannot control is allowed
+        // **provided the skip is visible in the run's output**, and silencing
+        // it is not. So the notice prints, naming what went unchecked, and the
+        // moment any theme drops its dressing the arm resumes with no edit.
+        #expect(handPlaced > 0, Comment(rawValue:
+            "no theme places its dressing by hand, so the arm that checks hand"
+            + " placement ran over nothing"))
+        if banded == 0 {
+            print("""
+                NOTICE: all \(handPlaced) themes place their dressing by hand, so the                 band-lattice arm of theRoomDrawsOneSceneryNodePerAnchorInEveryTheme                 checked nothing. The lattice remains the fallback for a theme that                 declares no dressing and is covered by SceneryBandTests over the layout                 alone; what is NOT covered while this prints is that a banded theme's                 nodes land on its own anchors.
+                """)
+        }
     }
 
     /// **The hand-placed room draws every placement at the point it was
@@ -505,7 +524,11 @@ import Testing
                 "\(name) drew its decoration at \(decoration), and its own layout puts the"
                 + " board/plant lattice at \(expected)"))
         }
-        #expect(checked > 0, "every theme places by hand, so the band lattice went unchecked")
+        if checked == 0 {
+            print("""
+                NOTICE: every theme places its dressing by hand, so the decoration                 lattice — board and plant on the seat columns — was not checked against                 a room that draws it. It stays the fallback for a theme with no dressing.
+                """)
+        }
     }
 
     /// **Scenery is a function of the theme and of nothing else.** [I1, ADR-002

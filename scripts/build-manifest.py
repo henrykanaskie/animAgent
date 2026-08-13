@@ -521,10 +521,224 @@ STAGE_DRESSING = [
     {"role": "plant", "x": 345, "y": 188, "what": "microphone on a round-base stand"},
 ]
 
+# **`briefing`, `broadcast` and `mission_control`'s dressing, at M8 — the last
+# three still on the four-band lattice.** [RoomPlan.Dressing]
+#
+# Same mechanism as `library`/`stage` above and the same habits: a stack in one
+# lane, a lane either full or empty, x jittered rather than centred, and the
+# same small-object repeat (4-6x) that keeps a thin pool honest instead of
+# padded. All three of these sets are thinner than `office`'s twenty — 12, 12
+# and 13 declared items against a `board`/`plant` pair each — so the pieces
+# that repeat here are the ones that read as clutter rather than as furniture:
+# a stool, a mic stand, a step ladder, a spare monitor.
+#
+# **`board`'s art is not always the static single named in `THEMES`.**
+# `mission_control` adopts `control_room_server` — a blinking server rack —
+# for the `board` role [`ANIMATED_ADOPTED`], so its placements below name the
+# adopted animation's own `what` ("server rack cabinet...") and not the static
+# pedestal single `THEMES["mission_control"]["roles"]["board"]` still points
+# at. A placement naming the static prop's text fails
+# `RoomPlanTests.theShippedDressingStandsInNobodysWay` with "the list moved
+# under the placement" — the same tripwire that caught `library`'s own
+# `pendulum_clock` adoption once this mechanism moved the check to the
+# manifest's resolved role rather than to `THEMES`. `board` repeats 3x in
+# every one of these three rooms, matching `office`'s presentation board and
+# `stage`'s drum kit; for `mission_control` that is 3 x 109 px/s = 328 px/s of
+# the 1461 motion ceiling (0.22x) — cheaper than the 437 px/s (4 copies) the
+# band lattice spent on the same object, because a hand-placed room draws
+# `board` exactly as many times as it is written down rather than once per
+# even back-row seat.
+BRIEFING_DRESSING = [
+    # Wall hangs, on the wall face above the wall line (y >= 224, exempt from
+    # the seat-corridor rule). Posters and the one door the set ships.
+    {"scenery": 0, "x": 110, "y": 246, "what": "framed portrait poster"},
+    {"scenery": 1, "x": 250, "y": 244, "what": "door in the back wall"},
+    {"scenery": 2, "x": 430, "y": 252, "what": "framed portrait poster"},
+    {"scenery": 0, "x": 600, "y": 238, "what": "framed portrait poster"},
+    {"scenery": 2, "x": 700, "y": 250, "what": "framed portrait poster"},
+    {"scenery": 0, "x": 140, "y": 258, "what": "framed portrait poster"},
+    # Three flip charts on the wall line, mirroring the way `office` stands
+    # its presentation board three times and `stage` its drum kit. Two
+    # curtain panels flank them the way `stage`'s amp stacks flank the kit.
+    {"role": "board", "x": 150, "y": 224, "what": "flip chart"},
+    {"role": "board", "x": 400, "y": 224, "what": "flip chart"},
+    {"role": "board", "x": 650, "y": 224, "what": "flip chart"},
+    {"role": "plant", "x": 200, "y": 224, "what": "full-height hanging curtain panel"},
+    {"role": "plant", "x": 500, "y": 224, "what": "full-height hanging curtain panel"},
+    # Lane 1 (x 128..192, between seats at 112 and 208): the lectern corner —
+    # two lecterns and a chair stacked 1-2px apart, a spare piece out front.
+    {"scenery": 3, "x": 160, "y": 190, "what": "grey lectern with a microphone"},
+    {"scenery": 4, "x": 158, "y": 176, "what": "lectern with a lit screen"},
+    {"scenery": 6, "x": 159, "y": 175, "what": "stacking chair, back view"},
+    {"scenery": 11, "x": 176, "y": 96, "what": "fire extinguisher"},
+    {"scenery": 7, "x": 146, "y": 130, "what": "step ladder"},
+    # Lane 2 (224..288).
+    {"scenery": 8, "x": 256, "y": 196, "what": "lectern top"},
+    {"scenery": 9, "x": 270, "y": 150, "what": "microphone stand"},
+    {"scenery": 10, "x": 240, "y": 84, "what": "wall shelf edge"},
+    # Lane 3 (320..384): the wooden lectern, the set's other kind.
+    {"scenery": 5, "x": 356, "y": 200, "what": "wooden lectern"},
+    {"scenery": 3, "x": 368, "y": 166, "what": "grey lectern with a microphone"},
+    {"scenery": 6, "x": 334, "y": 160, "what": "stacking chair, back view"},
+    {"scenery": 9, "x": 360, "y": 96, "what": "microphone stand"},
+    {"scenery": 4, "x": 338, "y": 112, "what": "lectern with a lit screen"},
+    # Lane 4 (416..480).
+    {"role": "plant", "x": 448, "y": 186, "what": "full-height hanging curtain panel"},
+    {"scenery": 8, "x": 434, "y": 150, "what": "lectern top"},
+    {"scenery": 10, "x": 464, "y": 124, "what": "wall shelf edge"},
+    # Lane 5 (512..576) — mirrors lane 3.
+    {"scenery": 5, "x": 540, "y": 206, "what": "wooden lectern"},
+    {"scenery": 9, "x": 556, "y": 178, "what": "microphone stand"},
+    {"scenery": 6, "x": 530, "y": 106, "what": "stacking chair, back view"},
+    {"scenery": 7, "x": 532, "y": 146, "what": "step ladder"},
+    {"role": "plant", "x": 546, "y": 96, "what": "full-height hanging curtain panel"},
+    # Lane 6 (592..672).
+    {"scenery": 10, "x": 634, "y": 156, "what": "wall shelf edge"},
+    {"role": "plant", "x": 640, "y": 194, "what": "full-height hanging curtain panel"},
+    {"scenery": 9, "x": 656, "y": 166, "what": "microphone stand"},
+    {"scenery": 3, "x": 624, "y": 90, "what": "grey lectern with a microphone"},
+    # Edges and gaps: narrow items only, and one more lectern pair (a second
+    # stacks corner).
+    {"scenery": 9, "x": 40, "y": 90, "what": "microphone stand"},
+    {"scenery": 6, "x": 764, "y": 190, "what": "stacking chair, back view"},
+    {"scenery": 7, "x": 38, "y": 148, "what": "step ladder"},
+    {"scenery": 10, "x": 760, "y": 132, "what": "wall shelf edge"},
+    {"scenery": 11, "x": 35, "y": 220, "what": "fire extinguisher"},
+    {"scenery": 11, "x": 630, "y": 70, "what": "fire extinguisher"},
+    {"scenery": 8, "x": 764, "y": 100, "what": "lectern top"},
+]
+
+BROADCAST_DRESSING = [
+    # Wall hangs: monitors on the wall face (y >= 224, exempt).
+    {"scenery": 0, "x": 110, "y": 246, "what": "blank wall monitor"},
+    {"scenery": 1, "x": 250, "y": 244, "what": "broadcast monitor carrying a presenter"},
+    {"scenery": 2, "x": 430, "y": 252, "what": "blank wall monitor, wider"},
+    {"scenery": 0, "x": 600, "y": 238, "what": "blank wall monitor"},
+    {"scenery": 1, "x": 700, "y": 250, "what": "broadcast monitor carrying a presenter"},
+    {"scenery": 2, "x": 140, "y": 258, "what": "blank wall monitor, wider"},
+    # Three tall softbox lights on the wall line — `office`'s board, `stage`'s
+    # kit — flanked by two backdrop panels the way `stage` flanks its kit
+    # with amp stacks.
+    {"role": "board", "x": 150, "y": 224, "what": "studio softbox light on a tripod, tall"},
+    {"role": "board", "x": 400, "y": 224, "what": "studio softbox light on a tripod, tall"},
+    {"role": "board", "x": 650, "y": 224, "what": "studio softbox light on a tripod, tall"},
+    {"scenery": 5, "x": 200, "y": 224, "what": "striped studio backdrop panel"},
+    {"scenery": 5, "x": 600, "y": 224, "what": "striped studio backdrop panel"},
+    # Lane 1 (128..192, seats at 112/208): the camera corner — a tall and a
+    # short tripod and a stool 1-2px apart, a spare stool out front.
+    {"scenery": 3, "x": 160, "y": 190, "what": "film camera on a tall tripod"},
+    {"scenery": 4, "x": 158, "y": 176, "what": "film camera on a short tripod"},
+    {"scenery": 9, "x": 159, "y": 175, "what": "round studio stool"},
+    {"scenery": 10, "x": 176, "y": 96, "what": "script pages on the floor"},
+    {"scenery": 7, "x": 146, "y": 130, "what": "round studio stool"},
+    # Lane 2 (224..288).
+    {"scenery": 6, "x": 256, "y": 196, "what": "news desk, plain front"},
+    {"role": "plant", "x": 270, "y": 150, "what": "film camera on a tripod"},
+    {"scenery": 11, "x": 240, "y": 84, "what": "round studio stool"},
+    # Lane 3 (320..384): the short backdrop panel and its own tripod.
+    {"scenery": 8, "x": 352, "y": 200, "what": "striped studio backdrop panel, short"},
+    {"scenery": 3, "x": 368, "y": 166, "what": "film camera on a tall tripod"},
+    {"scenery": 9, "x": 334, "y": 160, "what": "round studio stool"},
+    {"scenery": 10, "x": 360, "y": 96, "what": "script pages on the floor"},
+    {"scenery": 4, "x": 338, "y": 112, "what": "film camera on a short tripod"},
+    # Lane 4 (416..480).
+    {"role": "plant", "x": 448, "y": 186, "what": "film camera on a tripod"},
+    {"scenery": 6, "x": 434, "y": 150, "what": "news desk, plain front"},
+    {"scenery": 11, "x": 464, "y": 124, "what": "round studio stool"},
+    # Lane 5 (512..576) — mirrors lane 3.
+    {"scenery": 8, "x": 540, "y": 206, "what": "striped studio backdrop panel, short"},
+    {"scenery": 10, "x": 556, "y": 178, "what": "script pages on the floor"},
+    {"scenery": 9, "x": 530, "y": 106, "what": "round studio stool"},
+    {"scenery": 4, "x": 532, "y": 146, "what": "film camera on a short tripod"},
+    {"role": "plant", "x": 546, "y": 96, "what": "film camera on a tripod"},
+    # Lane 6 (592..672).
+    {"scenery": 11, "x": 634, "y": 156, "what": "round studio stool"},
+    {"role": "plant", "x": 640, "y": 194, "what": "film camera on a tripod"},
+    {"scenery": 9, "x": 656, "y": 166, "what": "round studio stool"},
+    {"scenery": 3, "x": 624, "y": 90, "what": "film camera on a tall tripod"},
+    # Edges and gaps: narrow items only, and one more camera corner.
+    {"scenery": 10, "x": 40, "y": 90, "what": "script pages on the floor"},
+    {"scenery": 9, "x": 764, "y": 190, "what": "round studio stool"},
+    {"scenery": 4, "x": 38, "y": 148, "what": "film camera on a short tripod"},
+    {"scenery": 11, "x": 760, "y": 132, "what": "round studio stool"},
+    {"scenery": 7, "x": 35, "y": 220, "what": "round studio stool"},
+    {"scenery": 7, "x": 630, "y": 70, "what": "round studio stool"},
+    {"role": "plant", "x": 345, "y": 188, "what": "film camera on a tripod"},
+]
+
+MISSION_CONTROL_DRESSING = [
+    # Wall hangs: monitors, the schedule board, the clock and the warning
+    # sign on the wall face (y >= 224, exempt).
+    {"scenery": 0, "x": 110, "y": 248, "what": "wall-mounted security monitor"},
+    {"scenery": 1, "x": 250, "y": 244, "what": "schedule board"},
+    {"scenery": 2, "x": 430, "y": 260, "what": "wall clock"},
+    {"scenery": 3, "x": 600, "y": 246, "what": "warning sign"},
+    {"scenery": 0, "x": 700, "y": 236, "what": "wall-mounted security monitor"},
+    {"scenery": 1, "x": 140, "y": 262, "what": "schedule board"},
+    # Three server racks on the wall line — the theme's one adopted
+    # animation, see the note above this table for why `what` names the
+    # animated rack and not the static pedestal single. Two consoles flank
+    # them, reading as the screen wall the role's own `what` describes.
+    {"role": "board", "x": 150, "y": 224, "what": "server rack cabinet, three bays of "
+                                                   "blinking status LEDs"},
+    {"role": "board", "x": 400, "y": 224, "what": "server rack cabinet, three bays of "
+                                                   "blinking status LEDs"},
+    {"role": "board", "x": 650, "y": 224, "what": "server rack cabinet, three bays of "
+                                                   "blinking status LEDs"},
+    {"role": "plant", "x": 200, "y": 224, "what": "console bench with two wall screens"},
+    {"role": "plant", "x": 500, "y": 224, "what": "console bench with two wall screens"},
+    # Lane 1 (128..192, seats at 112/208): the monitoring corner — a filing
+    # cabinet, a security monitor and a control box 1-2px apart, a spare bin
+    # out front.
+    {"scenery": 8, "x": 160, "y": 190, "what": "two-drawer filing cabinet"},
+    {"scenery": 0, "x": 158, "y": 176, "what": "wall-mounted security monitor"},
+    {"scenery": 9, "x": 159, "y": 175, "what": "control box"},
+    {"scenery": 12, "x": 176, "y": 96, "what": "small waste bin"},
+    {"scenery": 7, "x": 146, "y": 130, "what": "console keyboard unit"},
+    # Lane 2 (224..288).
+    {"scenery": 11, "x": 256, "y": 178, "what": "spare security monitor on the floor"},
+    {"scenery": 4, "x": 270, "y": 140, "what": "steel locker bank"},
+    # Lane 3 (320..384): the vending machine, the widest floor prop this
+    # theme owns and the only lane wide enough to take it.
+    {"scenery": 5, "x": 352, "y": 206, "what": "vending machine"},
+    {"scenery": 6, "x": 368, "y": 173, "what": "floor-standing control panel"},
+    {"scenery": 9, "x": 334, "y": 168, "what": "control box"},
+    {"scenery": 10, "x": 360, "y": 100, "what": "waste bin"},
+    {"scenery": 7, "x": 338, "y": 116, "what": "console keyboard unit"},
+    # Lane 4 (416..480).
+    {"role": "plant", "x": 448, "y": 190, "what": "console bench with two wall screens"},
+    {"scenery": 4, "x": 434, "y": 155, "what": "steel locker bank"},
+    {"scenery": 11, "x": 464, "y": 128, "what": "spare security monitor on the floor"},
+    # Lane 5 (512..576).
+    {"scenery": 6, "x": 540, "y": 210, "what": "floor-standing control panel"},
+    {"scenery": 10, "x": 556, "y": 182, "what": "waste bin"},
+    {"scenery": 9, "x": 530, "y": 110, "what": "control box"},
+    {"scenery": 7, "x": 532, "y": 150, "what": "console keyboard unit"},
+    {"role": "plant", "x": 546, "y": 100, "what": "console bench with two wall screens"},
+    # Lane 6 (592..672).
+    {"scenery": 7, "x": 634, "y": 160, "what": "console keyboard unit"},
+    {"role": "plant", "x": 640, "y": 198, "what": "console bench with two wall screens"},
+    {"scenery": 11, "x": 656, "y": 170, "what": "spare security monitor on the floor"},
+    {"scenery": 4, "x": 624, "y": 94, "what": "steel locker bank"},
+    # Edges and gaps: narrow items only.
+    {"scenery": 12, "x": 40, "y": 90, "what": "small waste bin"},
+    {"scenery": 9, "x": 764, "y": 190, "what": "control box"},
+    {"scenery": 10, "x": 38, "y": 148, "what": "waste bin"},
+    {"scenery": 11, "x": 760, "y": 132, "what": "spare security monitor on the floor"},
+    {"scenery": 8, "x": 35, "y": 220, "what": "two-drawer filing cabinet"},
+    {"scenery": 8, "x": 630, "y": 70, "what": "two-drawer filing cabinet"},
+    {"scenery": 7, "x": 764, "y": 100, "what": "console keyboard unit"},
+    {"scenery": 10, "x": 774, "y": 150, "what": "waste bin"},
+]
+
 # Themes whose plan carries dressing but draws no floor: `build_plan` returns
 # `None` for both (neither builder sheet has the cap/body/floor set), so the
 # `plan` block below is assembled directly rather than through it.
-DRESSING_ONLY_PLANS = {"library": LIBRARY_DRESSING, "stage": STAGE_DRESSING}
+DRESSING_ONLY_PLANS = {
+    "library": LIBRARY_DRESSING, "stage": STAGE_DRESSING,
+    "briefing": BRIEFING_DRESSING, "broadcast": BROADCAST_DRESSING,
+    "mission_control": MISSION_CONTROL_DRESSING,
+}
 
 
 def plan_line_inks(path):

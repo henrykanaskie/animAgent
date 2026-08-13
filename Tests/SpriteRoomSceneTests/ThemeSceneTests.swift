@@ -528,14 +528,23 @@ struct ThemeSceneTests {
             #expect(other.props.count == expectedPropCount(other.plan), Comment(rawValue:
                 "theme \(id) drew \(other.props.count) props and its own dressing mechanism"
                 + " places \(expectedPropCount(other.plan))"))
-            if other.plan.dressing.isEmpty == first.plan.dressing.isEmpty {
+            // **Two banded themes must agree; two composed ones need not.**
+            //
+            // The lattice is theme-independent — the same eight columns and
+            // four depths whatever art fills them — so two themes on it drawing
+            // different counts means one of them dropped a prop, and that is
+            // worth catching. A composition is the opposite: it is the whole
+            // point that `office` places 37 and `library` 43, and asserting
+            // they match would be asserting nobody composed anything.
+            //
+            // What binds a composed theme is the line above — it drew exactly
+            // what its own dressing list places — which is the stronger claim
+            // and the one that would catch a dropped placement. Comparing two
+            // compositions to each other adds nothing and, once the second
+            // theme was composed, was simply false.
+            if other.plan.dressing.isEmpty, first.plan.dressing.isEmpty {
                 #expect(other.props.count == first.props.count,
-                        "theme \(id) placed a different number of props")
-            } else {
-                #expect(other.props.count != first.props.count, Comment(rawValue:
-                    "theme \(id) dresses its room by hand and theme \(ids[0]) stands its props"
-                    + " on the band lattice, and the two drew the same \(other.props.count)"
-                    + " props — the hand placement reached nothing"))
+                        "two themes on the same lattice placed different numbers of props")
             }
             // **Route geometry, in every theme, planned or not.** A plan may
             // redress a room; it may never move a seat. [ADR-007 §2]
