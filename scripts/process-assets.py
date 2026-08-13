@@ -469,6 +469,28 @@ THEMES = {
     #      PROP_VALUE_FLOOR_DEFAULT: props here are drawn on a band floored at
     #      0.46 instead of 0.55.
     "mission_control": {
+        # **Pack saturation, standard value band.** The maintainer asked for
+        # these rooms to stop being washed out, and the two knobs are separate:
+        # `prop_sat_scale`/`prop_sat_target` move saturation, `prop_value_floor`/
+        # `prop_value_ceil` move value. HSV saturation does not touch V, so this
+        # leaves mean value — and therefore `THEME_MIN_VALUE_CONTRAST` — exactly
+        # where it was. This theme keeps the standard 0.40 floor and clears it by
+        # the same margin as before.
+        #
+        # That distinction is the whole finding. A previous pass measured these
+        # three at the *full* office package (saturation AND the [0.10, 1.00]
+        # value band) and correctly found them mathematically incapable of
+        # clearing 0.35 on any floor/wall pair the sheet offers — but the value
+        # half is what costs contrast, and it was never what "desaturated" meant.
+        # `library` is the worked example: saturation only, and its contrast went
+        # *up*.
+        #
+        # The scale is set per theme so the room stays **under the cast's own
+        # 0.334 mean saturation**, which is the check `lint-palette.py` gained
+        # when `briefing` overshot to 0.412. Characters own the saturation; that
+        # half of I7 is not being spent here.
+        "prop_sat_scale": 0.85,
+        "prop_sat_target": 1.0,
         "title": "Mission Control",
         "what": "a two-tier screen wall over a console row — the closest thing "
                 "to a launch control room that the packs we own can build",
@@ -556,6 +578,28 @@ THEMES = {
         ],
     },
     "broadcast": {
+        # **Pack saturation, standard value band.** The maintainer asked for
+        # these rooms to stop being washed out, and the two knobs are separate:
+        # `prop_sat_scale`/`prop_sat_target` move saturation, `prop_value_floor`/
+        # `prop_value_ceil` move value. HSV saturation does not touch V, so this
+        # leaves mean value — and therefore `THEME_MIN_VALUE_CONTRAST` — exactly
+        # where it was. This theme keeps the standard 0.40 floor and clears it by
+        # the same margin as before.
+        #
+        # That distinction is the whole finding. A previous pass measured these
+        # three at the *full* office package (saturation AND the [0.10, 1.00]
+        # value band) and correctly found them mathematically incapable of
+        # clearing 0.35 on any floor/wall pair the sheet offers — but the value
+        # half is what costs contrast, and it was never what "desaturated" meant.
+        # `library` is the worked example: saturation only, and its contrast went
+        # *up*.
+        #
+        # The scale is set per theme so the room stays **under the cast's own
+        # 0.334 mean saturation**, which is the check `lint-palette.py` gained
+        # when `briefing` overshot to 0.412. Characters own the saturation; that
+        # half of I7 is not being spent here.
+        "prop_sat_scale": 0.85,
+        "prop_sat_target": 1.0,
         "title": "Broadcast Studio",
         "what": "tripods everywhere — film cameras and softbox lights, a silhouette "
                 "no other theme has",
@@ -721,6 +765,28 @@ THEMES = {
         ],
     },
     "stage": {
+        # **Pack saturation, standard value band.** The maintainer asked for
+        # these rooms to stop being washed out, and the two knobs are separate:
+        # `prop_sat_scale`/`prop_sat_target` move saturation, `prop_value_floor`/
+        # `prop_value_ceil` move value. HSV saturation does not touch V, so this
+        # leaves mean value — and therefore `THEME_MIN_VALUE_CONTRAST` — exactly
+        # where it was. This theme keeps the standard 0.40 floor and clears it by
+        # the same margin as before.
+        #
+        # That distinction is the whole finding. A previous pass measured these
+        # three at the *full* office package (saturation AND the [0.10, 1.00]
+        # value band) and correctly found them mathematically incapable of
+        # clearing 0.35 on any floor/wall pair the sheet offers — but the value
+        # half is what costs contrast, and it was never what "desaturated" meant.
+        # `library` is the worked example: saturation only, and its contrast went
+        # *up*.
+        #
+        # The scale is set per theme so the room stays **under the cast's own
+        # 0.334 mean saturation**, which is the check `lint-palette.py` gained
+        # when `briefing` overshot to 0.412. Characters own the saturation; that
+        # half of I7 is not being spent here.
+        "prop_sat_scale": 0.85,
+        "prop_sat_target": 1.0,
         "title": "Rehearsal Room",
         "what": "a drum kit and a row of mic stands; the only theme whose "
                 "back wall is not a rectangle",
