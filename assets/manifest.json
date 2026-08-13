@@ -7178,18 +7178,37 @@
           "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
-              "file": "assets/processed/themes/mission_control/32x32/singles/board.png",
-              "source_set": "Modern Interiors Theme Sorter set 18",
-              "single_index": 146,
-              "provenance": "pack",
-              "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
-              "what": "two screens stacked on a pedestal \u2014 a surveillance monitor post; the only floor-standing vertical in any theme",
+              "file": "assets/processed/animated/32x32/control_room_server/frame_00.png",
               "content_box": {
                 "x": 16,
-                "y": 24,
-                "w": 30,
-                "h": 64
-              }
+                "y": 20,
+                "w": 32,
+                "h": 68
+              },
+              "animation": {
+                "frames": [
+                  "assets/processed/animated/32x32/control_room_server/frame_00.png",
+                  "assets/processed/animated/32x32/control_room_server/frame_01.png",
+                  "assets/processed/animated/32x32/control_room_server/frame_02.png"
+                ],
+                "fps": 2,
+                "loop": true,
+                "fps_source": "the pack's own GIF of this object holds every frame for 50/100 s; scripts/process-assets.py reads it and refuses to cut a sheet whose GIF disagrees",
+                "moving_px": 80,
+                "visible_px": 2176,
+                "transition_px": [
+                  32,
+                  52,
+                  80
+                ],
+                "measured_on": "the shipped frames, by scripts/build-manifest.py. `moving_px` is the union over the loop against frame 0 and `visible_px` the union of visible pixels; `transition_px` is the pixels that change on each step of the loop, wrapping, and is what scripts/lint-palette.py's motion budget is computed from \u2014 mean(transition_px) * fps * how many times the room draws this role. The lint recomputes all three off the same PNGs and fails if they disagree with these."
+              },
+              "source_set": "Modern Interiors 3_Animated_objects",
+              "source_sheet": "animated_control_room_server_32x32.png",
+              "provenance": "pack",
+              "identified_by": "the animated folder is the one place in these packs where the files are named; the frames were still cut and looked at in the room before this entry was written",
+              "what": "server rack cabinet, three bays of blinking status LEDs",
+              "replaces_static": "assets/processed/themes/mission_control/32x32/singles/board.png"
             },
             "chair": {
               "file": "assets/processed/themes/mission_control/32x32/singles/chair.png",

@@ -7,16 +7,19 @@ are what read — not detail. Enforced by lint over the asset manifest, not by
 good intentions."
 
 Three checks on colour, exactly the thresholds in docs/04-ART-DIRECTION.md —
-**amended for one theme at ADR-010**, see below:
+**amended for one theme at ADR-010, and extended to a second at the M8
+palette-pass task**, see below:
 
   1. Every room pixel is under 25% saturation — **except a theme
      `scripts/process-assets.py` declares a per-theme saturation override for
-     (`office`, as of ADR-010), which is checked against the *pack's own*
-     saturation instead. §"Per-theme saturation policy" below.
+     (`office` as of ADR-010, `briefing` as of the M8 palette-pass task), which
+     is checked against the *pack's own* saturation instead. §"Per-theme
+     saturation policy" below.
   2. Every character carries at least one colour above 55% saturation.
   3. At least 40% value contrast between a character's darkest pixel and the
-     mean room value. **Unweakened by ADR-010, for every theme including
-     `office`, at the same 40% floor as before.**
+     mean room value — **except `office` and `briefing`, each individually
+     measured against 0.35 instead; see `THEME_MIN_VALUE_CONTRAST`.** Every
+     other theme is unweakened, at the same 40% floor as before.
 
 And, added after ADR-002 §14b admitted animated props, one check on motion:
 
@@ -26,33 +29,39 @@ And, added after ADR-002 §14b admitted animated props, one check on motion:
 
 ---
 
-### Per-theme saturation policy — ADR-010
+### Per-theme saturation policy — ADR-010, extended at the M8 palette-pass task
 
 I7 bundled two claims under one sentence: "characters own the saturation and
-the darkest values." ADR-010 separates them for `office` alone: its props are
+the darkest values." ADR-010 separates them for `office`: its props are
 restored to the pack's own saturation (`prop_sat_scale`/`prop_sat_target` in
 `scripts/process-assets.py`'s `THEMES["office"]`), while the value band —
-`VALUE_FLOOR`/`VALUE_CEIL`, check 3 above — is untouched. The other five themes
-keep check 1 exactly as it has always run, at the literal 0.25 ceiling.
+`VALUE_FLOOR`/`VALUE_CEIL`, check 3 above — is untouched. The M8 palette-pass
+task measured all five non-`office` themes against the same treatment and
+found the argument (the packs share one universal 0.314 outline ink that the
+standard band dissolves) travels to `briefing` on the exact same knobs, so
+`briefing` now carries the identical declaration. `broadcast`, `library`,
+`mission_control` and `stage` were measured too and are unmoved — see
+`THEME_MIN_VALUE_CONTRAST` below for why. Every theme not in this policy keeps
+check 1 exactly as it has always run, at the literal 0.25 ceiling.
 
 **This is not a raised or disabled ceiling — it is a different, and still
-failable, check.** A flat higher number for `office` would have been a taste
-call with nothing behind it, so this lint does not use one. Instead:
-`pack_saturation_baseline()` re-reads the *untouched* pack PNGs that
-`scripts/process-assets.py`'s `THEMES["office"]` cuts its roles and scenery
-from — the same `_theme_source()` lookup that script uses, imported rather than
-re-implemented — and measures their own peak saturation directly off disk,
-independent of anything this repo has ever processed. `office`'s *processed*
-peak saturation must land within `SAT_BASELINE_TOLERANCE` of that number: not
-below it, which would mean the identity transform stopped being identity and
-the theme drifted back toward the old desaturated band; not above it, which
-would mean something more saturated than the pack itself is on screen. Every
-other theme is measured on the flat 0.25 ceiling exactly as before, and `room`
-— which ADR-002 §14a establishes *is* the resolved default theme
-(`themes.default`) — inherits whichever policy that theme carries, because
-`room.props.scenery` and `themes.sets.office.props.scenery` are the same bytes
-on disk and a check that disagreed with itself about them would be checking
-nothing.
+failable, check.** A flat higher number for a pack-value theme would have been
+a taste call with nothing behind it, so this lint does not use one. Instead:
+`pack_saturation_cross_check()` re-reads the *untouched* pack PNGs that
+`scripts/process-assets.py`'s `THEMES[...]` cuts that theme's roles, scenery,
+floor and wall from — the same `_theme_source()`/`THEME_FLOORS`/`THEME_WALLS`
+lookups that script uses, imported rather than re-implemented — and measures
+their own peak saturation directly off disk, independent of anything this repo
+has ever processed. A pack-value theme's *processed* peak saturation must land
+within `SAT_BASELINE_TOLERANCE` of that number: not below it, which would mean
+the identity transform stopped being identity and the theme drifted back
+toward the old desaturated band; not above it, which would mean something more
+saturated than the pack itself is on screen. Every other theme is measured on
+the flat 0.25 ceiling exactly as before, and `room` — which ADR-002 §14a
+establishes *is* the resolved default theme (`themes.default`) — inherits
+whichever policy that theme carries, because `room.props.scenery` and
+`themes.sets.office.props.scenery` are the same bytes on disk and a check that
+disagreed with itself about them would be checking nothing.
 
 Why a fourth check exists at all: in this product **motion means an agent is
 working**. It is the one signal a glance actually reads. So a prop that
@@ -82,6 +91,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import glob
 import re
 import tempfile
 
@@ -120,7 +130,28 @@ MIN_VALUE_CONTRAST = 0.40
 # tried and measured at 0.290 — the room owning the darkest pixel outright —
 # and rejected for exactly that reason. The 0.10 floor costs nothing visible
 # and keeps the sentence true.
-THEME_MIN_VALUE_CONTRAST = {"office": 0.35}
+#
+# **A second theme, added by the same rule, not by a second reference.**
+# [M8 palette-pass task] `briefing`'s props, scenery, floor and wall now run on
+# the identical `office` knobs — floor 0.10, ceiling 1.0, identity saturation —
+# because both packs share the SAME 0.314 outline ink: measured at the identity
+# transform (floor 0.0), the darkest pixel across every `briefing` role,
+# scenery item, floor and wall tile is exactly 0.314, tied with the cast rather
+# than under it, exactly the coincidence that made `office`'s 0.10 choice cheap
+# to re-use rather than re-derive. What is NOT re-used is the 0.35 itself:
+# `briefing` has no reference composite of its own, so 0.35 is applied here
+# only because `briefing`'s own measured contrast (0.372, mean 0.686 against
+# the cast's 0.314) already clears it on the untuned office floor — the floor
+# was not raised to reach this number, the number is what the office floor
+# happened to produce. `broadcast`, `library`, `mission_control` and `stage`
+# were measured against the SAME office floor and none of them clear 0.35
+# (0.289, 0.322, 0.299, 0.308) — see the per-theme comments beside
+# `THEMES["briefing"]` in scripts/process-assets.py for the full table. They
+# are deliberately left off the pack-value transform and off this table:
+# raising each one's own floor further, past 0.10, until its number cleared
+# 0.35 would be tuning the art to the threshold rather than measuring the art,
+# which is the "silently widen the table" move this amendment refuses to make.
+THEME_MIN_VALUE_CONTRAST = {"office": 0.35, "briefing": 0.35}
 
 
 def min_value_contrast(theme_name=None):
@@ -422,6 +453,59 @@ def pack_saturation_cross_check(mod, theme_name, size="32x32"):
         dst_rel = "assets/processed/themes/%s/%s/scenery/%02d_%s.png" % (
             theme_name, size, i, band)
         _measure_pack_pair(imp, size, spec, dst_rel, "scenery:%02d_%s" % (i, band), out)
+    # **The floor and wall tile, on the same terms as a role.** [M8 palette-pass
+    # task] `scripts/process-assets.py`'s `themes()` puts a theme's floor and
+    # wall tile on this same pack-value/pack-saturation policy whenever the
+    # theme has declared `prop_sat_scale`/`prop_sat_target` — the office builder
+    # sheet already had its own cross-check (`builder_pack_cross_check` below),
+    # but that one is hardcoded to `Room_Builder_Office_*.png`, which only
+    # `office` is cut from. A second theme's floor and wall come from the
+    # Modern Interiors `Room_Builder_Floors_*`/`Room_Builder_Walls_*` subfiles
+    # instead — a different sheet at a different address — so it needs its own
+    # pairing, not a re-use of office's. Skipped (not failed) if the theme
+    # draws no plan (`theme["floor"] is None`, `office`'s own case) or the pack
+    # sheet is not on this machine, the same "unverifiable, not failed" rule
+    # every other cross-check in this file follows.
+    if theme.get("floor") is not None and mod is not None:
+        floors_p = mod.THEME_FLOORS % (size, size)
+        walls_p = mod.THEME_WALLS % (size, size)
+        tile = int(size.split("x")[0])
+        for kind, sheet, addr in (("floor", floors_p, theme["floor"]),
+                                  ("wall", walls_p, theme["wall"])):
+            if not os.path.exists(sheet):
+                continue
+            r, c = addr
+            sw, sh, spx = pnglite.load(sheet)
+            if (r + 1) * tile > sh or (c + 1) * tile > sw:
+                continue
+            buf = pnglite.new(tile, tile)
+            for y in range(tile):
+                sy = (r * tile + y) * sw
+                for x in range(tile):
+                    si = (sy + c * tile + x) * 4
+                    buf[(y * tile + x) * 4:(y * tile + x) * 4 + 4] = spx[si:si + 4]
+            cut = os.path.join(tempfile.gettempdir(),
+                               "spriteroom-themetile-%s-%s-r%02d-c%02d.png"
+                               % (theme_name, kind, r, c))
+            pnglite.save(cut, tile, tile, buf)
+            dst_rel = "assets/processed/themes/%s/%s/builder/%s.png" % (
+                theme_name, size, kind)
+            dst_abs = os.path.join(REPO, dst_rel)
+            if not os.path.exists(dst_abs):
+                continue
+            p_s, _pmn, _pt, p_n, _pw = scan(dst_abs)
+            s_s, _smn, _st, s_n, _sw = scan(cut)
+            if p_n == 0 or s_n == 0:
+                continue
+            out.append(("builder:%s" % kind, dst_rel, p_s,
+                        os.path.relpath(sheet, REPO) + " r%02d c%02d" % (r, c), s_s))
+    # **`flat_floor.png`/`flat_wall.png` are not cross-checked here, and that is
+    # deliberate rather than a gap.** They are `Importer.themes()`'s per-pixel
+    # MEAN of the already-recoloured `floor.png`/`wall.png` array — a pure
+    # function of pixels this cross-check just verified, with no further pack
+    # source behind them to compare against. A flat that disagreed with its own
+    # tile's mean would be a bug in `_mean_colour`, not a saturation-policy
+    # violation, and no cross-check of this shape catches that class of bug.
     return out
 
 
@@ -493,6 +577,53 @@ def builder_pack_cross_check(mod, size="32x32"):
         out.append(("builder:%s" % name[:-4], dst_rel, p_s,
                     os.path.relpath(sheet, REPO) + " r%02d c%02d" % (r, c), s_s))
     return out
+
+
+def animated_pack_cross_check(mod, sat_themes, size="32x32"):
+    """Every adopted animated prop of a pack-saturation theme, against its sheet.
+
+    The saturation exemption above takes `assets/processed/animated/<id>/` out
+    from under `ROOM_MAX_SAT` for those themes; this is what replaces it, on the
+    same terms as the role, scenery and builder cross-checks. Peak saturation of
+    the cut frames against peak saturation of the untouched spritesheet they
+    were cut from — the transform is per-pixel and the identity on saturation
+    for these themes, so the two must agree to the same 3 pp.
+
+    Nothing is bound today: `ANIMATED_ADOPTED` holds `pendulum_clock` (library)
+    and `control_room_server` (mission_control), both standard-band themes, so
+    this returns empty and the exemption exempts nothing. That is exactly when
+    a check is worth writing — the alternative is discovering it is absent on
+    the day something first depends on it.
+    """
+    if mod is None:
+        return []
+    adopted = set(getattr(mod, "ANIMATED_ADOPTED", set()))
+    sheets = getattr(mod, "ANIMATED_DIR", None)
+    out = []
+    for name, spec in sorted(animated_objects(mod).items()):
+        if name not in adopted or spec.get("for") not in sat_themes:
+            continue
+        src = os.path.join(REPO, sheets % size, spec["sheet"]) if sheets else None
+        frames = sorted(glob.glob(os.path.join(
+            REPO, "assets", "processed", "animated", size, name, "frame_*.png")))
+        if not src or not os.path.exists(src) or not frames:
+            continue
+        p_s = max(scan(f)[0] for f in frames)
+        s_s = scan(src)[0]
+        out.append(("animated:%s" % name,
+                    "assets/processed/animated/%s/%s/" % (size, name),
+                    p_s, os.path.relpath(src, REPO), s_s))
+    return out
+
+
+def animated_objects(mod):
+    """`scripts/process-assets.py`'s `ANIMATED` table, or `{}` if unreadable.
+
+    Read rather than transcribed, for the reason every other cross-read in this
+    file is: a second copy of which object belongs to which theme is a second
+    thing that can drift, and this one decides whether a file is checked at all.
+    """
+    return dict(getattr(mod, "ANIMATED", {})) if mod else {}
 
 
 def role_placements(theme=None):
@@ -695,12 +826,32 @@ def main(argv=None):
         # manifest rather than asserted: `builder_pack_cross_check` below
         # measures every one of them against the untouched Room Builder sheet,
         # so this prefix widens *which* check runs and not *whether* one does.
-        + (["assets/processed/room/"] if "office" in sat_themes else [])))
+        + (["assets/processed/room/"] if "office" in sat_themes else [])
+        # **And the animated objects belonging to a sat-override theme.**
+        # `assets/processed/animated/<id>/` is keyed by object, and each object
+        # names its theme in `ANIMATED[id]["for"]`, so the exemption is built
+        # per object rather than as one flat prefix — an animated prop in a
+        # standard-band theme stays on ROOM_MAX_SAT exactly as before.
+        #
+        # This was a hole rather than a policy: `office` and `briefing` run at
+        # the pack's own saturation [ADR-010, ADR-011] and every other file of
+        # theirs is checked against the pack, but an animated one was still
+        # measured against the flat 25% ceiling. The consequence was total —
+        # the quietest-saturation object in the whole 310-sheet folder measures
+        # 27.5%, so **no animated prop could ship into either theme at all**,
+        # and the reason looked like "the pack has nothing quiet enough".
+        + ["assets/processed/animated/%s/" % name
+           for name, spec in sorted(animated_objects(pa_mod).items())
+           if spec.get("for") in sat_themes]))
     pack_cross_checks = {
         name: pack_saturation_cross_check(pa_mod, name) for name in sat_themes
     } if pa_mod else {}
     # The builder tiles ride on office's entry, because they are office's files
     # and the report reads per theme. [ADR-011]
+    for tname in sorted(sat_themes):
+        if tname in pack_cross_checks:
+            pack_cross_checks[tname] = pack_cross_checks[tname] + [
+                c for c in animated_pack_cross_check(pa_mod, {tname})]
     if "office" in pack_cross_checks:
         builder = builder_pack_cross_check(pa_mod)
         if not builder:

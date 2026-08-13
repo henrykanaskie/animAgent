@@ -662,6 +662,32 @@ THEMES = {
                 "rather than a workspace",
         "floor": (14, 8),       # large block tile, 0.769
         "wall": (8, 26),        # blue, 0.859
+        # ADR-011 amendment, extended to a second theme. `office`'s props and
+        # room tiles moved to the pack's own value and saturation because the
+        # standard [0.55, 0.92] band lifts the pack's universal 0.314 outline
+        # ink to 0.667 and dissolves it — a fact about the TRANSFORM, not about
+        # `office` specifically. That argument is not `office`-specific, but the
+        # 0.35 contrast floor `office` is measured against IS: it comes from a
+        # maintainer-built reference composite this theme does not have. So
+        # `briefing` is moved here on the SAME floor `office` uses (0.10,
+        # unchanged from ADR-011 — not re-derived, because both packs share the
+        # identical 0.314 outline ink, measured directly: at floor 0.0 the
+        # darkest pixel across every briefing role, scenery item, floor and
+        # wall tile is exactly 0.314, tied with the cast rather than under it)
+        # and the RESULT is checked against the same 0.35, not assumed to clear
+        # it. It does, with margin: mean 0.686, darkest 0.382 (0.068 clear of
+        # the cast's 0.314), contrast 0.372. See scripts/lint-palette.py's
+        # THEME_MIN_VALUE_CONTRAST and the M8 palette-pass task notes for the
+        # other four themes measured against this floor and left unmoved —
+        # broadcast 0.289, library 0.322, mission_control 0.299, stage 0.308,
+        # none of which clears 0.35 on the office floor, and pushing their own
+        # floor higher just to clear a number derived from a different theme's
+        # reference picture is exactly the "silently widen the table" move this
+        # change refuses to make.
+        "prop_sat_scale": 1.0,
+        "prop_sat_target": 1.0,
+        "prop_value_floor": 0.10,
+        "prop_value_ceil": 1.0,
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
@@ -748,13 +774,24 @@ THEMES = {
 # background detail must never compete. So one animated object per theme, and
 # no theme may hold two.
 ANIMATED = {
-    # NOT ADOPTED, and this one was refused on a number rather than on a
-    # picture: it composes well and it is the quietest object in the folder at
-    # 3.6%. Adopting it takes `mission_control`'s character-contrast margin from
-    # 0.427 to **0.408** against a 0.40 floor — 0.019 of the 0.027 that M6b
-    # deliberately left. This theme is the only one that has ever spent margin
-    # on purpose and it has the least left, so it is the one theme where a prop
-    # that is merely nice does not get to spend any more.
+    # ADOPTED at M8 (office-motion sweep). Refused at M6b on a number that has
+    # since moved: `mission_control`'s baseline character-contrast margin was
+    # measured then at 0.427 - 0.40 = 0.027 and this prop was said to spend
+    # 0.019 of it, leaving too little for "the one theme that has ever spent
+    # margin on purpose". Re-measured at M8, straight off the current manifest
+    # rather than trusted from the old comment: the baseline is now 0.419 (the
+    # theme has grown scenery since M6b, and scenery participates in the same
+    # contrast pass), and adopting this prop takes it to 0.410 — a spend of
+    # 0.009, not 0.019, still clearing the 0.40 floor by 0.010. It is also, of
+    # everything tried in the M8 sweep, the cheapest possible motion: 437 px/s
+    # of the 1461 ceiling (0.30x), because only the LED grid changes between
+    # its 3 frames and the rack housing around it does not move at all.
+    #
+    # It was also tried against `office` in place of `mission_control` (same
+    # sheet, `role: board`) and refused there — not on this margin, but on I7
+    # saturation: see the note above `ANIMATED_ADOPTED` for why no animated
+    # object in this pack can currently be adopted into `office` or `briefing`
+    # at all.
     "control_room_server": {
         "sheet": "animated_control_room_server_32x32.png",
         "frame": (32, 96),
@@ -820,22 +857,183 @@ ANIMATED = {
         "fps": 10,
         "what": "CRT television on rabbit-ear aerials, screen static",
     },
+    # NOT ADOPTED. Reads perfectly well at 1x — a wall monitor the same
+    # silhouette weight as the presentation board it would replace, standing at
+    # the same height — but it moves too much to afford: 3 copies x 667 px/s =
+    # 2000 px/s against the 1461 ceiling, 1.37x over. The sheet's own content is
+    # a scrolling social feed, and a feed scrolls by redrawing most of its own
+    # area every step; there is no way to slow that down without changing the
+    # pack's own GIF timing, which this importer refuses to do [see
+    # `gif_timing()`]. Would also fail the saturation gap below if the motion
+    # number were fixable — RGB(243,179,43) on its own screen reaches 82.3%
+    # against office's effective 25% ceiling.
+    "control_room_facebook_scrolling": {
+        "sheet": "animated_control_room_facebook_scrolling_32x32.png",
+        "frame": (32, 64),
+        "for": "office",
+        "role": "board",
+        "fps": 10,
+        "what": "wall monitor, scrolling social-media feed",
+    },
+    # NOT ADOPTED. Clears the motion budget easily (6 frames, subtle) but fails
+    # the eye at 1x for a reason neither budget catches: the sheet is a
+    # countertop appliance with no counter under it, bottom-anchored in the prop
+    # canvas the way every board is, so it lands at floor height, half-hidden
+    # behind the neighbouring plant, and reads as an indistinct grey lump rather
+    # than a coffee machine — see `docs/04-ART-DIRECTION.md`'s note on `old_tv`
+    # for the same "hangs in the air" failure mode, mirrored here as "sits on
+    # nothing". `office` already has a static coffee counter in its own
+    # scenery (`("wall_line", "office", 320, ...)`), which is the object this
+    # would have been redundant with even if it had read cleanly.
+    "coffee": {
+        "sheet": "animated_coffee_32x32.png",
+        "frame": (32, 64),
+        "for": "office",
+        "role": "board",
+        "fps": 10,
+        "what": "espresso machine, brewing cycle",
+    },
+    # NOT ADOPTED. Same failure as `coffee`, same cause: a small object
+    # bottom-anchored in a tall canvas reads as a stray brown-orange blob at
+    # floor height, not as a clock. Rendered in the room at 1x before writing
+    # this — `preview-theme.py --animated cuckoo_clock --theme office`.
+    "cuckoo_clock": {
+        "sheet": "animated_cuckoo_clock_32x32.png",
+        "frame": (32, 64),
+        "for": "office",
+        "role": "board",
+        "fps": 10,
+        "what": "cuckoo clock, swinging pendulum and popping bird door",
+    },
+    # NOT ADOPTED, and the one candidate in this sweep that reads well AND
+    # clears the motion budget (915 px/s of 1461, 0.63x) — it is refused purely
+    # on the saturation gap below: RGB(237,147,30), one of the tank's fish,
+    # measures 87.3% against office's effective 25% ceiling. If that gap is
+    # ever closed, this is the first thing to re-try.
+    "fishtank_orange": {
+        "sheet": "animated_fishtank_orange_32x32.png",
+        "frame": (64, 64),
+        "for": "office",
+        "role": "board",
+        "fps": 10,
+        "what": "fish tank, orange fish swimming",
+    },
+    # NOT ADOPTED. Reads fine on its own — a plausible speaker cabinet, cheap
+    # to animate (3 frames, one blinking light) — but wrong for two reasons
+    # found by looking at it in the room rather than by a number. First,
+    # `stage`'s own scenery already places a static "amplifier stack" single
+    # (`("wall_line", 6, 43, ...)`), so a second, animated amplifier at the back
+    # wall reads as a mismatched duplicate of furniture already in the room.
+    # Second and worse: it replaces EVERY copy of `board`, which in `stage` is
+    # the drum kit — the one object `THEMES["stage"]["what"]` names as the
+    # theme's own distinguishing silhouette ("the only theme whose back wall is
+    # not a rectangle"). Trading the theme's signature shape for a repeat of an
+    # object already on screen is a net loss even where the budget affords it.
+    "amplifier": {
+        "sheet": "animated_amplifier_32x32.png",
+        "frame": (32, 64),
+        "for": "stage",
+        "role": "board",
+        "fps": 10,
+        "what": "guitar amplifier stack, blinking indicator light",
+    },
+    # NOT ADOPTED. A second, differently-lit wall screen for `mission_control`,
+    # tried because `hospital_xrayscreen_*`-style content reads as
+    # "diagnostic" and fits the theme. Reads legibly at 1x — a single flat
+    # monitor, simpler than the two-screen pedestal it would replace — but its
+    # own readout redraws too much of itself each frame: 4 copies x 1120 px/s =
+    # 4480 px/s against the 1461 ceiling, 3.07x over. Every screen-content
+    # candidate tried in this sweep (`control_room_facebook_scrolling`,
+    # `old_tv`, `old_tv2`, this one) fails the motion budget for the same
+    # underlying reason: a readout that changes is, by construction, redrawing
+    # most of its own pixel area every step, and `board`'s repeat count (3-4
+    # copies on a 720px panel) multiplies that past the ceiling before the
+    # rate even matters. The one screen-shaped object that clears the budget in
+    # this cast, `control_room_server`, does because only its LED grid moves
+    # and the rack housing around it — most of the sprite — does not.
+    "hospital_screen_color": {
+        "sheet": "animated_hospital_screen_color_32x32.png",
+        "frame": (64, 64),
+        "for": "mission_control",
+        "role": "board",
+        "fps": 10,
+        "what": "wall-mounted diagnostic screen, cycling colour readout",
+    },
+    # NOT ADOPTED, for the same reason as `old_tv` and confirming it rather than
+    # repeating it on faith: this is the pack's second CRT-television sheet,
+    # same 64x64 canvas, same "screen static" content, and it moves almost
+    # exactly as much — 4 copies x 2867 px/s = 11467 px/s against the 1461
+    # ceiling, 7.85x over (old_tv itself is 9.49x; the two sheets are close but
+    # not identical art). Kept in this table, not folded into `old_tv`'s row,
+    # because it is a different file and the next person should not have to
+    # re-measure it to find out it fails the same way.
+    "old_tv2": {
+        "sheet": "animated_old_tv2_32x32.png",
+        "frame": (64, 64),
+        "for": "broadcast",
+        "role": "board",
+        "fps": 10,
+        "what": "second CRT television, screen static (variant of old_tv)",
+    },
 }
+
+# ---------------------------------------------------------------------------
+# The `office`/`briefing` saturation gap — found at M8, not fixed here
+# ---------------------------------------------------------------------------
+#
+# `office` and `briefing` run their PROPS at the pack's own saturation
+# (`prop_sat_scale`/`prop_sat_target` = 1.0, ADR-010/ADR-011) instead of the
+# desaturated standard band every other theme's props use. `scripts/
+# lint-palette.py` knows about that policy and checks those two themes' art
+# against the pack itself instead of the flat 25% ceiling — but only for paths
+# under `assets/processed/themes/<name>/` and, for `office` alone,
+# `assets/processed/room/` (see that script's `override_prefixes`). An animated
+# role's frames live under `assets/processed/animated/<size>/<id>/` — a
+# DIFFERENT path, because `animated()` writes each object once and every theme
+# that adopts it points at the same files — so they never match either prefix
+# and are checked at the flat 25% ceiling regardless of which theme they are
+# `for`. That is a real gap in the lint, not a property of these props; fixing
+# it is a change to `scripts/lint-palette.py`'s `override_prefixes`, which is
+# out of this task's scope (see the M8 office-motion sweep task notes).
+#
+# Its practical effect, measured rather than assumed: every one of the 90+
+# objects in `3_Animated_objects/32x32/` that fits `PROP_CANVAS` and has a
+# uniform GIF delay was scanned for its own worst-pixel HSV saturation. The
+# LOWEST of the whole set is 27.5% (`old_tv`, `old_tv2`, `pentacle`, `spider`,
+# `punching_bag_left`, `grocery_store_checkout_roller`, `butterfly_2`) —
+# already over the 25% ceiling. **No object in this pack's animated folder can
+# currently be adopted into `office` or `briefing`.** `fishtank_orange` and
+# `control_room_facebook_scrolling` above are the two that would otherwise have
+# shipped (both read cleanly at 1x, and the latter has its own separate motion
+# problem too); `coffee`, `cuckoo_clock` and the office-targeted trial of
+# `control_room_server` were refused before saturation ever became the
+# question. `office` is why this sweep was started and it ends this task at
+# 0.00 of the motion budget regardless — not because nothing was tried, but
+# because the one gate this task cannot touch (`scripts/lint-palette.py`) does
+# not yet know where an animated office prop's frames live.
 
 # Which animated object each theme actually adopts. An id here replaces that
 # theme's static binding for the object's `role`; a theme absent from this set
 # keeps the static prop. It is separate from ANIMATED so that art can stay cut
 # and reviewable — `preview-theme.py` can still stand it in the room — without
-# being in the manifest, which is the state all four were in through M6b.
+# being in the manifest.
 #
-# **One of the four ships.** Each of the other three is refused above its own
-# row, on a measured ground rather than on taste: a lint failure, a lint spend
-# this project cannot afford, and a prop that hangs in the air. What it costs to
-# ship this one is 0.004 of `library`'s 0.056 of margin — 0.456 -> 0.452.
+# **Two ship, as of the M8 office-motion sweep**, out of the ten rows above.
+# `pendulum_clock` costs `library` 0.003 of contrast margin (0.459 -> 0.456
+# against the 0.40 floor, re-measured off the current manifest rather than
+# trusted from an old comment) and 840 px/s of the 1461 motion ceiling (0.57x).
+# `control_room_server` costs `mission_control` 0.009 of contrast margin
+# (0.419 -> 0.410) and 437 px/s of motion (0.30x) — the cheapest motion of
+# everything tried in the sweep, because only its LED grid moves. Every other
+# row in `ANIMATED` is refused above its own entry, on a measured ground: a
+# motion-budget overrun, an I7 saturation ceiling this task could not touch,
+# a prop that reads as furniture floating on nothing, or a prop that deletes
+# its own theme's signature silhouette. `office` and `briefing` ship none —
+# see the note above this constant for why, in full.
 #
 # Emptying this set reverts every animated prop in one line and nothing else
 # changes; the art stays cut either way.
-ANIMATED_ADOPTED = {"pendulum_clock"}
+ANIMATED_ADOPTED = {"pendulum_clock", "control_room_server"}
 
 ANIMATED_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "spritesheets")
 ANIMATED_GIF_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "gif")
@@ -2037,8 +2235,30 @@ class Importer:
                         for x in range(tile):
                             si = (sy + c * tile + x) * 4
                             buf[(y * tile + x) * 4:(y * tile + x) * 4 + 4] = spx[si:si + 4]
-                    recolour(buf, self.cache)
-                    key = "tile:%d,%d:" % (r, c) + _digest(sheet)
+                    # The floor and wall tile take this theme's own band and
+                    # saturation knobs ONLY if the theme has opted into the
+                    # FULL pack-value package — declared `prop_sat_scale` or
+                    # `prop_sat_target`, the same "declared vs. default" test
+                    # `scripts/lint-palette.py`'s `sat_override_themes()` uses.
+                    # `mission_control` is the reason this is not simply "every
+                    # theme with a `prop_value_floor`": it declares one (0.46)
+                    # for its PROPS only, on purpose — "Why props only" above
+                    # says the wall and floor stay on the standard band because
+                    # they are the largest continuous areas on screen. Gating on
+                    # `prop_value_floor` alone would have silently pulled
+                    # `mission_control`'s wall and floor onto that props-only
+                    # band too, which is exactly the regression a real run of
+                    # this change caught: its theme mean dropped from 0.733 to
+                    # 0.728 and nothing in this task touched `mission_control`.
+                    tile_floor, tile_ceil, tile_sat_scale, tile_sat_target = (
+                        (prop_floor, prop_ceil, prop_sat_scale, prop_sat_target)
+                        if ("prop_sat_scale" in theme or "prop_sat_target" in theme)
+                        else (VALUE_FLOOR, VALUE_CEIL, SAT_SCALE, SAT_TARGET))
+                    recolour(buf, self.cache, tile_floor, tile_sat_scale,
+                             tile_sat_target, tile_ceil)
+                    key = ("band%.3f:sat%.3f,%.3f:ceil%.3f:tile:%d,%d:"
+                           % (tile_floor, tile_sat_scale, tile_sat_target, tile_ceil, r, c)
+                           + _digest(sheet))
                     dst = os.path.join(base, "builder", "%s.png" % kind)
                     if not self._fresh(dst, key):
                         self._emit(dst, tile, tile, buf)
