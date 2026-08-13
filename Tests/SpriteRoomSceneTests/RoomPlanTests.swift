@@ -241,6 +241,10 @@ struct RoomPlanTests {
         .role("bin"): ("waste bin", 20, 20),
         .scenery(0): ("water cooler", 20, 40),
         .scenery(1): ("vending machine", 40, 60),
+        // Deliberately tiny: the "small prop on a large one" arm of
+        // `aStackedPairIsCaughtAndASmallPropOnALargeOneIsNot` needs a piece that
+        // cannot approach the coverage threshold however it is placed.
+        .scenery(2): ("desk lamp", 10, 12),
     ]
 
     static func inventedResolve(_ piece: RoomPlan.Piece) -> (what: String, width: Int, height: Int)? {
@@ -370,10 +374,49 @@ struct RoomPlanTests {
         #expect(buried.count == 1, Comment(rawValue:
             "a bin standing behind a vending machine that covers it was reported"
             + " \(buried.count) times: \(buried)"))
-        #expect(buried.first?.contains("wholly hidden") ?? false, Comment(rawValue:
-            "\(buried) does not say the bin is invisible"))
+        // The message carries the *fraction*, because the rule is a fraction:
+        // a prop 99% covered is as invisible as one 100% covered and used to
+        // pass. Asserting the percentage rather than the word is what keeps
+        // this test honest if the threshold ever moves.
+        #expect(buried.first?.contains("% hidden behind") ?? false, Comment(rawValue:
+            "\(buried) does not say how much of the bin is covered"))
         #expect(buried.first?.contains("dressing[1]") ?? false, Comment(rawValue:
             "\(buried) does not name the placement nobody sees"))
+    }
+
+    /// **A prop 99% covered is caught, and a real pile is not.** [task 8]
+    ///
+    /// The rule used to be containment, which a single pixel of offset defeats:
+    /// a 26 px cabinet leaned on a 26 px cabinet one pixel across draws as one
+    /// cabinet with a sliver of another behind it and reported nothing. That
+    /// shipped in a draft of the office composition and was found by cropping a
+    /// render at 5x — the work this check exists to save.
+    ///
+    /// Both arms matter. Catching the stack is worthless if it also refuses the
+    /// pile the composition is *for*: a small prop on a large one, which is how
+    /// `scripts/compose-scene.py`'s scenes reach a 1-2 px nearest neighbour.
+    @Test func aStackedPairIsCaughtAndASmallPropOnALargeOneIsNot() throws {
+        let layout = RoomLayout()
+        let columns = layout.sceneryColumns
+        func plan(_ near: (piece: RoomPlan.Piece, dx: Int)) -> [String] {
+            RoomPlan(spaces: [], surfaces: [:], dressing: [
+                RoomPlan.Dressing(
+                    piece: .scenery(0), x: Int(columns[1]),
+                    y: Int(layout.baselineY) + layout.tile, what: "behind"),
+                RoomPlan.Dressing(
+                    piece: near.piece, x: Int(columns[1]) + near.dx,
+                    y: Int(layout.baselineY) + layout.tile - 1, what: "in front"),
+            ]).dressingViolations(in: layout, resolve: Self.inventedResolve)
+        }
+        // Same box, one pixel across: the prop behind is invisible and reported.
+        let stacked = plan((piece: .scenery(0), dx: 1))
+        #expect(stacked.contains { $0.contains("% hidden behind") }, Comment(rawValue:
+            "two props of one size stacked a pixel apart were not reported: \(stacked)"))
+        // A narrower prop in front leaves the one behind showing on both sides.
+        let piled = plan((piece: .scenery(2), dx: 1))
+        #expect(!piled.contains { $0.contains("% hidden behind") }, Comment(rawValue:
+            "a small prop piled on a larger one was refused, which is the composition"
+            + " this rule exists to allow: \(piled)"))
     }
 
     // MARK: A plan may redress a room; it may never move a seat

@@ -463,15 +463,33 @@ public struct RoomPlan: Sendable, Hashable {
         // just as completely. The first draft of this loop scanned
         // `boxes[(i + 1)...]` and would have missed exactly half the cases —
         // and silently, because a hidden prop looks like a prop nobody placed.
+        //
+        // **And "hidden" is a fraction, not containment.** This asked whether
+        // one box was *wholly* inside another, which a single pixel of offset
+        // defeats: a 26 px cabinet leaned on a 26 px cabinet one pixel to the
+        // left is 99% covered, draws as one cabinet with a sliver of another
+        // behind it, and passed. That is not a hypothetical — it shipped in a
+        // draft of the office composition and had to be found by cropping a
+        // render at 5x, which is exactly the work a check exists to save.
+        //
+        // 90% is the threshold because it is the coverage at which the prop
+        // behind stops reading as a second object. A deliberate pile is well
+        // under it: the shipped tower-on-printer covers 36% of the printer, and
+        // the pile the room wants — a small thing on a large one — cannot
+        // approach 90% by construction. What it catches is two props of the
+        // same size stacked, which is the failure it was written for.
         for one in boxes {
-            for other in boxes
-            where other.index != one.index
-                && other.box.y0 < one.box.y0
-                && other.box.x0 <= one.box.x0 && other.box.x1 >= one.box.x1
-                && other.box.y1 >= one.box.y1 {
-                out.append(
-                    "dressing[\(one.index)] is wholly hidden behind "
-                    + "dressing[\(other.index)]")
+            let area = max(1, (one.box.x1 - one.box.x0) * (one.box.y1 - one.box.y0))
+            for other in boxes where other.index != one.index && other.box.y0 < one.box.y0 {
+                let width = min(one.box.x1, other.box.x1) - max(one.box.x0, other.box.x0)
+                let height = min(one.box.y1, other.box.y1) - max(one.box.y0, other.box.y0)
+                guard width > 0, height > 0 else { continue }
+                let covered = (width * height) / area
+                if covered >= 0.9 {
+                    out.append(
+                        "dressing[\(one.index)] is \(Int(covered * 100))% hidden behind "
+                        + "dressing[\(other.index)]")
+                }
             }
         }
         return out
