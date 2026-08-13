@@ -433,6 +433,27 @@ struct CharacterDimTests {
 
     /// I7's third check, from `scripts/lint-palette.py`.
     static let minimumValueContrast = 0.40
+
+    /// **The floor one named theme is held to instead**, mirroring
+    /// `scripts/lint-palette.py`'s `THEME_MIN_VALUE_CONTRAST`. [ADR-011]
+    ///
+    /// `office` draws its props, floor and wall on the pack's own values rather
+    /// than the standard `[0.55, 0.92]` band, which puts its mean at 0.685 and
+    /// its contrast against the cast's darkest ink at 0.372. The number it is
+    /// measured against is not a concession to that: it is
+    /// `output/01-engineering-office.png`, the composite the maintainer built
+    /// off the untouched pack and asked this room to reproduce, which measures
+    /// **0.353** on this same test. A room that reads worse than the picture it
+    /// is copying still fails here.
+    ///
+    /// **This is the second copy of a fact and the duplication is deliberate**,
+    /// because the lint reads PNGs off disk and this reads the manifest through
+    /// the typed loader — two paths to the same claim. It is also the copy that
+    /// drifted: it sat at 0.40 while the lint moved, and the suite went red at
+    /// exactly the right moment, which is the argument for keeping both.
+    static func minimumValueContrast(forTheme id: String) -> Double {
+        id == "office" ? 0.35 : minimumValueContrast
+    }
     /// Its first two, which are what the dim's factor was derived from.
     static let characterMinimumSaturation = 0.55
     static let roomMaximumSaturation = 0.25
@@ -584,9 +605,17 @@ struct CharacterDimTests {
             dimmed \(dimmedDarkest) → contrast \(dimmedContrast)
             """)
 
-        #expect(litContrast >= Self.minimumValueContrast, "the lit cast stopped clearing I7")
-        #expect(dimmedContrast >= Self.minimumValueContrast,
-                "the dim broke I7's contrast floor: \(dimmedContrast)")
+        // Measured against the floor *that theme* is held to, because the
+        // binding theme is the one with the lowest mean and since ADR-011 that
+        // is `office`, which is on its own floor. Naming the theme in the
+        // message matters: a future theme that darkens past `office` becomes
+        // the binding one and is held to 0.40, and the failure has to say so
+        // rather than reading as office drifting.
+        let floorForTheme = Self.minimumValueContrast(forTheme: lowestThemeMean.id)
+        #expect(litContrast >= floorForTheme,
+                "the lit cast stopped clearing I7 over '\(lowestThemeMean.id)': \(litContrast) against a floor of \(floorForTheme)")
+        #expect(dimmedContrast >= floorForTheme,
+                "the dim broke I7's contrast floor over '\(lowestThemeMean.id)': \(dimmedContrast) against a floor of \(floorForTheme)")
         #expect(dimmedContrast >= litContrast,
                 "the dim cut the contrast rather than raising it")
     }

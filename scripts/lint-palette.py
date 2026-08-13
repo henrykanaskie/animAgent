@@ -82,6 +82,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import re
+import tempfile
+
 import pnglite
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -90,6 +93,39 @@ MANIFEST = os.path.join(REPO, "assets", "manifest.json")
 ROOM_MAX_SAT = 0.25
 CHAR_MIN_SAT = 0.55
 MIN_VALUE_CONTRAST = 0.40
+
+# **One theme is measured against a lower floor, and the floor is a
+# measurement rather than a concession.** [ADR-011]
+#
+# `output/01-engineering-office.png` is the composed reference the maintainer
+# built with `scripts/compose-scene.py` straight off the untouched pack, and it
+# is the picture this app was asked to reproduce. Measured over its own pixels
+# it runs at a mean value of 0.667 against the cast's darkest ink at 0.314 —
+# **0.353 of contrast**, which is under the 0.40 this file has always demanded.
+# So 0.40 was never a property of the medium or of the pack; it was a property
+# of the value transform, which lifted every room pixel into [0.55, 0.92] and
+# thereby guaranteed a mean nothing could pull down.
+#
+# `office` now draws its props and its floors on the pack's own values, so it
+# is measured against the reference instead: **0.35**, the reference's own
+# 0.353 rounded down to two places. A theme that reads worse than the picture
+# this one is copying still fails. The other five themes are untouched at 0.40,
+# and `room` — which is `office`'s own bytes — takes office's floor for the
+# same aliasing reason `override_prefixes` exists.
+#
+# What did NOT move, and it is the half of I7 that matters at 1x: **characters
+# still own the darkest pixel on screen.** The cast's darkest ink is 0.314; the
+# darkest pixel anywhere in the office room is 0.361, because
+# `prop_value_floor` is 0.10 rather than 0.0. Identity on the value axis was
+# tried and measured at 0.290 — the room owning the darkest pixel outright —
+# and rejected for exactly that reason. The 0.10 floor costs nothing visible
+# and keeps the sentence true.
+THEME_MIN_VALUE_CONTRAST = {"office": 0.35}
+
+
+def min_value_contrast(theme_name=None):
+    """The contrast floor one theme is held to. See THEME_MIN_VALUE_CONTRAST."""
+    return THEME_MIN_VALUE_CONTRAST.get(theme_name, MIN_VALUE_CONTRAST)
 
 # How far a sat-override theme's *processed* peak saturation may drift from the
 # *pack's own* peak saturation, measured independently off the untouched pack
@@ -391,6 +427,62 @@ def _measure_pack_pair(imp, size, spec, dst_rel, label, out):
     out.append((label, dst_rel, p_s, src, s_s))
 
 
+def builder_pack_cross_check(mod, size="32x32"):
+    """Every processed Room Builder tile against its own slice of the pack sheet.
+
+    ADR-011 puts `assets/processed/room/` on `office`'s pack-saturation policy,
+    which takes those 156 files out from under `ROOM_MAX_SAT`. This is what
+    replaces it, and it is a stricter check than the ceiling it displaces: a
+    ceiling asks "is this under 25%", this asks "is this the pack's own number,
+    to within 3 pp, tile by tile". A transform that quietly re-saturated the
+    floor would pass the first and fail this.
+
+    The slice arithmetic is `Importer.room_builder`'s own — row-major over a
+    sheet that divides exactly — and the filename carries `(row, column)`, so
+    the pairing is recovered from the name rather than re-derived. Tiles the
+    importer dropped for being mostly transparent have no processed file and
+    are skipped; a missing pack sheet means the download is not on this
+    machine, which every other check here treats as unverifiable, not failed.
+    """
+    sheet = os.path.join(REPO, "assets", "Modern_Office_Revamped_v1.2",
+                         "1_Room_Builder_Office", "Room_Builder_Office_%s.png" % size)
+    bdir = os.path.join(REPO, "assets", "processed", "room", size, "builder")
+    if not os.path.exists(sheet) or not os.path.isdir(bdir):
+        return []
+    tile = int(size.split("x")[0])
+    w, h, px = pnglite.load(sheet)
+    out = []
+    for name in sorted(os.listdir(bdir)):
+        m = re.match(r"tile_r(\d+)_c(\d+)\.png$", name)
+        if not m:
+            continue
+        r, c = int(m.group(1)), int(m.group(2))
+        if (r + 1) * tile > h or (c + 1) * tile > w:
+            continue
+        buf = pnglite.new(tile, tile)
+        for y in range(tile):
+            for x in range(tile):
+                si = ((r * tile + y) * w + c * tile + x) * 4
+                di = (y * tile + x) * 4
+                buf[di:di + 4] = px[si:si + 4]
+        # **A distinct path per tile, and that is load-bearing.** `load_png` is
+        # memoised on the absolute path, so a single reused scratch filename
+        # makes every tile read the first one — which is exactly how the first
+        # draft of this check reported 27.5% for all 156 of them, a number the
+        # sheet carries nowhere near the floors.
+        cut = os.path.join(tempfile.gettempdir(),
+                           "spriteroom-builder-r%02d-c%02d.png" % (r, c))
+        pnglite.save(cut, tile, tile, buf)
+        dst_rel = "assets/processed/room/%s/builder/%s" % (size, name)
+        p_s, _pmn, _pt, p_n, _pw = scan(os.path.join(REPO, dst_rel))
+        s_s, _smn, _st, s_n, _sw = scan(cut)
+        if p_n == 0 or s_n == 0:
+            continue
+        out.append(("builder:%s" % name[:-4], dst_rel, p_s,
+                    os.path.relpath(sheet, REPO) + " r%02d c%02d" % (r, c), s_s))
+    return out
+
+
 def role_placements(theme=None):
     """How many times the room draws each prop role on one panel.
 
@@ -423,7 +515,14 @@ def role_placements(theme=None):
     if not fn:
         return {}
     metrics = getattr(mod, "seat_metrics", None)
-    return dict(fn(metrics(theme)) if (theme and metrics) else fn())
+    # **The plan too, not just the metrics.** A theme whose plan places its
+    # dressing by hand draws a different number of boards and plants from the
+    # one the band lattice would, and this census is what the motion budget
+    # multiplies by — a census taken without the plan is the M6e defect again,
+    # a count vouched for by the wrong copy of the layout.
+    plan_of = getattr(mod, "plan_of", None)
+    plan = plan_of(theme) if (theme and plan_of) else None
+    return dict(fn(metrics(theme), plan) if (theme and metrics) else fn(plan=plan))
 
 
 def scene_agreement(sets, names):
@@ -572,11 +671,32 @@ def main(argv=None):
     # `themes.sets.office` alias the SAME bytes for scenery — ADR-002 §14a's
     # "`room` IS the resolved default theme" — so the policy has to travel with
     # the *file*, wherever a manifest scope happens to collect it from.
-    override_prefixes = tuple(
-        sorted("assets/processed/themes/%s/" % n for n in sat_themes))
+    override_prefixes = tuple(sorted(
+        ["assets/processed/themes/%s/" % n for n in sat_themes]
+        # **And the builder tiles, which are `office`'s alone.** [ADR-011]
+        # `assets/processed/room/` is referenced by exactly one theme in the
+        # shipped manifest — `office`, which is also the resolved default and
+        # the only theme that draws a plan — so its floors and walls run on the
+        # same pack-saturation policy as its props. Verified against the
+        # manifest rather than asserted: `builder_pack_cross_check` below
+        # measures every one of them against the untouched Room Builder sheet,
+        # so this prefix widens *which* check runs and not *whether* one does.
+        + (["assets/processed/room/"] if "office" in sat_themes else [])))
     pack_cross_checks = {
         name: pack_saturation_cross_check(pa_mod, name) for name in sat_themes
     } if pa_mod else {}
+    # The builder tiles ride on office's entry, because they are office's files
+    # and the report reads per theme. [ADR-011]
+    if "office" in pack_cross_checks:
+        builder = builder_pack_cross_check(pa_mod)
+        if not builder:
+            failures.append(
+                "saturation policy: assets/processed/room/ is on office's "
+                "pack-saturation policy (ADR-011) but not one of its builder "
+                "tiles could be cross-checked against the Room Builder sheet — "
+                "the override is unverifiable, which is a failure and not a "
+                "silent pass")
+        pack_cross_checks["office"] = pack_cross_checks["office"] + builder
     for name, checks in sorted(pack_cross_checks.items()):
         if not checks:
             failures.append(
@@ -740,13 +860,13 @@ def main(argv=None):
             c = tmean - vmin_v
             if worst is None or c < worst[1]:
                 worst = (name, c, dark_file)
-            if c < MIN_VALUE_CONTRAST:
+            if c < min_value_contrast(tname):
                 failures.append(
                     "theme %s value contrast: variant %s darkest pixel is value %.3f "
                     "against a theme mean of %.3f — %.1f%% contrast, needs %.0f%%; "
                     "darkest is in %s"
                     % (tname, name, vmin_v, tmean, c * 100,
-                       MIN_VALUE_CONTRAST * 100, dark_file))
+                       min_value_contrast(tname) * 100, dark_file))
         theme_stats[tname]["worst_contrast"] = worst
 
     # --- costumes ---------------------------------------------------------

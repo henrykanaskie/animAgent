@@ -1594,10 +1594,19 @@ struct RoomSceneTests {
         }
     }
 
-    /// **The decoration is spread across the room and stands at two depths.**
+    /// **The decoration is spread across the room, and stands at two depths on
+    /// the lattice or at many when it is placed by hand.**
     ///
-    /// Both halves are corrections to a real picture, and neither is visible in
-    /// a manifest:
+    /// The room's two decorative roles — a `board` against the wall and a
+    /// `plant` a tile behind the back seat row — reach the floor by one of two
+    /// mechanisms now, and this test has an arm for each. The reason for two
+    /// arms rather than one loose assertion is that the *count* is the thing
+    /// being pinned, and the two mechanisms pin different ones.
+    ///
+    /// ## The lattice arm — five themes
+    ///
+    /// Both halves of it are corrections to a real picture, and neither is
+    /// visible in a manifest:
     ///
     /// - The role used to be picked on `seat % 2`, and seats fill *outward in
     ///   pairs* — so `seat % 2` is not "alternating", it is **which side of the
@@ -1618,9 +1627,36 @@ struct RoomSceneTests {
     /// identity (`sceneryNodesForTesting`) rather than by position is deliberate:
     /// a position filter would silently start counting a scenery band that moved
     /// onto one of these rows.
+    ///
+    /// ## The hand-placed arm — the theme whose plan carries `dressing`
+    ///
+    /// A plan that places its own dressing places its boards and plants too,
+    /// and the lattice does not run for it **at all**: leaving it running under
+    /// an authored composition would keep two of the four stripes the
+    /// composition exists to break. So the pinned count for that theme is
+    /// **zero** decorative props outside `sceneryNodesForTesting` — every copy
+    /// of both roles is a hand placement now, and it arrives through the same
+    /// list as the printers and the bins.
+    ///
+    /// What the two roles have to keep, they keep in different words:
+    ///
+    /// - *Two depths* becomes **more than two**. The lattice's answer was
+    ///   exactly two rows, which is the stripe this composition was authored to
+    ///   break, so asserting two here would be asserting the defect.
+    /// - *Nothing in front of the back seat row* becomes **nothing in front of
+    ///   the front seat row** — clause 1 of `RoomPlan.dressingViolations`, which
+    ///   is the rule that actually binds a hand-placed prop. A plant standing in
+    ///   the lane between two stations is 28 px downstage of the back row and
+    ///   that is the point of it; a prop downstage of `baselineY` would be drawn
+    ///   over somebody's legs, and that is still forbidden.
+    /// - *Neither depth is confined to one half* becomes **neither role is**,
+    ///   which is the failure the original line was written against: every copy
+    ///   of one role on one side of the room. Per-depth is not available to a
+    ///   composition where a depth may hold one object.
     @Test(.enabled(if: SceneArt.isAvailable))
     func decorationIsSpreadAcrossTheRoomAndStandsAtTwoDepths() throws {
         let manifest = try SceneFixtures.manifest()
+        var banded = 0, handPlaced = 0
         for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
             let scene = RoomScene(manifest: manifest, themeID: theme)
             let layout = scene.layout
@@ -1640,31 +1676,87 @@ struct RoomSceneTests {
             let decoration = scene.propNodesForTesting.filter {
                 !excluded.contains(ObjectIdentifier($0))
             }
-            #expect(decoration.count == layout.seatCapacity, Comment(rawValue:
-                "\(theme ?? "room") drew \(decoration.count) decorative props"))
 
-            let depths = Set(decoration.map { Double($0.position.y) })
-            #expect(depths.count == 2, Comment(rawValue:
-                "\(theme ?? "room") stands all its decoration on \(depths)"))
-            for depth in depths {
-                #expect(depth > layout.backSeatRowY, Comment(rawValue:
-                    "\(theme ?? "room") put decoration on \(depth), level with"
-                    + " or in front of the back seat row"))
+            guard !scene.store.room.plan.dressing.isEmpty else {
+                banded += 1
+                #expect(decoration.count == layout.seatCapacity, Comment(rawValue:
+                    "\(theme ?? "room") drew \(decoration.count) decorative props"))
+
+                let depths = Set(decoration.map { Double($0.position.y) })
+                #expect(depths.count == 2, Comment(rawValue:
+                    "\(theme ?? "room") stands all its decoration on \(depths)"))
+                for depth in depths {
+                    #expect(depth > layout.backSeatRowY, Comment(rawValue:
+                        "\(theme ?? "room") put decoration on \(depth), level with"
+                        + " or in front of the back seat row"))
+                }
+                #expect(depths.contains(layout.wallBaseY),
+                        "nothing stands against the back wall")
+
+                // Neither depth is confined to one half of the room: the failure
+                // this replaces was every copy of one role on one side.
+                for depth in depths {
+                    let xs = decoration
+                        .filter { Double($0.position.y) == depth }
+                        .map { Double($0.position.x) }
+                    #expect(xs.contains { $0 < centre } && xs.contains { $0 > centre },
+                            Comment(rawValue:
+                                "\(theme ?? "room")'s \(depth) band is all on one side"))
+                }
+                continue
             }
+
+            handPlaced += 1
+            let name = theme ?? "room"
+            #expect(decoration.isEmpty, Comment(rawValue:
+                "\(name) places its dressing by hand and still drew \(decoration.count)"
+                + " decorative props off the board/plant lattice — the two mechanisms are"
+                + " all-or-nothing per theme, and both of them ran"))
+
+            // The two roles as the plan places them. Read off the plan rather
+            // than off the nodes, because *which role* a node draws is not
+            // something a node knows — and then checked against the nodes, so
+            // the arm cannot pass on a placement nobody drew.
+            let placed = scene.store.room.plan.dressing.compactMap { item -> (String, Int, Int)? in
+                guard case let .role(role) = item.piece,
+                      role == RoomScene.backdropRole || role == RoomScene.accentRole
+                else { return nil }
+                return (role, item.x, item.y)
+            }
+            #expect(placed.count == 8, Comment(rawValue:
+                "\(name) hand-places \(placed.count) boards and plants; the composition that"
+                + " ships stands 3 boards on the wall line and 5 plants on the floor, against"
+                + " the lattice's 4 and 3"))
+            let drawn = Set(scene.sceneryNodesForTesting
+                .map { "\(Int($0.position.x)),\(Int($0.position.y))" })
+            for (role, x, y) in placed {
+                #expect(drawn.contains("\(x),\(y)"), Comment(rawValue:
+                    "\(name) authored a \(role) at (\(x), \(y)) and drew nothing there"))
+            }
+
+            let depths = Set(placed.map { Double($0.2) })
+            #expect(depths.count > 2, Comment(rawValue:
+                "\(name) stands its hand-placed decoration on \(depths.count) depths —"
+                + " the lattice's own answer was 2, and breaking that stripe is what the"
+                + " hand placement is for"))
             #expect(depths.contains(layout.wallBaseY),
                     "nothing stands against the back wall")
-
-            // Neither depth is confined to one half of the room: the failure
-            // this replaces was every copy of one role on one side.
             for depth in depths {
-                let xs = decoration
-                    .filter { Double($0.position.y) == depth }
-                    .map { Double($0.position.x) }
+                #expect(depth >= layout.baselineY, Comment(rawValue:
+                    "\(name) put decoration on \(depth), nearer the camera than the front"
+                    + " seat row at \(layout.baselineY)"))
+            }
+
+            for role in [RoomScene.backdropRole, RoomScene.accentRole] {
+                let xs = placed.filter { $0.0 == role }.map { Double($0.1) }
+                #expect(!xs.isEmpty, Comment(rawValue: "\(name) hand-places no \(role) at all"))
                 #expect(xs.contains { $0 < centre } && xs.contains { $0 > centre },
-                        Comment(rawValue:
-                            "\(theme ?? "room")'s \(depth) band is all on one side"))
+                        Comment(rawValue: "\(name)'s \(role)s are all on one side"))
             }
         }
+        #expect(banded > 0 && handPlaced > 0, Comment(rawValue:
+            "\(banded) themes take the board/plant lattice and \(handPlaced) place by hand,"
+            + " so one of the two arms above ran over nothing"))
     }
 
     /// A prop is placed by putting its measured content box's bottom-centre on

@@ -202,6 +202,23 @@ public final class RoomScene: SKScene {
         }
     }
 
+    /// **The plan's hand-placed dressing, resolved against the theme's own
+    /// scenery list**, in declaration order — which is draw order.
+    ///
+    /// One function so that the three readers agree by construction rather than
+    /// by transcription: `buildRoom` draws it, `decorationTopY` measures it for
+    /// the camera, and the contract test checks it. A placement whose index is
+    /// past the end of the list resolves to nothing and is skipped here; it is
+    /// `RoomPlan.dressingViolations` that turns that silence into a red test,
+    /// exactly as `routeViolations` does for a space with no surface.
+    nonisolated static func dressingPlacements(store: TextureStore)
+    -> [(prop: Manifest.PropRole, point: ScenePoint)] {
+        store.room.plan.dressing.compactMap { item in
+            guard let prop = store.room.piece(item.piece) else { return nil }
+            return (prop, ScenePoint(x: Double(item.x), y: Double(item.y)))
+        }
+    }
+
     /// How many times the room has been built. **One, for the life of a scene.**
     ///
     /// §6 rule 1 is that the room does not change with activity, at all, and
@@ -266,8 +283,15 @@ public final class RoomScene: SKScene {
         // still what keeps this thin: two kinds of object, seven of them, both
         // through the same desaturating import pass as the floor, and every one
         // of them upstage of both seat rows.
-        for placement in Self.decorationPlacements(layout: layout) {
-            place(role: placement.role, at: placement.point)
+        // **A hand-placed room places its backdrops and accents too.** They are
+        // the oldest lattice in the file — a board on the wall line at every
+        // even column, a plant a tile behind the back row at every odd one — and
+        // leaving them running under an authored composition would keep two of
+        // the four stripes the composition exists to break.
+        if store.room.plan.dressing.isEmpty {
+            for placement in Self.decorationPlacements(layout: layout) {
+                place(role: placement.role, at: placement.point)
+            }
         }
 
         // **The scenery: everything the four roles above are not.** [M8 Phase 2b]
@@ -304,15 +328,39 @@ public final class RoomScene: SKScene {
         // `Office_Design_2` repeats one plant in three corners — and it is what
         // keeps a thin theme honest instead of padded with props nobody looked
         // at.
-        for band in RoomLayout.SceneryBand.allCases {
-            let props = store.room.scenery(band)
-            guard !props.isEmpty else { continue }
-            for (index, point) in layout.sceneryAnchors(band).enumerated() {
-                let prop = props[index % props.count]
-                guard let node = place(prop: prop, at: point, depthBias: 0) else { continue }
-                propNodes.append(node)
-                propPaths.append(prop.file)
-                sceneryNodes.append(node)
+        // **A plan may place its own dressing by hand, and then the bands do not
+        // run at all.**
+        //
+        // The bands put every prop on one of four depths and one of eight
+        // columns, and the maintainer's word for the result was that the
+        // furniture "sits in one strip" — four strips, in fact, which is what a
+        // lattice looks like once it is filled. `compose-scene.py`'s engineering
+        // office is the same floor with 45 objects on it and no two of them
+        // sharing a row: things cluster, stack a lane three deep, and leave the
+        // next lane empty. That is authored composition, and it cannot be
+        // derived from a band name, so a plan that wants it states every point.
+        //
+        // It is all-or-nothing per theme rather than additive. A hand-placed
+        // room with the bands still running underneath is a room with 20 props
+        // on a lattice *and* 45 off it, and the lattice would still read.
+        for placement in Self.dressingPlacements(store: store) {
+            guard let node = place(prop: placement.prop, at: placement.point, depthBias: 0)
+            else { continue }
+            propNodes.append(node)
+            propPaths.append(placement.prop.file)
+            sceneryNodes.append(node)
+        }
+        if store.room.plan.dressing.isEmpty {
+            for band in RoomLayout.SceneryBand.allCases {
+                let props = store.room.scenery(band)
+                guard !props.isEmpty else { continue }
+                for (index, point) in layout.sceneryAnchors(band).enumerated() {
+                    let prop = props[index % props.count]
+                    guard let node = place(prop: prop, at: point, depthBias: 0) else { continue }
+                    propNodes.append(node)
+                    propPaths.append(prop.file)
+                    sceneryNodes.append(node)
+                }
             }
         }
 
@@ -1792,9 +1840,22 @@ public final class RoomScene: SKScene {
         // turns the plan back into a backcloth. [ADR-007 §5]
         var top = layout.plan.topRow()
             .map { Double(($0 + 1) * layout.tile) } ?? layout.wallBaseY
-        for placement in Self.decorationPlacements(layout: layout) {
-            guard let prop = store.room.prop(placement.role) else { continue }
-            top = max(top, placement.point.y + Double(prop.contentBox.height))
+        // **Guarded on the same condition `buildRoom` guards it on**, because
+        // the camera may only measure what the room actually draws. A
+        // hand-placed room draws no decoration lattice, and a camera that
+        // measured one would be aiming at props that are not there.
+        //
+        // It costs nothing *today* — the shipped composition stands its boards
+        // on `wallBaseY`, which is exactly where the lattice stood them, so the
+        // maximum is identical either way. It would start lying the moment a
+        // composition moved a board off that line, which is precisely the kind
+        // of defect that survives because it is invisible in the still that
+        // introduced it.
+        if store.room.plan.dressing.isEmpty {
+            for placement in Self.decorationPlacements(layout: layout) {
+                guard let prop = store.room.prop(placement.role) else { continue }
+                top = max(top, placement.point.y + Double(prop.contentBox.height))
+            }
         }
         // **The scenery counts, and the `wall` band is usually what decides it.**
         // A picture two tiles up the wall face is the highest thing the room
@@ -1804,11 +1865,16 @@ public final class RoomScene: SKScene {
         // little of the dead floor under the room and nothing else: the aim is
         // clamped by the slack the scale left, and at `2x` and `3x` that clamp
         // binds first, so the close views are unmoved.
-        for band in RoomLayout.SceneryBand.allCases {
-            let props = store.room.scenery(band)
-            guard !props.isEmpty else { continue }
-            for (index, point) in layout.sceneryAnchors(band).enumerated() {
-                top = max(top, point.y + Double(props[index % props.count].contentBox.height))
+        for placement in Self.dressingPlacements(store: store) {
+            top = max(top, placement.point.y + Double(placement.prop.contentBox.height))
+        }
+        if store.room.plan.dressing.isEmpty {
+            for band in RoomLayout.SceneryBand.allCases {
+                let props = store.room.scenery(band)
+                guard !props.isEmpty else { continue }
+                for (index, point) in layout.sceneryAnchors(band).enumerated() {
+                    top = max(top, point.y + Double(props[index % props.count].contentBox.height))
+                }
             }
         }
         return top

@@ -260,6 +260,96 @@ ROOM_PLAN = {
 }
 
 
+# **The office's dressing, placed by hand.** [RoomPlan.Dressing]
+#
+# Scene pixels on `RoomLayout`'s grid, y **up**: `x` is the centre of the prop's
+# content box and `y` its bottom. The room is 800 wide and its near floor runs
+# y 64..224, with the wall face above that and the back rooms' floor at 288.
+#
+# The seven seat columns stand at x = 112, 208, 304, 400, 496, 592 and 688, and
+# each is a corridor one tile wide that a character walks up and down. A floor
+# prop clears one when `|x - seat| >= (32 + width) / 2`; anything whose base is
+# at or above the wall line at 224 is exempt, because that is where a leaver's
+# feet stop. `RoomPlan.dressingViolations` is those two sentences as a check and
+# `RoomPlanTests` runs it over this list — the numbers below are not trusted.
+#
+# **Why by hand at all.** The band system gave every prop one of four depths, so
+# twenty props came out as four horizontal stripes across a floor with nothing
+# between them, and the maintainer's word for the room was that the furniture
+# "sits in one strip". `compose-scene.py`'s engineering office puts about twenty
+# floor objects on a floor of the same area and no two of them share a row: a
+# five-piece stack down one edge, a pair of boxes overlapping, three lanes with
+# something in them and two with nothing. That is composition, it cannot be
+# derived from a band name, so it is stated.
+#
+# The habits copied from that scene, deliberately:
+#
+#   * one edge carries a **stack** — printer over cabinet over tower over bin —
+#     rather than the pieces being spread evenly along the wall;
+#   * a lane is either full or empty, never uniformly half-filled;
+#   * x is jittered inside a lane instead of being centred in it, because a
+#     column of centred props is the lattice again by another route;
+#   * the same object appears three or four times. The pack's own rooms repeat
+#     one plant in three corners, and a room dressed from twenty distinct props
+#     used exactly once each looks like a catalogue.
+ROOM_DRESSING = [
+    # The left edge: the five-piece stack.
+    {"scenery": 13, "x": 50, "y": 190, "what": "printer with a sheet"},
+    {"scenery": 10, "x": 34, "y": 150, "what": "two-drawer filing cabinet"},
+    {"scenery": 16, "x": 62, "y": 112, "what": "PC tower"},
+    {"scenery": 15, "x": 40, "y": 78, "what": "waste bin"},
+    # Lane 1 (x 128..192, between seats at 112 and 208).
+    {"role": "plant", "x": 158, "y": 196, "what": "small potted plant"},
+    {"scenery": 16, "x": 170, "y": 124, "what": "PC tower"},
+    {"scenery": 18, "x": 150, "y": 86, "what": "waste bin, full"},
+    # Lane 2 (224..288). The scanner is 52 wide and has 12 px of x to live in,
+    # which is why it is here and not in a lane that also wants a cabinet.
+    {"scenery": 12, "x": 256, "y": 206, "what": "flatbed scanner"},
+    {"role": "plant", "x": 246, "y": 160, "what": "small potted plant"},
+    {"scenery": 17, "x": 264, "y": 96, "what": "backpack on the floor"},
+    # Lane 3 (320..384) — deliberately thin, so the eye has somewhere to rest.
+    {"scenery": 11, "x": 350, "y": 200, "what": "office printer"},
+    {"scenery": 19, "x": 362, "y": 108, "what": "waste bin, mixed rubbish"},
+    # Lane 4 (416..480).
+    {"role": "plant", "x": 440, "y": 190, "what": "small potted plant"},
+    {"scenery": 14, "x": 452, "y": 130, "what": "wooden two-drawer cabinet"},
+    {"scenery": 16, "x": 436, "y": 84, "what": "PC tower"},
+    # Lane 5 (512..576) — thin again.
+    {"scenery": 10, "x": 540, "y": 204, "what": "two-drawer filing cabinet"},
+    {"scenery": 15, "x": 552, "y": 118, "what": "waste bin"},
+    # Lane 6 (608..672).
+    {"role": "plant", "x": 634, "y": 198, "what": "small potted plant"},
+    {"scenery": 17, "x": 648, "y": 100, "what": "backpack on the floor"},
+    # The right edge: the second stack, mirroring the first without matching it.
+    {"scenery": 11, "x": 744, "y": 192, "what": "office printer"},
+    {"scenery": 14, "x": 756, "y": 146, "what": "wooden two-drawer cabinet"},
+    {"role": "plant", "x": 734, "y": 100, "what": "small potted plant"},
+    {"scenery": 18, "x": 762, "y": 76, "what": "waste bin, full"},
+    # Standing on the wall line: the three boards. They are 60 px wide and 46
+    # tall, so they are what the upstage half of the room reads as, and the
+    # pictures below are hung in the gaps they leave.
+    {"role": "board", "x": 176, "y": 224, "what": "presentation board"},
+    {"role": "board", "x": 456, "y": 224, "what": "presentation board"},
+    {"role": "board", "x": 712, "y": 224, "what": "presentation board"},
+    # Hung on the near wall's 50 px of face. Nothing here is on the floor, so
+    # the seat columns do not bind and the spacing is the picture's own.
+    {"scenery": 0, "x": 64, "y": 238, "what": "whiteboard with sticky notes"},
+    {"scenery": 1, "x": 286, "y": 240, "what": "blue planning board"},
+    {"scenery": 4, "x": 348, "y": 254, "what": "wall clock"},
+    {"scenery": 2, "x": 382, "y": 236, "what": "framed certificate with a medal"},
+    {"scenery": 3, "x": 520, "y": 252, "what": "small framed picture"},
+    {"scenery": 5, "x": 560, "y": 238, "what": "cork noticeboard with pinned notes"},
+    {"scenery": 6, "x": 616, "y": 250, "what": "framed landscape painting"},
+    # The back rooms' own floor, at y=288. The tall appliances stand against the
+    # far wall's face, which is how the pack draws them, and clear of the two
+    # partitions at x=160 and x=544.
+    {"scenery": 7, "x": 100, "y": 288, "what": "water cooler"},
+    {"scenery": 7, "x": 300, "y": 288, "what": "water cooler"},
+    {"scenery": 8, "x": 600, "y": 288, "what": "vending machine"},
+    {"scenery": 9, "x": 690, "y": 288, "what": "coffee counter"},
+]
+
+
 def plan_line_inks(path):
     """`(edge, fill)` of a cap tile's floor-plan line, measured down its middle.
 
@@ -288,8 +378,13 @@ def plan_line_inks(path):
     return list(edge[:3]), list(fill[:3])
 
 
-def build_plan(builder_tiles):
+def build_plan(builder_tiles, dressing=None):
     """`plan` for a builder listing that has the tiles for one, else None.
+
+    `dressing` is hand-placed and therefore indexes one theme's own scenery
+    list, so it is passed in per theme rather than living in `ROOM_PLAN`: every
+    theme with the builder tiles shares the walls, and only `office` has had its
+    dressing composed.
 
     Gated on the **files**, not on a theme name: a theme whose sheet carries a
     cap, a body and the floors is one this plan can be drawn on, and every other
@@ -323,6 +418,7 @@ def build_plan(builder_tiles):
         "surfaces": surfaces,
         "spaces": [dict(s) for s in ROOM_PLAN["spaces"]],
         "partitions": [dict(p) for p in ROOM_PLAN["partitions"]],
+        "dressing": [dict(d) for d in (dressing or [])],
     }
 
 
@@ -780,7 +876,8 @@ def build_room():
         out["props"]["stations"] = stations
     # `room` IS the resolved default theme [ADR-002 §14a], so it takes the same
     # plan `themes.sets.office` does or the same room would be two rooms.
-    plan = build_plan(builder)
+    # `room` IS the resolved default theme, so it takes the office dressing.
+    plan = build_plan(builder, ROOM_DRESSING)
     if plan is not None:
         out["plan"] = plan
     return out
@@ -1224,7 +1321,7 @@ def build_themes():
 
         if not roles:
             continue
-        plan = build_plan(tiles)
+        plan = build_plan(tiles, ROOM_DRESSING if name == "office" else None)
         sets[name] = {
             "title": spec.get("title", name),
             "what": spec.get("what", ""),

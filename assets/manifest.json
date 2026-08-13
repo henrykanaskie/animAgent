@@ -5705,14 +5705,14 @@
           "cap": "assets/processed/room/32x32/builder/tile_r09_c01.png",
           "body": "assets/processed/room/32x32/builder/tile_r10_c01.png",
           "line_edge": [
-            154,
-            154,
-            170
+            71,
+            71,
+            98
           ],
           "line_fill": [
-            234,
-            234,
-            234
+            253,
+            253,
+            253
           ]
         },
         "concrete": {
@@ -5720,14 +5720,14 @@
           "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
           "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
           "line_edge": [
-            154,
-            154,
-            170
+            71,
+            71,
+            98
           ],
           "line_fill": [
-            234,
-            234,
-            234
+            253,
+            253,
+            253
           ]
         },
         "lino": {
@@ -5735,14 +5735,14 @@
           "cap": "assets/processed/room/32x32/builder/tile_r11_c01.png",
           "body": "assets/processed/room/32x32/builder/tile_r12_c01.png",
           "line_edge": [
-            154,
-            154,
-            170
+            71,
+            71,
+            98
           ],
           "line_fill": [
-            234,
-            234,
-            234
+            253,
+            253,
+            253
           ]
         },
         "plank": {
@@ -5750,14 +5750,14 @@
           "cap": "assets/processed/room/32x32/builder/tile_r05_c01.png",
           "body": "assets/processed/room/32x32/builder/tile_r06_c01.png",
           "line_edge": [
-            154,
-            154,
-            170
+            71,
+            71,
+            98
           ],
           "line_fill": [
-            234,
-            234,
-            234
+            253,
+            253,
+            253
           ]
         },
         "slab": {
@@ -5765,14 +5765,14 @@
           "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
           "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
           "line_edge": [
-            154,
-            154,
-            170
+            71,
+            71,
+            98
           ],
           "line_fill": [
-            234,
-            234,
-            234
+            253,
+            253,
+            253
           ]
         }
       },
@@ -5834,6 +5834,230 @@
           "x": 17,
           "y": 9,
           "h": 3
+        }
+      ],
+      "dressing": [
+        {
+          "scenery": 13,
+          "x": 50,
+          "y": 190,
+          "what": "printer with a sheet"
+        },
+        {
+          "scenery": 10,
+          "x": 34,
+          "y": 150,
+          "what": "two-drawer filing cabinet"
+        },
+        {
+          "scenery": 16,
+          "x": 62,
+          "y": 112,
+          "what": "PC tower"
+        },
+        {
+          "scenery": 15,
+          "x": 40,
+          "y": 78,
+          "what": "waste bin"
+        },
+        {
+          "role": "plant",
+          "x": 158,
+          "y": 196,
+          "what": "small potted plant"
+        },
+        {
+          "scenery": 16,
+          "x": 170,
+          "y": 124,
+          "what": "PC tower"
+        },
+        {
+          "scenery": 18,
+          "x": 150,
+          "y": 86,
+          "what": "waste bin, full"
+        },
+        {
+          "scenery": 12,
+          "x": 256,
+          "y": 206,
+          "what": "flatbed scanner"
+        },
+        {
+          "role": "plant",
+          "x": 246,
+          "y": 160,
+          "what": "small potted plant"
+        },
+        {
+          "scenery": 17,
+          "x": 264,
+          "y": 96,
+          "what": "backpack on the floor"
+        },
+        {
+          "scenery": 11,
+          "x": 350,
+          "y": 200,
+          "what": "office printer"
+        },
+        {
+          "scenery": 19,
+          "x": 362,
+          "y": 108,
+          "what": "waste bin, mixed rubbish"
+        },
+        {
+          "role": "plant",
+          "x": 440,
+          "y": 190,
+          "what": "small potted plant"
+        },
+        {
+          "scenery": 14,
+          "x": 452,
+          "y": 130,
+          "what": "wooden two-drawer cabinet"
+        },
+        {
+          "scenery": 16,
+          "x": 436,
+          "y": 84,
+          "what": "PC tower"
+        },
+        {
+          "scenery": 10,
+          "x": 540,
+          "y": 204,
+          "what": "two-drawer filing cabinet"
+        },
+        {
+          "scenery": 15,
+          "x": 552,
+          "y": 118,
+          "what": "waste bin"
+        },
+        {
+          "role": "plant",
+          "x": 634,
+          "y": 198,
+          "what": "small potted plant"
+        },
+        {
+          "scenery": 17,
+          "x": 648,
+          "y": 100,
+          "what": "backpack on the floor"
+        },
+        {
+          "scenery": 11,
+          "x": 744,
+          "y": 192,
+          "what": "office printer"
+        },
+        {
+          "scenery": 14,
+          "x": 756,
+          "y": 146,
+          "what": "wooden two-drawer cabinet"
+        },
+        {
+          "role": "plant",
+          "x": 734,
+          "y": 100,
+          "what": "small potted plant"
+        },
+        {
+          "scenery": 18,
+          "x": 762,
+          "y": 76,
+          "what": "waste bin, full"
+        },
+        {
+          "role": "board",
+          "x": 176,
+          "y": 224,
+          "what": "presentation board"
+        },
+        {
+          "role": "board",
+          "x": 456,
+          "y": 224,
+          "what": "presentation board"
+        },
+        {
+          "role": "board",
+          "x": 712,
+          "y": 224,
+          "what": "presentation board"
+        },
+        {
+          "scenery": 0,
+          "x": 64,
+          "y": 238,
+          "what": "whiteboard with sticky notes"
+        },
+        {
+          "scenery": 1,
+          "x": 286,
+          "y": 240,
+          "what": "blue planning board"
+        },
+        {
+          "scenery": 4,
+          "x": 348,
+          "y": 254,
+          "what": "wall clock"
+        },
+        {
+          "scenery": 2,
+          "x": 382,
+          "y": 236,
+          "what": "framed certificate with a medal"
+        },
+        {
+          "scenery": 3,
+          "x": 520,
+          "y": 252,
+          "what": "small framed picture"
+        },
+        {
+          "scenery": 5,
+          "x": 560,
+          "y": 238,
+          "what": "cork noticeboard with pinned notes"
+        },
+        {
+          "scenery": 6,
+          "x": 616,
+          "y": 250,
+          "what": "framed landscape painting"
+        },
+        {
+          "scenery": 7,
+          "x": 100,
+          "y": 288,
+          "what": "water cooler"
+        },
+        {
+          "scenery": 7,
+          "x": 300,
+          "y": 288,
+          "what": "water cooler"
+        },
+        {
+          "scenery": 8,
+          "x": 600,
+          "y": 288,
+          "what": "vending machine"
+        },
+        {
+          "scenery": 9,
+          "x": 690,
+          "y": 288,
+          "what": "coffee counter"
         }
       ]
     }
@@ -7814,14 +8038,14 @@
               "cap": "assets/processed/room/32x32/builder/tile_r09_c01.png",
               "body": "assets/processed/room/32x32/builder/tile_r10_c01.png",
               "line_edge": [
-                154,
-                154,
-                170
+                71,
+                71,
+                98
               ],
               "line_fill": [
-                234,
-                234,
-                234
+                253,
+                253,
+                253
               ]
             },
             "concrete": {
@@ -7829,14 +8053,14 @@
               "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
               "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
               "line_edge": [
-                154,
-                154,
-                170
+                71,
+                71,
+                98
               ],
               "line_fill": [
-                234,
-                234,
-                234
+                253,
+                253,
+                253
               ]
             },
             "lino": {
@@ -7844,14 +8068,14 @@
               "cap": "assets/processed/room/32x32/builder/tile_r11_c01.png",
               "body": "assets/processed/room/32x32/builder/tile_r12_c01.png",
               "line_edge": [
-                154,
-                154,
-                170
+                71,
+                71,
+                98
               ],
               "line_fill": [
-                234,
-                234,
-                234
+                253,
+                253,
+                253
               ]
             },
             "plank": {
@@ -7859,14 +8083,14 @@
               "cap": "assets/processed/room/32x32/builder/tile_r05_c01.png",
               "body": "assets/processed/room/32x32/builder/tile_r06_c01.png",
               "line_edge": [
-                154,
-                154,
-                170
+                71,
+                71,
+                98
               ],
               "line_fill": [
-                234,
-                234,
-                234
+                253,
+                253,
+                253
               ]
             },
             "slab": {
@@ -7874,14 +8098,14 @@
               "cap": "assets/processed/room/32x32/builder/tile_r07_c01.png",
               "body": "assets/processed/room/32x32/builder/tile_r08_c01.png",
               "line_edge": [
-                154,
-                154,
-                170
+                71,
+                71,
+                98
               ],
               "line_fill": [
-                234,
-                234,
-                234
+                253,
+                253,
+                253
               ]
             }
           },
@@ -7943,6 +8167,230 @@
               "x": 17,
               "y": 9,
               "h": 3
+            }
+          ],
+          "dressing": [
+            {
+              "scenery": 13,
+              "x": 50,
+              "y": 190,
+              "what": "printer with a sheet"
+            },
+            {
+              "scenery": 10,
+              "x": 34,
+              "y": 150,
+              "what": "two-drawer filing cabinet"
+            },
+            {
+              "scenery": 16,
+              "x": 62,
+              "y": 112,
+              "what": "PC tower"
+            },
+            {
+              "scenery": 15,
+              "x": 40,
+              "y": 78,
+              "what": "waste bin"
+            },
+            {
+              "role": "plant",
+              "x": 158,
+              "y": 196,
+              "what": "small potted plant"
+            },
+            {
+              "scenery": 16,
+              "x": 170,
+              "y": 124,
+              "what": "PC tower"
+            },
+            {
+              "scenery": 18,
+              "x": 150,
+              "y": 86,
+              "what": "waste bin, full"
+            },
+            {
+              "scenery": 12,
+              "x": 256,
+              "y": 206,
+              "what": "flatbed scanner"
+            },
+            {
+              "role": "plant",
+              "x": 246,
+              "y": 160,
+              "what": "small potted plant"
+            },
+            {
+              "scenery": 17,
+              "x": 264,
+              "y": 96,
+              "what": "backpack on the floor"
+            },
+            {
+              "scenery": 11,
+              "x": 350,
+              "y": 200,
+              "what": "office printer"
+            },
+            {
+              "scenery": 19,
+              "x": 362,
+              "y": 108,
+              "what": "waste bin, mixed rubbish"
+            },
+            {
+              "role": "plant",
+              "x": 440,
+              "y": 190,
+              "what": "small potted plant"
+            },
+            {
+              "scenery": 14,
+              "x": 452,
+              "y": 130,
+              "what": "wooden two-drawer cabinet"
+            },
+            {
+              "scenery": 16,
+              "x": 436,
+              "y": 84,
+              "what": "PC tower"
+            },
+            {
+              "scenery": 10,
+              "x": 540,
+              "y": 204,
+              "what": "two-drawer filing cabinet"
+            },
+            {
+              "scenery": 15,
+              "x": 552,
+              "y": 118,
+              "what": "waste bin"
+            },
+            {
+              "role": "plant",
+              "x": 634,
+              "y": 198,
+              "what": "small potted plant"
+            },
+            {
+              "scenery": 17,
+              "x": 648,
+              "y": 100,
+              "what": "backpack on the floor"
+            },
+            {
+              "scenery": 11,
+              "x": 744,
+              "y": 192,
+              "what": "office printer"
+            },
+            {
+              "scenery": 14,
+              "x": 756,
+              "y": 146,
+              "what": "wooden two-drawer cabinet"
+            },
+            {
+              "role": "plant",
+              "x": 734,
+              "y": 100,
+              "what": "small potted plant"
+            },
+            {
+              "scenery": 18,
+              "x": 762,
+              "y": 76,
+              "what": "waste bin, full"
+            },
+            {
+              "role": "board",
+              "x": 176,
+              "y": 224,
+              "what": "presentation board"
+            },
+            {
+              "role": "board",
+              "x": 456,
+              "y": 224,
+              "what": "presentation board"
+            },
+            {
+              "role": "board",
+              "x": 712,
+              "y": 224,
+              "what": "presentation board"
+            },
+            {
+              "scenery": 0,
+              "x": 64,
+              "y": 238,
+              "what": "whiteboard with sticky notes"
+            },
+            {
+              "scenery": 1,
+              "x": 286,
+              "y": 240,
+              "what": "blue planning board"
+            },
+            {
+              "scenery": 4,
+              "x": 348,
+              "y": 254,
+              "what": "wall clock"
+            },
+            {
+              "scenery": 2,
+              "x": 382,
+              "y": 236,
+              "what": "framed certificate with a medal"
+            },
+            {
+              "scenery": 3,
+              "x": 520,
+              "y": 252,
+              "what": "small framed picture"
+            },
+            {
+              "scenery": 5,
+              "x": 560,
+              "y": 238,
+              "what": "cork noticeboard with pinned notes"
+            },
+            {
+              "scenery": 6,
+              "x": 616,
+              "y": 250,
+              "what": "framed landscape painting"
+            },
+            {
+              "scenery": 7,
+              "x": 100,
+              "y": 288,
+              "what": "water cooler"
+            },
+            {
+              "scenery": 7,
+              "x": 300,
+              "y": 288,
+              "what": "water cooler"
+            },
+            {
+              "scenery": 8,
+              "x": 600,
+              "y": 288,
+              "what": "vending machine"
+            },
+            {
+              "scenery": 9,
+              "x": 690,
+              "y": 288,
+              "what": "coffee counter"
             }
           ]
         }

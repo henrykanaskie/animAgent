@@ -157,14 +157,68 @@ public struct RoomPlan: Sendable, Hashable {
         }
     }
 
+    /// **One piece of the room's dressing, placed by hand.**
+    ///
+    /// The band system this stands beside gives every prop one of four depths
+    /// and one of eight columns, which is 32 slots on a perfect lattice — and a
+    /// lattice is what the room *looked* like: four horizontal stripes of
+    /// objects across a floor that had nothing else on it. `compose-scene.py`'s
+    /// engineering office puts 45 objects on a floor of the same size and none
+    /// of them share a row, because the gaps between clusters are the thing
+    /// that reads as a room rather than as a shelf.
+    ///
+    /// So a placement carries **its own x and y**. `scenery` indexes the
+    /// theme's own ordered scenery list — the same list and the same order the
+    /// bands walk — and `what` echoes that entry's description so a reorder of
+    /// the list shows up as a named mismatch in `dressingViolations` instead of
+    /// as the wrong object quietly standing in the right place.
+    ///
+    /// `x` is the centre of the prop's content box and `y` its bottom, in room
+    /// pixels, y-up, on `RoomLayout`'s grid — the same convention every other
+    /// point in the scene uses, so `Character.Layer.rowDepth` sorts a hand-placed
+    /// prop against the cast with no special case.
+    ///
+    /// **It buys no new licence.** The three route clauses the band system
+    /// satisfied by construction, a hand-placed prop has to satisfy by
+    /// assertion, and `dressingViolations(in:boxes:)` is that assertion.
+    /// **Which object a placement draws.** A named prop role — the same four the
+    /// theme already binds for a seat, of which `board` and `plant` are the two
+    /// the decoration system used to stand on its own lattice — or an index into
+    /// the theme's ordered scenery list. A hand-placed room places *all* of its
+    /// dressing, so it needs to reach both pools.
+    public enum Piece: Sendable, Hashable {
+        case role(String)
+        case scenery(Int)
+    }
+
+    public struct Dressing: Sendable, Hashable {
+        public let piece: Piece
+        public let x: Int
+        public let y: Int
+        public let what: String
+
+        public init(piece: Piece, x: Int, y: Int, what: String = "") {
+            self.piece = piece
+            self.x = x; self.y = y
+            self.what = what
+        }
+    }
+
     public let spaces: [Space]
     public let surfaces: [String: Surface]
     public let partitions: [Partition]
+    /// Hand-placed dressing, in draw order. Empty for every theme that still
+    /// takes the four bands, which is the default and not a degraded state.
+    public let dressing: [Dressing]
 
-    public init(spaces: [Space], surfaces: [String: Surface], partitions: [Partition] = []) {
+    public init(
+        spaces: [Space], surfaces: [String: Surface], partitions: [Partition] = [],
+        dressing: [Dressing] = []
+    ) {
         self.spaces = spaces
         self.surfaces = surfaces
         self.partitions = partitions
+        self.dressing = dressing
     }
 
     /// **No plan: the open floor this app drew for eight milestones.** Five of
@@ -287,6 +341,101 @@ public struct RoomPlan: Sendable, Hashable {
         for space in spaces {
             for column in space.doorways where !space.columns.contains(column) {
                 out.append("'\(space.name)' cuts a doorway at column \(column), outside its rect")
+            }
+        }
+        return out
+    }
+
+    /// **Every way this plan's hand-placed dressing could stand in somebody's
+    /// way, or in its own**, as strings, empty when it stands in nobody's.
+    ///
+    /// The band system earned its route safety structurally: `sceneryColumns` is
+    /// *defined* as the gaps between the seat columns, so a banded prop could
+    /// not be in a corridor however badly it was authored. A hand-placed prop
+    /// can be anywhere, so the same three clauses are checked here instead —
+    /// `RoomPlanTests` runs this over the shipped plan for the same reason it
+    /// runs `routeViolations`, and a placement that fails is a bug in the
+    /// placement rather than a licence to move a route.
+    ///
+    /// 1. **Nothing nearer the camera than the front seat row.** Clause 3 of
+    ///    `routeViolations`, which that function states for bands and partitions
+    ///    and which binds a prop just as hard: a bin in front of the front row
+    ///    is a bin drawn over somebody's legs.
+    /// 2. **Nothing in a seat's column.** Every seat's column is a corridor from
+    ///    the delivery row to the wall line, walked by `entranceRoute`,
+    ///    `homeRoute` and `upstageExit`. A prop clears it when its box clears one
+    ///    tile centred on the seat. Wall props — anything whose base stands at or
+    ///    above `wallBaseY` — are exempt, because a leaver's feet stop at that
+    ///    line and it passes under them; that is the same exemption the `wall`
+    ///    band has always had.
+    /// 3. **Nothing is drawn on top of something it hides.** A placement whose
+    ///    box is wholly inside the box of a nearer one is a prop nobody will see,
+    ///    which is `compose-scene.py`'s `report_hidden` as a rule rather than as
+    ///    a printout.
+    ///
+    /// And two that are about the manifest rather than the room: an index past
+    /// the end of the scenery list, and a `what` that no longer matches the entry
+    /// it indexes — the tripwire for somebody reordering the list under a
+    /// placement.
+    public func dressingViolations(
+        in layout: RoomLayout,
+        resolve: (Piece) -> (what: String, width: Int, height: Int)?
+    ) -> [String] {
+        var out: [String] = []
+        let tile = Double(layout.tile)
+
+        struct Box { let x0: Double, x1: Double, y0: Double, y1: Double }
+        var boxes: [(index: Int, box: Box)] = []
+
+        for (n, item) in dressing.enumerated() {
+            guard let entry = resolve(item.piece) else {
+                out.append("dressing[\(n)] names \(item.piece), which the theme does not bind")
+                continue
+            }
+            let label = "dressing[\(n)] '\(item.what.isEmpty ? entry.what : item.what)'"
+            if !item.what.isEmpty, !entry.what.hasPrefix(item.what) {
+                out.append(
+                    "\(label) names \(item.piece), which is "
+                    + "'\(entry.what)' — the list moved under the placement")
+            }
+            let halfWidth = Double(entry.width) / 2
+            let x = Double(item.x), y = Double(item.y)
+
+            if y < layout.baselineY {
+                out.append(
+                    "\(label) stands at y=\(item.y), nearer the camera than the "
+                    + "seat row at \(Int(layout.baselineY))")
+            }
+            if y < layout.wallBaseY {
+                for seat in 0..<layout.seatCapacity {
+                    let seatX = layout.seatPosition(seat).x
+                    if abs(x - seatX) < (tile + Double(entry.width)) / 2 {
+                        out.append(
+                            "\(label) reaches into seat \(seat)'s column at "
+                            + "x=\(Int(seatX)), which is a corridor")
+                    }
+                }
+            }
+            boxes.append((n, Box(
+                x0: x - halfWidth, x1: x + halfWidth,
+                y0: y, y1: y + Double(entry.height))))
+        }
+
+        // **Every ordered pair, not just the ones later in the list.** What
+        // paints over what is decided by `Character.Layer.rowDepth(y)` and not
+        // by declaration order, so a burying prop declared *earlier* buries
+        // just as completely. The first draft of this loop scanned
+        // `boxes[(i + 1)...]` and would have missed exactly half the cases —
+        // and silently, because a hidden prop looks like a prop nobody placed.
+        for one in boxes {
+            for other in boxes
+            where other.index != one.index
+                && other.box.y0 < one.box.y0
+                && other.box.x0 <= one.box.x0 && other.box.x1 >= one.box.x1
+                && other.box.y1 >= one.box.y1 {
+                out.append(
+                    "dressing[\(one.index)] is wholly hidden behind "
+                    + "dressing[\(other.index)]")
             }
         }
         return out

@@ -601,6 +601,18 @@ public struct Manifest: Sendable, Hashable {
 
         public func prop(_ role: String) -> PropRole? { propRoles[role] }
 
+        /// The art one hand-placed piece draws, from whichever of the two pools
+        /// it names. `nil` for a role this theme does not bind or an index past
+        /// the end of the scenery list — the same silence an unreadable scenery
+        /// entry gets, and `RoomPlan.dressingViolations` is what makes it loud.
+        public func piece(_ piece: RoomPlan.Piece) -> PropRole? {
+            switch piece {
+            case let .role(name): return prop(name)
+            case let .scenery(index):
+                return scenery.indices.contains(index) ? scenery[index].prop : nil
+            }
+        }
+
         /// The scenery declared for one depth band, in declaration order.
         public func scenery(_ band: RoomLayout.SceneryBand) -> [PropRole] {
             scenery.filter { $0.band == band }.map(\.prop)
@@ -1097,8 +1109,28 @@ public struct Manifest: Sendable, Hashable {
                   let h = entry["h"] as? Int, h > 0 else { continue }
             partitions.append(RoomPlan.Partition(x: x, y: y, h: h))
         }
+        // **A placement the room cannot read draws nothing and the rest still
+        // draw**, exactly as an unreadable scenery entry does. `what` is
+        // optional and advisory: it is echoed into `RoomPlan.Dressing` so that
+        // `dressingViolations` can report a scenery list that moved under a
+        // placement, and it is never drawn.
+        var dressing: [RoomPlan.Dressing] = []
+        for entry in (object["dressing"] as? [[String: Any]]) ?? [] {
+            guard let x = entry["x"] as? Int, let y = entry["y"] as? Int else { continue }
+            let piece: RoomPlan.Piece
+            if let role = entry["role"] as? String, !role.isEmpty {
+                piece = .role(role)
+            } else if let index = entry["scenery"] as? Int, index >= 0 {
+                piece = .scenery(index)
+            } else {
+                continue
+            }
+            dressing.append(RoomPlan.Dressing(
+                piece: piece, x: x, y: y, what: (entry["what"] as? String) ?? ""))
+        }
         guard !spaces.isEmpty else { return .open }
-        return RoomPlan(spaces: spaces, surfaces: surfaces, partitions: partitions)
+        return RoomPlan(
+            spaces: spaces, surfaces: surfaces, partitions: partitions, dressing: dressing)
     }
 
     private static func rgb(_ raw: Any?) -> Bitmap.RGBA? {

@@ -390,7 +390,24 @@ enum SceneArt {
     /// needs a real `RoomScene`: it places nothing without the pack, so the nodes
     /// it reads would not exist and the check would pass having compared two
     /// empty lists.
-    static let expectedGatedTestCount = 106
+    /// 108 with the hand-placed room dressing: **two**, both in
+    /// `SceneryContractTests`, and both gated for the same reason — they read
+    /// the nodes the scene actually built, and a scene with no art on disk
+    /// places nothing, so each would compare two empty lists and pass.
+    /// `theHandPlacedRoomDrawsEveryPlacementAtItsAuthoredPoint` walks the plan's
+    /// 37 authored points through `dressingPlacements` to the nodes; its twin
+    /// `theBandThemesStillStandEveryPropOnAnAnchorAndKeepTheirSevenDecorations`
+    /// is the other half of an all-or-nothing switch — that the mechanism the
+    /// five untouched themes still take is still running, asserted as itself
+    /// rather than inferred from nothing else going red.
+    ///
+    /// The rest of that change is deliberately **not** gated and must not become
+    /// so: the four new `RoomPlanTests` — the shipped composition against
+    /// `RoomPlan.dressingViolations`, and the three that make that validator
+    /// fail on purpose — read `assets/manifest.json`, which is tracked, and the
+    /// question whose wrong answer is a plant standing in a corridor is one a
+    /// fresh clone can and should still answer.
+    static let expectedGatedTestCount = 108
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

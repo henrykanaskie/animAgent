@@ -122,6 +122,13 @@ VALUE_CEIL = 0.92
 # docs/04-ART-DIRECTION.md record.
 PROP_VALUE_FLOOR_DEFAULT = VALUE_FLOOR
 
+# The ceiling half of the same escape hatch, added at ADR-011 because the floor
+# alone cannot reach the identity transform. `v -> floor + v * (ceil - floor)`
+# is the identity only at `(0.0, 1.0)`; a floor of 0.09 with the standard 0.92
+# ceiling still squeezes the pack's full range into 0.83 of one, which is why
+# lowering the floor on its own moved the office render barely at all.
+PROP_VALUE_CEIL_DEFAULT = VALUE_CEIL
+
 # A theme may widen the band FOR ITS PROPS ONLY, on the SATURATION axis this
 # time — the same shape of escape hatch `prop_value_floor` opened for value,
 # offered for saturation for the first time at ADR-010.
@@ -262,6 +269,11 @@ THEMES = {
         # screen exactly as before. Only colour, not darkness, moves.
         "prop_sat_scale": 1.0,
         "prop_sat_target": 1.0,
+        # ADR-011: and the value axis too, on this theme's props only. Identity,
+        # exactly as the saturation pair above is identity — the office props are
+        # the pack's own bytes.
+        "prop_value_floor": 0.10,
+        "prop_value_ceil": 1.0,
         "roles": {
             # **The desk is the pod's slab, not the bench.** [ADR-009] Single 34
             # is a 32x24 side-view desk and it is what made a seat read as a
@@ -1471,7 +1483,8 @@ def _bbox_in(w, h, px, x0, y0, rw, rh):
     return bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1
 
 
-def room_colour(r, g, b, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_TARGET):
+def room_colour(r, g, b, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_TARGET,
+                ceil=VALUE_CEIL):
     """Desaturate and value-compress one colour. Pure; memoised by the caller.
 
     `sat_scale`/`sat_target` are ADR-010's per-theme escape hatch, the
@@ -1482,12 +1495,13 @@ def room_colour(r, g, b, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_
     """
     hh, ss, vv = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
     ss = min(ss * sat_scale, sat_target)
-    vv = floor + vv * (VALUE_CEIL - floor)
+    vv = floor + vv * (ceil - floor)
     nr, ng, nb = colorsys.hsv_to_rgb(hh, ss, vv)
     return (int(round(nr * 255)), int(round(ng * 255)), int(round(nb * 255)))
 
 
-def recolour(px, cache, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_TARGET):
+def recolour(px, cache, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_TARGET,
+             ceil=VALUE_CEIL):
     """Apply the room palette transform in place.
 
     Memoised on source RGB *and on the band floor and saturation knobs*,
@@ -1505,11 +1519,11 @@ def recolour(px, cache, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_T
     for i in range(0, len(px), 4):
         if px[i + 3] == 0:
             continue
-        key = (px[i], px[i + 1], px[i + 2], floor, sat_scale, sat_target)
+        key = (px[i], px[i + 1], px[i + 2], floor, sat_scale, sat_target, ceil)
         out = cache.get(key)
         if out is None:
             out = cache[key] = room_colour(
-                key[0], key[1], key[2], floor, sat_scale, sat_target)
+                key[0], key[1], key[2], floor, sat_scale, sat_target, ceil)
         px[i], px[i + 1], px[i + 2] = out
 
 
@@ -1695,7 +1709,27 @@ class Importer:
             if not os.path.exists(src):
                 self.log("  room builder %s: absent" % size)
                 continue
-            key = "slice:" + _digest(src)
+            # **The builder sheet is the office's alone.** `processed/room/` is
+            # referenced by exactly one theme — `office`, which is also the
+            # resolved default and the only theme that draws a plan — so its
+            # floors and walls take that theme's own value knobs rather than
+            # the standard band. Checked, not assumed: no other set in
+            # `assets/manifest.json` names a path under `processed/room/`.
+            #
+            # It matters because the plan's whole job is to make five spaces
+            # read as five rooms, and the standard band cannot let it. The
+            # pack draws `concrete` at mean value 0.415 and `carpet` at 0.414
+            # with 0.276 of saturation; `v -> 0.55 + v * 0.37` lifts both to
+            # 0.70 and flattens the second to grey, so a walkway, a carpeted
+            # meeting room and a wooden store came out as one pale field with
+            # a line drawn on it. [ADR-011]
+            office = THEMES.get("office", {})
+            b_floor = office.get("prop_value_floor", PROP_VALUE_FLOOR_DEFAULT)
+            b_ceil = office.get("prop_value_ceil", PROP_VALUE_CEIL_DEFAULT)
+            b_sat_scale = office.get("prop_sat_scale", PROP_SAT_SCALE_DEFAULT)
+            b_sat_target = office.get("prop_sat_target", PROP_SAT_TARGET_DEFAULT)
+            key = ("slice:band%.3f,%.3f:sat%.3f,%.3f:"
+                   % (b_floor, b_ceil, b_sat_scale, b_sat_target)) + _digest(src)
             w, h, px = pnglite.load(src)
             if w % tile or h % tile:
                 self.log(
@@ -1726,7 +1760,8 @@ class Importer:
                     kept += 1
                     if self._fresh(dst, key):
                         continue
-                    recolour(buf, self.cache)
+                    recolour(buf, self.cache, b_floor, b_sat_scale, b_sat_target,
+                             b_ceil)
                     self._emit(dst, tile, tile, buf)
             self.log("  room/%s/builder: %d solid tiles" % (size, kept))
 
@@ -1817,6 +1852,7 @@ class Importer:
                 base = os.path.join(OUT, "themes", name, size)
                 prop_floor = theme.get("prop_value_floor",
                                        PROP_VALUE_FLOOR_DEFAULT)
+                prop_ceil = theme.get("prop_value_ceil", PROP_VALUE_CEIL_DEFAULT)
                 # ADR-010: `office` restores its props to the pack's own
                 # saturation; every other theme gets PROP_SAT_SCALE_DEFAULT /
                 # PROP_SAT_TARGET_DEFAULT, which are SAT_SCALE / SAT_TARGET —
@@ -1832,6 +1868,7 @@ class Importer:
                     dst = os.path.join(base, "singles", "%s.png" % role)
                     key = ("pad%dx%d:band%.3f:sat%.3f,%.3f:"
                            % (PROP_CANVAS + (prop_floor, prop_sat_scale, prop_sat_target))
+                           + "ceil%.3f:" % prop_ceil
                            + _digest(src))
                     if self._fresh(dst, key):
                         continue
@@ -1843,7 +1880,8 @@ class Importer:
                                  "%dx%d prop canvas — skipped"
                                  % ((name, role, w, h) + PROP_CANVAS))
                         continue
-                    recolour(buf, self.cache, prop_floor, prop_sat_scale, prop_sat_target)
+                    recolour(buf, self.cache, prop_floor, prop_sat_scale, prop_sat_target,
+                             prop_ceil)
                     self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
                 # Scenery. Same cut, same shadow strip, same value band, same
@@ -1861,6 +1899,7 @@ class Importer:
                     dst = os.path.join(base, "scenery", "%02d_%s.png" % (i, band))
                     key = ("pad%dx%d:band%.3f:sat%.3f,%.3f:"
                            % (PROP_CANVAS + (prop_floor, prop_sat_scale, prop_sat_target))
+                           + "ceil%.3f:" % prop_ceil
                            + _digest(src))
                     if self._fresh(dst, key):
                         continue
@@ -1872,7 +1911,8 @@ class Importer:
                                  "the %dx%d prop canvas — skipped"
                                  % ((name, i, w, h) + PROP_CANVAS))
                         continue
-                    recolour(buf, self.cache, prop_floor, prop_sat_scale, prop_sat_target)
+                    recolour(buf, self.cache, prop_floor, prop_sat_scale, prop_sat_target,
+                             prop_ceil)
                     self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
                 if not have_builder or theme["floor"] is None:
@@ -1971,10 +2011,12 @@ class Importer:
                              % ((size, name, fw, fh) + PROP_CANVAS))
                 theme = THEMES.get(spec["for"], {})
                 prop_floor = theme.get("prop_value_floor", PROP_VALUE_FLOOR_DEFAULT)
+                prop_ceil = theme.get("prop_value_ceil", PROP_VALUE_CEIL_DEFAULT)
                 prop_sat_scale = theme.get("prop_sat_scale", PROP_SAT_SCALE_DEFAULT)
                 prop_sat_target = theme.get("prop_sat_target", PROP_SAT_TARGET_DEFAULT)
                 key = ("anim%dx%d:pad%dx%d:band%.3f:sat%.3f,%.3f:"
                        % ((fw, fh, cw, ch) + (prop_floor, prop_sat_scale, prop_sat_target))
+                       + "ceil%.3f:" % prop_ceil
                        + _digest(src))
                 for i in range(count):
                     dst = os.path.join(OUT, "animated", size, name,
@@ -1990,7 +2032,8 @@ class Importer:
                             buf[di:di + 4] = px[si:si + 4]
                     self.shadow_px += strip_shadow(fw, fh, buf)
                     padded = self._pad(fw, fh, buf, cw, ch)
-                    recolour(padded, self.cache, prop_floor, prop_sat_scale, prop_sat_target)
+                    recolour(padded, self.cache, prop_floor, prop_sat_scale, prop_sat_target,
+                                 prop_ceil)
                     self._emit(dst, cw, ch, padded)
             self.log("  animated/%s: %d frames across %d objects (%d adopted)"
                      % (size, n_frames, len(ANIMATED), len(ANIMATED_ADOPTED)))

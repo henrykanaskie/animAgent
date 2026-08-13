@@ -29,6 +29,21 @@ import Testing
 /// `deliveryRowY`, and a prop on either of those is a prop somebody walks
 /// through. That is checked here against `RoomLayout` rather than against a
 /// transcription of it.
+///
+/// ## There are two dressing mechanisms now, and this file is about the lattice
+///
+/// A theme whose plan carries `dressing` states every point by hand and the
+/// four bands do not run for it at all. `Self.placements(_:layout:)` derives
+/// what the *bands* would place, so every rule below that reads it is a rule
+/// about the lattice: true of the five themes that take it, and vacuous about
+/// where a hand-placed theme's props actually stand.
+///
+/// That is not a hole, because the same three route clauses bind a hand-placed
+/// prop and are checked over it — `RoomPlan.dressingViolations(in:resolve:)`,
+/// run against the shipped plan by `RoomPlanTests`, which is where R2/R3 and
+/// R7 live for the hand-placed room. What lives *here* for it is what reaches
+/// the screen: `theHandPlacedRoomDrawsEveryPlacementAtItsAuthoredPoint`, and
+/// the hand-placed arm of `theRoomDrawsOneSceneryNodePerAnchorInEveryTheme`.
 @MainActor
 @Suite struct SceneryContractTests {
 
@@ -326,24 +341,171 @@ import Testing
         }
     }
 
-    /// **The room places every anchor, and it places them once.**
+    /// **The room places every piece of its dressing, and it places each one
+    /// once — under whichever of the two mechanisms its theme uses.**
     ///
-    /// A theme that owns fewer props than a band has anchors repeats them round
-    /// the band — `library` draws two flat wall objects over seven columns —
-    /// rather than leaving a gap, which is the pack's own habit and is what
-    /// keeps a thin set honest instead of padded with props nobody looked at.
+    /// There are two now, and this test has an arm for each because the pinned
+    /// count is different under each. It is not one loose number over both: a
+    /// bound that admitted 20 *or* 37 would admit the failure this test exists
+    /// to catch, which is a placement silently drawn zero times or twice.
+    ///
+    /// - **The band lattice**, which five of the six themes take. The manifest
+    ///   says *what* and *which depth band*, `RoomLayout.sceneryAnchors(_:)`
+    ///   says *where*, and the room draws **one node per anchor** — 20 of them.
+    ///   A theme that owns fewer props than a band has anchors repeats them
+    ///   round the band — `library` draws two flat wall objects over seven
+    ///   columns — rather than leaving a gap, which is the pack's own habit and
+    ///   is what keeps a thin set honest instead of padded with props nobody
+    ///   looked at.
+    /// - **Hand-placed dressing**, which a theme whose plan carries `dressing`
+    ///   takes instead. Every point is authored, and the bands do not run at
+    ///   all: it is all-or-nothing per theme, because a room with 20 props on a
+    ///   lattice *and* 37 off it still reads as a lattice. So the count to pin
+    ///   is **one node per placement**, and it is pinned against the plan
+    ///   rather than against a number typed here — `dressingPlacements` drops a
+    ///   placement that resolves to nothing, in silence, and this is the
+    ///   assertion that makes that silence loud.
+    ///
+    /// Both arms are asserted to have run, so a manifest that lost its hand
+    /// placement — or grew one everywhere — fails here rather than quietly
+    /// leaving one of the two mechanisms unchecked.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theRoomDrawsOneSceneryNodePerAnchorInEveryTheme() throws {
         let manifest = try SceneFixtures.manifest()
         let expected = RoomLayout.SceneryBand.allCases
             .reduce(0) { $0 + RoomLayout().sceneryAnchors($1).count }
         #expect(expected == 20, "the anchor count moved; the numbers below are stale")
+        var banded = 0, handPlaced = 0
         for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
             let scene = RoomScene(manifest: manifest, themeID: theme)
-            #expect(scene.sceneryNodesForTesting.count == expected, Comment(rawValue:
-                "\(theme ?? "manifest.room") drew"
-                + " \(scene.sceneryNodesForTesting.count) scenery nodes, not \(expected)"))
+            let dressing = scene.store.room.plan.dressing
+            if dressing.isEmpty {
+                banded += 1
+                #expect(scene.sceneryNodesForTesting.count == expected, Comment(rawValue:
+                    "\(theme ?? "manifest.room") drew"
+                    + " \(scene.sceneryNodesForTesting.count) scenery nodes, not \(expected)"))
+            } else {
+                handPlaced += 1
+                #expect(scene.sceneryNodesForTesting.count == dressing.count, Comment(rawValue:
+                    "\(theme ?? "manifest.room") authored \(dressing.count) placements and drew"
+                    + " \(scene.sceneryNodesForTesting.count) scenery nodes — a placement naming"
+                    + " a role the theme does not bind, or an index past the end of its scenery"
+                    + " list, resolves to nothing and is dropped without a word"))
+            }
         }
+        #expect(banded > 0 && handPlaced > 0, Comment(rawValue:
+            "\(banded) themes stand their props on the lattice and \(handPlaced) place by hand,"
+            + " so one of the two arms above ran over nothing"))
+    }
+
+    /// **The hand-placed room draws every placement at the point it was
+    /// authored at, and draws nothing else.**
+    ///
+    /// The band lattice's guarantee is structural — an anchor is arithmetic, so
+    /// a prop cannot be a few pixels off one. A hand-placed prop's point is a
+    /// number somebody typed into the manifest, and the whole chain from that
+    /// number to the node has to be checked rather than assumed:
+    ///
+    /// 1. `plan.dressing` → `RoomScene.dressingPlacements(store:)`, the single
+    ///    resolver `buildRoom`, `decorationTopY` and this test all read. Every
+    ///    entry resolves, in order, and keeps its own `(x, y)`.
+    /// 2. `dressingPlacements` → the nodes on screen. Same count, same order,
+    ///    same points — `place(prop:at:depthBias:)` puts the *content box's*
+    ///    bottom-centre on the point, so the node's own position is the
+    ///    authored point exactly and a comparison here is exact too.
+    ///
+    /// Ordering is part of the contract and not an accident of the loop:
+    /// declaration order is draw order, so two props that overlap resolve their
+    /// tie the way the composition was authored.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theHandPlacedRoomDrawsEveryPlacementAtItsAuthoredPoint() throws {
+        let manifest = try SceneFixtures.manifest()
+        var checked = 0
+        for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
+            let scene = RoomScene(manifest: manifest, themeID: theme)
+            let dressing = scene.store.room.plan.dressing
+            guard !dressing.isEmpty else { continue }
+            checked += 1
+            let name = theme ?? "manifest.room"
+
+            let placements = RoomScene.dressingPlacements(store: scene.store)
+            #expect(placements.count == dressing.count, Comment(rawValue:
+                "\(name) authored \(dressing.count) placements and \(placements.count) of them"
+                + " resolved to art"))
+            for (item, placement) in zip(dressing, placements) {
+                #expect(Int(placement.point.x) == item.x && Int(placement.point.y) == item.y,
+                        Comment(rawValue:
+                            "\(name): \(item.what) was authored at (\(item.x), \(item.y)) and"
+                            + " resolved to (\(Int(placement.point.x)),"
+                            + " \(Int(placement.point.y)))"))
+            }
+
+            let nodes = scene.sceneryNodesForTesting
+            #expect(nodes.count == placements.count, Comment(rawValue:
+                "\(name) resolved \(placements.count) placements and drew \(nodes.count) nodes"))
+            for (placement, node) in zip(placements, nodes) {
+                #expect(Int(node.position.x) == Int(placement.point.x)
+                        && Int(node.position.y) == Int(placement.point.y), Comment(rawValue:
+                            "\(name): \(placement.prop.file) resolved to"
+                            + " (\(Int(placement.point.x)), \(Int(placement.point.y))) and was"
+                            + " drawn at (\(Int(node.position.x)), \(Int(node.position.y)))"))
+            }
+        }
+        #expect(checked > 0, "no theme places its dressing by hand, so this checked nothing")
+    }
+
+    /// **The five band themes still stand every prop on an anchor, and still
+    /// carry their seven decorations.**
+    ///
+    /// The hand-placed mechanism is all-or-nothing *per theme*, and the risk in
+    /// a switch like that is not that the new branch is wrong — it is that the
+    /// old branch quietly stops running for everybody. So the untouched
+    /// mechanism is asserted as itself rather than inferred from the fact that
+    /// nothing else went red: every scenery node of a banded theme stands on
+    /// one of that theme's own anchors, there are as many of them as there are
+    /// anchors, and the board/plant lattice `dressingPlacements` switches off is
+    /// still switched *on* here, at its own seven columns.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theBandThemesStillStandEveryPropOnAnAnchorAndKeepTheirSevenDecorations() throws {
+        let manifest = try SceneFixtures.manifest()
+        var checked = 0
+        for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
+            let scene = RoomScene(manifest: manifest, themeID: theme)
+            guard scene.store.room.plan.dressing.isEmpty else { continue }
+            checked += 1
+            let name = theme ?? "manifest.room"
+            let layout = scene.layout
+
+            let anchors = Set(RoomLayout.SceneryBand.allCases
+                .flatMap { layout.sceneryAnchors($0) }
+                .map { "\(Int($0.x)),\(Int($0.y))" })
+            let scenery = scene.sceneryNodesForTesting
+            #expect(scenery.count == RoomLayout.SceneryBand.allCases
+                .reduce(0) { $0 + layout.sceneryAnchors($1).count }, Comment(rawValue:
+                    "\(name) drew \(scenery.count) scenery nodes over its own anchors"))
+            for node in scenery {
+                let point = "\(Int(node.position.x)),\(Int(node.position.y))"
+                #expect(anchors.contains(point), Comment(rawValue:
+                    "\(name) stands a scenery prop at \(point), which is no anchor of any band"))
+            }
+
+            let excluded = Set(
+                (scene.sceneryNodesForTesting + scene.seatFurnitureNodesForTesting)
+                    .map(ObjectIdentifier.init))
+            let decoration = scene.propNodesForTesting
+                .filter { !excluded.contains(ObjectIdentifier($0)) }
+                .map { "\(Int($0.position.x)),\(Int($0.position.y))" }
+                .sorted()
+            let expected = RoomScene.decorationPlacements(layout: layout)
+                .map { "\(Int($0.point.x)),\(Int($0.point.y))" }
+                .sorted()
+            #expect(expected.count == layout.seatCapacity,
+                    "the decoration lattice is no longer one prop per seat column")
+            #expect(decoration == expected, Comment(rawValue:
+                "\(name) drew its decoration at \(decoration), and its own layout puts the"
+                + " board/plant lattice at \(expected)"))
+        }
+        #expect(checked > 0, "every theme places by hand, so the band lattice went unchecked")
     }
 
     /// **Scenery is a function of the theme and of nothing else.** [I1, ADR-002
@@ -370,20 +532,35 @@ import Testing
         }
     }
 
-    /// **The camera frames the scenery it draws.**
+    /// **The camera frames the scenery it draws** — whichever mechanism drew it.
     ///
     /// `decorationTopY` is what `RoomScene.cameraY` aims below, and the `wall`
     /// band is now the highest thing the room draws in five of six themes. A
     /// band the camera did not know about would be a band the camera crops —
     /// which is the exact defect that accessor was written against, one row
     /// lower down.
+    ///
+    /// **The reach is measured off the mechanism the theme actually uses**, and
+    /// this line matters more here than anywhere else in the file: a hand-placed
+    /// room does not draw the bands at all, so a band-derived reach would have
+    /// this test comparing the camera against props that are not on screen. It
+    /// would still pass, and it would have stopped checking the thing it is for.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theWallBandIsInsideTheFrameTheCameraChooses() throws {
         let manifest = try SceneFixtures.manifest()
         for theme in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
             let scene = RoomScene(manifest: manifest, themeID: theme)
-            let top = Self.placements(scene.store.room, layout: scene.layout)
-                .map(\.y.upperBound).max() ?? 0
+            let top: Double
+            if scene.store.room.plan.dressing.isEmpty {
+                top = Self.placements(scene.store.room, layout: scene.layout)
+                    .map(\.y.upperBound).max() ?? 0
+            } else {
+                top = RoomScene.dressingPlacements(store: scene.store)
+                    .map { $0.point.y + Double($0.prop.contentBox.height) }.max() ?? 0
+            }
+            #expect(top > 0, Comment(rawValue:
+                "\(theme ?? "manifest.room") draws no dressing at all, so the camera was asked"
+                + " to frame nothing"))
             #expect(scene.decorationTopY >= top, Comment(rawValue:
                 "\(theme ?? "manifest.room"): scenery reaches \(top) and"
                 + " decorationTopY says \(scene.decorationTopY)"))

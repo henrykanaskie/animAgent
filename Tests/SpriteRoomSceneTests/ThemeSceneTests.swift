@@ -308,6 +308,31 @@ struct ThemeSceneTests {
     ///   which is five of the six against each other and `office` against
     ///   itself. A theme whose plan differs is *required* to place differently;
     ///   asserting otherwise would be asserting the bug.
+    ///
+    /// ## Amended again: the *count* is per mechanism now, and there are two
+    ///
+    /// The split above left one blanket line standing — every theme drew the
+    /// same *number* of props, whatever plan it was on — and that survived
+    /// ADR-007 because a plan moved the bands without changing how many of them
+    /// there were. A plan may now place its dressing **by hand**, and then the
+    /// four scenery bands and the board/plant lattice do not run at all: the
+    /// count is the plan's own placement count, not 20 anchors and 7 columns.
+    ///
+    /// So the count is asserted **per theme against its own mechanism's
+    /// number** — both numbers derived, neither typed — and the cross-theme
+    /// comparison survives narrowed to the themes that share a mechanism, with
+    /// the other case asserted as an inequality. Two themes on two mechanisms
+    /// drawing the same number of props means the hand placement reached
+    /// nothing, which is the failure this line is for.
+    ///
+    /// One consequence worth naming rather than leaving to be discovered: the
+    /// slot-by-slot art comparison at the end of the loop is only *slot*-wise
+    /// meaningful between two themes that dress by the same mechanism, since
+    /// `zip` pairs a hand-placed room's nth placement with a banded room's nth
+    /// anchor and truncates to the shorter. Across mechanisms it degrades to
+    /// "these two rooms share no picture in the first 27 slots", which is still
+    /// true and still worth failing on, and the whole-list inequality above it
+    /// is the assertion doing the real work.
     @Test(.enabled(if: SceneArt.isAvailable))
     func changingTheThemeRedressesTheRoomAndMovesNoCharacter() throws {
         let manifest = try SceneFixtures.manifest()
@@ -428,9 +453,33 @@ struct ThemeSceneTests {
             + " both exercised — planned: \(planCounts[false] ?? 0),"
             + " open: \(planCounts[true] ?? 0)"))
 
+        // **How many props a room draws is a function of its dressing
+        // mechanism, and there are two.** [M8]
+        //
+        // The lattice's number is arithmetic — one prop per scenery anchor plus
+        // one per decoration column — and it is derived here rather than typed,
+        // for the reason `decorationPlacements` exists at all: a transcription
+        // checked against a transcription is not a check. A hand-placed room
+        // runs neither of those two loops, so its number is its own placement
+        // count. Each theme is checked against **its own** mechanism's number
+        // below; the cross-theme comparison that used to carry this on its own
+        // is kept, narrowed to the themes that share a mechanism.
+        let layout = RoomLayout()
+        let lattice = RoomLayout.SceneryBand.allCases
+            .reduce(0) { $0 + layout.sceneryAnchors($1).count }
+            + layout.decorationColumns.count
+        #expect(lattice == 27, Comment(rawValue:
+            "the lattice draws \(lattice) props — 20 scenery anchors and 7 decoration"
+            + " columns is what every banded theme is pinned to"))
+        func expectedPropCount(_ plan: RoomPlan) -> Int {
+            plan.dressing.isEmpty ? lattice : plan.dressing.count
+        }
+        #expect(first.props.count == expectedPropCount(first.plan), Comment(rawValue:
+            "theme \(ids[0]) drew \(first.props.count) props and its own dressing mechanism"
+            + " places \(expectedPropCount(first.plan))"))
+
         // **The cut is the theme-independent number, and it is checked over
         // every theme including the first.** [ADR-008]
-        let layout = RoomLayout()
         var cuts: Set<Int> = []
         for id in ids {
             let metrics = SceneFixtures.seatMetrics(manifest, theme: id)
@@ -448,8 +497,18 @@ struct ThemeSceneTests {
             let other = render(id)
             #expect(other.characters == first.characters,
                     "theme \(id) moved a character, its plate, its variant or its badge")
-            #expect(other.props.count == first.props.count,
-                    "theme \(id) placed a different number of props")
+            #expect(other.props.count == expectedPropCount(other.plan), Comment(rawValue:
+                "theme \(id) drew \(other.props.count) props and its own dressing mechanism"
+                + " places \(expectedPropCount(other.plan))"))
+            if other.plan.dressing.isEmpty == first.plan.dressing.isEmpty {
+                #expect(other.props.count == first.props.count,
+                        "theme \(id) placed a different number of props")
+            } else {
+                #expect(other.props.count != first.props.count, Comment(rawValue:
+                    "theme \(id) dresses its room by hand and theme \(ids[0]) stands its props"
+                    + " on the band lattice, and the two drew the same \(other.props.count)"
+                    + " props — the hand placement reached nothing"))
+            }
             // **Route geometry, in every theme, planned or not.** A plan may
             // redress a room; it may never move a seat. [ADR-007 §2]
             #expect(other.seats == first.seats,

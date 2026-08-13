@@ -296,6 +296,19 @@ def scenery_layout(theme):
     declared = theme.get("props", {}).get("scenery", []) or []
     plan = plan_of(theme)
     placed = []
+    # **A plan that places its dressing by hand states every point**, and then
+    # the four bands do not run at all — `RoomScene.buildRoom` makes the same
+    # all-or-nothing choice on the same condition. The role-typed entries in the
+    # list are `prop_layout`'s, not this function's; the two split the list on
+    # the same key the scene does.
+    dressing = (plan or {}).get("dressing") or []
+    if dressing:
+        for item in dressing:
+            index = item.get("scenery")
+            if index is None or not (0 <= index < len(declared)):
+                continue
+            placed.append((declared[index], float(item["x"]), float(item["y"])))
+        return placed
     for band in SCENERY_BANDS:
         props = [e for e in declared if e.get("band") == band]
         if not props:
@@ -550,7 +563,7 @@ def default_seat_metrics():
     return seat_metrics(theme)
 
 
-def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None):
+def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None, plan=None):
     """**Every prop the room draws, once, as `(role, x, y, depth_bias)`.**
 
     Scene coordinates, y-up, the point being the content box's bottom-centre.
@@ -587,14 +600,23 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None):
     # The counts are unchanged by the reordering (board 4, plant 3), which is
     # the constraint this placement was designed against: the motion budget is
     # priced per copy. [ADR-002 §14b]
-    columns = sorted(
-        x for x in (seat_column(s) * TILE + TILE // 2 + TILE * 1.5
-                    for s in range(SEAT_CAPACITY))
-        if x < WIDTH)
-    for index, x in enumerate(columns):
-        backdrop = index % 2 == 0
-        placed.append(("board" if backdrop else "plant", x,
-                       BACKDROP_ROW_Y if backdrop else ACCENT_ROW_Y, 0.0))
+    # Under a hand-placed plan the boards and plants are in the dressing list
+    # with everything else, so this lattice is skipped exactly as the scene
+    # skips it. The census the motion budget reads therefore counts the copies
+    # the panel actually draws, which is the only reason it is a census.
+    dressing = [d for d in ((plan or {}).get("dressing") or []) if d.get("role")]
+    if dressing:
+        for item in dressing:
+            placed.append((item["role"], float(item["x"]), float(item["y"]), 0.0))
+    else:
+        columns = sorted(
+            x for x in (seat_column(s) * TILE + TILE // 2 + TILE * 1.5
+                        for s in range(SEAT_CAPACITY))
+            if x < WIDTH)
+        for index, x in enumerate(columns):
+            backdrop = index % 2 == 0
+            placed.append(("board" if backdrop else "plant", x,
+                           BACKDROP_ROW_Y if backdrop else ACCENT_ROW_Y, 0.0))
     # No foreground row. `4e7b43d` removed it from the scene and replaced it
     # with a stronger rule than the one it lost: nothing decorative is drawn
     # nearer the camera than the seat row. This preview drew seven plants that
@@ -651,7 +673,7 @@ def prop_layout(metrics=None, desk_near_edge_x=None, manifest=None):
     return placed
 
 
-def role_placements(metrics=None):
+def role_placements(metrics=None, plan=None):
     """How many times the room draws each prop role on one panel.
 
     **It used to be a fact about the layout alone and it is not one any more.**
@@ -683,7 +705,7 @@ def role_placements(metrics=None):
     counts = {"board": 0, "plant": 0, "chair": 0, "chair_back": 0, "desk": 0,
               "monitor": 0, "desk_kit": 0}
     for role, _x, _y, _bias in prop_layout(
-            metrics if metrics is not None else default_seat_metrics()):
+            metrics if metrics is not None else default_seat_metrics(), plan=plan):
         counts[role] = counts.get(role, 0) + 1
     return counts
 
@@ -1002,7 +1024,8 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # across the body. `RoomScene.surfaceNearEdgeX(of:layout:)`.
     near_edge = (TILE * 0.875 - desk["content_box"]["w"] / 2.0) if desk else None
     metrics = seat_metrics(theme)
-    for role_name, x, y, bias in prop_layout(metrics, near_edge, manifest_json()):
+    for role_name, x, y, bias in prop_layout(metrics, near_edge, manifest_json(),
+                                             plan_of(theme)):
         add_prop(role_name, x, y, bias=bias)
 
     # The scenery, drawn from `scenery_layout()` and deliberately not counted:
@@ -1033,7 +1056,7 @@ def render(theme, name, population, out_path, characters, seed_variants,
     # with nothing the scene draws. `--verify` is the tie now. Only roles this
     # theme actually declares are compared — a theme missing a role draws none
     # of it, which is not a drift.
-    expected = role_placements(metrics)
+    expected = role_placements(metrics, plan_of(theme))
     for role_name, n in sorted(census.items()):
         if expected.get(role_name) != n:
             raise SystemExit(
@@ -1485,7 +1508,7 @@ def role_boxes(theme, roles=None):
     to_screen, _origin = camera(*VERIFY_PANEL)
     boxes = {}
     for role_name, x, y, _bias in prop_layout(
-            seat_metrics(theme), None, manifest_json()):
+            seat_metrics(theme), None, manifest_json(), plan_of(theme)):
         if roles is not None and role_name not in roles:
             continue
         role = declared.get(role_name)
