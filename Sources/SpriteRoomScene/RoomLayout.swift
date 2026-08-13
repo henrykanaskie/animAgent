@@ -1720,27 +1720,125 @@ public struct RoomLayout: Sendable, Hashable {
     /// `three-subagents`, 44 seconds in, walking through a reporter that was on
     /// its way home up its own column.
     ///
-    /// Going upstage costs nothing to guarantee, because there is nothing behind
-    /// the desk row: no corridor, no station, no other character's route. A
-    /// leaver's whole exit is inside its own column, and columns are a seat pitch
-    /// apart. It also reads as what it is — you stand up and walk out the back
-    /// rather than squeezing along the front of everyone's desk.
+    /// Going upstage costs nothing to guarantee *in x*, because no other
+    /// character's route is behind the desk row: a leaver's whole exit is inside
+    /// its own column, and columns are a seat pitch apart. It also reads as what
+    /// it is — you stand up and walk out the back rather than squeezing along the
+    /// front of everyone's desk.
     ///
-    /// It walks as far as the line where the floor meets the wall, **fading as
-    /// it goes** — see `Character.departOffScreen`. The old exit walked off the
-    /// side of the frame, which needed no fade because the frame edge did the
-    /// hiding; there is no edge behind the desks, and a flat wall gives a
-    /// character walking up it nothing to disappear behind. A fade is not a
-    /// dramatisation of anything the data did not say: the agent is gone, and
-    /// this is the room saying so. [I1]
-    public func upstageExit(forSeat index: Int) -> ScenePoint {
-        ScenePoint(x: seatPosition(index).x, y: wallBaseY)
+    /// It walks **as far as its own furniture leaves floor to walk on**, fading
+    /// as it goes — see `Character.departOffScreen` and
+    /// `upstageClearance(forSeat:metrics:)`. The old exit walked off the side of
+    /// the frame, which needed no fade because the frame edge did the hiding;
+    /// there is no edge behind the desks, and a flat wall gives a character
+    /// walking up it nothing to disappear behind. A fade is not a dramatisation
+    /// of anything the data did not say: the agent is gone, and this is the room
+    /// saying so. [I1]
+    ///
+    /// **It used to walk to `wallBaseY` unconditionally, and for the four
+    /// away-facing seats that was a walk through their own desks.** The paragraph
+    /// above this one said "there is nothing behind the desk row" and it was
+    /// written when that was true of every seat. ADR-008 put a desk
+    /// `awayDeskUpstage` — 8 px — behind an away-facing occupant and ADR-009
+    /// stood two screen rigs on it, so those four seats have 8 px of floor behind
+    /// them and 58 px of furniture above it. The metrics argument is what makes
+    /// the difference visible in the type system rather than in a comment, and it
+    /// is required for the same reason `deskPosition(_:metrics:)`'s is: a default
+    /// would put the exit back through the desk, silently.
+    public func upstageExit(forSeat index: Int, metrics: SeatMetrics) -> ScenePoint {
+        ScenePoint(
+            x: seatPosition(index).x, y: upstageClearance(forSeat: index, metrics: metrics))
     }
 
     /// The same, for a character whose seat is not known — it leaves from
-    /// wherever it is standing.
-    public func upstageExit(fromX x: Double) -> ScenePoint {
-        ScenePoint(x: x, y: wallBaseY)
+    /// wherever it is standing, and stops at whatever furniture its column has.
+    ///
+    /// A body 32 px wide standing at `x` may overlap at most two seat columns, so
+    /// this takes the lowest ceiling of every seat it is standing in front of.
+    /// A character clear of every seat column walks to the wall line, which is
+    /// what this returned for everybody before the ceiling existed.
+    public func upstageExit(fromX x: Double, metrics: SeatMetrics) -> ScenePoint {
+        var ceiling = wallBaseY
+        for seat in 0..<seatCapacity where abs(x - seatPosition(seat).x) < Double(tile) {
+            ceiling = min(ceiling, upstageClearance(forSeat: seat, metrics: metrics))
+        }
+        return ScenePoint(x: x, y: max(deliveryRowY, ceiling))
+    }
+
+    /// **The furthest upstage a body may stand in a seat's own column: one pixel
+    /// downstage of the nearest thing that seat stands behind its occupant, or
+    /// the wall line for a seat that stands nothing there.**
+    ///
+    /// ## What it is for
+    ///
+    /// Every route in this room is vertical inside one seat column, so the column
+    /// is the seat's private corridor and nothing else can be in it. That was the
+    /// whole of the clearance argument until ADR-008 and ADR-009 put the *seat's
+    /// own furniture* in it: an away-facing occupant's desk stands
+    /// `awayDeskUpstage` = 8 px behind it, and on a pod that desk carries two
+    /// screen rigs whose ink reaches 58 px further. The exit walked to
+    /// `wallBaseY` regardless, so a leaver from any away-facing seat rose through
+    /// 38 px of desk and 42 px of rig and stood, half-faded, on top of its own
+    /// workstation. `RouteFurnitureTests` is that as a check; this is the number
+    /// that answers it.
+    ///
+    /// ## Which furniture counts, and why only two pieces of it
+    ///
+    /// A piece counts when it is **upstage of the seat** and reaches into the
+    /// seat's own one-tile column — the same "clears one tile centred on the
+    /// seat" test `RoomPlan.dressingViolations` applies to a hand-placed prop,
+    /// and the same 32 px body every clearance argument in this file is written
+    /// against. Only two pieces can ever satisfy the first half:
+    ///
+    /// | piece | where it stands | counts |
+    /// |---|---|---|
+    /// | away-facing desk | `awayDeskUpstage` upstage | **yes** |
+    /// | pod rigs | on that desk, `deskTopLift` above it | **yes** |
+    /// | camera-facing desk | `deskDepth` downstage | no |
+    /// | desktop kit | on a camera-facing desk | no |
+    /// | chair | `awayChairStandoff` downstage | no |
+    /// | station prop | the seat's own row, a tile to its left | no — and it is exactly a tile, so it does not reach the column either |
+    ///
+    /// The four that do not count are the occluders a seat is deliberately
+    /// composed *behind* [ADR-008], and a route to that seat has to pass them or
+    /// the seat is unreachable. They are excluded by their own geometry rather
+    /// than by name.
+    ///
+    /// ## What this costs
+    ///
+    /// An away-facing leaver's exit is 7 px rather than 96, so it fades where it
+    /// sits instead of walking out the back — `Character.duration`'s 0.2 s floor
+    /// is the whole of its departure. The room said the opposite until now:
+    /// `theSeatsAlternateDepthAlongXWithoutMovingAnyColumn` asserted that the back
+    /// row keeps two tiles of floor behind it to leave through, which stopped
+    /// being true when the desk moved onto that floor and was simply not noticed.
+    /// **There is no route that buys the walk back**: a lateral step out of the
+    /// column has 16 px to work with between the desk's right edge (`x + 32`) and
+    /// the column's own edge (`x + 48`) against a 32 px body, and a downstage exit
+    /// meets a refill climbing the same column head-on, which is the argument
+    /// `entranceRoute(forSeat:)` already rests on. So the floor is what it is, and
+    /// what changed is that the room stops at it.
+    public func upstageClearance(forSeat index: Int, metrics: SeatMetrics) -> Double {
+        let seat = seatPosition(index)
+        var ceiling = wallBaseY
+        func consider(_ point: ScenePoint?, width: Double) {
+            guard let point, point.y > seat.y,
+                  abs(point.x - seat.x) < (Double(tile) + width) / 2 else { return }
+            ceiling = min(ceiling, point.y - 1)
+        }
+        consider(deskPosition(index, metrics: metrics), width: metrics.deskInkWidth)
+        for slot in PodRigSlot.allCases {
+            consider(monitorPosition(index, slot: slot, metrics: metrics),
+                     width: metrics.monitorInkWidth)
+        }
+        // The chair is not asked, and it is the one omission by name rather than
+        // by the `point.y > seat.y` guard: `SeatMetrics` carries its height and
+        // not its width, because nothing has ever needed the width. It is
+        // `chairPosition(_:metrics:)`'s own arithmetic that makes the omission
+        // safe — a side-on chair is *on* the seat's point and an away-facing one
+        // is `awayChairStandoff` downstage of it, so neither is ever upstage, and
+        // a camera-facing seat has none at all.
+        return max(seat.y, ceiling)
     }
 
     /// The vertical strip the camera actually has to frame: from the bottom of

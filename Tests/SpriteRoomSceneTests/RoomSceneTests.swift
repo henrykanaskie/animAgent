@@ -470,14 +470,15 @@ struct RoomSceneTests {
     /// waypoints are on its own column *until* it is on `deliveryRowY`, and the
     /// only waypoint that is not is on that row. `ReportDeliveryTests
     /// .theRoomsOneLateralCorridorMeetsNoOtherRoute` carries what that buys.
-    @Test func everyWaypointOfEveryRouteIsOnTheMovingCharactersOwnColumn() {
+    @Test func everyWaypointOfEveryRouteIsOnTheMovingCharactersOwnColumn() throws {
         let layout = RoomLayout()
+        let exitMetrics = SceneFixtures.seatMetrics(try SceneFixtures.manifest(), theme: "office")
         for seat in 0..<layout.seatCapacity {
             let column = layout.seatPosition(seat).x
             var routes: [(String, [ScenePoint])] = [
                 ("entrance", layout.entranceRoute(forSeat: seat)),
                 ("home", layout.homeRoute(forSeat: seat)),
-                ("exit", [layout.upstageExit(forSeat: seat)]),
+                ("exit", [layout.upstageExit(forSeat: seat, metrics: exitMetrics)]),
                 ("approach", [layout.seatApproach(seat)]),
                 ("seat", [layout.seatPosition(seat)]),
                 ("in-place report", layout.inPlaceDeliveryRoute(reporterSeat: seat)),
@@ -936,9 +937,12 @@ struct RoomSceneTests {
             "the leaver was off its own column on \(offColumnAndOffTheRow) frames that"
             + " were not on the delivery row — a diagonal, across rows other"
             + " characters stand on"))
-        #expect(reporter.position == CGPoint(
-            x: scene.layout.upstageExit(forSeat: 3).x,
-            y: scene.layout.upstageExit(forSeat: 3).y))
+        // Seat 3 is a **camera-facing** seat, so it stands nothing behind its
+        // occupant and its exit is the full walk to the wall line it always was,
+        // in every theme. `RouteFurnitureTests` is where the four away-facing
+        // seats' shorter one is measured; this test is about the shape of the
+        // walk home.
+        #expect(reporter.position == CGPoint(x: station.x, y: scene.layout.wallBaseY))
         #expect(Double(reporter.position.y) >= scene.layout.wallBaseY,
                 "the leaver did not go out through the back of the room")
         #expect(reporter.alpha == 0, "the leaver was still visible when it was retired")
@@ -1154,13 +1158,21 @@ struct RoomSceneTests {
         // read as depth rather than as two characters standing on one another.
         #expect(layout.backSeatRowY - layout.baselineY
                 == Double(layout.tile * layout.seatRowDepthTiles))
-        // The back row still has floor behind it. Every exit in this room walks
-        // upstage to `wallBaseY` and fades; a back row *at* the wall would give
-        // its occupants a zero-length departure.
+        // The back row still has floor behind it — two tiles of it, which is what
+        // the room's *shape* leaves and what this test is about.
+        //
+        // **It is not what the back row's occupants get to walk on**, and that
+        // sentence used to be here as an assertion: `upstageExit(forSeat: 1)`
+        // was two whole tiles upstage of seat 1. It stopped being true when
+        // ADR-008 stood that seat's desk 8 px behind it and ADR-009 put two
+        // screen rigs on the desk, and nothing failed — the exit kept walking to
+        // `wallBaseY` and the leaver rose through its own workstation, which is
+        // the defect `RouteFurnitureTests` exists to catch. The two tiles are
+        // still there; they are furniture now, so what stands on them is asked
+        // of `upstageClearance(forSeat:metrics:)` and asserted there.
         #expect(layout.backSeatRowY < layout.wallBaseY,
-                "the back row has no floor behind it to walk out through")
-        #expect(layout.upstageExit(forSeat: 1).y - layout.seatPosition(1).y
-                >= Double(layout.tile * 2))
+                "the back row has no floor behind it at all")
+        #expect(layout.wallBaseY - layout.backSeatRowY >= Double(layout.tile * 2))
     }
 
     /// **Two same-side reporters at once, which is what the slots were for.**
@@ -1894,9 +1906,16 @@ struct RoomSceneTests {
         #expect(character.alpha == 1, "a reporter faded on its way home")
 
         var finished = false
+        // Seat 1 is away-facing, so its exit is the 7 px its own desk leaves it
+        // and the fade runs over `Character.duration`'s 0.2 s floor. The fade is
+        // still a fade — this test samples every frame and still finds it
+        // half-way — which is the property that matters and the reason the
+        // shorter exit was affordable. [`RoomLayout.upstageClearance`]
+        let exit = layout.upstageExit(
+            forSeat: 1, metrics: SceneFixtures.seatMetrics(store.manifest, theme: "office"))
         character.departOffScreen(
             via: layout.homeRoute(forSeat: 1, fromY: layout.baselineY),
-            to: layout.upstageExit(forSeat: 1)) { finished = true }
+            to: exit) { finished = true }
         character.advance(to: 15.0)
         #expect(character.alpha == 1, "the exit faded before it started walking")
         var faded: [CGFloat] = []
@@ -1908,7 +1927,9 @@ struct RoomSceneTests {
         #expect(character.alpha == 0, "the leaver is still visible when it is retired")
         #expect(faded.contains { $0 > 0.2 && $0 < 0.8 }, "it blinked out rather than fading")
         #expect(zip(faded, faded.dropFirst()).allSatisfy { $0 >= $1 }, "the fade went backwards")
-        #expect(Double(character.position.y) == layout.wallBaseY)
+        #expect(Double(character.position.y) == exit.y)
+        #expect(exit.y < layout.wallBaseY,
+                "seat 1 is away-facing; its own desk is what stops it short of the wall")
     }
 
     // MARK: The synthetic worst case

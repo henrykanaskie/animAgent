@@ -197,12 +197,13 @@ struct ReportDeliveryTests {
     /// transcribed.
     @Test func theRoomsOneLateralCorridorMeetsNoOtherRoute() throws {
         let layout = RoomLayout()
+        let exitMetrics = SceneFixtures.seatMetrics(try SceneFixtures.manifest(), theme: "office")
 
         // 1. Nothing but a report has a waypoint on the delivery row or below it.
         for seat in 0..<layout.seatCapacity {
             var routes: [(String, [ScenePoint])] = [
                 ("entrance", layout.entranceRoute(forSeat: seat)),
-                ("exit", [layout.upstageExit(forSeat: seat)]),
+                ("exit", [layout.upstageExit(forSeat: seat, metrics: exitMetrics)]),
                 ("approach", [layout.seatApproach(seat)]),
                 ("seat", [layout.seatPosition(seat)]),
                 ("in-place report", layout.inPlaceDeliveryRoute(reporterSeat: seat)),

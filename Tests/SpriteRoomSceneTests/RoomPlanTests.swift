@@ -444,7 +444,8 @@ struct RoomPlanTests {
                     == open.chairPosition(seat, metrics: metrics))
             #expect(planned.stationPropPosition(seat) == open.stationPropPosition(seat))
             #expect(planned.entranceRoute(forSeat: seat) == open.entranceRoute(forSeat: seat))
-            #expect(planned.upstageExit(forSeat: seat) == open.upstageExit(forSeat: seat))
+            #expect(planned.upstageExit(forSeat: seat, metrics: metrics)
+                    == open.upstageExit(forSeat: seat, metrics: metrics))
             #expect(planned.homeRoute(forSeat: seat) == open.homeRoute(forSeat: seat))
         }
         #expect(planned.overflowPlatePosition == open.overflowPlatePosition)

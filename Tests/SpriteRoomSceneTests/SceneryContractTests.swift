@@ -98,14 +98,19 @@ import Testing
     ///
     /// A seat column is a corridor from the delivery row to the wall line: a
     /// character arrives up it, reports down and up it, and leaves up it. The
-    /// half-width checked is 16 px, the character canvas, which is wider than
-    /// any body's ink — a clearance argued against the canvas cannot be undone
-    /// by a variant with broader shoulders.
+    /// half-width checked is 16 px, the character canvas — which this used to
+    /// call "wider than any body's ink", and it is not: measured over every
+    /// frame of every state of all six variants, the cast's ink spans column 0
+    /// to column 31 of that canvas, so the two are the same box and a variant
+    /// with broader shoulders is not what the margin is for. It is exact rather
+    /// than generous, and the clearance still holds. [`RouteFurnitureTests`]
     ///
     /// The `wall` band is exempt **and states why in the assertion rather than
     /// in a skip**: it hangs two tiles up the wall face, above `wallBaseY`,
-    /// which is where a leaver's feet stop and where `upstageExit` ends. Its own
-    /// clearance is the test below.
+    /// which is where a leaver's feet stop — the furthest upstage any route in
+    /// the room reaches, and where `upstageExit` ends for a seat with nothing
+    /// standing behind it [`RoomLayout.upstageClearance(forSeat:metrics:)`].
+    /// Its own clearance is the test below.
     @Test func noSceneryStandsInASeatColumn() throws {
         let manifest = try SceneFixtures.manifest()
         let layout = RoomLayout()

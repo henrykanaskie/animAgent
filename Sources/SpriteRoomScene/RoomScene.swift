@@ -1641,8 +1641,17 @@ public final class RoomScene: SKScene {
             // going straight back stay a seat pitch apart the entire way, which
             // is a stronger statement than the convoy argument this replaces
             // and needs no argument about relative speeds at all.
-            let exit = seat.map(layout.upstageExit(forSeat:))
-                ?? layout.upstageExit(fromX: Double(character.position.x))
+            //
+            // **How far back is the seat's own furniture's answer**, which is
+            // why the metrics are gathered here and why they are the *station's*
+            // where the character had one: an away-facing seat stands its desk
+            // 8 px behind its occupant, and an exit that ignored it walked the
+            // leaver up through its own workstation.
+            // [`RoomLayout.upstageClearance(forSeat:metrics:)`]
+            let exitMetrics = seatMetrics(desk: stationDesks[agent])
+            let exit = seat.map { layout.upstageExit(forSeat: $0, metrics: exitMetrics) }
+                ?? layout.upstageExit(
+                    fromX: Double(character.position.x), metrics: exitMetrics)
             switch style {
             case let .report(anchorSeat) where seat != nil && seat != anchorSeat:
                 let reporterSeat = seat!

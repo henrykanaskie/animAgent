@@ -88,11 +88,20 @@ struct TravelFacingTests {
     }
 
     /// And so is the exit, for the same reason.
-    @Test func everyExitInTheRoomWalksStraightUpstage() {
+    ///
+    /// **Still strictly upstage, and at an away-facing seat that is now seven
+    /// pixels rather than ninety-six.** The exit stops at whatever the seat
+    /// stands behind its own occupant
+    /// [`RoomLayout.upstageClearance(forSeat:metrics:)`], and what stops it is
+    /// `awayDeskUpstage` — a quarter tile — so the leg survives, shortened. The
+    /// direction is what this test is about; the length is
+    /// `RouteFurnitureTests`'.
+    @Test func everyExitInTheRoomWalksStraightUpstage() throws {
         let layout = RoomLayout()
+        let metrics = SceneFixtures.seatMetrics(try SceneFixtures.manifest(), theme: "office")
         for seat in 0..<layout.seatCapacity {
             let seatPoint = layout.seatPosition(seat)
-            let exit = layout.upstageExit(forSeat: seat)
+            let exit = layout.upstageExit(forSeat: seat, metrics: metrics)
             #expect(abs(exit.x - seatPoint.x) < 0.001)
             #expect(exit.y > seatPoint.y)
         }
