@@ -33,10 +33,10 @@ public enum DeskScreen: Sendable, Hashable {
 /// **Authoring is precedented and is not an I1 violation.** `HeldObjectArt`'s
 /// own doc comment says it and this file relies on the same sentence: "I1
 /// forbids the room asserting *data* the hooks did not give us; it says
-/// nothing about who drew the pixels." Four things in this room are already
-/// authored rather than sourced — four of seven badges, every nameplate, the
-/// `×N` chip, the dormancy tab — and `HeldObjectArt` is a fifth. This is a
-/// sixth, following its shape exactly: a design grid in the pack's own inks,
+/// nothing about who drew the pixels." Three things in this room are authored
+/// rather than sourced — four of seven badges, every nameplate, the `×N` chip —
+/// and `HeldObjectArt` is a fourth. This is a fifth, following its shape
+/// exactly: a design grid in the pack's own inks,
 /// doubled onto whole pixels, checked by a test that measures rather than
 /// trusts.
 ///

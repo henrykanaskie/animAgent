@@ -356,17 +356,21 @@ public final class Character: SKNode {
     ///
     /// **Hung from the slot's top edge and aligned to its near edge**, which is
     /// what makes the slot a *place* rather than a pair of coordinates that each
-    /// picture computes for itself. The slot holds two sizes — the 24×34 bubble
-    /// and the 9×11 dormancy tab — and they must land in the same corner, or the
-    /// tab drifts to the bottom of a box whose top is where the eye is looking.
+    /// picture computes for itself.
+    ///
+    /// **Every caller passes the badge canvas today.** The slot held two sizes
+    /// while the 9×11 dormancy tab shipped, and the tab is gone
+    /// [`docs/04-ART-DIRECTION.md` §1b-ii]. The two rules below are kept because
+    /// they are what a second size would need again, and because they were
+    /// derived from a picture smaller than the slot — which is the only case
+    /// that can tell them apart:
     ///
     /// - **Top, not bottom.** The head is the landmark and it is at the top of
-    ///   the slot. Bottom-aligning the tab would drop it 23 px, beside the
+    ///   the slot. Bottom-aligning a 9×11 picture dropped it 23 px, beside the
     ///   character's lap and over its desk.
-    /// - **Near edge, not centred.** The tab is 9 px wide in a 24 px slot;
-    ///   centring it puts 7 px of nothing between it and the head it is about.
-    ///   The bubble is the slot's full width, so for the bubble the two rules
-    ///   agree and only the tab can tell them apart.
+    /// - **Near edge, not centred.** A 9 px picture centred in a 24 px slot puts
+    ///   7 px of nothing between it and the head it is about. The bubble is the
+    ///   slot's full width, so for the bubble the two rules agree.
     ///
     /// The node's own anchor comes from the manifest (bottom-centre, because the
     /// bubble's tail is there) and is respected rather than assumed, so a
@@ -409,8 +413,11 @@ public final class Character: SKNode {
     ///
     /// If the attention glyph is missing from the manifest nothing is drawn in
     /// its place. That is a *rendering* fallback, not a policy one: the selection
-    /// above already decided the order. The dormancy tab cannot go missing — it
-    /// is drawn, not loaded, so it survives a checkout with no art.
+    /// above already decided the order. **The sleep bubble takes the same
+    /// fallback**, and it needs one: it is pack art loaded from the manifest, so
+    /// on a checkout with no art the slot is simply empty. The authored tab that
+    /// could not go missing — drawn rather than loaded — was reverted with the
+    /// bubble's return [`docs/04-ART-DIRECTION.md` §1b-ii].
     public func apply(badge selection: BadgeSelection) {
         guard selection != currentBadge else { return }
         currentBadge = selection
@@ -428,17 +435,15 @@ public final class Character: SKNode {
         // place: the motion is a function of (body state, badge class), and this
         // is one of exactly two calls that can change either.
         refreshAmbient()
-        // **Dormancy leaves the bubble.** It is the one selection in this slot
-        // that is not about a tool call, and while it was drawn from the pack's
-        // speech bubble it was 84% of a working badge's footprint in the same
-        // shape family — so at `1x` the room's loudest signal fired for
-        // *finished* exactly as it fired for *working*. The sleep bubble
-        // carries the measurement and the argument. The tab goes in the same
-        // slot, at the tab's own size rather than the badge canvas's, and
-        // `placeBadgePicture` is what keeps 9x11 and 24x34 in the same corner of
-        // it — the corner beside the head. **The distinction is still extent and
-        // not brightness**: the tab covers 99 px of a slot the bubble fills with
-        // 816, and moving the slot changed neither number.
+        // **Dormancy takes the slot without being about a tool call.** It is the
+        // one selection here that is not, and the cost is measured: at `1x` the
+        // pack's sleep bubble is 84% of a working badge's footprint, in the same
+        // shape family, so the room's loudest signal fires for *finished*
+        // exactly as it fires for *working*. An authored 9x11 tab was built
+        // against that measurement and shipped for a while. It is gone, and the
+        // paragraph below is why — the measurement is not gone, it is the price
+        // now being paid on purpose. [`docs/04-ART-DIRECTION.md` §1b, §1b-ii]
+        //
         // **The pack's own sleep bubble, not the authored tab.**
         //
         // The tab was 9x11 of dark plate carrying a `Z`, chosen so dormancy took
@@ -475,10 +480,12 @@ public final class Character: SKNode {
             badgeNode.isHidden = false
             return
         }
-        // Back to the badge canvas, because the tab above resized the node and a
-        // bubble drawn at 9x11 would be the fractional resample I6 exists to
-        // prevent. Re-placed rather than only re-sized: the slot is anchored at
-        // its top-near corner, so a size change is a position change.
+        // The badge canvas, which is what the dormant arm above sets too — both
+        // arms draw pack art at the sheet's own size now that the 9x11 tab is
+        // gone. Kept as an explicit place rather than assumed: a node that was
+        // last sized by something else would be the fractional resample I6
+        // exists to prevent, and the slot is anchored at its top-near corner, so
+        // a size change is a position change.
         placeBadgePicture(
             width: Double(store.manifest.badges.canvas.width),
             height: Double(store.manifest.badges.canvas.height))
