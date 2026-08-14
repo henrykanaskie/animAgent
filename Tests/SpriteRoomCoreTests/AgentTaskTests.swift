@@ -6,8 +6,10 @@ import Testing
 /// **What a subagent was dispatched to do.**
 ///
 /// The `Agent` tool's `PreToolUse` carries `tool_input.description` — a real
-/// 3–5 word task summary written at dispatch. `fixtures/` holds ten of them,
-/// from `Touch file s1` to `Read delta/epsilon, sleep, reread alpha`. The model
+/// 3–5 word task summary written at dispatch. `fixtures/` holds thirteen of
+/// them — ten written as capture prompts, and three off a real session
+/// (`authoring-subagents`, #72), which is where "3–5 words written for a
+/// colleague" stops being an assumption. The model
 /// repeats that string and does nothing else to it: no summarising, no
 /// shortening, no inference. [I1]
 ///
@@ -159,7 +161,7 @@ struct AgentTaskTests {
     // MARK: [I1] — only a string the payload carried, and only from `Agent`
 
     /// **Every task the model ever emits is a `description` some `Agent`
-    /// dispatch actually carried**, checked over all seventeen captures against
+    /// dispatch actually carried**, checked over all eighteen captures against
     /// the raw payloads.
     @Test func everyEmittedTaskIsVerbatimFromAnAgentDispatch() async throws {
         let legal = Set(try Self.descriptionsByTool()["Agent"] ?? [])
@@ -173,16 +175,21 @@ struct AgentTaskTests {
                 emitted += 1
             }
         }
-        #expect(emitted == 10, "ten Agent dispatches in the corpus, ten tasks")
+        #expect(emitted == 13, "thirteen Agent dispatches in the corpus, thirteen tasks")
     }
 
     /// **`description` is not the `Agent` tool's field alone, and that is why
     /// the decode is keyed on the tool name.**
     ///
-    /// 37 of the corpus's 45 `Bash` calls carry one, and so does its single
+    /// 88 of the corpus's `Bash` calls carry one, and so does its single
     /// `Monitor` call — but on a `Bash` it describes a shell command, not an
     /// agent's assignment. Capturing those would put "Create the sandbox
     /// files" on a nameplate as though somebody had been sent to do it. [I1]
+    ///
+    /// **The eighteenth capture is what makes that risk concrete rather than
+    /// theoretical.** It was 37 of 45 while the corpus was scripted; a real
+    /// session describes nearly every `Bash` call it makes, so the field this
+    /// gate refuses to read is now present on the large majority of them.
     ///
     /// It is the same gate that keeps the decode off the hot path, so this test
     /// pins both: no `OpenCall` outside an `Agent` dispatch carries a
@@ -190,9 +197,9 @@ struct AgentTaskTests {
     /// `tool_input` at all. [I5]
     @Test func onlyTheAgentToolsDescriptionIsRead() async throws {
         let byTool = try Self.descriptionsByTool()
-        #expect(byTool["Bash"]?.count == 37)
+        #expect(byTool["Bash"]?.count == 88)
         #expect(byTool["Monitor"]?.count == 1)
-        #expect(byTool["Agent"]?.count == 10)
+        #expect(byTool["Agent"]?.count == 13)
         let notAgent = Set((byTool["Bash"] ?? []) + (byTool["Monitor"] ?? []))
         #expect(!notAgent.isEmpty)
 

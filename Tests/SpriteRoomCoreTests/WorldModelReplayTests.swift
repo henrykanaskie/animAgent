@@ -791,7 +791,7 @@ import Testing
     }
 
     /// Present across every fixture, not just the one that named it — and
-    /// "every fixture" means all seventeen, which is what `Fixtures.all` is for.
+    /// "every fixture" means all eighteen, which is what `Fixtures.all` is for.
     @Test func noToolUseIDIsEverClosedTwice() async throws {
         for name in Fixtures.all {
             let (_, deltas, _) = try await Fixtures.replay(name)
@@ -803,7 +803,7 @@ import Testing
         }
     }
 
-    /// Nothing closes that was never opened, either. Also over all seventeen.
+    /// Nothing closes that was never opened, either. Also over all eighteen.
     @Test func everyCloseMatchesAnOpen() async throws {
         for name in Fixtures.all {
             let (_, deltas, _) = try await Fixtures.replay(name)
@@ -1102,7 +1102,7 @@ import Testing
     ///
     /// M6's first exit criterion, and until this test it was asserted nowhere.
     /// What stood here was `onlyKilledSessionLeavesAnOrphanAtEndOfStream`
-    /// iterating `Fixtures.required` — eight of the seventeen captures, holding
+    /// iterating `Fixtures.required` — eight of the eighteen captures, holding
     /// exactly one of the three. Its name and its comment were true within that
     /// eight and false across `fixtures/`, so it was arranged such that it could
     /// not produce the failure it named. `spriteroom-replay --all` prints these
@@ -1114,10 +1114,20 @@ import Testing
     /// until somebody remembers to add a name.
     ///
     /// The equality is the rule; the count is pinned too, because "exactly
-    /// three" is what M6 says. A new capture with no `SessionEnd` is a
+    /// four" is what M6 says. A new capture with no `SessionEnd` is a
     /// legitimate thing to have and turns this red on purpose: M6's own
     /// instruction is not to close a criterion by editing it, so the number
     /// moves here and in `docs/05-MILESTONES.md` together, or not at all.
+    ///
+    /// **It moved from three to four on 2026-08-14, and this is the paper
+    /// trail.** `authoring-subagents` is the eighteenth capture and the first
+    /// taken from a real working session rather than a sandbox scenario [#72].
+    /// It has no `SessionEnd` because the session it recorded did not end — the
+    /// recorder was stopped while the session carried on — and it orphans one
+    /// `Bash` call whose `PostToolUse` never arrived for that same reason. That
+    /// is a genuine shape, not an artefact: it is what every capture of a live
+    /// session that outlives its recorder will look like. `docs/05-MILESTONES.md`
+    /// moved in the same change.
     ///
     /// The stepped and unstepped replays are required to agree, which says the
     /// rule is a property of the captures and not of the harness's sweep
@@ -1125,8 +1135,8 @@ import Testing
     /// `denial-then-work` have their denied call reaped mid-stream when the
     /// clock is walked and force-closed by `SessionEnd` when it is not.
     @Test func exactlyTheFixturesWithNoSessionEndOrphanAtEndOfStream() async throws {
-        #expect(Fixtures.all.count == 17, """
-            fixtures/ holds \(Fixtures.all.count) captures, not the 17 M6 gates \
+        #expect(Fixtures.all.count == 18, """
+            fixtures/ holds \(Fixtures.all.count) captures, not the 18 M6 gates \
             `spriteroom-replay --all` over: \(Fixtures.all)
             """)
 
@@ -1154,8 +1164,8 @@ import Testing
             close path. One with no SessionEnd and no orphan means a capture \
             stopped proving what it was taken for.
             """)
-        #expect(orphaning.count == 3, """
-            M6 says exactly three fixtures legitimately orphan at end of stream; \
+        #expect(orphaning.count == 4, """
+            M6 says exactly four fixtures legitimately orphan at end of stream; \
             this run found \(orphaning.count): \(orphaning.keys.sorted()). \
             Score the change against M6 rather than editing the criterion.
             """)

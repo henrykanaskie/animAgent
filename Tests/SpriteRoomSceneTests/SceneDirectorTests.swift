@@ -253,7 +253,7 @@ struct SceneDirectorTests {
     }
 
     /// **A character that is never gated is never told about a gate**, which is
-    /// every character in fifteen of the seventeen fixtures. The memory is
+    /// every character in fifteen of the eighteen fixtures. The memory is
     /// seeded at spawn, exactly as `emittedBadge` is seeded with `.none`.
     @Test func anUngatedRoomEmitsNoGateIntents() async throws {
         for name in ["three-subagents", "four-subagents", "single-agent-simple"] {

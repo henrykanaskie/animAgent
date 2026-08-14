@@ -167,7 +167,7 @@ import Testing
     /// Belt and braces: the harness's own end-of-run sweep must leave nothing
     /// open in any fixture.
     ///
-    /// **"Every fixture" is all seventeen.** It iterated `Fixtures.required` —
+    /// **"Every fixture" is all eighteen.** It iterated `Fixtures.required` —
     /// eight — while saying every, which is the same overclaim the orphan rule
     /// carried: the three captures that actually need this sweep are
     /// `killed-session`, `concurrent-permission-gates` and

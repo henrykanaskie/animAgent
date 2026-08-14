@@ -7,7 +7,7 @@ import SpriteRoomCore
 /// [ADR-006 §3a]
 ///
 /// Everything else here checks a rule in isolation. This one replays all
-/// seventeen captures through the real `WorldModel` and the real `SceneDirector`
+/// eighteen captures through the real `WorldModel` and the real `SceneDirector`
 /// and asks the two questions the design can only be judged on: *how many
 /// characters end up with something on the desk*, and *how often does what is on
 /// a desk change*.
@@ -103,10 +103,17 @@ struct DeskObjectCorpusTests {
             .map { "\($0.key.rawValue)=\($0.value)" }
             .joined(separator: " "))
 
-        #expect(agents == 27, "the corpus grew or shrank; every number below is measured off it")
-        #expect(furnished == 26)
+        // **`authoring` appears here for the first time at the eighteenth
+        // capture.** Every number in this test was measured over a corpus that
+        // held zero `Edit`, `Write` and `NotebookEdit` calls, so the laptop was
+        // unreachable on real data and this dictionary had three keys where
+        // ADR-006 declares four. `authoring-subagents` closes that: two of its
+        // four agents end on `authoring`, and the kind is no longer a claim
+        // resting on unit tests of the derivation agreeing with itself.
+        #expect(agents == 31, "the corpus grew or shrank; every number below is measured off it")
+        #expect(furnished == 30)
         #expect(agents - furnished == 1)
-        #expect(byKind == [.running: 13, .research: 9, .coordinating: 4])
+        #expect(byKind == [.running: 14, .research: 10, .coordinating: 4, .authoring: 2])
     }
 
     /// **Abstention is still reachable, and it is reachable for exactly one
@@ -198,22 +205,36 @@ struct DeskObjectCorpusTests {
               + " worst character \(worstPerCharacter),"
               + " tightest gap \(tightestGap.isFinite ? "\(tightestGap)s" : "n/a")")
 
-        // 28 sets for 26 furnished characters: 26 first appearances and **two**
-        // replacements, both of them a main agent that changed what it was doing
-        // between turns. ADR-006 §3a measured 32 changes for the naive argmax
+        // 37 sets for 30 furnished characters: 30 first appearances and **seven**
+        // replacements. ADR-006 §3a measured 32 changes for the naive argmax
         // rule and 5 for the threshold it proposed; this is looser than the
-        // proposal and still nowhere near the naive rule, because the
-        // replacement margin and the turn scoping — not the floor — are what
-        // were doing the stabilising.
-        #expect(totalChanges == 28)
-        #expect(replacements == 2)
-        #expect(worstPerCharacter == 2, "some character redecorated more than once")
-        // The measured floor is an order of magnitude above the enforced one.
-        // The **enforced** bound is what protects a workload the corpus does not
-        // contain: at most one change per character per `deskObjectDwell`, so
-        // 15 a minute in the worst case the code can produce, against ADR-005's
-        // measured median tool call of 23 ms.
-        #expect(tightestGap > 50)
+        // proposal and still under the naive rule, because the replacement
+        // margin and the turn scoping — not the floor — are what do the
+        // stabilising.
+        //
+        // **These four numbers were 28 / 2 / 2 / >50 until the eighteenth
+        // capture, and what moved them is the first capture of a real working
+        // session rather than a sandbox scenario.** A scripted capture does one
+        // kind of thing; `authoring-subagents` has a main agent that runs a
+        // build, reads, dispatches, edits and writes inside one session, so it
+        // redecorates four times where no sandbox character redecorated more
+        // than twice. The corpus was not wrong, it was narrow — which is the
+        // whole argument for capturing real sessions [#72].
+        #expect(totalChanges == 37)
+        #expect(replacements == 7)
+        #expect(worstPerCharacter == 4, "some character redecorated more than the corpus has shown")
+        // **The enforced floor held; the comfortable margin did not.** Every gap
+        // still cleared `deskObjectDwell` — the per-gap assertion above is the
+        // one that matters and it did not fire — but the measured floor is now
+        // **2.7x** the enforced 4 s, where the sandbox corpus made it look like
+        // an order of magnitude. That sentence used to be in this comment and
+        // was true only of scripted work.
+        //
+        // The **enforced** bound is what protects a workload even this capture
+        // does not contain: at most one change per character per
+        // `deskObjectDwell`, so 15 a minute in the worst case the code can
+        // produce, against ADR-005's measured median tool call of 23 ms.
+        #expect(tightestGap > 10)
     }
 
     /// **Replay is deterministic**: two runs of the same capture produce the same
@@ -379,13 +400,23 @@ struct WorkKindLexiconTests {
         for (task, kind) in classified.sorted(by: { $0.key < $1.key }) {
             print("  \(kind.padding(toLength: 13, withPad: " ", startingAt: 0)) \(task)")
         }
-        #expect(classified.count == 10, "the corpus's descriptions changed: \(classified.keys.sorted())")
+        #expect(classified.count == 13, "the corpus's descriptions changed: \(classified.keys.sorted())")
         #expect(classified["Touch file s1"] == "—")
         #expect(classified["Touch file s2"] == "—")
         #expect(classified["Touch a file via bash"] == "running")
         #expect(classified["Read one.txt sleep"] == "research")
         #expect(classified["Read alpha.txt and sleep"] == "research")
         #expect(classified["Read delta/epsilon, sleep, reread alpha"] == "research")
+        // **The lexicon's first contact with descriptions nobody wrote for it.**
+        // The ten above were authored as capture prompts, in a sandbox, by
+        // someone who knew what the classifier looks for. These three came off a
+        // real session [#72] and **two of them abstain** — which is rule 5
+        // working, not failing, but it is the first measurement of how often
+        // *say nothing* is the answer on descriptions written for a colleague
+        // rather than for a test. One in three classified.
+        #expect(classified["Audit doc-symbol drift with Grep/Glob"] == "research")
+        #expect(classified["Inventory fixture-count pins"] == "—")
+        #expect(classified["Verify and persist the pin inventory"] == "—")
     }
 
     /// **A description that names two kinds contributes nothing.** The
@@ -619,10 +650,18 @@ struct WorkTallyTests {
 /// that must never happen — a desk cleared, or a desk restated.
 ///
 /// Synthetic deltas rather than a fixture, deliberately and only here: these are
-/// the shapes the corpus does not contain (`authoring` cannot fire anywhere in
-/// it — zero `Edit`, zero `Write`, zero `Grep`, zero `Glob` across all seventeen
-/// captures) plus the ones that need a clock advanced by hand. The *measured*
-/// claims are all in `DeskObjectCorpusTests`, against real captured payloads.
+/// the shapes the corpus does not contain, plus the ones that need a clock
+/// advanced by hand. The *measured* claims are all in `DeskObjectCorpusTests`,
+/// against real captured payloads.
+///
+/// **This comment used to say `authoring` could not fire anywhere in the corpus
+/// — zero `Edit`, zero `Write`, zero `Grep`, zero `Glob` across every capture.
+/// Half of that stopped being true on 2026-08-14.** `authoring-subagents` [#72]
+/// holds two `Edit`s, two `Write`s and a `NotebookEdit`, and two of its agents
+/// end on `authoring`, so the kind is measured now and not only constructed.
+/// `Grep` and `Glob` are still absent and, per `fixtures/README.md`, cannot be
+/// captured on this machine at all — so the synthetic cases below are still the
+/// only coverage those two tool names have.
 struct DeskObjectDirectorTests {
 
     static let cast = ["06", "07", "09", "10", "17", "19"]
@@ -1199,7 +1238,11 @@ struct DeskObjectSceneTests {
             """)
         #expect(everSwapped == predicted,
                 "the scene swapped \(everSwapped) textures where the intents say \(predicted)")
-        #expect(replacements == 2, "the corpus's two kind replacements are gone")
+        // Two until the eighteenth capture; `authoring-subagents` adds two more,
+        // both of them a character that changed what it was doing inside one
+        // real session. The assertion above is the one that matters and it did
+        // not move: the scene swapped exactly the textures the intents predicted.
+        #expect(replacements == 4, "the corpus's four kind replacements are gone")
         #expect(screenChanges > 0, "no turn boundary ever reached a furnished desk")
         #expect(everSwapped > replacements, "the screen never reached the node")
     }

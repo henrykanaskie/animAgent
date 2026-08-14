@@ -42,7 +42,7 @@ enum Fixtures {
     /// listed here.**
     ///
     /// `required` is the eight the ingest layer is *signed off* against; it is
-    /// not the corpus. There are seventeen files, and M6 gates on
+    /// not the corpus. There are eighteen files, and M6 gates on
     /// `spriteroom-replay --all` over all of them — so a rule stated over "every
     /// fixture" has to be iterated over this list, not that one. Derived from
     /// the directory on purpose: a capture added tomorrow joins every such rule

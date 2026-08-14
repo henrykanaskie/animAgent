@@ -759,7 +759,7 @@ import Testing
     }
 
     /// **[I4] Every gate that opens in every fixture is closed, or its character
-    /// leaves.** The balance check, over all seventeen captures and both sweeps.
+    /// leaves.** The balance check, over all eighteen captures and both sweeps.
     ///
     /// §7 claims the mark reaps for free because it lives inside `AgentState`.
     /// That is true of the *mark* and it is `nothingIsMarkedOnceEveryFixtureHas
@@ -771,7 +771,7 @@ import Testing
     /// acceptable endings for an open gate are a `gateChanged(false)` and an
     /// `agentDeparted`.
     ///
-    /// It also pins the corpus: **nine gates open across the seventeen files**,
+    /// It also pins the corpus: **nine gates open across the eighteen files**,
     /// and two of them are still open when their stream ends — the pair in
     /// `concurrent-permission-gates`, one of which never sees a human at all.
     ///
@@ -845,7 +845,7 @@ import Testing
     /// rather than by three separate pieces of housekeeping somebody has to
     /// remember.
     ///
-    /// **Over all seventeen captures.** It named `Fixtures.required` plus two
+    /// **Over all eighteen captures.** It named `Fixtures.required` plus two
     /// interactive files — one of which, `permission-prompt`, had already joined
     /// the required set at ADR-001, so the list was a duplicate and a gap at
     /// once: `concurrent-permission-gates`, the one capture that ends with two

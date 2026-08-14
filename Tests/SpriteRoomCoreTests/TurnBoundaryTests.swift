@@ -167,7 +167,9 @@ import Testing
         }
         // `idle-notification` opens no call at all, which is why this is counted
         // over the corpus rather than per fixture.
-        #expect(checked == 75, "the corpus opens \(checked) calls; 75 was the count")
+        // 75 until the eighteenth capture doubled it: one real session opens as
+        // many calls as all seventeen sandbox scenarios put together.
+        #expect(checked == 151, "the corpus opens \(checked) calls; 151 was the count")
     }
 
     // MARK: The edges

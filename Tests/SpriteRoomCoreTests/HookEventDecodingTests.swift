@@ -9,7 +9,7 @@ import Testing
 /// app.
 @Suite struct HookEventDecodingTests {
 
-    /// "Every fixture" is all seventeen captures, not the eight the ingest layer
+    /// "Every fixture" is all eighteen captures, not the eight the ingest layer
     /// is signed off against — a payload that fails to decode is a fact about
     /// the hook surface whichever file it was captured in.
     @Test func everyRealPayloadInEveryFixtureDecodes() throws {
