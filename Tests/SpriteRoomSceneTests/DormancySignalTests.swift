@@ -8,7 +8,7 @@ import SpriteRoomCore
 /// A dormant character used to be told apart by a badge and nothing else. It now
 /// has a dark desk screen and a dimmed body, and this file measures both: the
 /// inks and the separations on the art side, the keying and the intent
-/// discipline on the director side, and — the two that matter — that the dim
+/// discipline on the director side, and (the two that matter) that the dim
 /// cannot weaken I7's contrast floor and that neither channel animates.
 ///
 /// The colour arithmetic is deliberately ungated: it is over bitmaps this
@@ -56,7 +56,7 @@ struct DeskScreenArtTests {
                 "the off ink is value \(Self.value(off)), under the room's floor")
         #expect(Self.value(off) <= Self.valueCeiling)
         #expect(Self.saturation(off) == 0, "an off screen emits nothing, so it has no hue")
-        // One 8-bit step darker is outside the band — which is what makes this
+        // One 8-bit step darker is outside the band, which is what makes this
         // the darkest admissible neutral rather than a round number.
         let darker = Bitmap.RGBA(off.r - 1, off.g - 1, off.b - 1)
         #expect(Self.value(darker) < Self.valueFloor)
@@ -89,7 +89,7 @@ struct DeskScreenArtTests {
 
     /// **The room still does not own the darkest pixel on screen.** [I7]
     ///
-    /// The off ink is 0.553 against the cast's darkest at 0.314 — and against
+    /// The off ink is 0.553 against the cast's darkest at 0.314, and against
     /// the *dimmed* cast, which is what a dark screen is usually standing beside.
     /// `HeldObjectArt.outline` is the cast's darkest value by construction (its
     /// own doc comment records that it was chosen to sit on the cast floor), so
@@ -127,7 +127,7 @@ struct DeskScreenArtTests {
     /// **The two kinds with screens change and the two paper kinds do not.**
     ///
     /// Turning paper off is fiction, so `research` and `coordinating` return
-    /// bit-identical bitmaps in either state — checked here rather than left to
+    /// bit-identical bitmaps in either state, checked here rather than left to
     /// a reader to infer from `WorkKind.hasScreen`, and stated as *identical
     /// pixels* rather than *no crash*.
     @Test func onlyTheTwoKindsWithScreensRedraw() {
@@ -141,7 +141,7 @@ struct DeskScreenArtTests {
                 #expect(changed > 0, "\(kind.rawValue) has a screen and did not go dark")
             } else {
                 #expect(changed == 0,
-                        "\(kind.rawValue) is paper and \(changed) pixels of it changed — [I1]")
+                        "\(kind.rawValue) is paper and \(changed) pixels of it changed, [I1]")
             }
         }
         #expect(WorkKind.allCases.filter(\.hasScreen).count == 2)
@@ -149,7 +149,7 @@ struct DeskScreenArtTests {
     }
 
     /// **The silhouette does not move.** A screen going dark is a colour change,
-    /// and the outline is the object's identity [ADR-006 §1a] — so every pixel
+    /// and the outline is the object's identity [ADR-006 §1a], so every pixel
     /// that had ink still has ink, and no pixel gained any. Without this, a
     /// later edit could make a dark object a different *shape* and break the
     /// four-way silhouette separation `DeskWorkArtTests` protects.
@@ -245,7 +245,7 @@ struct DeskScreenDirectorTests {
 
     /// **A character walks in with its screen on, and is not told so.** The
     /// memory is seeded at spawn exactly as `emittedGated`'s is, so the commonest
-    /// character in the corpus — one that never goes dormant — never receives
+    /// character in the corpus (one that never goes dormant) never receives
     /// this intent at all.
     @Test func aSpawningCharactersScreenIsLitAndUnstated() {
         var director = SceneDirector(variantIDs: Self.cast)
@@ -255,7 +255,7 @@ struct DeskScreenDirectorTests {
         #expect(director.deskScreen(agent) == .lit)
     }
 
-    /// **`SubagentStop` darkens the screen and a revival relights it** — the
+    /// **`SubagentStop` darkens the screen and a revival relights it**, the
     /// subagent half of the turn boundary, which is the half that never sees a
     /// `turnChanged` delta at all.
     @Test func aSubagentsTurnBoundaryTurnsTheScreenOff() {
@@ -286,13 +286,13 @@ struct DeskScreenDirectorTests {
     /// **The finding the brief asked to be checked rather than assumed.**
     ///
     /// `turnChanged(hasTurn: false)` is **not** guaranteed to have fired for an
-    /// agent that `dormancyChanged(isDormant: true)` reports — it never fires
+    /// agent that `dormancyChanged(isDormant: true)` reports; it never fires
     /// for a subagent at all, because `Stop` carries no `agent_id` and
     /// `SubagentStop` always does. What closes a subagent's turn is the dormancy
     /// arm's own `isInTurn = !isDormant`, and this constructs the one ordering
     /// that leaves the two disagreeing: a `callOpened` after a dormancy, with no
-    /// revival between them. The live model cannot produce it —
-    /// `WorldModel.ensureAgent` revives before `PreToolUse` opens anything — but
+    /// revival between them. The live model cannot produce it:
+    /// `WorldModel.ensureAgent` revives before `PreToolUse` opens anything, but
     /// `Presentation` is a value with two fields and this is what it does when
     /// they conflict.
     ///
@@ -315,7 +315,7 @@ struct DeskScreenDirectorTests {
     }
 
     /// **The screen is keyed to the turn and not to the calls inside it.** Twenty
-    /// calls open and close inside one turn and the screen is never mentioned —
+    /// calls open and close inside one turn and the screen is never mentioned,
     /// which is the whole reason this is not `setBadge` with extra steps. At a
     /// 23 ms median call it would otherwise be the strobe ADR-006 §10 refused.
     @Test func callsInsideATurnNeverTouchTheScreen() {
@@ -347,7 +347,7 @@ struct DeskScreenDirectorTests {
     }
 
     /// **A permission gate does not turn the screen off.** A blocked agent is at
-    /// its workstation with a turn in progress — that is exactly what ADR-005 §7
+    /// its workstation with a turn in progress, that is exactly what ADR-005 §7
     /// says, and it is why the gate takes the motion and nothing else. A dark
     /// screen there would assert that the agent had finished, when what it is
     /// doing is waiting for the human.
@@ -448,7 +448,7 @@ struct CharacterDimTests {
     ///
     /// **This is the second copy of a fact and the duplication is deliberate**,
     /// because the lint reads PNGs off disk and this reads the manifest through
-    /// the typed loader — two paths to the same claim. It is also the copy that
+    /// the typed loader: two paths to the same claim. It is also the copy that
     /// drifted: it sat at 0.40 while the lint moved, and the suite went red at
     /// exactly the right moment, which is the argument for keeping both.
     static func minimumValueContrast(forTheme id: String) -> Double {
@@ -484,7 +484,7 @@ struct CharacterDimTests {
     /// **Alpha was measured out, not judged out**, and this is the arithmetic
     /// that did it. Compositing a character of value `v` at alpha `α` over a
     /// background of value `b` gives `vα + b(1−α)`, so reducing alpha over a
-    /// pale room *raises* the darkest character pixel and *cuts* the contrast —
+    /// pale room *raises* the darkest character pixel and *cuts* the contrast;
     /// the opposite of the intuition that a see-through character recedes
     /// safely. Against the binding theme, every alpha under ~0.94 fails I7.
     @Test func reducedAlphaWouldHaveBrokenTheContrastFloorAtAnyVisibleStrength() {
@@ -495,7 +495,7 @@ struct CharacterDimTests {
         }
         // The direction, first: less alpha is less contrast, not more.
         #expect(contrast(alpha: 0.5, over: themeMean) < contrast(alpha: 1.0, over: themeMean))
-        // A visible dim — call it 60% — is nowhere near the floor.
+        // A visible dim (call it 60%) is nowhere near the floor.
         #expect(contrast(alpha: 0.6, over: themeMean) < Self.minimumValueContrast)
         #expect(contrast(alpha: 0.6, over: 0.604) < Self.minimumValueContrast)
         // And the largest reduction I7 permits is a few per cent, over either
@@ -531,7 +531,7 @@ struct CharacterDimTests {
     /// the palette lint already enforces: under `CHAR_MIN_SAT` (0.55), so it no
     /// longer carries the saturation I7 reserves for the working cast, and over
     /// `ROOM_MAX_SAT` (0.25), so it has not become scenery. The lower bound
-    /// holds at any factor — the tint's own saturation is 0.275 — and the upper
+    /// holds at any factor (the tint's own saturation is 0.275) and the upper
     /// bound is what picked 0.65: at 0.60 the cast still peaks at 0.585.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theDimmedCastSitsBetweenTheTwoSaturationThresholds() throws {
@@ -702,7 +702,7 @@ struct CharacterDimSceneTests {
     /// tab.** The dim is keyed to the *fact* (`isDormant`) and the slot has a
     /// precedence order (`isSleeping` is `isDormant && !isAttention`), so an
     /// attention prompt over a finished agent takes the badge and leaves the
-    /// body dimmed — which is the truthful picture of both facts at once.
+    /// body dimmed, which is the truthful picture of both facts at once.
     @Test(.enabled(if: SceneArt.isAvailable))
     func attentionTakesTheBadgeSlotAndLeavesTheDimAlone() throws {
         let character = try Self.character(try SceneFixtures.manifest())

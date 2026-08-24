@@ -8,8 +8,8 @@ import os
 /// # Why this type exists
 ///
 /// M7c stopped the idle body animating, so that movement in the room means an
-/// open tool call and nothing else. That was right — an idle character had been
-/// measured moving *more* than a working one — and it left one thing behind:
+/// open tool call and nothing else. That was right (an idle character had been
+/// measured moving *more* than a working one), and it left one thing behind:
 /// **a room where nobody is working is now a room where nothing moves at all**,
 /// and that picture is identical to the picture a dead listener draws. "My
 /// agents are idle" and "this app has stopped receiving" became the same frame.
@@ -36,7 +36,7 @@ public struct Liveness: Sendable, Hashable {
     /// heartbeat.
     public var beats: Int
 
-    /// When the most recent one completed. `nil` before the first — which is
+    /// When the most recent one completed. `nil` before the first, which is
     /// the honest state of a listener that has just bound and has never yet
     /// been proved to answer.
     public var lastBeatAt: Date?
@@ -68,7 +68,7 @@ public struct Liveness: Sendable, Hashable {
 /// the process is out of file descriptors, or while something else has taken
 /// the loopback route out from under it. The question the user needs answered
 /// is not "does an object say it is ready" but **"if Claude Code posted a hook
-/// right now, would it land"** — and the only honest way to answer that is to
+/// right now, would it land"**, and the only honest way to answer that is to
 /// post one.
 ///
 /// It is deliberately built on a raw socket rather than on `Network.framework`,
@@ -76,12 +76,12 @@ public struct Liveness: Sendable, Hashable {
 /// the thing it is probing can be brought down by the same fault and still
 /// report success from a cached state; two independent stacks cannot.
 ///
-/// # I5 — what this costs the user's tool calls
+/// # I5: what this costs the user's tool calls
 ///
 /// The probe is a real request and it goes through the listener's real accept
 /// path, so it does contend, once a second, for the same serial queue a hook
 /// POST uses. What it costs there is a connection accept, a ~90-byte header
-/// parse, one string comparison and one counter increment — the probe is
+/// parse, one string comparison and one counter increment: the probe is
 /// recognised by its request target and is **never decoded and never
 /// enqueued**, so it does not touch the queue, the model, or the room. At 1 Hz
 /// against a session that posts on every tool call, that is noise below the
@@ -147,7 +147,7 @@ public final class ListenerHeartbeat: Sendable {
     /// once per frame by the panel.
     public var liveness: Liveness { state.withLock { $0.liveness } }
 
-    /// Begins beating. Idempotent — a second call while running does nothing.
+    /// Begins beating. Idempotent: a second call while running does nothing.
     public func start() {
         let begin = state.withLock { state -> Bool in
             guard !state.running else { return false }
@@ -163,7 +163,7 @@ public final class ListenerHeartbeat: Sendable {
     }
 
     /// Stops beating. Idempotent. After this the `Liveness` stops changing,
-    /// which is the truthful thing for it to do — this object is no longer
+    /// which is the truthful thing for it to do: this object is no longer
     /// checking anything.
     public func stop() {
         state.withLock { $0.running = false }
@@ -237,8 +237,8 @@ public final class ListenerHeartbeat: Sendable {
         }
 
         // Only the status line is needed, and reading exactly it means a
-        // listener that answered something other than `202` — or answered
-        // nothing — is a failure rather than a beat.
+        // listener that answered something other than `202` (or answered
+        // nothing) is a failure rather than a beat.
         let expected = Array("HTTP/1.1 202".utf8)
         var received = [UInt8](repeating: 0, count: expected.count)
         var got = 0

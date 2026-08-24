@@ -8,10 +8,10 @@ import SpriteRoomCore
 /// # The defect it exists for
 ///
 /// M7c stopped the idle body animating, so that movement in the room means an
-/// open tool call and nothing else. That was the right change — an idle
+/// open tool call and nothing else. That was the right change (an idle
 /// character had been measured moving *more* than a working one, 196 404 px
 /// against 181 080 over eight frames, so the motion channel carried no
-/// busy/idle signal at all — and it left one thing behind, recorded rather than
+/// busy/idle signal at all), and it left one thing behind, recorded rather than
 /// bodged around:
 ///
 /// > A room where nobody is working is now a room where nothing moves at all.
@@ -26,7 +26,7 @@ import SpriteRoomCore
 ///
 /// A blinking light on a timer would be. It would keep blinking with the
 /// listener dead, the queue wedged and the hooks uninstalled, which is a
-/// visible behaviour that traces to nothing — and "filling dead air with
+/// visible behaviour that traces to nothing, and "filling dead air with
 /// invented activity" is I2's own phrase for it.
 ///
 /// This lamp is driven by `Liveness`, and `Liveness.beats` moves **only**
@@ -38,7 +38,7 @@ import SpriteRoomCore
 /// `LivenessTests.theHeartbeatStopsWhenTheListenerStops`.
 ///
 /// **It is not a character and it is not in the room.** [I2] I2 governs the
-/// *body* of an agent — ADR-003 §7 already had to write that down, when the
+/// *body* of an agent: ADR-003 §7 already had to write that down, when the
 /// badge slot turned out to be governed separately, and the clause it added is
 /// the shape of the carve-out this needs:
 ///
@@ -50,8 +50,8 @@ import SpriteRoomCore
 /// a licence for something else:
 ///
 /// > **I2 governs what a character does. The panel may show one indicator that
-/// > is about the app itself — not seated, not named, not at a station, drawn
-/// > in the room's lettering rather than in the cast's art — provided every
+/// > is about the app itself (not seated, not named, not at a station, drawn
+/// > in the room's lettering rather than in the cast's art), provided every
 /// > frame of it traces to a fact about this process that was measured rather
 /// > than assumed, and provided it says nothing about any agent.**
 ///
@@ -60,8 +60,8 @@ import SpriteRoomCore
 /// nameplate's two colours, at a corner no seat, station, aisle or delivery row
 /// reaches. *Traces to a measured fact*: `Liveness` and nothing else, with no
 /// clock allowed to add to it. *Says nothing about any agent*: it does not
-/// change with population, with open calls, or with which project is on screen
-/// — a room with six working agents and a room with none draw the same lamp,
+/// change with population, with open calls, or with which project is on screen:
+/// a room with six working agents and a room with none draw the same lamp,
 /// which is exactly the property that keeps it from becoming a second, quieter
 /// activity channel competing with the cast.
 ///
@@ -76,7 +76,7 @@ import SpriteRoomCore
 ///
 /// - **What it spends.** One transition is 5×5 → 3×3, which is 16 changed
 ///   pixels, and there are two of them per beat. At `ListenerHeartbeat.interval`
-///   = 1 s that is **32 px/s**, placed, for the whole room, forever — it does
+///   = 1 s that is **32 px/s**, placed, for the whole room, forever; it does
 ///   not scale with population, theme, or anything else.
 /// - **The ceiling that actually governs it.** Not "quieter than an idling
 ///   character", which is now 0 and which nothing can be under. The honest
@@ -89,7 +89,7 @@ import SpriteRoomCore
 /// - **Why that is sufficient rather than merely small.** The lamp draws the
 ///   *same* 32 px/s whether the room is empty or full. It is a constant added
 ///   to both sides of the busy/idle comparison, so it cannot change the sign of
-///   that comparison at any population — which is precisely the failure M7c
+///   that comparison at any population, which is precisely the failure M7c
 ///   fixed, where the idle side was the larger one. A signal that moved *with*
 ///   activity would reopen it; this one cannot.
 ///
@@ -97,7 +97,7 @@ import SpriteRoomCore
 /// in the manifest, and is not counted by `scripts/lint-palette.py`'s motion
 /// check, which measures what a *theme* animates. 1461 px/s still governs
 /// props, it is still resting on a sentence that is now false, and re-deriving
-/// it is still open work — see the note appended to `notes.md`. Nothing here
+/// it is still open work: see the note appended to `notes.md`. Nothing here
 /// touches the accepted prop set.
 ///
 /// # What it cannot do, stated before anyone hopes otherwise
@@ -140,7 +140,7 @@ public final class LivenessLamp {
 
     /// How long the core stays contracted after a beat.
     ///
-    /// **125 ms — one animation frame on the manifest's own 8 fps grid**, which
+    /// **125 ms, one animation frame on the manifest's own 8 fps grid**, which
     /// is the same floor ADR-003 §4 derived for the closing beat and is taken
     /// from there rather than re-tasted. A change shorter than one animation
     /// frame is briefer than anything else this room draws; a change longer
@@ -150,10 +150,10 @@ public final class LivenessLamp {
 
     /// How long a beat keeps the lamp lit.
     ///
-    /// **Two seconds — two `ListenerHeartbeat.interval`s, and the number is the
+    /// **Two seconds, two `ListenerHeartbeat.interval`s, and the number is the
     /// interval rather than a judgement about attention spans.** One interval
-    /// would make a single dropped beat — a scheduler hiccup, a machine coming
-    /// back from sleep — draw a dead listener, which is a false alarm on the
+    /// would make a single dropped beat (a scheduler hiccup, a machine coming
+    /// back from sleep) draw a dead listener, which is a false alarm on the
     /// one indicator whose whole value is that it is not crying wolf. Two
     /// tolerates exactly one miss and no more, so a listener that has genuinely
     /// stopped is dark inside two seconds.
@@ -189,13 +189,13 @@ public final class LivenessLamp {
     /// **Bottom-left, pinned to the frame rather than placed in the room.**
     /// Pinned because it is a statement about the app and would be a lie if it
     /// scrolled away with the room; bottom-left because that corner is the one
-    /// the room reaches least — the delivery rows are the lowest thing a
+    /// the room reaches least: the delivery rows are the lowest thing a
     /// character can stand on and they are occupied only during a report, by
     /// one character, walking. It is not a guarantee: a report from the
     /// outermost left seat can put a nameplate under the lamp for the length of
     /// a walk, and the lamp draws over it, which costs a few pixels of a plate
-    /// that is still legible. The alternative — a corner the room cannot reach
-    /// at all — does not exist at `1x`, where the frame is cropped to the
+    /// that is still legible. The alternative, a corner the room cannot reach
+    /// at all, does not exist at `1x`, where the frame is cropped to the
     /// content on every axis.
     public static func position(inFrameOf size: CGSize) -> CGPoint {
         CGPoint(
@@ -259,7 +259,7 @@ public final class LivenessLamp {
     }
 
     /// Takes the lamp down. Called when the panel loses the thing that was
-    /// proving liveness — after which the app has nothing true to say about
+    /// proving liveness, after which the app has nothing true to say about
     /// itself, and says nothing. [I1]
     public func remove() {
         node.removeFromParent()

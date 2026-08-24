@@ -12,7 +12,7 @@ import SpriteRoomCore
 /// characters end up with something on the desk*, and *how often does what is on
 /// a desk change*.
 ///
-/// It needs no art — it reads the director, not the scene — so it runs on a
+/// It needs no art (it reads the director, not the scene) so it runs on a
 /// fresh clone.
 struct DeskObjectCorpusTests {
 
@@ -39,7 +39,7 @@ struct DeskObjectCorpusTests {
     }
 
     /// One fixture, replayed at its own pace against a director with a real
-    /// clock. **The fixture's clock, not the wall clock** — the dwell floor is
+    /// clock. **The fixture's clock, not the wall clock**: the dwell floor is
     /// four seconds of fixture time and a test that used `Date()` would measure
     /// how fast this machine is.
     static func replay(_ name: String) async throws -> Outcome {
@@ -63,7 +63,7 @@ struct DeskObjectCorpusTests {
     /// **How many characters in the whole corpus end up with a prop, and how
     /// many keep the bare desk.**
     ///
-    /// ADR-006 §3a predicted 5 of 27 with the threshold it proposed —
+    /// ADR-006 §3a predicted 5 of 27 with the threshold it proposed,
     /// three votes and twice the runner-up. The maintainer retuned the object
     /// mid-build from *a readout a person might rely on* to *a prop on the
     /// table*, and the threshold came down to one observed call with a
@@ -88,7 +88,7 @@ struct DeskObjectCorpusTests {
             furnished += outcome.adopted.count
             for (_, kind) in outcome.adopted { byKind[kind, default: 0] += 1 }
             for agent in outcome.agents.sorted(by: { "\($0)" < "\($1)" }) {
-                let kind = outcome.adopted[agent]?.rawValue ?? "—"
+                let kind = outcome.adopted[agent]?.rawValue ?? "-"
                 lines.append("  \(name.padding(toLength: 28, withPad: " ", startingAt: 0))"
                              + " \(Self.short(agent))  \(kind)")
             }
@@ -121,7 +121,7 @@ struct DeskObjectCorpusTests {
     ///
     /// A gate that admits everything is not a gate. With the floor at one
     /// observed call the *only* way to keep a bare desk is to make no call this
-    /// app can classify — and one character in the corpus does exactly that,
+    /// app can classify, and one character in the corpus does exactly that,
     /// which is what keeps this from being a rule with no false case. The
     /// converse is asserted too: no agent that made a classifiable call was left
     /// bare, which is the claim the retuning was for.
@@ -157,13 +157,13 @@ struct DeskObjectCorpusTests {
         #expect(bare == 1, "abstention stopped being reachable over this corpus")
     }
 
-    // MARK: Stability — the failure mode that matters now
+    // MARK: Stability: the failure mode that matters now
 
     /// **How often what is on a desk changes, over the whole corpus.**
     ///
     /// ADR-006 §3a measured 32 changes for the naive argmax rule and 5 for its
     /// own gate. The shipped rule is looser than the gate, so this is the number
-    /// that has to be looked at rather than assumed — a prop that changes every
+    /// that has to be looked at rather than assumed: a prop that changes every
     /// few seconds is worse than a prop that is wrong.
     ///
     /// Both halves are asserted: the total, and the worst case any single
@@ -209,7 +209,7 @@ struct DeskObjectCorpusTests {
         // replacements. ADR-006 §3a measured 32 changes for the naive argmax
         // rule and 5 for the threshold it proposed; this is looser than the
         // proposal and still under the naive rule, because the replacement
-        // margin and the turn scoping — not the floor — are what do the
+        // margin and the turn scoping (not the floor) are what do the
         // stabilising.
         //
         // **These four numbers were 28 / 2 / 2 / >50 until the eighteenth
@@ -218,14 +218,14 @@ struct DeskObjectCorpusTests {
         // kind of thing; `authoring-subagents` has a main agent that runs a
         // build, reads, dispatches, edits and writes inside one session, so it
         // redecorates four times where no sandbox character redecorated more
-        // than twice. The corpus was not wrong, it was narrow — which is the
+        // than twice. The corpus was not wrong, it was narrow, which is the
         // whole argument for capturing real sessions [#72].
         #expect(totalChanges == 37)
         #expect(replacements == 7)
         #expect(worstPerCharacter == 4, "some character redecorated more than the corpus has shown")
         // **The enforced floor held; the comfortable margin did not.** Every gap
-        // still cleared `deskObjectDwell` — the per-gap assertion above is the
-        // one that matters and it did not fire — but the measured floor is now
+        // still cleared `deskObjectDwell`: the per-gap assertion above is the
+        // one that matters and it did not fire, but the measured floor is now
         // **2.7x** the enforced 4 s, where the sandbox corpus made it look like
         // an order of magnitude. That sentence used to be in this comment and
         // was true only of scripted work.
@@ -264,8 +264,8 @@ struct WorkKindTests {
     /// **`WorkKind.init?(badge:)` is a total function of `ToolBadge`**, checked
     /// against the committed enum rather than against ADR-006 §1c's table.
     ///
-    /// `ToolBadge.badge(forTool:)` is itself total — its `default` arm is
-    /// `questionMark` — so totality here means every tool name that exists or
+    /// `ToolBadge.badge(forTool:)` is itself total: its `default` arm is
+    /// `questionMark`, so totality here means every tool name that exists or
     /// ever will has an answer, and the answer for two of the seven classes is
     /// *say nothing*.
     @Test func everyBadgeClassHasAnAnswerAndTwoOfThemAbstain() {
@@ -283,7 +283,7 @@ struct WorkKindTests {
         #expect(answered == 5)
     }
 
-    /// The mapping itself, spelled out — ADR-006 §1's evidence table read back
+    /// The mapping itself, spelled out: ADR-006 §1's evidence table read back
     /// through the tool names rather than through the badge names, since tool
     /// names are what the payload carries.
     @Test func theToolNamesMapToTheKindsTheADRsTableNames() {
@@ -318,7 +318,7 @@ struct WorkKindTests {
     /// **Every kind is authored now, and none names a manifest role.**
     ///
     /// It was three-from-the-pack and one authored until the three were rendered
-    /// at the panel's true size and found unreadable there — all isometric, and
+    /// at the panel's true size and found unreadable there: all isometric, and
     /// a diagonal wedge loses its diagonal first. `DeskWorkArt` replaced them.
     /// The roles are still declared in the manifest and `propRole` is still the
     /// seam that would read them, so this pins the shipped state rather than
@@ -328,7 +328,7 @@ struct WorkKindTests {
             #expect(kind.propRole == nil, "\(kind.rawValue) names a pack role again")
         }
         // Each one still resolves to a picture, from one of the two authored
-        // sources — a kind that named nothing and drew nothing would be a bare
+        // sources: a kind that named nothing and drew nothing would be a bare
         // desk that no rule asked for.
         for kind in WorkKind.allCases {
             let authored = DeskWorkArt.bitmap(kind) ?? DeskMonitorArt.bitmap()
@@ -348,7 +348,7 @@ struct WorkKindTests {
     }
 }
 
-/// The lexicon — the only free text this app classifies. [ADR-006 §6c rule 5]
+/// The lexicon: the only free text this app classifies. [ADR-006 §6c rule 5]
 struct WorkKindLexiconTests {
 
     /// The four lists are disjoint, so a single word can never vote twice and
@@ -365,7 +365,7 @@ struct WorkKindLexiconTests {
 
     /// **Every keyword is a word this lexicon could actually see.** Upper case
     /// and letters only, because the classifier upper-cases and splits before it
-    /// looks — a lower-case entry would be dead text that never matched anything
+    /// looks: a lower-case entry would be dead text that never matched anything
     /// and nobody would find out.
     @Test func everyKeywordIsInTheFormTheSplitProduces() {
         for (kind, list) in WorkKind.keywords {
@@ -382,7 +382,7 @@ struct WorkKindLexiconTests {
     /// captures rather than over invented strings.
     ///
     /// The corpus's ten descriptions come out as: seven `research` (every
-    /// "Read ... .txt" dispatch), one `running` ("Touch a file via bash" — the
+    /// "Read ... .txt" dispatch), one `running` ("Touch a file via bash": the
     /// only word in it this lexicon knows is `BASH`), and two abstentions
     /// ("Touch file s1"/"s2", which hold no keyword at all). Asserted by name so
     /// that a lexicon edit has to look at what it did to the real data.
@@ -392,7 +392,7 @@ struct WorkKindLexiconTests {
             for batch in try await SceneFixtures.batchedDeltas(name) {
                 for delta in batch {
                     guard case let .agentTasked(_, task) = delta else { continue }
-                    classified[task] = WorkKind(dispatchDescription: task)?.rawValue ?? "—"
+                    classified[task] = WorkKind(dispatchDescription: task)?.rawValue ?? "-"
                 }
             }
         }
@@ -401,8 +401,8 @@ struct WorkKindLexiconTests {
             print("  \(kind.padding(toLength: 13, withPad: " ", startingAt: 0)) \(task)")
         }
         #expect(classified.count == 13, "the corpus's descriptions changed: \(classified.keys.sorted())")
-        #expect(classified["Touch file s1"] == "—")
-        #expect(classified["Touch file s2"] == "—")
+        #expect(classified["Touch file s1"] == "-")
+        #expect(classified["Touch file s2"] == "-")
         #expect(classified["Touch a file via bash"] == "running")
         #expect(classified["Read one.txt sleep"] == "research")
         #expect(classified["Read alpha.txt and sleep"] == "research")
@@ -410,18 +410,18 @@ struct WorkKindLexiconTests {
         // **The lexicon's first contact with descriptions nobody wrote for it.**
         // The ten above were authored as capture prompts, in a sandbox, by
         // someone who knew what the classifier looks for. These three came off a
-        // real session [#72] and **two of them abstain** — which is rule 5
+        // real session [#72] and **two of them abstain**, which is rule 5
         // working, not failing, but it is the first measurement of how often
         // *say nothing* is the answer on descriptions written for a colleague
         // rather than for a test. One in three classified.
         #expect(classified["Audit doc-symbol drift with Grep/Glob"] == "research")
-        #expect(classified["Inventory fixture-count pins"] == "—")
-        #expect(classified["Verify and persist the pin inventory"] == "—")
+        #expect(classified["Inventory fixture-count pins"] == "-")
+        #expect(classified["Verify and persist the pin inventory"] == "-")
     }
 
     /// **A description that names two kinds contributes nothing.** The
     /// ambiguity half of rule 5, which the corpus has no example of, so it is
-    /// checked against constructed strings — a pure function's own unit test,
+    /// checked against constructed strings: a pure function's own unit test,
     /// not a fixture standing in for captured data.
     @Test func aDescriptionMatchingTwoKindsAbstains() {
         #expect(WorkKind(dispatchDescription: "Write the migration and run the tests") == nil)
@@ -443,7 +443,7 @@ struct WorkKindLexiconTests {
 
     /// The split is `SceneDirector.taskLine(_:)`'s own, so a keyword still
     /// counts when it arrives punctuated, and a keyword glued to something else
-    /// by a hyphen does not — the honest edge of a whole-word lexicon.
+    /// by a hyphen does not: the honest edge of a whole-word lexicon.
     @Test func theSplitIsTheOneTheNameplateAlreadyUses() {
         #expect(WorkKind(dispatchDescription: "read alpha.txt,") == .research)
         #expect(WorkKind(dispatchDescription: "READ ALPHA") == .research)
@@ -536,7 +536,7 @@ struct WorkTallyTests {
 
     /// **A tie changes nothing, in either direction.** With an incumbent it
     /// keeps the incumbent; with a bare desk it stays bare until something pulls
-    /// ahead. No recency and no ordering dependence — the properties ADR-003 §5
+    /// ahead. No recency and no ordering dependence: the properties ADR-003 §5
     /// protects for the badge, and they are reachable here in a way they were
     /// not at the original threshold.
     @Test func aTieNeverMovesAnything() {
@@ -549,7 +549,7 @@ struct WorkTallyTests {
     }
 
     /// **Replacing costs more than appearing.** One stray call cannot overturn a
-    /// desk — which is what stops the first tool call of a new turn rearranging
+    /// desk, which is what stops the first tool call of a new turn rearranging
     /// furniture, since the tally is turn-scoped and the incumbent starts every
     /// turn with zero votes of its own.
     @Test func oneStrayCallNeverOverturnsAnOccupiedDesk() {
@@ -569,7 +569,7 @@ struct WorkTallyTests {
     /// **The maintainer's own honest case**: an agent told to plan that is in
     /// fact editing files.
     ///
-    /// **Read the second edit carefully — it no longer wins for the reason this
+    /// **Read the second edit carefully: it no longer wins for the reason this
     /// test was written for.** The original rule was pure counting, so the brief
     /// was worth one vote, two edits tied it and three beat it. Since
     /// `authoringPrecedenceFloor`, the second *observed* edit takes the desk
@@ -611,7 +611,7 @@ struct WorkTallyTests {
     /// The adoption floor came down to one call and the question that raises is
     /// how often a desk can change hands. Answer: the challenger has to double
     /// the incumbent's votes, and votes only accumulate within a turn, so each
-    /// successive change costs twice the last — 128 calls alternating as
+    /// successive change costs twice the last: 128 calls alternating as
     /// adversarially as they can be arranged produce **seven** changes, not 128
     /// and not 64. The dwell floor is a second, looser bound on top of this; the
     /// arithmetic is what makes the room stable, and it would still be stable
@@ -647,7 +647,7 @@ struct WorkTallyTests {
 }
 
 /// The director's own rules: turn scoping, the dwell floor, and the two things
-/// that must never happen — a desk cleared, or a desk restated.
+/// that must never happen: a desk cleared, or a desk restated.
 ///
 /// Synthetic deltas rather than a fixture, deliberately and only here: these are
 /// the shapes the corpus does not contain, plus the ones that need a clock
@@ -655,12 +655,12 @@ struct WorkTallyTests {
 /// against real captured payloads.
 ///
 /// **This comment used to say `authoring` could not fire anywhere in the corpus
-/// — zero `Edit`, zero `Write`, zero `Grep`, zero `Glob` across every capture.
+///: zero `Edit`, zero `Write`, zero `Grep`, zero `Glob` across every capture.
 /// Half of that stopped being true on 2026-08-14.** `authoring-subagents` [#72]
 /// holds two `Edit`s, two `Write`s and a `NotebookEdit`, and two of its agents
 /// end on `authoring`, so the kind is measured now and not only constructed.
 /// `Grep` and `Glob` are still absent and, per `fixtures/README.md`, cannot be
-/// captured on this machine at all — so the synthetic cases below are still the
+/// captured on this machine at all, so the synthetic cases below are still the
 /// only coverage those two tool names have.
 struct DeskObjectDirectorTests {
 
@@ -686,7 +686,7 @@ struct DeskObjectDirectorTests {
 
     // MARK: The intent
 
-    /// **Emitted only when the drawn kind actually changes** — `setNameplate`'s
+    /// **Emitted only when the drawn kind actually changes**: `setNameplate`'s
     /// discipline, which is the whole of ADR-006 §5b's ask. Twenty `Read`s
     /// produce one intent, not twenty.
     @Test func aDeskObjectIsStatedOnceAndNotRestated() {
@@ -706,8 +706,8 @@ struct DeskObjectDirectorTests {
 
     /// **The one kind the corpus cannot produce**, exercised here because it
     /// cannot be exercised there: `fixtures/` holds zero `Edit`, zero `Write`,
-    /// zero `NotebookEdit`, zero `Grep` and zero `Glob`, so `authoring` — the
-    /// laptop, the maintainer's own leading example — never fires in any replay
+    /// zero `NotebookEdit`, zero `Grep` and zero `Glob`, so `authoring`: the
+    /// laptop, the maintainer's own leading example: never fires in any replay
     /// in this suite. This is a unit test of the derivation and it is not a
     /// substitute for seeing it happen on captured data.
     @Test func editingFilesPutsALaptopOnTheDesk() {
@@ -719,7 +719,7 @@ struct DeskObjectDirectorTests {
             [.callOpened(agent: agent, call: Self.call("t1", "Edit"))], at: Self.at(1))
         #expect(Self.kinds(intents) == [.authoring])
         // And the kind resolves to the authored laptop, whose silhouette steps
-        // outward at the hinge — the feature no other desk object has.
+        // outward at the hinge: the feature no other desk object has.
         // Plain `!= nil` rather than `#require`: `bitmap(_:screen:)` gained a
         // defaulted argument when the screen state landed, and the `#require`
         // macro then reports the call as never-optional and fails the build
@@ -728,12 +728,12 @@ struct DeskObjectDirectorTests {
         #expect(DeskWorkArt.design(.authoring) == DeskWorkArt.laptop)
     }
 
-    // MARK: §4a — the tally is scoped to a turn
+    // MARK: §4a: the tally is scoped to a turn
 
     /// **The main thread's turn boundary is a tally boundary too.**
     ///
-    /// ADR-006 §5d planned for the case where it is not — "subagents get
-    /// per-turn tallies; the main agent gets one tally for its whole life" —
+    /// ADR-006 §5d planned for the case where it is not: "subagents get
+    /// per-turn tallies; the main agent gets one tally for its whole life",
     /// because the ADR was written before `turnChanged` existed. It exists, so
     /// the fallback is dead text: a `Stop` clears the main agent's votes exactly
     /// as `SubagentStop` clears a subagent's.
@@ -792,7 +792,7 @@ struct DeskObjectDirectorTests {
         #expect(seen == [.research])
     }
 
-    // MARK: §3 — the opening claim
+    // MARK: §3: the opening claim
 
     /// **A dispatch description alone never furnishes a desk.** The description
     /// is inference about intent written before the agent acted; it is worth one
@@ -811,9 +811,9 @@ struct DeskObjectDirectorTests {
     }
 
     /// **The claim is counted even though it arrives after the turn opened.**
-    /// `agentTasked` is retroactive by construction — the dispatching
+    /// `agentTasked` is retroactive by construction: the dispatching
     /// `PostToolUse` carries the child's task and lands behind the
-    /// `SubagentStart` that seated it — so a claim seeded only at the turn's
+    /// `SubagentStart` that seated it, so a claim seeded only at the turn's
     /// opening event would be missed for every subagent in `fixtures/`.
     @Test func aTaskThatArrivesAfterTheTurnOpenedStillVotes() {
         var director = SceneDirector(variantIDs: Self.cast)
@@ -843,7 +843,7 @@ struct DeskObjectDirectorTests {
         #expect(director.workTally(agent).count(.research) == 1, "the claim was not re-seeded")
     }
 
-    // MARK: §4c — the dwell floor
+    // MARK: §4c: the dwell floor
 
     /// **A desk may be furnished the instant the votes allow it and may only be
     /// *changed* after the floor.** The asymmetry is the rule: appearing is the
@@ -863,7 +863,7 @@ struct DeskObjectDirectorTests {
         #expect(Self.kinds(intents).isEmpty, "the desk changed inside the dwell floor")
         #expect(director.deskObject(agent) == .research)
         // And it lands once the floor expires, on a frame carrying **no deltas
-        // at all** — which is the frame that actually happens next, since votes
+        // at all**, which is the frame that actually happens next, since votes
         // only arrive on events and this agent may not produce another one.
         intents = director.apply([], at: Self.at(3.9))
         #expect(Self.kinds(intents).isEmpty)
@@ -962,22 +962,22 @@ struct DeskObjectSceneTests {
     /// The three things §2c's placement rule actually promises:
     ///
     /// - the object's **left edge** is at `seat + 16`, which is the first column
-    ///   strictly outside a seated character's own canvas — so it cannot cover a
+    ///   strictly outside a seated character's own canvas, so it cannot cover a
     ///   head at any height, and it cannot reach the character it belongs to;
     /// - its **right edge** stays inside its own desk's footprint, so it stands
-    ///   on the desk rather than floating past it — and therefore nowhere near
+    ///   on the desk rather than floating past it, and therefore nowhere near
     ///   the next seat's station prop, which starts a further four pixels out;
     /// - its **bottom edge** is on the desk's measured surface, which is 24 px
     ///   above the floor in five themes and 36 in two.
     ///
     /// **And that a camera-facing seat's desk carries nothing at all.** [ADR-008
-    /// §5] This test asserted `drawn.count == 4` — every seated character has an
-    /// object — and that is no longer true, deliberately: the desk at a
+    /// §5] This test asserted `drawn.count == 4`: every seated character has an
+    /// object, and that is no longer true, deliberately: the desk at a
     /// camera-facing seat stands between the occupant and the viewer, so an
     /// object on it faces upstage and there is no rear view of a screen anywhere
     /// in the catalogue. Silence is the answer, and the count is now asserted
     /// against the seats whose facing shows one, with the empty ones checked
-    /// **by name** rather than by subtraction — a count that happened to match
+    /// **by name** rather than by subtraction: a count that happened to match
     /// while the wrong seats were bare would pass either way.
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyDeskObjectStandsOnItsOwnDeskAndOutsideItsCharactersColumn() throws {
@@ -1021,7 +1021,7 @@ struct DeskObjectSceneTests {
                     // The near-edge rule is not weakened by that, it is
                     // inapplicable: ADR-006 §2c pushes the object clear of the
                     // body so it cannot cover a head, and only a camera-facing
-                    // seat could be covered that way — which draws no object at
+                    // seat could be covered that way, which draws no object at
                     // all. Every seat that reaches this line is away-facing, so
                     // its desk is genuinely upstage and `rowDepth` draws the body
                     // over the object at any x. What is asserted instead is the
@@ -1059,7 +1059,7 @@ struct DeskObjectSceneTests {
     ///
     /// **This used to answer `DeskMonitorArt.canvasWidth` for every authored
     /// kind**, which was true while the monitor was the only authored object and
-    /// silently wrong the moment it was not — it mis-measured the 26 px laptop
+    /// silently wrong the moment it was not: it mis-measured the 26 px laptop
     /// and paper stack by exactly 3 px and reported it as a placement bug.
     static func contentWidth(of kind: WorkKind, manifest: Manifest, themeID: String?) -> Double {
         guard let role = kind.propRole else {
@@ -1071,7 +1071,7 @@ struct DeskObjectSceneTests {
     }
 
     /// **A desk object is drawn in front of the desk it stands on**, whichever
-    /// way that desk sorted — including `library` and `mission_control`, whose
+    /// way that desk sorted: including `library` and `mission_control`, whose
     /// desks go *behind* the body because they are taller than the shortest head.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aDeskObjectSortsInFrontOfItsOwnDesk() throws {
@@ -1092,7 +1092,7 @@ struct DeskObjectSceneTests {
     /// **Every theme draws every kind**, including the six that declare no
     /// desk-top roles of their own. Without the fallback to the root `room`'s
     /// declarations, three of the four kinds would silently draw nothing in
-    /// every themed room — which is every room the app actually opens.
+    /// every themed room, which is every room the app actually opens.
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyThemeDrawsEveryKindEvenThoughNoneDeclaresTheRoles() throws {
         let manifest = try SceneFixtures.manifest()
@@ -1106,7 +1106,7 @@ struct DeskObjectSceneTests {
                 // **Enough agents to fill a seat that shows an object.** [ADR-008]
                 // This seated one character and asserted one object. Seat 0
                 // faces the camera and camera-facing desks carry nothing, so a
-                // room of one draws none — correctly. The claim being made here
+                // room of one draws none: correctly. The claim being made here
                 // is about the *role fallback*, not about seat 0, so the cast is
                 // grown until a seat that shows an object is occupied and the
                 // count is asserted against that seat.
@@ -1156,7 +1156,7 @@ struct DeskObjectSceneTests {
     /// **The swap count is now cross-checked rather than pinned**, and the
     /// reason is ADR-006 §12: the drawn texture is a function of *two* facts,
     /// the kind and the screen state, and only the first of them used to exist.
-    /// It was `== 2` — the corpus's two kind replacements — and 45 of the 47
+    /// It was `== 2` (the corpus's two kind replacements) and 45 of the 47
     /// swaps it now sees are turn boundaries turning a screen off or on, which
     /// is the feature working rather than the invariant breaking. A restated
     /// constant would have been a number nobody could derive again, so the
@@ -1233,7 +1233,7 @@ struct DeskObjectSceneTests {
             }
         }
         print("""
-            desk-object texture swaps over the corpus: \(everSwapped) — \
+            desk-object texture swaps over the corpus: \(everSwapped): \
             \(replacements) kind replacements, \(screenChanges) screen changes
             """)
         #expect(everSwapped == predicted,

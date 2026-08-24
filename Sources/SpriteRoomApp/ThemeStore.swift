@@ -1,6 +1,6 @@
 import Foundation
 
-/// `~/Library/Application Support/SpriteRoom/themes.json` — the per-project
+/// `~/Library/Application Support/SpriteRoom/themes.json`: the per-project
 /// room theme, and **the first thing this app has ever persisted**.
 ///
 /// `docs/ADR-002-themed-rooms.md` §3d specifies this file completely, and it
@@ -9,7 +9,7 @@ import Foundation
 /// configuration file that did not exist. This is the deliberate addition that
 /// paragraph asks for.
 ///
-/// Two things it is not. It is **not a general preferences store** — schema 1
+/// Two things it is not. It is **not a general preferences store**: schema 1
 /// holds themes and nothing else, and the next preference is a new ADR, not a
 /// new key (§9). And it is **not a file a user is expected to hand-edit**.
 ///
@@ -19,8 +19,8 @@ import Foundation
 /// disk. [I5]
 ///
 /// `@MainActor` for the same reason `ProjectSelector` is: both ends of this
-/// object's life are main-actor work — constructed on the launch path, written
-/// from a menu action — so it needs no lock and no `@unchecked Sendable`.
+/// object's life are main-actor work (constructed on the launch path, written
+/// from a menu action), so it needs no lock and no `@unchecked Sendable`.
 @MainActor
 final class ThemeStore {
 
@@ -47,7 +47,7 @@ final class ThemeStore {
 
     private(set) var load: Load = .fresh
 
-    /// "Write failures are counted, not surfaced." — §3d. A read-only home
+    /// "Write failures are counted, not surfaced." (§3d). A read-only home
     /// directory means the picker works for this launch and forgets on the
     /// next. That is a degradation the user can live with; a modal dialog about
     /// a desk skin is not.
@@ -55,8 +55,8 @@ final class ThemeStore {
 
     /// Reads the file. **Once, and it cannot throw.**
     ///
-    /// Every one of §3d's failure modes — missing, unreadable, not JSON, wrong
-    /// `schema`, `themes` not an object — means the same thing: no stored
+    /// Every one of §3d's failure modes (missing, unreadable, not JSON, wrong
+    /// `schema`, `themes` not an object) means the same thing: no stored
     /// choices. The app launches and every project takes its derived theme. A
     /// theme preference is not something to fail a launch over, and an
     /// initialiser that could throw is an initialiser someone eventually calls
@@ -65,7 +65,7 @@ final class ThemeStore {
         self.url = url
 
         guard let data = try? Data(contentsOf: url) else {
-            // Missing — or a directory, or unreadable. Indistinguishable from
+            // Missing, or a directory, or unreadable. Indistinguishable from
             // here and identical in consequence.
             load = .fresh
             return
@@ -102,7 +102,7 @@ final class ThemeStore {
     /// **No eviction** (§3d). Entries are a few dozen bytes and a project you
     /// have not opened in a year is exactly the one whose choice you would be
     /// annoyed to lose. An entry naming a theme the manifest no longer has is
-    /// left alone too — the theme may come back.
+    /// left alone too: the theme may come back.
     func choose(_ themeID: String, for cwd: String) {
         stored[cwd] = themeID
         persist()
@@ -112,15 +112,15 @@ final class ThemeStore {
     /// this file, and the inverse of `choose`.
     ///
     /// **This is not eviction.** §3d's "no eviction" is about what *this app*
-    /// may drop on its own — nothing here ages an entry out, garbage-collects
+    /// may drop on its own: nothing here ages an entry out, garbage-collects
     /// one, or drops the choice of a project you have not opened in a year. A
     /// person taking their own pin out is the opposite: a preference that can
     /// be set and not un-set is a trap, and the way out of a bad pick would
     /// otherwise be hand-editing a file §3d says is not for hand-editing.
     ///
     /// Removing the key rather than storing a sentinel keeps §3c's first line
-    /// exactly as written — "`stored[cwd]` if it names a theme in the manifest"
-    /// — and keeps the file's shape to the one schema 1 declares.
+    /// exactly as written, "`stored[cwd]` if it names a theme in the manifest",
+    /// and keeps the file's shape to the one schema 1 declares.
     ///
     /// A project with no entry is already the common case, so this writes
     /// nothing when there is nothing to remove: no file is created by asking a
@@ -154,12 +154,12 @@ final class ThemeStore {
 
     /// "A file that fails to parse is renamed once to `themes.json.bad` and a
     /// fresh one is started, so a corrupt file cannot wedge the picker forever
-    /// and the user's bytes are still on disk if they want them." — §3d.
+    /// and the user's bytes are still on disk if they want them." (§3d).
     ///
     /// Applied to every unusable shape, not only to malformed JSON: a file with
     /// the wrong `schema` would wedge the picker just as thoroughly, and the
     /// sentence's stated purpose is about wedging. Nothing is deleted either
-    /// way — the bytes move, they do not go.
+    /// way: the bytes move, they do not go.
     ///
     /// "Once" is the count per launch. A second bad file overwrites the first
     /// rather than accumulating `.bad.bad`, since we read at launch and only
@@ -183,7 +183,7 @@ final class ThemeStore {
     /// Atomic, in the shape §3d spells out: a sibling temp file and a `rename`
     /// over the target, so a crash mid-write cannot leave a truncated file.
     ///
-    /// `Data.write(options: .atomic)` is that mechanism — Foundation writes a
+    /// `Data.write(options: .atomic)` is that mechanism: Foundation writes a
     /// temp file in the *same directory* and renames it into place, which is
     /// why the temp has to be a sibling: `rename(2)` is only atomic within a
     /// filesystem. It is spelled out here because "atomic" is the property and

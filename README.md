@@ -8,7 +8,7 @@ Each tool call is something the character is visibly doing.
 
 It is read-only and it always will be: it never controls an agent, never stops
 one, and never reads or displays prompt or response content. It is not a log
-viewer and not a metrics dashboard — see the non-goals in `docs/01-PRD.md`.
+viewer and not a metrics dashboard: see the non-goals in `docs/01-PRD.md`.
 
 ---
 
@@ -17,8 +17,8 @@ viewer and not a metrics dashboard — see the non-goals in `docs/01-PRD.md`.
 - **macOS 14+**. Verified on macOS 26.5.2.
 - **Swift 6** toolchain, strict concurrency. Verified on Apple Swift 6.3.3.
 - **Two purchased LimeZu art packs**, from `limezu.itch.io`:
-  - **Modern Interiors** — characters and the emote set the badges come from.
-  - **Modern Office (Revamped)** — the room, desks, chairs, props.
+  - **Modern Interiors**: characters and the emote set the badges come from.
+  - **Modern Office (Revamped)**: the room, desks, chairs, props.
 
 Their licences permit commercial and non-commercial use and permit editing, but
 **forbid redistribution**. That is the whole reason `assets/` is gitignored, and
@@ -26,7 +26,7 @@ it is why the next section exists.
 
 A third pack, **Modern User Interface**, was purchased at M5b and is on disk. It
 supplied `document` and `checklist`. It contains no magnifier, terminal, globe or
-plug, and **no further packs will be bought** — those four badges are authored in
+plug, and **no further packs will be bought**: those four badges are authored in
 `scripts/generate-art.py` and are final art. See `docs/04-ART-DIRECTION.md`.
 
 Do **not** substitute the free *Modern tiles* sampler. Its licence forbids
@@ -39,7 +39,7 @@ file from it in the manifest quietly makes the whole build non-commercial.
 
 `git ls-files assets` returns exactly one path: `assets/manifest.json`.
 
-The manifest is the contract the scene builds against — filenames, frame lists,
+The manifest is the contract the scene builds against: filenames, frame lists,
 canvas sizes, anchor points, accent hues, prop content boxes. It holds no
 artwork, so tracking it redistributes nothing, and without it a clone cannot
 build the scene at all. Everything it *names* is absent.
@@ -49,11 +49,11 @@ So, from a clean clone, with no art on disk:
 | Command | Result |
 |---|---|
 | `swift build --build-tests -Xswiftc -warnings-as-errors` | succeeds, no warnings |
-| `swift run spriteroom-replay --all` | passes — all 17 fixtures, zero open calls |
+| `swift run spriteroom-replay --all` | passes: all 17 fixtures, zero open calls |
 | `swift test` | **passes**: 396 tests, exit 0, **31 skipped** |
 
-Measured, not assumed: `git archive HEAD` into an empty directory — which yields
-a tree holding `assets/manifest.json` and no art — then the three commands above.
+Measured, not assumed: `git archive HEAD` into an empty directory, which yields
+a tree holding `assets/manifest.json` and no art: then the three commands above.
 These numbers are from `eedd89c`, 2026-08-08. They move whenever a test or an
 asset path is added, so treat a mismatch as "re-measure", not as a failure.
 
@@ -61,7 +61,7 @@ asset path is added, so treat a mismatch as "re-measure", not as a failure.
 says which one you got. `ArtAvailabilityTests` always runs and prints:
 
 ```
-SPRITE ROOM ART: ABSENT — 1097 of 1097 declared asset paths are missing.
+SPRITE ROOM ART: ABSENT: 1097 of 1097 declared asset paths are missing.
   31 art-dependent tests were SKIPPED. THIS RUN VERIFIED NOTHING ABOUT THE ART.
 ```
 
@@ -69,8 +69,8 @@ The skipped count is *counted from the test sources at runtime* and checked
 against a pinned number, so a test that silently gains or loses the art gate
 fails the suite rather than quietly changing what "passing" means.
 
-On a machine that is supposed to hold the art — a release build, a packaging
-step — run `SPRITE_ROOM_REQUIRE_ART=1 swift test`, which turns the skip into a
+On a machine that is supposed to hold the art: a release build, a packaging
+step: run `SPRITE_ROOM_REQUIRE_ART=1 swift test`, which turns the skip into a
 single legible failure naming the missing files.
 
 ---
@@ -94,16 +94,16 @@ assets/
 exits 2 if either is missing, naming what it could not find.
 
 **Modern User Interface is treated as optional by the script, and you still want
-it.** It supplies exactly two badges — `document` and `checklist`. Without it the
+it.** It supplies exactly two badges: `document` and `checklist`. Without it the
 import falls back to authoring those two, which succeeds silently and then fails
 `swift test`: `ManifestTests.badgeProvenanceIsRecorded` is *not* art-gated and
 pins those two as `pack`. So a clone that skips this pack gets a red suite from a
-manifest it was told to build. The other four badges — `magnifier`, `terminal`,
-`globe`, `plug` — are authored no matter what you own; see Credit.
+manifest it was told to build. The other four badges: `magnifier`, `terminal`,
+`globe`, `plug`: are authored no matter what you own; see Credit.
 
 ### 2. Regenerate the derived art and the manifest
 
-Four scripts, Python 3 stdlib only — no pip anywhere in this pipeline. **Run them
+Four scripts, Python 3 stdlib only: no pip anywhere in this pipeline. **Run them
 in this order**, because each consumes the last one's output:
 
 ```sh
@@ -131,7 +131,7 @@ contrast across all six is `mission_control`'s **0.427** against the same 0.40
 floor, not the 0.472 quoted above, which is the base room only. See
 `docs/04-ART-DIRECTION.md` for why that theme spends the margin.
 
-Two further scripts are **review tools, not part of the pipeline** — they write
+Two further scripts are **review tools, not part of the pipeline**: they write
 to a scratch directory and never touch `assets/`, so they are not in the ordered
 run above:
 
@@ -149,13 +149,13 @@ manifest carries enough for the scene to. Both are documented in full in
 at M6b that had every theme accepted against a wrong picture.
 
 > **`build-manifest.py` takes no flag that changes what it emits.** Its only
-> argument is `--out`, which redirects the write — that is how "a clean rerun
+> argument is `--out`, which redirects the write: that is how "a clean rerun
 > reproduces the committed manifest byte for byte" is checked, by generating to a
 > temporary file and `cmp`ing. Two guards keep a bad rerun from destroying the
 > one art artefact that is tracked in git: with the packs absent it refuses to
 > write, exits 2, and leaves the manifest untouched; and it refuses the same way
-> if the manifest already on disk declares a section — the wardrobe, the
-> stations, the themes — that the run about to replace it does not. An earlier
+> if the manifest already on disk declares a section: the wardrobe, the
+> stations, the themes: that the run about to replace it does not. An earlier
 > version overwrote the manifest with an empty shell and exited 0, and a later
 > one deleted the wardrobe whenever `--costumes` was left off. Both are fixed and
 > both guards are verified to fire.
@@ -169,7 +169,7 @@ swift run spriteroom-replay --all
 ```
 
 Use the long build command, not plain `swift build`. `swift build` compiles **no
-test target**, so it cannot see a warning in one — for most of this project's
+test target**, so it cannot see a warning in one: for most of this project's
 life that made "no warnings" a check on roughly half the code, and it reported
 the repo clean while a warning sat in `ProjectSelectorTests`. `--build-tests`
 compiles them; `-warnings-as-errors` is what makes "a warning is a failure" true
@@ -178,7 +178,7 @@ mechanically rather than by someone reading the log.
 Those three are what `CLAUDE.md`'s definition of done checks; read it for the
 exact build invocation it requires, which is stricter than plain `swift build`
 about warnings in test targets. The third is the one that matters most and costs
-least — see below.
+least: see below.
 
 ---
 
@@ -187,7 +187,7 @@ least — see below.
 `spriteroom-replay` drives captured fixtures through the world model and prints
 the deltas. No window, no pixels. It is the fastest way to see the thing work
 without a live Claude Code session, and it is the cheapest end-to-end check of
-I4 — every open tool call must eventually close.
+I4: every open tool call must eventually close.
 
 ```sh
 swift run spriteroom-replay --all             # every fixture in fixtures/
@@ -214,8 +214,8 @@ needing the sweep meant a close path was wrong and the reaper was hiding it.**
 That was written before the ADR-001 verification captures landed, and it was
 actively misleading afterwards: it told a reader that a *correct* run was
 evidence of a broken close path. An interactively denied call is closed by
-nothing at all — not `PostToolUse`, not `PostToolUseFailure`, not
-`PostToolBatch` — so a capture that ends before its session does will always
+nothing at all, not `PostToolUse`, not `PostToolUseFailure`, not
+`PostToolBatch`, so a capture that ends before its session does will always
 orphan. `fixtures/README.md` says so per fixture; this file did not.
 
 The rule the old sentence was reaching for still holds, stated correctly: a
@@ -223,7 +223,7 @@ fixture that reaches `SessionEnd` must replay to zero **without** the sweep, and
 `tool-failure` must reach zero without the reaper at all. If either needs it, a
 close path is wrong.
 
-`fixtures/` is captured ground truth — real payloads from real sessions, not
+`fixtures/` is captured ground truth: real payloads from real sessions, not
 edited. Read `fixtures/README.md` before touching it.
 
 ---
@@ -242,7 +242,7 @@ swift run spriteroom --live                           # bind the listener; real 
 
 The panel host is an accessory app: no Dock icon, no app menu, and it never
 activates. Point at the notch to drop the room down; move away and it retracts.
-It is pointer-only and takes no keystrokes, ever — that is invariant I8, and the
+It is pointer-only and takes no keystrokes, ever: that is invariant I8, and the
 panel is structurally incapable of becoming key. On a display with no physical
 notch a hot zone is synthesised at the middle of the top edge, so the gesture is
 the same everywhere.
@@ -254,25 +254,25 @@ and quits.
 **The pilot lamp** is the small square in the bottom-left corner, and it is the
 one thing on screen that is about the app rather than about your agents. Movement
 in the room means an open tool call and nothing else, so an idle room is a
-perfectly still room — which used to be indistinguishable from a room whose
+perfectly still room, which used to be indistinguishable from a room whose
 listener had died. The lamp closes that: it holds a bright core while a request
 POSTed to this app's own hook port has completed in the last two seconds, and
 contracts that core for an eighth of a second on each one. **Any ink in the lamp
 means the listener is answering; an empty lamp means it is not**, and a lamp that
 has stopped contracting means the panel itself has stopped drawing. It is driven
 by a real loopback round trip once a second, not by a timer, so it goes dark for
-a reason — `docs/ADR-004-liveness-lamp.md` has the argument and the frames. In
+a reason: `docs/ADR-004-liveness-lamp.md` has the argument and the frames. In
 `--live` only: a fixture replay has no listener and therefore draws no lamp at
 all, because there is nothing true to say.
 
 **Room ▸** is ADR-002's user-facing half: a submenu of the manifest's six themes
-— `office`, `briefing`, `broadcast`, `library`, `mission_control`, `stage` — with
+ (`office`, `briefing`, `broadcast`, `library`, `mission_control`, `stage`) with
 a tick against the one this project is wearing. A theme is a **per-project**
 choice, so with no project selected the item is disabled rather than writing
 somewhere it would have had to invent a key for. Without a choice, a project gets
 a theme derived from a hash of its `cwd`: stable, and a claim about *which*
 project rather than about what it is. The room never reads your files, and it
-never picks a theme that would read as a claim about the work — see ADR-002 §3b
+never picks a theme that would read as a claim about the work: see ADR-002 §3b
 and §3e. The pick is the one thing this app persists; see below.
 
 Other hosts and harnesses, all real flags on `spriteroom`:
@@ -282,9 +282,9 @@ Other hosts and harnesses, all real flags on `spriteroom`:
 | `--panel` | the notch panel. This is the default, so the flag is only ever needed to override `SPRITEROOM_HOST=window` |
 | `--window` | M2's plain resizable window. A better place to develop the scene than a rectangle that vanishes when you move the mouse. `SPRITEROOM_HOST=window` is the same thing. |
 | `--render DIR --at 6,12,20` | offscreen PNGs at those fixture seconds; opens nothing |
-| `--theme ID` | which room `--render` and `--window` draw. `--theme list` names them. Without it, the theme the app itself derives from the fixture's `cwd` — not the manifest default |
+| `--theme ID` | which room `--render` and `--window` draw. `--theme list` names them. Without it, the theme the app itself derives from the fixture's `cwd`, not the manifest default |
 | `--size WxH` | viewport for `--render` (default 960x540) |
-| `--liveness-demo DIR --for S` | bind a **real** ephemeral listener, run the real heartbeat, render the pilot lamp offscreen, kill the listener halfway, keep rendering. The evidence that the lamp is tied to the listener and not to a clock — see `docs/ADR-004-liveness-lamp.md` §7 |
+| `--liveness-demo DIR --for S` | bind a **real** ephemeral listener, run the real heartbeat, render the pilot lamp offscreen, kill the listener halfway, keep rendering. The evidence that the lamp is tied to the listener and not to a clock: see `docs/ADR-004-liveness-lamp.md` §7 |
 | `--speed N` | replay pace, multiples of real time |
 | `--window-render DIR` | open the window, capture the live `SKView` at `--at`, quit |
 | `--panel-render DIR` | reveal the **real** panel on your screen and capture its live `SKView` at `--at`, quit. Refuses without `--force-panel-render` |
@@ -307,7 +307,7 @@ delta and intent.
 
 **Use `--render`, not `--panel-render`.** They answer the same question about
 pixels and only one of them touches your display. `--panel-render` reveals the
-actual panel — above the menu bar, on every space, click-through — over whatever
+actual panel (above the menu bar, on every space, click-through) over whatever
 you are doing, and a process that exits while that panel is ordered in can leave
 the surface drawn with nothing behind it. There is no way to click that ghost
 away: it ignores the mouse, nothing can be raised in front of it, and it follows
@@ -326,7 +326,7 @@ deliberately *not* consulted: a render harness that produced different pixels on
 different machines would not be a harness. Name a room with `--theme` when you
 want a specific one.
 
-**No *event* is persisted.** No event log, no database — the world is live state
+**No *event* is persisted.** No event log, no database: the world is live state
 and dies with the app, and the selected project resets on each launch. That much
 has always been true and stays true.
 
@@ -336,12 +336,12 @@ that is wrong**, and it is wrong in the way this project cares about most: a
 flat factual claim about what the app touches on your disk. There are now two
 files, both under `~/Library/Application Support/SpriteRoom/`:
 
-- **`settings-backup.json`** — a copy of your `~/.claude/settings.json`, taken at
+- **`settings-backup.json`**: a copy of your `~/.claude/settings.json`, taken at
   hook install time so removal can put the original bytes back. See Hooks below.
-- **`themes.json`** — `{"schema": 1, "themes": {"<cwd>": "<themeId>"}}`, written
+- **`themes.json`**: `{"schema": 1, "themes": {"<cwd>": "<themeId>"}}`, written
   **only** when you pick a theme from Room ▸. Read once at launch, never again,
-  and **never on a hook event path** [I5]. Every failure mode — missing,
-  unreadable, not JSON, wrong `schema` — means "no stored choices" and the app
+  and **never on a hook event path** [I5]. Every failure mode: missing,
+  unreadable, not JSON, wrong `schema`: means "no stored choices" and the app
   launches on derived themes; an unparseable file is moved aside to
   `themes.json.bad` rather than deleted.
 
@@ -363,7 +363,7 @@ native `{"type": "http"}` hook posting to `http://127.0.0.1:8787/hook` with a
 reasoning for every line of it.
 
 It was 11 until ADR-001 added `PermissionRequest`, which is consumed as the
-*marker* that an agent has a call sitting at a permission gate — never as a
+*marker* that an agent has a call sitting at a permission gate: never as a
 close, and never joined to a `tool_use_id`, which it does not carry.
 
 Ten of the twelve carry `matcher: "*"`. **Two do not**: `PostToolBatch` and
@@ -371,15 +371,15 @@ Ten of the twelve carry `matcher: "*"`. **Two do not**: `PostToolBatch` and
 (`HookInstaller.eventsWithoutMatcher`), because that is the shape they were
 captured firing under at M0c. This file used to describe the block as matcher
 `*` throughout, which hid the exception. It matters because a wrong matcher is a
-hook that silently never fires and looks exactly like a working install — and
+hook that silently never fires and looks exactly like a working install, and
 `PostToolBatch` is the only close path a permission-denied call has.
 
 User scope, not project scope, is the point: registered once, routed by `cwd`, so
 every session on the machine appears in the right room without per-project setup.
 
 **Consent is never implied by launching anything.** On first `--live` run, after
-the listener has bound — never before, because hooks pointing at a dead port cost
-the user the full timeout on every event — a dialog asks. Declining writes
+the listener has bound: never before, because hooks pointing at a dead port cost
+the user the full timeout on every event: a dialog asks. Declining writes
 nothing. Nobody there to answer counts as no.
 
 From the command line:
@@ -398,7 +398,7 @@ typo must not be enough to do it.
 Removal earns its name. A copy of your settings file is kept at
 `~/Library/Application Support/SpriteRoom/settings-backup.json` at install time;
 `--remove-hooks` compares what is left against that copy and, only if they agree
-key for key, writes the original bytes back — byte for byte, other keys and
+key for key, writes the original bytes back: byte for byte, other keys and
 formatting intact. If you edited the file while the hooks were installed, it
 falls back to structural removal and keeps your edit. The menu bar item does the
 same thing.
@@ -412,12 +412,12 @@ is ours. Anything added to the response path spends someone's tool call. [I5]
 ### Installed hooks, and Sprite Room not running
 
 The timeout is the floor, but it is not the whole cost. User scope is what makes
-the hooks fire for every session on the machine, which is the design — and it
+the hooks fire for every session on the machine, which is the design, and it
 means that while nothing is listening, **every tool call in every project reports
 a connection error**. Not a slow call: a visible `ECONNREFUSED` in your own
 session, on everything you do, in every window. A status viewer that degrades the
-thing it is watching has inverted its own purpose, and I5 — the app never
-surfaces an error into your session — is the same sentence one process boundary
+thing it is watching has inverted its own purpose, and I5: the app never
+surfaces an error into your session: is the same sentence one process boundary
 further out.
 
 So **quitting asks**:
@@ -436,7 +436,7 @@ so the backup restores your file byte for byte.
 
 It asks rather than removing silently, and that is deliberate: the install path
 asks, `~/.claude/settings.json` is your file, and quietly editing it on the way
-out would be worse than the error — it would also undo a considered choice every
+out would be worse than the error: it would also undo a considered choice every
 time you quit and relaunched. The menu bar's **Remove Claude Code Hooks** is the
 same operation on demand.
 
@@ -451,8 +451,8 @@ swift run spriteroom --remove-hooks   # works with no window server and no app
 
 A `^C` in the terminal is in the same category as a crash for this purpose: it
 does not reach the quit path. The only real fix for the crash case lives on the
-other side — a hook that could be marked fire-and-forget, or failures the session
-does not report — and neither exists on the hook schema today.
+other side: a hook that could be marked fire-and-forget, or failures the session
+does not report, and neither exists on the hook schema today.
 
 ---
 
@@ -463,12 +463,12 @@ CLAUDE.md            the constitution. Invariants I1–I8. Outranks every other 
 notes.md             append-only build log: what each milestone found and overturned
 docs/                the specs
 Sources/
-  SpriteRoomCore/    pure logic — no AppKit, no SpriteKit, fully testable
+  SpriteRoomCore/    pure logic: no AppKit, no SpriteKit, fully testable
   SpriteRoomScene/   SpriteKit scene, camera, characters, badges
   SpriteRoomApp/     AppKit panel, notch geometry, hook installer, lifecycle
   SpriteRoomReplay/  the replay harness
 Tests/               one suite per module
-fixtures/            captured real hook payloads — ground truth, do not tidy
+fixtures/            captured real hook payloads: ground truth, do not tidy
 assets/              the art. Gitignored except manifest.json
 scripts/             the asset pipeline, stdlib Python
 tools/               capture and scenario helpers used by the milestones
@@ -483,7 +483,7 @@ the interesting logic testable without a screen, and it is checked by
 
 | You are about to | Read first |
 |---|---|
-| anything at all | `CLAUDE.md` — it is the shortest and it wins ties |
+| anything at all | `CLAUDE.md`: it is the shortest and it wins ties |
 | touch ingest, events, deadlines, reaping | `docs/03-EVENT-MODEL.md` |
 | touch sprites, the manifest, the palette | `docs/04-ART-DIRECTION.md` |
 | argue about scope or a non-goal | `docs/01-PRD.md` |
@@ -494,7 +494,7 @@ the interesting logic testable without a screen, and it is checked by
 | touch a fixture | `fixtures/README.md` |
 
 Do not infer a spec. If a doc and `CLAUDE.md` disagree, `CLAUDE.md` wins and the
-doc is wrong — say so rather than following it.
+doc is wrong: say so rather than following it.
 
 ---
 
@@ -511,14 +511,14 @@ on a turn boundary, and turned the report walk into a round trip.
 Measured at `c0bbffd`. This list said `eedd89c` and was not re-checked while
 work landed; four items below were closed and still listed as open, one of them
 describing code that had been deleted. That is the third time this file has
-drifted, and it is the front door — treat a mismatch here as "re-measure", and
+drifted, and it is the front door: treat a mismatch here as "re-measure", and
 re-measure when you close something.
 
 What is honestly still open:
 
-- **The camera is `1x` only — and since M6f that is a choice rather than
+- **The camera is `1x` only, and since M6f that is a choice rather than
   arithmetic.** `comfortablePopulation` is empty by default, so population never
-  pulls the camera in — the wide room, decided and kept. The lattice then grew
+  pulls the camera in: the wide room, decided and kept. The lattice then grew
   the content band from 145 to 241 px and the delivery rows took it to 300, which
   put `2x` at 600 px against a 400 px panel. M6f took 96 px back (the report beat
   stopped walking to the anchor) and the badge slot moving beside the head took
@@ -526,8 +526,8 @@ What is honestly still open:
   putting **one** shared delivery row back, so the report walks to its anchor
   again. The band is **192 px** and `2x` fits with 8 px to spare, `3x` still out
   at 133.
-  What holds the camera down now is **width** — a `2x` frame holds three seat
-  columns and seven agents span 736 px — so a closer rung is available to a room
+  What holds the camera down now is **width**: a `2x` frame holds three seat
+  columns and seven agents span 736 px, so a closer rung is available to a room
   of one to three agents and nothing else. Whether to take it is open: it buys
   legible costumes and stations at the cost of a camera that changes scale when
   the fourth agent arrives. The ladder is untouched and integer,
@@ -541,14 +541,14 @@ What is honestly still open:
   zoom; this one is about depth, so no camera policy can retire it.
 
   *Seat pitch and delivery slots are no longer open either.* The room is a
-  lattice — every character is confined to its own seat's column — so the worst
+  lattice (every character is confined to its own seat's column) so the worst
   synthetic overlap went from −26 px to +6 px, and delivery position is a pure
   function of the reporter's seat, so there are no slots left to claim out of
   order. The lattice had a second half at M6d, *or its own ring's delivery row*;
   M6f deleted it along with the walk it protected, and task #62 put back **one**
   shared row of the three because a beat that hands an envelope to nobody is not
   worth 96 px. The rule is *vertical inside your own column, or lateral on the
-  delivery row* — a row nothing else in the room ever stands on or crosses — and
+  delivery row* (a row nothing else in the room ever stands on or crosses) and
   what keeps two reporters off each other is `DeliveryFloor`, a claim on a
   stretch of that row rather than a slot to be taken out of order. A reporter
   refused a stretch plays the in-place beat immediately; nothing queues.
@@ -556,8 +556,8 @@ What is honestly still open:
   file described them for a day after they were deleted.
 - **`mission_control` has the thinnest palette margin in the set.** It was the
   weakest theme at M6 and was rebuilt at M6b: it draws its props on a value band
-  floored at 0.46, which took wall-minus-darkest-prop from 0.169 to 0.302 — the
-  *strongest* anchor of the six — and cost it min character contrast, 0.439 to
+  floored at 0.46, which took wall-minus-darkest-prop from 0.169 to 0.302: the
+  *strongest* anchor of the six, and cost it min character contrast, 0.439 to
   **0.427** against a 0.40 floor. The lint passes unweakened on all six themes;
   the margin is 0.027 and is the number to watch if that band is ever touched
   again.
@@ -565,7 +565,7 @@ What is honestly still open:
   a `characters.poses.working` table; the manifest carries no such key, and that
   is the finding rather than an omission. The pack's second seated row is
   pixel-identical to the first above image row 39 and every theme's desk and
-  chair cover rows 40–63 — measured at 96 differing pixels of 288,000 across all
+  chair cover rows 40–63: measured at 96 differing pixels of 288,000 across all
   six rooms. A pose table whose two entries render identically would make §7 look
   satisfied while the complaint it answers stayed true, and an absent table is at
   least visibly absent. No other row in the sheet is seated, so nothing else can
@@ -574,10 +574,10 @@ What is honestly still open:
   wears a blue `Z` bubble in the badge anchor, ordinary `idle` body, its own
   seat. Precedence is **attention > sleep > tool**. Wiring it needed a
   `WorldDelta` case that had been refused when dormancy shipped, on the grounds
-  that nothing we own could honestly draw the difference — the `Z` is real pack
+  that nothing we own could honestly draw the difference: the `Z` is real pack
   art saying exactly the true thing, so the refusal was reversed with its reason
   recorded rather than overwritten.
-- *Animated props are no longer open.* One ships — `library`'s pendulum clock,
+- *Animated props are no longer open.* One ships: `library`'s pendulum clock,
   4 frames at 5 fps, 192 changed pixels of 288,000 between frames. Three were
   refused on measurements. `I7` now has a **motion budget** whose ceiling is the
   quietest looping character animation any variant plays, so scenery is measured
@@ -586,7 +586,7 @@ What is honestly still open:
   twice.** First a placement bug put every prop up to ~80 px out at `1x`, so
   every theme accepted at M6 was accepted against a wrong picture. Then its
   placement census kept counting a foreground row of seven plants for two commits
-  after the scene stopped drawing them — which made the new motion budget 3.3×
+  after the scene stopped drawing them, which made the new motion budget 3.3×
   too strict on that role, turned one of its watched-failing injections into a
   false red, and put seven imaginary plants in every theme preview since.
 
@@ -599,13 +599,13 @@ What is honestly still open:
   but synthesising a click needs Accessibility permission the build environment
   does not have.
 - **Four badges are authored rather than sourced.** `magnifier`, `terminal`,
-  `globe` and `plug` exist in no pack we own — established by rendering every
+  `globe` and `plug` exist in no pack we own: established by rendering every
   32px cell of three UI sheets and sweeping the filenames of all 52,726 PNGs.
   They are drawn in the pack's own bubble and colours and marked
   `provenance: "authored"`. This is a settled decision, not a gap: no further
   packs are being bought.
-- **One ADR risk is open, not closed.** ADR-001's hazard 1 — a gated call open
-  beside a genuinely long sibling — could not be reproduced, because the 2.1.224
+- **One ADR risk is open, not closed.** ADR-001's hazard 1: a gated call open
+  beside a genuinely long sibling: could not be reproduced, because the 2.1.224
   TUI ran every batch's calls strictly sequentially across four attempts.
   `parallel-tools` proves the headless runner *does* parallelise, so four
   attempts is not a proof about the TUI. Recorded as open.
@@ -614,7 +614,7 @@ What is honestly still open:
 
 ## Credit
 
-**Pixel art by LimeZu — [limezu.itch.io](https://limezu.itch.io)**
+**Pixel art by LimeZu: [limezu.itch.io](https://limezu.itch.io)**
 
 This is required, not a courtesy. Modern Office says credits are appreciated;
 Modern Interiors says credits are **required**, and the stricter term governs.

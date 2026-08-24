@@ -22,7 +22,7 @@ struct ToolBadgeTests {
     /// **What the fixtures actually contain, asked of the fixtures.**
     ///
     /// The table used to be a list somebody wrote down, and the way it was found
-    /// wanting was a maintainer reading a live capture's log line — `unmapped
+    /// wanting was a maintainer reading a live capture's log line: `unmapped
     /// tools: Monitor×1, SendMessage×2, ToolSearch×5`. That is the right
     /// evidence and the wrong place for it to live, because nothing fails when a
     /// capture grows a tool the table has never heard of.
@@ -37,7 +37,7 @@ struct ToolBadgeTests {
     /// Reads the captures; writes nothing. Needs no art.
     @Test func everyToolInEveryFixtureIsEitherMappedOrDeliberatelyNot() throws {
         let observed = try Self.toolNamesInFixtures()
-        #expect(observed.count >= 6, "the fixture walk found \(observed.count) tools — too few")
+        #expect(observed.count >= 6, "the fixture walk found \(observed.count) tools, too few")
 
         let unmapped = observed.filter(ToolBadge.isUnmapped).sorted()
         let mapped = observed.subtracting(unmapped).sorted()
@@ -51,12 +51,12 @@ struct ToolBadgeTests {
         // The question mark asserts only "we do not recognise this", which is
         // the one statement that stays true either way. [I1]
         #expect(unmapped == ["Monitor"], Comment(rawValue:
-            "fixtures hold unmapped tools \(unmapped) — map the ones that have an honest home"
+            "fixtures hold unmapped tools \(unmapped): map the ones that have an honest home"
             + " and add the ones that do not to this list, with the reason"))
     }
 
     /// Every distinct `tool_name` in every capture, from the decoded events
-    /// rather than by grepping the JSON — a tool that only ever appears in a
+    /// rather than by grepping the JSON: a tool that only ever appears in a
     /// `PostToolBatch` entry is still a tool that was badged.
     static func toolNamesInFixtures() throws -> Set<String> {
         let directory = SceneFixtures.repositoryRoot.appending(path: "fixtures")

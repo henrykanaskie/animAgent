@@ -8,7 +8,7 @@ import SpriteRoomScene
 /// Found by the focus probe, which walks the panel's view tree looking for
 /// anything that would accept first responder status: a stock `SKView` says
 /// yes, because SpriteKit forwards key events to the scene. It could never
-/// actually receive one — the panel is never key — but "no view in this window
+/// actually receive one (the panel is never key), but "no view in this window
 /// can take a keystroke" is a much easier invariant to keep true over time than
 /// "no view in this window can take a keystroke, given three other facts". [I8]
 final class RoomView: SKView {
@@ -21,7 +21,7 @@ final class RoomView: SKView {
 /// The view inside the panel, and the one project it is showing.
 ///
 /// Deltas for other projects are folded into `ProjectRegistry` and go no
-/// further — one project on screen at a time is a v1 non-goal, not an
+/// further: one project on screen at a time is a v1 non-goal, not an
 /// oversight. When the selection changes the scene is rebuilt from scratch and
 /// re-seeded from the registry's projection, because a `SceneDirector` holds
 /// per-character presentation state and there is no honest way to reinterpret
@@ -49,8 +49,8 @@ final class RoomHost {
     /// **Seam.** ADR-002 §8 item 2's `rendezvous(key:over:)`, which lives in
     /// `SpriteRoomScene` beside the `fnv1a64` its pinned test vector guards.
     ///
-    /// Until it is wired the assignable pool is empty anyway — `Manifest` does
-    /// not decode §7's themes yet — so §3c falls straight to its last line and
+    /// Until it is wired the assignable pool is empty anyway (`Manifest` does
+    /// not decode §7's themes yet), so §3c falls straight to its last line and
     /// this closure is never consulted. It must never grow a hash of its own:
     /// two implementations of that mapping is how every user's room quietly
     /// redecorates on the day someone refactors one of them. [§11 item 7]
@@ -74,13 +74,13 @@ final class RoomHost {
         // The room is the only thing in the panel; nothing here is clickable.
         view.allowsTransparency = false
         // `themeID` is derived from the selection, and nothing is selected yet,
-        // so it is `nil` here by definition — not by omission. The first
+        // so it is `nil` here by definition, not by omission. The first
         // `select(_:)` rebuilds with the project's theme.
         binding = SceneBinding(manifest: manifest, themeID: nil, viewport: viewport)
         view.presentScene(binding.scene)
     }
 
-    /// The theme the room on screen is dressed in — a stored choice or a
+    /// The theme the room on screen is dressed in: a stored choice or a
     /// derived one, and the menu does not distinguish them because §3c is one
     /// function. `nil` when nothing is selected, or when the manifest declares
     /// no themes at all and the room is the single one this app has always
@@ -91,7 +91,7 @@ final class RoomHost {
     }
 
     /// The room §3c would derive for the selected project **if it had no stored
-    /// pick** — the answer the second and third lines of that function give.
+    /// pick**: the answer the second and third lines of that function give.
     ///
     /// Resolved through the same `themeID(for:stored:derive:)` with an empty
     /// `stored`, rather than by calling `derive` directly, so the floor under
@@ -116,7 +116,7 @@ final class RoomHost {
     /// The user picked a room off the menu bar.
     ///
     /// Writes through `ThemeStore` and rebuilds. **A theme change is a rebuild,
-    /// not a transition** — §6 rule 4: no cross-fade, no prop animating in. The
+    /// not a transition**; §6 rule 4: no cross-fade, no prop animating in. The
     /// room is simply the other room, and the user just caused the
     /// discontinuity themselves.
     ///
@@ -134,7 +134,7 @@ final class RoomHost {
     /// The same write-then-rebuild as `chooseTheme`, and deliberately so: from
     /// the room's point of view there is no difference between the two, because
     /// §3c is one function and the only thing that changed is which of its
-    /// lines answers. A pick that cannot be un-picked is a trap — the only
+    /// lines answers. A pick that cannot be un-picked is a trap: the only
     /// other way out would be editing `themes.json` by hand, which §3d says is
     /// not what that file is for.
     ///
@@ -153,7 +153,7 @@ final class RoomHost {
     /// per-character presentation state and the honest way to change what the
     /// room is made of is to make it again. Stations are recomputed from the
     /// same inputs by the same function, so every agent lands on the
-    /// corresponding station of the new theme — a rebuild, not a §6 rule 2
+    /// corresponding station of the new theme: a rebuild, not a §6 rule 2
     /// rewrite.
     ///
     /// The theme reaches the scene through the two `SceneBinding` constructions
@@ -216,7 +216,7 @@ final class RoomHost {
         }
         // **Outside the selection, deliberately.** The lamp is about this
         // process, not about the project on screen, so it is drawn on a panel
-        // showing nothing at all — which is the case that most needs it, since
+        // showing nothing at all, which is the case that most needs it, since
         // a room with no project selected is the emptiest picture this app can
         // draw and the one that looks most like a crash.
         binding.showLiveness(liveness, at: now)

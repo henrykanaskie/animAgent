@@ -5,8 +5,8 @@ import Foundation
 // about something a human watched: "focus never leaves the frontmost app" and
 // "diagonal pointer paths do not cause oscillation".
 //
-// Both drive the *real* panel — the real window ordering, the real 30 Hz
-// sampler, the real cursor — and both fail loudly. They are the same kind of
+// Both drive the *real* panel (the real window ordering, the real 30 Hz
+// sampler, the real cursor), and both fail loudly. They are the same kind of
 // thing `--render` was in M2: a harness, not a feature.
 
 @MainActor
@@ -29,7 +29,7 @@ enum Probe {
     ///
     /// What this proves on its own: the app never activates, no window of ours
     /// ever becomes key, and the frontmost application never changes. What it
-    /// cannot prove without Accessibility permission is the *keystroke* half —
+    /// cannot prove without Accessibility permission is the *keystroke* half:
     /// synthesising key events into another app needs a permission this
     /// environment does not have. Run it with an editor frontmost and type
     /// while it runs; the two halves together are the criterion.
@@ -41,7 +41,7 @@ enum Probe {
         let panel = controller.panel
         var failures: [String] = []
 
-        print("focus probe — \(cycles) reveal/retract cycles")
+        print("focus probe: \(cycles) reveal/retract cycles")
         print("")
         print("structure:")
         report("panel.canBecomeKey is false", panel.canBecomeKey == false, &failures)
@@ -73,7 +73,7 @@ enum Probe {
 
         if countdown > 0 {
             print("")
-            print("starting in \(Int(countdown))s — put a text editor in front and type into it")
+            print("starting in \(Int(countdown))s, put a text editor in front and type into it")
             var remaining = countdown
             while remaining > 0 {
                 try? await Task.sleep(for: .milliseconds(500))
@@ -86,7 +86,7 @@ enum Probe {
         print("")
         print("frontmost application at start: \(baselineID ?? "none")")
         if baseline?.processIdentifier == ProcessInfo.processInfo.processIdentifier {
-            failures.append("we are the frontmost application — the probe proves nothing")
+            failures.append("we are the frontmost application; the probe proves nothing")
         }
 
         var samples: [FocusSample] = []
@@ -97,7 +97,7 @@ enum Probe {
             await observe(controller: controller, cycle: cycle, for: 0.30, into: &samples)
             controller.forceRetract()
             await observe(controller: controller, cycle: cycle, for: 0.25, into: &samples)
-            print("  cycle \(cycle)/\(cycles) — panel down and up, frontmost "
+            print("  cycle \(cycle)/\(cycles): panel down and up, frontmost "
                 + "\(describe(NSWorkspace.shared.frontmostApplication) ?? "none")")
         }
 
@@ -180,7 +180,7 @@ enum Probe {
 
         print("hover probe")
         print("  display        \(geometry.display)")
-        print("  physical notch \(geometry.physicalNotch.map { "\($0)" } ?? "none — synthesised")")
+        print("  physical notch \(geometry.physicalNotch.map { "\($0)" } ?? "none, synthesised")")
         print("  hot zone       \(region)")
         print("  panel down     \(geometry.revealedPanelFrame(size: .room))")
         print("  panel up       \(geometry.hiddenPanelFrame(size: .room))")
@@ -205,12 +205,12 @@ enum Probe {
         let centre = PanelPoint(x: region.midX, y: region.midY)
         // Well clear of the *panel*, not just of the notch. A point 320 points
         // under the notch is still inside the room, and moving the pointer into
-        // the room must not dismiss it — which is why the first draft of this
+        // the room must not dismiss it, which is why the first draft of this
         // probe measured nothing.
         let below = PanelPoint(x: region.midX, y: panelDown.minY - 180)
         // A diagonal has to actually cross a strip 39 points tall glued to the
         // top edge, so it runs from low-left to high-right and is clipped by
-        // the top of the display on the way out — which is what a hand does.
+        // the top of the display on the way out, which is what a hand does.
         let diagonalStart = PanelPoint(
             x: max(geometry.display.minX + 4, region.midX - 700),
             y: region.minY - 300)
@@ -234,19 +234,19 @@ enum Probe {
         await warp(to: below)
         try? await Task.sleep(for: .milliseconds(1200))
 
-        // 1 — a deliberate approach. The panel must come down, once.
+        // 1 - a deliberate approach. The panel must come down, once.
         await run("deliberate entry reveals", {
             await sweep(from: below, to: centre, duration: 0.45)
             try? await Task.sleep(for: .milliseconds(700))
         }, expect: (1, 0))
 
-        // 2 — walking away. The panel must go up, once.
+        // 2 - walking away. The panel must go up, once.
         await run("leaving retracts", {
             await sweep(from: centre, to: below, duration: 0.25)
             try? await Task.sleep(for: .milliseconds(1100))
         }, expect: (0, 1))
 
-        // 3 — the criterion-4 case: a fast diagonal straight across the notch,
+        // 3 - the criterion-4 case: a fast diagonal straight across the notch,
         // the pointer on its way to a menu on the other side. Nothing at all
         // should happen.
         await run("fast diagonal across the hot zone does not flash the panel", {
@@ -255,7 +255,7 @@ enum Probe {
             try? await Task.sleep(for: .milliseconds(1400))
         }, expect: (0, 0))
 
-        // 4 — the same diagonal, slowly. It dwells long enough to be
+        // 4 - the same diagonal, slowly. It dwells long enough to be
         // deliberate, so one reveal and one retract is correct. What must not
         // happen is more than one of either.
         await run("slow diagonal reveals once and retracts once, never more", {
@@ -264,7 +264,7 @@ enum Probe {
             try? await Task.sleep(for: .milliseconds(1500))
         }, expect: (1, 1))
 
-        // 5 — a hand trembling on the edge of the hot zone with the panel away.
+        // 5 - a hand trembling on the edge of the hot zone with the panel away.
         // In and out every 55 ms: no crossing lasts a dwell, so nothing arms.
         await run("trembling on the hot-zone edge never opens it", {
             for _ in 0..<18 {
@@ -277,7 +277,7 @@ enum Probe {
             try? await Task.sleep(for: .milliseconds(1200))
         }, expect: (0, 0))
 
-        // 6 — the panel is down and the pointer keeps dipping out of the
+        // 6 - the panel is down and the pointer keeps dipping out of the
         // keep-open zone. Each dip is shorter than the grace period, so the
         // panel must not go anywhere.
         await run("repeated dips out of the keep-open zone do not retract it", {
@@ -303,7 +303,7 @@ enum Probe {
         return finish(failures)
     }
 
-    /// Moves the cursor along a straight line, one step every 8 ms — finer than
+    /// Moves the cursor along a straight line, one step every 8 ms, finer than
     /// the panel's own 30 Hz sampling, so the sampler sees a genuinely
     /// continuous path rather than teleports.
     private static func sweep(
@@ -416,10 +416,10 @@ enum Probe {
     private static func finish(_ failures: [String]) -> Int {
         print("")
         if failures.isEmpty {
-            print("PASS — every check held")
+            print("PASS: every check held")
             return 0
         }
-        print("FAIL — \(failures.count) check(s) did not hold:")
+        print("FAIL: \(failures.count) check(s) did not hold:")
         for failure in failures { print("  - \(failure)") }
         return 1
     }

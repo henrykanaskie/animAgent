@@ -10,15 +10,15 @@ import SpriteRoomCore
 /// ADR-005 §5 restated it. §6 condition 1 used to say the document is *void*,
 /// not degraded, if an implementer holds the body in `working` for the beat.
 /// That was a statement about a *state name* which stood in for the property it
-/// was protecting, named in ADR-003's own next clause — *so nothing on screen
+/// was protecting, named in ADR-003's own next clause: *so nothing on screen
 /// claims ongoing work*. Under turn-scoped posture the body during a beat is
 /// seated and **still**, which is `working` by name and asserts strictly less
 /// than the standing frame it used to draw: the ongoing-work claim has moved
 /// wholly into the motion channel, and the motion stops at the close, to the
 /// frame. So the condition now reads:
 ///
-/// > 1. **The body asserts no ongoing work for any frame of the beat** — it
-/// >    holds a single still frame and plays no ambient phrase — so nothing on
+/// > 1. **The body asserts no ongoing work for any frame of the beat**, it
+/// >    holds a single still frame and plays no ambient phrase, so nothing on
 /// >    screen claims the work is continuing.
 ///
 /// The first test checks exactly that, on **every frame** of the beat rather
@@ -51,7 +51,7 @@ struct ClosingBeatTests {
     /// **The body asserts no ongoing work for any frame of the beat.**
     /// [ADR-003 §6 item 1, as restated by ADR-005 §5]
     ///
-    /// Stepped at 1/60 across the whole 500 ms — thirty frames — rather than
+    /// Stepped at 1/60 across the whole 500 ms (thirty frames) rather than
     /// sampled at the ends, because "the body moved and stopped again" and "the
     /// body never moved" have the same endpoints and only one of them is the
     /// ADR.
@@ -62,7 +62,7 @@ struct ClosingBeatTests {
     /// 1. **the sequence the body plays** is one held frame, which is the
     ///    ongoing-work claim itself and the only one that survives `1x`;
     /// 2. **no `setBody` intent is emitted at all**, which is stronger than the
-    ///    rule this replaces — the posture does not move on the close, so the
+    ///    rule this replaces: the posture does not move on the close, so the
     ///    badge now lingers over a character that has not moved instead of over
     ///    one that stood up on the same frame;
     /// 3. **the badge-keyed pose lookup is not reached.** The director is given
@@ -126,7 +126,7 @@ struct ClosingBeatTests {
     }
 
     /// How many distinct frames the body plays for what the director currently
-    /// says — the composition `Character` performs, off the two values the
+    /// says, the composition `Character` performs, off the two values the
     /// director emits. `1` is a still body.
     static func playedFrames(_ director: SceneDirector, _ agent: AgentRef) -> Int {
         guard let state = director.bodyState(agent) else { return 0 }
@@ -159,8 +159,8 @@ struct ClosingBeatTests {
 
     // MARK: The beat itself
 
-    /// A 6 ms call on an idle agent — the median `magnifier` call in the M7a
-    /// capture is 6 ms — produces a badge for `D` and then none.
+    /// A 6 ms call on an idle agent (the median `magnifier` call in the M7a
+    /// capture is 6 ms) produces a badge for `D` and then none.
     @Test func aSixMillisecondCallProducesABadgeForExactlyD() {
         var director = Self.director()
         let agent = Self.ref(.mainThread)
@@ -177,7 +177,7 @@ struct ClosingBeatTests {
         // Every frame strictly inside the beat, indexed rather than accumulated:
         // repeated `+= 1/60` in a double drifts, and at a real `Date`'s
         // magnitude the drift is larger than the gap it is being compared
-        // against — `filmstrip.py` records the same trap on the renderer's own
+        // against: `filmstrip.py` records the same trap on the renderer's own
         // loop.
         let frames = Int(SceneDirector.closingBeatDuration * 60)
         for frame in 0..<frames {
@@ -261,8 +261,8 @@ struct ClosingBeatTests {
         #expect(director.bodyState(agent) == .working)
     }
 
-    /// A duplicate close — `PostToolBatch` re-reports ids a `PostToolUse`
-    /// already closed, and both appear for one id in `fixtures/tool-failure` —
+    /// A duplicate close (`PostToolBatch` re-reports ids a `PostToolUse`
+    /// already closed, and both appear for one id in `fixtures/tool-failure`)
     /// must not re-arm. A beat can be cancelled but never extended.
     /// [ADR-003 §6]
     @Test func aDuplicateCloseCannotExtendABeat() {
@@ -290,7 +290,7 @@ struct ClosingBeatTests {
 
     // MARK: What cancels it
 
-    /// A `.callOpened` cancels immediately — the normal rule resumes and the
+    /// A `.callOpened` cancels immediately: the normal rule resumes and the
     /// open set decides the glyph. [ADR-003 §3]
     @Test func aCallOpeningMidBeatCancelsItAndTheOpenSetDecides() {
         var director = Self.director()
@@ -372,7 +372,7 @@ struct ClosingBeatTests {
     }
 
     /// A beat armed before a rebuild does not survive it. A rebuild is a new
-    /// `SceneDirector`, so this is structural — recorded because "unreachable
+    /// `SceneDirector`, so this is structural: recorded because "unreachable
     /// today" is a property of today's wiring and the beat is per-character
     /// state that has to answer to every reaping path. [I4]
     @Test func aBeatDoesNotSurviveARebuild() {
@@ -423,7 +423,7 @@ struct ClosingBeatTests {
     /// carries the same shape: `Agent` dispatches that open and close about
     /// 16 ms apart, which is `checklist`.
     ///
-    /// Sampled once a second — the rig's interval — count the (frame, character)
+    /// Sampled once a second (the rig's interval), count the (frame, character)
     /// pairs showing each glyph, with and without the beat. The assertion is not
     /// a threshold: it is that the classes which had **zero** frames now have
     /// some, and that the classes which already had frames did not lose any.
@@ -445,7 +445,7 @@ struct ClosingBeatTests {
     }
 
     /// Replays `three-subagents` at 1/60 in fixture time and counts, once a
-    /// second, the (character, glyph) pairs on screen — the rig's
+    /// second, the (character, glyph) pairs on screen: the rig's
     /// `badge_agent_frames`, computed here without a renderer.
     ///
     /// Both readings come off **one** replay, so they cannot differ in anything
@@ -472,7 +472,7 @@ struct ClosingBeatTests {
 
         // Every badge class the fixture's calls map to is seeded at zero as the
         // calls arrive, so a class that draws no frame at all is a zero rather
-        // than an absence — which is the whole finding being reproduced.
+        // than an absence, which is the whole finding being reproduced.
         while time <= end.timeIntervalSince(origin) {
             var pending: [WorldDelta] = []
             let cutoff = origin.addingTimeInterval(time)

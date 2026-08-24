@@ -7,25 +7,25 @@ import Testing
 ///
 /// `scenery` exists because the shipped room bound four roles and left roughly
 /// 335 processed singles unused, and the maintainer put it beside
-/// `scripts/compose-scene.py`'s composed scenes — 88 props and a floor plan —
+/// `scripts/compose-scene.py`'s composed scenes (88 props and a floor plan)
 /// and asked for the second. The mechanism is one sentence: the manifest says
 /// *what* and *which depth band*, `RoomLayout.sceneryAnchors(_:)` says *where*.
 ///
-/// What this suite is for is the other half — that adding twenty props to every
+/// What this suite is for is the other half: that adding twenty props to every
 /// theme did not cost the room any of the properties it was already holding.
 /// The four that matter, and each is a rule from `docs/06-SET-BUILDING.md` §8
 /// restated in this room's own terms:
 ///
 /// | | |
 /// |---|---|
-/// | R2/R3 | a prop stands on floor nobody walks on — never a seat column, never the delivery row |
+/// | R2/R3 | a prop stands on floor nobody walks on: never a seat column, never the delivery row |
 /// | R4 | no two props share a floor space |
 /// | R7 | nothing is drawn and then buried by what is painted over it |
 /// | I1 | scenery is furniture: it is a function of the theme and of nothing else |
 ///
 /// The first is the one with teeth. Every route in this room is either straight
-/// up a character's own seat column — `entranceRoute`, `homeRoute`,
-/// `upstageExit`, the first two legs of `deliveryRoute` — or lateral on
+/// up a character's own seat column (`entranceRoute`, `homeRoute`,
+/// `upstageExit`, the first two legs of `deliveryRoute`) or lateral on
 /// `deliveryRowY`, and a prop on either of those is a prop somebody walks
 /// through. That is checked here against `RoomLayout` rather than against a
 /// transcription of it.
@@ -39,7 +39,7 @@ import Testing
 /// where a hand-placed theme's props actually stand.
 ///
 /// That is not a hole, because the same three route clauses bind a hand-placed
-/// prop and are checked over it — `RoomPlan.dressingViolations(in:resolve:)`,
+/// prop and are checked over it: `RoomPlan.dressingViolations(in:resolve:)`,
 /// run against the shipped plan by `RoomPlanTests`, which is where R2/R3 and
 /// R7 live for the hand-placed room. What lives *here* for it is what reaches
 /// the screen: `theHandPlacedRoomDrawsEveryPlacementAtItsAuthoredPoint`, and
@@ -98,8 +98,8 @@ import Testing
     ///
     /// A seat column is a corridor from the delivery row to the wall line: a
     /// character arrives up it, reports down and up it, and leaves up it. The
-    /// half-width checked is 16 px, the character canvas — which this used to
-    /// call "wider than any body's ink", and it is not: measured over every
+    /// half-width checked is 16 px, the character canvas (which this used to
+    /// call "wider than any body's ink", and it is not): measured over every
     /// frame of every state of all six variants, the cast's ink spans column 0
     /// to column 31 of that canvas, so the two are the same box and a variant
     /// with broader shoulders is not what the margin is for. It is exact rather
@@ -107,7 +107,7 @@ import Testing
     ///
     /// The `wall` band is exempt **and states why in the assertion rather than
     /// in a skip**: it hangs two tiles up the wall face, above `wallBaseY`,
-    /// which is where a leaver's feet stop — the furthest upstage any route in
+    /// which is where a leaver's feet stop, the furthest upstage any route in
     /// the room reaches, and where `upstageExit` ends for a seat with nothing
     /// standing behind it [`RoomLayout.upstageClearance(forSeat:metrics:)`].
     /// Its own clearance is the test below.
@@ -121,7 +121,7 @@ import Testing
                     #expect(placement.y.lowerBound > layout.wallBaseY, Comment(rawValue:
                         "\(name): a `wall` prop is the one thing allowed in a seat"
                         + " column, and only because it hangs above \(layout.wallBaseY)"
-                        + " where a leaver's feet stop — this one starts at"
+                        + " where a leaver's feet stop; this one starts at"
                         + " \(placement.y.lowerBound)"))
                     continue
                 }
@@ -142,8 +142,8 @@ import Testing
     /// `deliveryRowY` is the one row a character travels *along* and the whole
     /// of its safety is that nothing else is ever on it. The walkway and the two
     /// seat rows are the rest of `standingRows`, and the rule the foreground
-    /// plant row was replaced with — nothing decorative nearer the camera than
-    /// the seat row — subsumes all four: the nearest band is a full tile upstage
+    /// plant row was replaced with (nothing decorative nearer the camera than
+    /// the seat row) subsumes all four: the nearest band is a full tile upstage
     /// of the furthest-upstage seat.
     @Test func noSceneryIsOnARowACharacterStandsOn() throws {
         let manifest = try SceneFixtures.manifest()
@@ -171,8 +171,8 @@ import Testing
     /// second is what a future art swap actually rests on.
     ///
     /// **The desk and the station-prop lanes are deliberately not in it.** A
-    /// station occupies 92 px of its 96 px pitch — desk at `x+12…x+44`, adjacent
-    /// prop at `x−48…x−16` — so on a *seat row* there is no room for anything
+    /// station occupies 92 px of its 96 px pitch (desk at `x+12…x+44`, adjacent
+    /// prop at `x−48…x−16`), so on a *seat row* there is no room for anything
     /// and scenery never claims any. It is `noSceneryIsOnARowACharacterStandsOn`
     /// that keeps it off those rows, and this that keeps it out of the columns
     /// crossing them.
@@ -196,7 +196,7 @@ import Testing
 
     /// **No two props on the same row overlap.** [R4]
     ///
-    /// Props on *different* rows may overlap and routinely do — that is what a
+    /// Props on *different* rows may overlap and routinely do: that is what a
     /// 3/4 projection is, and a filing cabinet standing in front of a chart
     /// board is a room rather than a defect. Two props on one row cannot: they
     /// are at the same depth, so which one wins is a tie broken by draw order
@@ -226,13 +226,13 @@ import Testing
     ///
     /// The wall band is the far plane, so anything drawn over it is drawn over
     /// it completely. It sits in the seat columns and the backdrops sit half a
-    /// pitch away, which separates them in x for every theme — except that three
+    /// pitch away, which separates them in x for every theme, except that three
     /// themes bind a backdrop taller than the two tiles of wall this band hangs
     /// at, and for those the clearance has to be real rather than assumed. It
     /// is: the three are 38, 32 and 30 px wide against a 96 px pitch.
     ///
     /// Asserted as *box intersection* rather than as a width bound, because the
-    /// width bound alone does not carry it — a 56 px wall prop beside
+    /// width bound alone does not carry it: a 56 px wall prop beside
     /// `broadcast`'s 80 px softbox clears by 1 px, and it is the actual art that
     /// says whether that case exists.
     @Test func noWallPropIntersectsABackdrop() throws {
@@ -287,7 +287,7 @@ import Testing
     /// arguments above stated as sizes: width is what keeps a prop out of a seat
     /// column, height is what stops it burying the prop one row upstage of it.
     /// Asked of the shipped manifest, so a wrong index in
-    /// `scripts/process-assets.py` fails the suite rather than the eye — which
+    /// `scripts/process-assets.py` fails the suite rather than the eye, which
     /// is what `docs/06-SET-BUILDING.md` §4 asks for, since a catalogue name is
     /// a family of pieces and the ink is how the piece is chosen.
     @Test func everyDeclaredSceneryPropFitsItsBand() throws {
@@ -310,7 +310,7 @@ import Testing
 
     /// **No scenery prop animates.**
     ///
-    /// The motion budget is priced on `props.roles` — `scripts/lint-palette.py`
+    /// The motion budget is priced on `props.roles`: `scripts/lint-palette.py`
     /// multiplies a role's measured pixels-per-second by the copies the room
     /// draws, and that census counts the four roles and nothing else. A scenery
     /// prop that carried an `animation` would be motion the budget never saw,
@@ -334,7 +334,7 @@ import Testing
     /// asserts that two themes put props at exactly the same points, which is
     /// only true while every theme fills every band. A theme that declared no
     /// `mid_floor` would draw five fewer props than its neighbours and the room
-    /// would be a different shape for it — so the requirement is named here,
+    /// would be a different shape for it, so the requirement is named here,
     /// where the reason is, rather than discovered there.
     @Test func everyThemeDressesEveryBand() throws {
         let manifest = try SceneFixtures.manifest()
@@ -347,7 +347,7 @@ import Testing
     }
 
     /// **The room places every piece of its dressing, and it places each one
-    /// once — under whichever of the two mechanisms its theme uses.**
+    /// once, under whichever of the two mechanisms its theme uses.**
     ///
     /// There are two now, and this test has an arm for each because the pinned
     /// count is different under each. It is not one loose number over both: a
@@ -356,10 +356,10 @@ import Testing
     ///
     /// - **The band lattice**, which five of the six themes take. The manifest
     ///   says *what* and *which depth band*, `RoomLayout.sceneryAnchors(_:)`
-    ///   says *where*, and the room draws **one node per anchor** — 20 of them.
+    ///   says *where*, and the room draws **one node per anchor**, 20 of them.
     ///   A theme that owns fewer props than a band has anchors repeats them
-    ///   round the band — `library` draws two flat wall objects over seven
-    ///   columns — rather than leaving a gap, which is the pack's own habit and
+    ///   round the band (`library` draws two flat wall objects over seven
+    ///   columns) rather than leaving a gap, which is the pack's own habit and
     ///   is what keeps a thin set honest instead of padded with props nobody
     ///   looked at.
     /// - **Hand-placed dressing**, which a theme whose plan carries `dressing`
@@ -367,12 +367,12 @@ import Testing
     ///   all: it is all-or-nothing per theme, because a room with 20 props on a
     ///   lattice *and* 37 off it still reads as a lattice. So the count to pin
     ///   is **one node per placement**, and it is pinned against the plan
-    ///   rather than against a number typed here — `dressingPlacements` drops a
+    ///   rather than against a number typed here: `dressingPlacements` drops a
     ///   placement that resolves to nothing, in silence, and this is the
     ///   assertion that makes that silence loud.
     ///
     /// Both arms are asserted to have run, so a manifest that lost its hand
-    /// placement — or grew one everywhere — fails here rather than quietly
+    /// placement (or grew one everywhere) fails here rather than quietly
     /// leaving one of the two mechanisms unchecked.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theRoomDrawsOneSceneryNodePerAnchorInEveryTheme() throws {
@@ -393,7 +393,7 @@ import Testing
                 handPlaced += 1
                 #expect(scene.sceneryNodesForTesting.count == dressing.count, Comment(rawValue:
                     "\(theme ?? "manifest.room") authored \(dressing.count) placements and drew"
-                    + " \(scene.sceneryNodesForTesting.count) scenery nodes — a placement naming"
+                    + " \(scene.sceneryNodesForTesting.count) scenery nodes: a placement naming"
                     + " a role the theme does not bind, or an index past the end of its scenery"
                     + " list, resolves to nothing and is dropped without a word"))
             }
@@ -402,7 +402,7 @@ import Testing
         // to run over, and says so out loud.**
         //
         // Every shipped theme now composes its own room, so the lattice is a
-        // fallback rather than a mechanism in use — a theme that declares no
+        // fallback rather than a mechanism in use: a theme that declares no
         // dressing still takes it, and `RoomScene` still branches on exactly
         // that. Failing here would mean keeping one theme on four stripes to
         // satisfy a test, which is the tail wagging the dog.
@@ -425,7 +425,7 @@ import Testing
     /// **The hand-placed room draws every placement at the point it was
     /// authored at, and draws nothing else.**
     ///
-    /// The band lattice's guarantee is structural — an anchor is arithmetic, so
+    /// The band lattice's guarantee is structural: an anchor is arithmetic, so
     /// a prop cannot be a few pixels off one. A hand-placed prop's point is a
     /// number somebody typed into the manifest, and the whole chain from that
     /// number to the node has to be checked rather than assumed:
@@ -434,7 +434,7 @@ import Testing
     ///    resolver `buildRoom`, `decorationTopY` and this test all read. Every
     ///    entry resolves, in order, and keeps its own `(x, y)`.
     /// 2. `dressingPlacements` → the nodes on screen. Same count, same order,
-    ///    same points — `place(prop:at:depthBias:)` puts the *content box's*
+    ///    same points: `place(prop:at:depthBias:)` puts the *content box's*
     ///    bottom-centre on the point, so the node's own position is the
     ///    authored point exactly and a comparison here is exact too.
     ///
@@ -482,7 +482,7 @@ import Testing
     /// carry their seven decorations.**
     ///
     /// The hand-placed mechanism is all-or-nothing *per theme*, and the risk in
-    /// a switch like that is not that the new branch is wrong — it is that the
+    /// a switch like that is not that the new branch is wrong; it is that the
     /// old branch quietly stops running for everybody. So the untouched
     /// mechanism is asserted as itself rather than inferred from the fact that
     /// nothing else went red: every scenery node of a banded theme stands on
@@ -531,7 +531,7 @@ import Testing
         }
         if checked == 0 {
             print("""
-                NOTICE: every theme places its dressing by hand, so the decoration                 lattice — board and plant on the seat columns — was not checked against                 a room that draws it. It stays the fallback for a theme with no dressing.
+                NOTICE: every theme places its dressing by hand, so the decoration                 lattice (board and plant on the seat columns) was not checked against                 a room that draws it. It stays the fallback for a theme with no dressing.
                 """)
         }
     }
@@ -540,8 +540,8 @@ import Testing
     /// §6 rule 1]
     ///
     /// Two scenes built from one theme draw the same scenery in the same places,
-    /// whatever has happened in either of them. The room's own guard —
-    /// `roomBuildCount` never leaving 1 across a whole fixture replay — already
+    /// whatever has happened in either of them. The room's own guard
+    /// (`roomBuildCount` never leaving 1 across a whole fixture replay) already
     /// says no prop node is ever rebuilt; this says the picture does not depend
     /// on the delta stream in the first place, which is the half a rebuild count
     /// cannot see.
@@ -560,11 +560,11 @@ import Testing
         }
     }
 
-    /// **The camera frames the scenery it draws** — whichever mechanism drew it.
+    /// **The camera frames the scenery it draws**, whichever mechanism drew it.
     ///
     /// `decorationTopY` is what `RoomScene.cameraY` aims below, and the `wall`
     /// band is now the highest thing the room draws in five of six themes. A
-    /// band the camera did not know about would be a band the camera crops —
+    /// band the camera did not know about would be a band the camera crops,
     /// which is the exact defect that accessor was written against, one row
     /// lower down.
     ///

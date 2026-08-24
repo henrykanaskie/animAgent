@@ -10,13 +10,13 @@ import SpriteKit
 /// Three reasons, in order of importance:
 ///
 ///   1. A tracking area only fires for a window that is under the pointer, and
-///      the panel is above the screen when hidden — there is nothing to track.
+///      the panel is above the screen when hidden: there is nothing to track.
 ///   2. A global event monitor for mouse movement is an input tap; sampling a
 ///      coordinate is not, and needs no permission from the user.
 ///   3. Sampling gives the hysteresis a regular clock. `mouseExited` fires once
 ///      and never again; a grace period needs something to tick.
 ///
-/// Thirty hertz is the sample rate. The dwell is 140 ms — four samples — so the
+/// Thirty hertz is the sample rate. The dwell is 140 ms (four samples), so the
 /// rate is not what decides anything; the policy is.
 @MainActor
 final class NotchPanelController {
@@ -81,11 +81,11 @@ final class NotchPanelController {
     /// Starts and stops the room's render loop with the panel.
     ///
     /// **The claim this replaces was wrong, and the terminal said so.** `slide`
-    /// used to assert that "a hidden panel costs nothing — an off-screen
+    /// used to assert that "a hidden panel costs nothing: an off-screen
     /// `SKView` stops rendering, an ordered-out one is not in the window list at
     /// all". Ordering a window out does remove it from the window list; it does
     /// not stop the view's display link. What it actually produces, once per
-    /// frame for as long as the panel is away — which is nearly all the time —
+    /// frame for as long as the panel is away (which is nearly all the time)
     /// is:
     ///
     /// > `SKView: no drawables available for rendering. Skipping this frame.`
@@ -110,7 +110,7 @@ final class NotchPanelController {
     func start() {
         guard timer == nil else { return }
         // `.common` so the panel keeps working while a menu is tracking or a
-        // window is being dragged — both put the run loop in a modal mode.
+        // window is being dragged; both put the run loop in a modal mode.
         let timer = Timer(timeInterval: Self.sampleInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.tick(at: ProcessInfo.processInfo.systemUptime)
@@ -125,7 +125,7 @@ final class NotchPanelController {
         timer = nil
     }
 
-    /// Take the panel off the screen **now** — no animation, no timer — and
+    /// Take the panel off the screen **now** (no animation, no timer) and
     /// leave the policy agreeing that it is away.
     ///
     /// This is the teardown call, and it is the one thing that must happen
@@ -136,7 +136,7 @@ final class NotchPanelController {
     /// go through it, the level is above the menu bar so nothing can be brought
     /// in front of it, and `canJoinAllSpaces` means it follows you to every
     /// desktop. Clearing it takes a space switch or Mission Control, and
-    /// killing the process does not help — the process is already gone. So the
+    /// killing the process does not help: the process is already gone. So the
     /// exit paths call this, and so does `applicationWillTerminate`.
     ///
     /// `stop()` first, so a sample cannot re-reveal the panel between the
@@ -157,8 +157,8 @@ final class NotchPanelController {
     func tick(at now: TimeInterval) {
         let pointer = PanelPoint(NSEvent.mouseLocation)
         // Re-read the display only while the panel is away. Re-anchoring a
-        // panel that is on screen — because the pointer crossed onto a second
-        // display — would make it jump, and the pointer is on its way out
+        // panel that is on screen, because the pointer crossed onto a second
+        // display, would make it jump, and the pointer is on its way out
         // anyway.
         if !policy.phase.isVisible {
             adoptScreenIfChanged(for: pointer)
@@ -166,7 +166,7 @@ final class NotchPanelController {
         apply(policy.update(pointer: pointer, at: now))
     }
 
-    /// Force the panel down. Harness only — there is no user-facing path to
+    /// Force the panel down. Harness only: there is no user-facing path to
     /// this, because there is no user-facing control anywhere. [I8]
     func forceReveal(at now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         apply(policy.forceReveal(at: now))

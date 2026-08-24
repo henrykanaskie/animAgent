@@ -4,7 +4,7 @@ import Foundation
 /// A deliberately dumb blocking HTTP client over a raw loopback socket.
 ///
 /// It exists so the latency numbers measure the *listener*, not a client
-/// framework's scheduling. One connection, keep-alive, one request in flight —
+/// framework's scheduling. One connection, keep-alive, one request in flight,
 /// which is the shape of a Claude Code session blocking on a hook response.
 struct LoopbackClient {
 
@@ -81,7 +81,7 @@ struct LoopbackClient {
     }
 
     /// Sends one request and blocks until the whole response has come back.
-    /// Returns the elapsed time in seconds — the wait a Claude Code session
+    /// Returns the elapsed time in seconds: the wait a Claude Code session
     /// actually pays on every hooked tool call.
     @discardableResult
     func roundTrip(body: Data, expecting responseBytes: Int) throws -> Double {
@@ -95,8 +95,8 @@ struct LoopbackClient {
     /// Every response we send is bodiless, so this is the whole thing.
     ///
     /// `path` is a parameter because the listener now decides one thing off the
-    /// request target — whether the request is `ListenerHeartbeat`'s self-probe
-    /// — and a client that could only ever post to `/hook` cannot test the
+    /// request target (whether the request is `ListenerHeartbeat`'s self-probe)
+    /// and a client that could only ever post to `/hook` cannot test the
     /// other branch.
     func responseText(
         body: Data, expecting responseBytes: Int,

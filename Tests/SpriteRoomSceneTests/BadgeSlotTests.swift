@@ -5,13 +5,13 @@ import Testing
 import SpriteRoomCore
 @testable import SpriteRoomScene
 
-/// **Where the badge slot is drawn.** Not what it means, not when it appears —
+/// **Where the badge slot is drawn.** Not what it means, not when it appears:
 /// those are `ToolBadgeTests`, `AttentionBadgeTests`, `SleepBadgeTests` and
 /// `ClosingBeatTests`, and none of them moved.
 ///
 /// The slot used to sit **above** the head with its bottom edge one pixel over
 /// the hair. It now sits **beside** the head with its *top* edge on that same
-/// line, which is 34 px — a whole badge canvas — off the top of everything the
+/// line, which is 34 px (a whole badge canvas) off the top of everything the
 /// camera has to frame. That is the entire change, and the tests below are the
 /// three things it could have broken:
 ///
@@ -43,14 +43,14 @@ struct BadgeSlotTests {
     }
 
     /// **The slot covers no pixel of any character, in any state, at any frame,
-    /// facing either way — and it is one pixel from doing so.**
+    /// facing either way, and it is one pixel from doing so.**
     ///
     /// Both halves matter and they pull opposite ways. The first is the
     /// invariant: a badge over a head hides the one thing the room draws that a
     /// person is looking at. The second is the *budget*: horizontal space is
     /// what the seat pitch is made of, so a slot parked comfortably clear of the
     /// body would be spending pitch on air. The near edge is therefore flush
-    /// with the body canvas's own edge, and the cast reaches that edge — so the
+    /// with the body canvas's own edge, and the cast reaches that edge, so the
     /// clearance is exactly zero and the assertion is that zero is enough.
     ///
     /// Measured off the shipped PNGs rather than off the manifest, because the
@@ -101,8 +101,8 @@ struct BadgeSlotTests {
     /// faces.**
     ///
     /// A seated character faces left whenever its last lateral move was
-    /// leftwards — a reporter seated left of the anchor walks home leftwards and
-    /// sits that way — so this is a standing state, not a transient. Mirroring
+    /// leftwards (a reporter seated left of the anchor walks home leftwards and
+    /// sits that way), so this is a standing state, not a transient. Mirroring
     /// the slot with the facing was rejected on three counts, and the first is
     /// the one this test pins:
     ///
@@ -171,7 +171,7 @@ struct BadgeSlotTests {
     /// between it and the head it is about.
     ///
     /// **The distinction from a tool badge is still extent**, which is what
-    /// makes it survive `1x` — a dimmed bubble was tried and lost because alpha
+    /// makes it survive `1x`: a dimmed bubble was tried and lost because alpha
     /// cuts contrast and cannot cut extent. Moving the slot changed neither
     /// number, and this asserts that.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -193,7 +193,7 @@ struct BadgeSlotTests {
 
         // **Dormancy is a bubble, and the corner is what this test is for.**
         // It also asserted the dormancy picture stayed under a quarter of the
-        // bubble's area, which pinned the authored 9x11 tab — reverted, because
+        // bubble's area, which pinned the authored 9x11 tab; reverted, because
         // at 1x that tab read as a black text box in a slot where every other
         // badge is pack art. The size claim went with it; the *anchor* claim did
         // not, and it is the one that catches a picture drifting off the head.
@@ -206,7 +206,7 @@ struct BadgeSlotTests {
         #expect(Int(sleeping.height) == manifest.badges.canvas.height)
 
         // Back to a bubble, at the bubble's own size and in the bubble's own
-        // place — the tab resized the node, and a slot anchored at its top means
+        // place: the tab resized the node, and a slot anchored at its top means
         // a size change is also a position change.
         character.apply(badge: BadgeSelection.select(openToolNames: ["Read"]))
         #expect(character.badgeRect == bubble)

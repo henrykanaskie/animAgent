@@ -12,14 +12,14 @@ import Foundation
 /// three agents now renders at `2x` and only a fourth agent drops it to `1x`.
 /// This comment previously read "the room renders at `1x`, always" and a design
 /// agent reasoning from it concluded that a beat which reads only at `2x` is
-/// worth *nothing* rather than *nothing above three agents* — which is a
+/// worth *nothing* rather than *nothing above three agents*, which is a
 /// different and much weaker claim.
 ///
 /// The ranking below survives the correction, because `1x` is still where the
 /// room lands whenever it is busy, and busy is when a person most needs to read
 /// it. At `1x`:
 ///
-/// - **costumes** measure a 0.00% closest-pair silhouette difference — a value
+/// - **costumes** measure a 0.00% closest-pair silhouette difference: a value
 ///   and hue channel inside an unchanged outline [04-ART-DIRECTION, M6h];
 /// - **held objects** are ~90 px of colour inside a 20x16 torso: "you can see
 ///   they are holding *something*", not *what* [04-ART-DIRECTION, M7b];
@@ -29,12 +29,12 @@ import Foundation
 /// observer cannot read a 12x10 object in a character's hands, but they can see
 /// one character moving differently from another.
 ///
-/// # What the art can support — measured, not assumed
+/// # What the art can support: measured, not assumed
 ///
 /// Re-derived from the six shipped premades rather than taken from a previous
 /// agent's row map. Of Modern Interiors' **20 pose rows** (1792x1312 at a 32x64
 /// canvas, rows 0...19; the trailing 32 px carry no ink), exactly **two are
-/// seated** — rows 4 and 5 — and they are the only two whose every frame keeps
+/// seated**, rows 4 and 5, and they are the only two whose every frame keeps
 /// its feet off the canvas's floor row (`maxY` 61 against 63 for all eighteen
 /// others). Row 5 is a cross-legged floor sit and no event means *sit on the
 /// ground*, so the room draws row 4 and only row 4. [04-ART-DIRECTION, M6g]
@@ -51,7 +51,7 @@ import Foundation
 /// | 17 | 8 px | 616 px | 18 → 18 → **16** |
 /// | 19 | 8 px | 728 px | 14 → 14 → **12** |
 ///
-/// Frames 0 and 1 are the same pose — 0 to 32 px apart, an eye blink, and
+/// Frames 0 and 1 are the same pose: 0 to 32 px apart, an eye blink, and
 /// literally identical on variant 10. Frame 2 lifts the whole upper body by
 /// 2 px, which is 530-770 px of a ~950-1160 px body. So the entire seated motion
 /// vocabulary this pack contains is **one two-position bob**: *settled* and
@@ -59,7 +59,7 @@ import Foundation
 ///
 /// That is the finding, and it decides the design. There are not six seated
 /// loops to hand out. There is one, and the only thing a tool class may choose
-/// is **when it plays** — which of the two positions the body holds, and for how
+/// is **when it plays**: which of the two positions the body holds, and for how
 /// long, on the manifest's own 8 fps grid.
 ///
 /// **Nothing here invents a frame.** Every pixel drawn is a pixel the artist
@@ -70,15 +70,15 @@ import Foundation
 ///
 /// A phrase is keyed on the **badge class**, which is keyed on `tool_name`,
 /// which is a real field of a real `PreToolUse`. So a phrase asserts exactly
-/// what the badge above the same head asserts — *this agent's lowest-ordinal
-/// open call is of this class* — and not one thing more. It is a second
+/// what the badge above the same head asserts: *this agent's lowest-ordinal
+/// open call is of this class*, and not one thing more. It is a second
 /// encoding of one true fact, not a new claim.
 ///
 /// Two consequences follow and both are rules:
 ///
 /// - **`questionMark` gets no phrase**, and `phrase(for:)` returns `nil` for it,
 ///   which means the body plays the shipped loop exactly as authored. An
-///   unmapped tool — `Monitor`, permanently, and anything that ships tomorrow —
+///   unmapped tool (`Monitor`, permanently, and anything that ships tomorrow)
 ///   moves the way a character has always moved. Guessing a motion for it would
 ///   be the `question_mark` glyph's own reasoning abandoned on a larger surface,
 ///   which is the argument `HeldObject.init(badge:)` already makes for the
@@ -90,8 +90,8 @@ import Foundation
 ///
 /// # The grid, and why six phrases rather than six inventions
 ///
-/// A two-position bob has exactly two parameters — **period** and **duty**, the
-/// fraction of the bar spent raised — so the six mapped classes are laid out on
+/// A two-position bob has exactly two parameters: **period** and **duty**, the
+/// fraction of the bar spent raised, so the six mapped classes are laid out on
 /// a 3x2 grid of them rather than each being tasted separately. Every phrase
 /// step is one frame of the manifest's `frame_rate` of 8, i.e. **125 ms**, and
 /// no new rate is introduced anywhere.
@@ -104,7 +104,7 @@ import Foundation
 /// | `magnifier` | `S S S S S S R R` | 1000 ms | 25% | long still, one slow rise |
 /// | `globe` | `S S S S R R R R` | 1000 ms | 50% | a slow even breathe |
 /// | `checklist` | `S S R R R R R R` | 1000 ms | 75% | held up, one slow dip |
-/// | `questionMark` | — | 375 ms | 33% | the shipped loop, untouched |
+/// | `questionMark` | - | 375 ms | 33% | the shipped loop, untouched |
 ///
 /// `magnifier` and `globe` are deliberately **inverses** of `checklist` and each
 /// other in posture rather than merely in tempo: duty is the one parameter that
@@ -115,7 +115,7 @@ import Foundation
 ///
 /// **A motion is only as visible as the call is long, and I2 says so.** The body
 /// **moves** exactly while the open-call set is non-empty and no permission gate
-/// is open on it [ADR-005 §7], and there is no closing beat for the body — `ADR-003` §2 requires that the body assert no
+/// is open on it [ADR-005 §7], and there is no closing beat for the body: `ADR-003` §2 requires that the body assert no
 /// ongoing work for any frame of the badge's beat and declares itself void if an
 /// implementation does otherwise, and `CLAUDE.md`'s I2 clause says the badge
 /// slot may carry a fact the body does not *provided the body is truthful for
@@ -128,7 +128,7 @@ import Foundation
 /// inherit its fix. Over that document's 224 s capture, per class, total seconds
 /// with a call open: `terminal` 102.75, `plug` 100.06, `globe` 13.19,
 /// `document` 0.75, `magnifier` 0.11, `checklist` 0.07. A phrase needs a bar to
-/// play — 250 ms to 1000 ms — so the last three classes' motion is not slow at
+/// play (250 ms to 1000 ms), so the last three classes' motion is not slow at
 /// `1x`, it is **absent**: those calls do not last long enough for the body to
 /// move at all. The honest claim for this layer is that it separates the classes
 /// an agent *dwells* in, and that a `Read` is as invisible in motion as it was in
@@ -139,7 +139,7 @@ public enum AmbientMotion {
     ///
     /// Two, because the measurement above found two. `settled` is frame 0 and
     /// `raised` is the last frame; the blink between them is 0-32 px and is not
-    /// a position, so nothing here schedules it — the shipped loop still plays
+    /// a position, so nothing here schedules it: the shipped loop still plays
     /// it, because the shipped loop is the frame array in order and that is what
     /// `nil` below means.
     public enum Beat: Sendable, Hashable {
@@ -185,7 +185,7 @@ public enum AmbientMotion {
     /// `nil` for **the shipped loop, unchanged**.
     ///
     /// `nil` is not a gap to fill later. It is the honest motion for a class we
-    /// cannot name — see the type's note on `questionMark` — and it is also what
+    /// cannot name (see the type's note on `questionMark`) and it is also what
     /// every non-`working` state plays, because there is no claim to make about
     /// how a character walks.
     public static func phrase(for badge: ToolBadge?) -> [Beat]? {
@@ -193,7 +193,7 @@ public enum AmbientMotion {
         let r = Beat.raised
         switch badge {
         // 250 ms, 50%. The fastest the 8 fps grid allows, and the only phrase
-        // with no still section at all — which is what separates it from
+        // with no still section at all, which is what separates it from
         // `document`, whose active part is the same alternation.
         case .terminal: return [s, r]
         // 500 ms, 25%. A tap and a pause.
@@ -202,7 +202,7 @@ public enum AmbientMotion {
         case .plug: return [s, r, r, r]
         // 1000 ms, 25%. Still for three quarters of a second, then one rise.
         case .magnifier: return [s, s, s, s, s, s, r, r]
-        // 1000 ms, 50%. Half and half — the slow even breathe.
+        // 1000 ms, 50%. Half and half: the slow even breathe.
         case .globe: return [s, s, s, s, r, r, r, r]
         // 1000 ms, 75%. `magnifier` inverted.
         case .checklist: return [s, s, r, r, r, r, r, r]
@@ -215,7 +215,7 @@ public enum AmbientMotion {
     ///
     /// The shipped `idle` loop is 6 frames at 8 fps. It was playing at full
     /// amplitude under every character that had nothing to show, and that is not
-    /// a cosmetic complaint — it inverted the one distinction this room exists to
+    /// a cosmetic complaint: it inverted the one distinction this room exists to
     /// make. Measured over 8 consecutive 125 ms frames of the real capture
     /// (`scratchpad/observe/baseline/capture.jsonl` at t=110, a 32x52 body box,
     /// total absolute RGB delta):
@@ -228,8 +228,8 @@ public enum AmbientMotion {
     /// | 8AB | dormant | 123,480 |
     ///
     /// The idle body out-moved a working one. Motion is the channel that
-    /// survives `1x` — and `1x` is where the room lands from four agents up,
-    /// which is exactly when a person needs to read it — and it was carrying no
+    /// survives `1x`, and `1x` is where the room lands from four agents up,
+    /// which is exactly when a person needs to read it, and it was carrying no
     /// busy/idle signal at all.
     ///
     /// This sentence used to justify itself with "`comfortablePopulation` is
@@ -243,7 +243,7 @@ public enum AmbientMotion {
     /// more amplitude than it has. The only lever is the idle loop, and the only
     /// honest thing to do with it is take it away: I1 says that where the data
     /// does not say something happened, the room shows nothing, and the hook
-    /// stream says **nothing at all** about an agent between its calls — 84% of
+    /// stream says **nothing at all** about an agent between its calls: 84% of
     /// its life, by ADR-003 §0's measurement. A breathing loop over that silence
     /// was the room's one piece of invented activity, small enough that nobody
     /// called it fiction and loud enough to drown the real signal beside it.
@@ -256,7 +256,7 @@ public enum AmbientMotion {
     /// What it costs, stated rather than discovered later: a room where nobody
     /// is working is a room where nothing moves. That is the truth about such a
     /// room, but it is also indistinguishable at a glance from a room that has
-    /// stopped updating, and this file cannot close that gap — see
+    /// stopped updating, and this file cannot close that gap: see
     /// `notes.md` for the one channel that could.
     public static let idleSequence = [0]
 
@@ -266,12 +266,12 @@ public enum AmbientMotion {
     /// meaning *executing* and started meaning *at its workstation, in a turn*.
     /// The rule I2 defends did not move an inch: a character animates **if and
     /// only if** it holds an open tool call. What moved is which still frame the
-    /// dead air is drawn with — a standing one before, a seated one now — and
+    /// dead air is drawn with (a standing one before, a seated one now) and
     /// the amplitude of that dead air is 0 px/s either way, so
     /// `04-ART-DIRECTION.md`'s motion budget is untouched by ADR-005 and this is
     /// where that is true rather than merely claimed.
     ///
-    /// It is frame 0 of the *seated* animation, which is `Beat.settled` — the
+    /// It is frame 0 of the *seated* animation, which is `Beat.settled`: the
     /// position every phrase already begins and ends on. So a call opening finds
     /// the body exactly where its phrase starts, and a call closing leaves it
     /// exactly where the phrase left it: the motion stops, and nothing jumps.
@@ -285,14 +285,14 @@ public enum AmbientMotion {
     ///
     /// **The defect it fixes was the room asserting the opposite of the truth.**
     /// A `Bash` parked at a dialog is still an *open call*, so until now it kept
-    /// playing `terminal` — `S R`, a 250 ms period, the busiest schedule in the
+    /// playing `terminal`: `S R`, a 250 ms period, the busiest schedule in the
     /// table above. Measured on `fixtures/concurrent-permission-gates.jsonl` at
     /// t=20 s, with two subagents blocked on a human since t=6.45 and t=7.92:
     /// **3 760 px changing every 125 ms** on each of them. The stuck agents were
     /// the two busiest-looking characters in the room, in the one channel this
     /// file's own note measures as the only one that survives `1x`.
     ///
-    /// The badge layer never had this bug — `BadgeSelection.isAttention` refuses
+    /// The badge layer never had this bug: `BadgeSelection.isAttention` refuses
     /// to draw `terminal` over a gated `Bash` because "a call parked at a
     /// permission gate is not running", which is ADR-003 §1's sentence. This is
     /// that sentence applied to the body.
@@ -314,7 +314,7 @@ public enum AmbientMotion {
     /// it holds any open call, whether it is stopped at a permission gate, and
     /// how many frames its current animation has.
     ///
-    /// - `idle` — standing, which under ADR-005 means *no turn in progress* —
+    /// - `idle`: standing, which under ADR-005 means *no turn in progress*,
     ///   is `idleSequence`, one held frame.
     /// - `working` with an **empty** open-call set is `seatedStillSequence`, one
     ///   held frame. Seated and still: in a turn, between calls, thinking.
@@ -322,26 +322,26 @@ public enum AmbientMotion {
     ///   frame, whatever the badge class says and however many calls are open.
     ///   Seated and still: blocked on a human, getting nothing done.
     /// - `working` with an open call and no gate is the badge class's phrase, or
-    ///   the identity sequence for `questionMark` and for `nil` — the shipped
+    ///   the identity sequence for `questionMark` and for `nil`: the shipped
     ///   loop, byte for byte what this app drew before this file existed.
     /// - every other state is the identity sequence. `walk`, `spawn`, `depart`
     ///   and `deliver` each *are* a real event being told, so they play as
     ///   authored whatever the open-call set or the gate says. A character
     ///   cannot be walking and blocked at the same instant in the live stream,
     ///   and if it were, the walk is the event being told and the gate is a
-    ///   state — the told event wins, exactly as it does over the open-call set.
+    ///   state: the told event wins, exactly as it does over the open-call set.
     ///
     /// - Parameter openCalls: how many tool calls this character is holding.
-    ///   **The fact, not a state name** — this is the one input that decides
+    ///   **The fact, not a state name**: this is the one input that decides
     ///   whether the body moves, and it is passed in rather than inferred from
     ///   `state`, because since ADR-005 the state name no longer carries it.
     /// - Parameter isGated: whether this character has an open permission-gate
-    ///   mark — `WorldDelta.gateChanged`. Defaulted to `false` so that every
+    ///   mark: `WorldDelta.gateChanged`. Defaulted to `false` so that every
     ///   caller who has nothing to say about a gate says nothing, which is the
     ///   ungated case and is what this function always assumed.
     /// - Parameter raisedFrame: which frame of this animation the manifest
-    ///   measured as the raised one. Defaulted to `nil` — the old
-    ///   count-derived rule — so that a caller with no measurement in hand asks
+    ///   measured as the raised one. Defaulted to `nil`: the old
+    ///   count-derived rule, so that a caller with no measurement in hand asks
     ///   for exactly the behaviour that shipped before it existed.
     public static func sequence(
         for badge: ToolBadge?, state: BodyState, openCalls: Int, isGated: Bool = false,

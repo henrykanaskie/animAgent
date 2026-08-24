@@ -3,7 +3,7 @@ import Testing
 
 @testable import SpriteRoomApp
 
-/// The **Room ▸** submenu — ADR-002 §8 item 9.
+/// The **Room ▸** submenu: ADR-002 §8 item 9.
 ///
 /// It is in the menu bar for the same reason the project list is: the panel is
 /// a display surface and stays `ignoresMouseEvents`. Nothing about I8 moves,
@@ -11,7 +11,7 @@ import Testing
 ///
 /// This is the second menu item in the app that *writes* anything. The
 /// precedent is the hooks toggle, justified on the grounds that it does not
-/// touch a running agent — a theme picker does not touch one either.
+/// touch a running agent: a theme picker does not touch one either.
 @MainActor
 struct ThemeMenuTests {
 
@@ -33,7 +33,7 @@ struct ThemeMenuTests {
         selector.menu.items.first { $0.submenu != nil }
     }
 
-    /// **Automatic** — the only item in the submenu that carries no theme id,
+    /// **Automatic**: the only item in the submenu that carries no theme id,
     /// which is what makes it findable without matching on its prose.
     static func automaticItem(_ selector: ProjectSelector) -> NSMenuItem? {
         Self.roomItem(selector)?.submenu?.items.first {
@@ -71,13 +71,13 @@ struct ThemeMenuTests {
         selector.update(entries: Self.entries, selected: "/work/alpha")
         selector.menuNeedsUpdate(selector.menu)
 
-        // The title, never the manifest key — the same rule the submenu follows.
+        // The title, never the manifest key: the same rule the submenu follows.
         #expect(try #require(Self.roomItem(selector)).title == "Room  ·  Mission Control")
     }
 
     /// With nothing selected there is no room on screen to name. The theme is a
     /// per-project preference and naming one here would be naming it for
-    /// nobody — the same reason the item is disabled.
+    /// nobody: the same reason the item is disabled.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func theRoomItemNamesNothingWithNoProjectSelected() throws {
         let selector = Self.selector()
@@ -89,7 +89,7 @@ struct ThemeMenuTests {
     }
 
     /// Every theme is *choosable*; only some are *assignable*. §3e is about
-    /// what the hash may draw, not about what the user may pick — "The picker
+    /// what the hash may draw, not about what the user may pick: "The picker
     /// lists everything."
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func theSubmenuOffersThemesTheDerivedDefaultIsNotAllowedToDraw() throws {
@@ -117,7 +117,7 @@ struct ThemeMenuTests {
     }
 
     /// A derived default is still the current theme. There is no third state
-    /// for "the user has not picked yet" — §3c is one function, and the room is
+    /// for "the user has not picked yet": §3c is one function, and the room is
     /// always showing whatever it returned.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func aDerivedThemeIsCheckedJustLikeAChosenOne() throws {
@@ -130,7 +130,7 @@ struct ThemeMenuTests {
         #expect(submenu.items.first { $0.state == .on }?.representedObject as? String == "briefing")
     }
 
-    /// "enabled only when a project is selected" — §8 item 9. The theme is a
+    /// "enabled only when a project is selected": §8 item 9. The theme is a
     /// *per-project* preference; with no project there is nothing to key it on,
     /// and a picker that wrote somewhere anyway would be inventing a key.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
@@ -173,7 +173,7 @@ struct ThemeMenuTests {
 
     /// A manifest that declares no themes is the room this app ships today.
     /// The honest menu says so, in the same shape the empty project roster
-    /// already uses — a disabled line, not a missing one.
+    /// already uses: a disabled line, not a missing one.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func aManifestWithNoThemesSaysSoRatherThanShowingAnEmptySubmenu() throws {
         let selector = Self.selector(themes: .empty)
@@ -187,12 +187,12 @@ struct ThemeMenuTests {
         #expect(!submenu.items.contains { $0.representedObject is String })
     }
 
-    // MARK: Automatic — the way back out of a pick
+    // MARK: Automatic - the way back out of a pick
 
     /// A pick that cannot be un-picked is a trap: the only other way back would
     /// be hand-editing `themes.json`, which ADR-002 §3d says that file is not
     /// for. The way back is an item, and it **names the room it would give
-    /// you** — "Automatic" on its own is a word the user has to trust, and not
+    /// you**: "Automatic" on its own is a word the user has to trust, and not
     /// being able to tell what the app had decided is the whole complaint.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func theSubmenuOffersTheDerivedRoomBackAndNamesIt() throws {
@@ -211,7 +211,7 @@ struct ThemeMenuTests {
     }
 
     /// Enabled exactly when there is a choice to forget. This is the one thing
-    /// the menu shows that §3c's single function cannot answer — a stored room
+    /// the menu shows that §3c's single function cannot answer: a stored room
     /// and a derived one are indistinguishable as *rooms*, and only one of them
     /// has anything to undo.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
@@ -234,7 +234,7 @@ struct ThemeMenuTests {
         #expect(try #require(Self.automaticItem(selector)).isEnabled)
     }
 
-    /// No project, no `cwd` to key a removal on — the same reason the parent
+    /// No project, no `cwd` to key a removal on: the same reason the parent
     /// item is disabled.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func automaticIsDisabledWithNoProjectSelectedEvenIfSomethingIsPinned() throws {
@@ -248,8 +248,8 @@ struct ThemeMenuTests {
     }
 
     /// The tick means "this is the room you are looking at". A derived room's
-    /// own row already carries it, so **Automatic** must not carry a second one
-    /// — two ticks would claim there are two rooms on screen.
+    /// own row already carries it, so **Automatic** must not carry a second one:
+    /// two ticks would claim there are two rooms on screen.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func automaticIsNeverTickedEvenWhenItIsTheRoomInUse() throws {
         let selector = Self.selector()
@@ -304,7 +304,7 @@ struct ThemeMenuTests {
 
     // MARK: I8
 
-    /// [I8] — pointer-only, and the submenu is not an exception.
+    /// [I8] - pointer-only, and the submenu is not an exception.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func nothingInTheSubmenuHasAKeyboardShortcut() throws {
         let selector = Self.selector()
@@ -320,7 +320,7 @@ struct ThemeMenuTests {
     /// **The tripwire.** [I8]
     ///
     /// The panel is non-activating and receives no keyboard events, ever, so a
-    /// key equivalent is not a convenience that happens not to work — it is the
+    /// key equivalent is not a convenience that happens not to work: it is the
     /// one keyboard path into this app, and it would be added by someone acting
     /// reasonably. The two tests above each walk one level of one menu; this
     /// walks the whole tree, every state the menu has, so an item added to a
@@ -364,7 +364,7 @@ struct ThemeMenuTests {
     }
 
     /// Read-only, always. A theme picker changes what the room is made of; it
-    /// must not look like — or grow into — anything that reaches an agent.
+    /// must not look like (or grow into) anything that reaches an agent.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func theSubmenuOffersNoControlOverAnyAgent() throws {
         let selector = Self.selector()

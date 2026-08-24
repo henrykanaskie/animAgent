@@ -22,12 +22,12 @@ import Testing
 /// ## The rule, and why it is a floor line rather than an ink box
 ///
 /// > **A body may never be upstage of a piece of furniture whose ink it stands
-/// > in front of** — with one exception, named below.
+/// > in front of**, with one exception, named below.
 ///
 /// The obvious statement is "the body's ink box never overlaps a prop's ink
 /// box", and it is *false of the room by design*, in both directions. A desk at
-/// a camera-facing seat is drawn over its occupant's waist on purpose —
-/// `deskCutAboveFeet` is the number and ADR-008 §2's table is the argument — and
+/// a camera-facing seat is drawn over its occupant's waist on purpose
+/// (`deskCutAboveFeet` is the number and ADR-008 §2's table is the argument), and
 /// a character crossing the walkway 32 px downstage of a 38 px desk overlaps it
 /// in projection whatever anybody wants. Overlap in an oblique projection is
 /// ubiquitous and says nothing.
@@ -36,8 +36,8 @@ import Testing
 /// bottom-centre, which is where `Manifest.PropRole.anchor(inCanvas:)` puts it
 /// and where every position function in `RoomLayout` returns. A body downstage
 /// of that line is in front of the prop and reads as being in front of it; a
-/// body upstage of it is behind the prop and — if the prop is a desk with its
-/// back to that body — is standing where the furniture is. So the check is
+/// body upstage of it is behind the prop and (if the prop is a desk with its
+/// back to that body) is standing where the furniture is. So the check is
 /// per-sample and one-sided: `body.y <= prop.y` whenever their columns overlap.
 ///
 /// **The exception is the occluder.** A piece standing *downstage of its own
@@ -46,7 +46,7 @@ import Testing
 /// chair back an away-facing seat would take if one ever fitted. Every route to
 /// that seat must pass such a piece or the seat is unreachable. So a piece is
 /// exempt when `point.y < seatRowY(its seat)`, which is geometry rather than a
-/// list of names — nothing has to be added here when a theme binds something
+/// list of names: nothing has to be added here when a theme binds something
 /// new, and nothing upstage can ever claim the exemption.
 ///
 /// ## What the boxes are measured from
@@ -55,7 +55,7 @@ import Testing
 /// `assets/manifest.json`, resolved through the same accessors `RoomScene`
 /// resolves them through, and every position is `RoomLayout`'s own. Nothing here
 /// is transcribed, so re-cutting a desk moves this check with it. The **body**
-/// is `characters.canvas.width` — 32 px — and that is not a conservative
+/// is `characters.canvas.width` (32 px) and that is not a conservative
 /// stand-in for a narrower silhouette: measured over every frame of every state
 /// of all six shipped variants, the cast's ink spans column 0 to column 31, so
 /// the canvas *is* the ink box in x. It is also the same 32 px column
@@ -71,7 +71,7 @@ import Testing
 /// ## What is not gated
 ///
 /// All of it. Everything here is arithmetic over the tracked manifest, so a
-/// fresh clone with no art runs the whole check — which is the point of a test
+/// fresh clone with no art runs the whole check, which is the point of a test
 /// whose absence let a shipped defect run for two milestones.
 struct RouteFurnitureTests {
 
@@ -81,7 +81,7 @@ struct RouteFurnitureTests {
         /// The seat it belongs to, or `nil` for scenery, decoration and the
         /// plan's hand-placed dressing, which belong to the room.
         let seat: Int?
-        /// Bottom-centre, in scene pixels — the floor line.
+        /// Bottom-centre, in scene pixels: the floor line.
         let point: ScenePoint
         /// `content_box.width`, and the ink height only so a failure can say
         /// what the reader would have seen.
@@ -99,11 +99,11 @@ struct RouteFurnitureTests {
 
     /// **Everything one room stands on its floor, seat furniture first.**
     ///
-    /// It mirrors `RoomScene.buildRoom` piece for piece — the chair its facing
+    /// It mirrors `RoomScene.buildRoom` piece for piece: the chair its facing
     /// asks for, the desk, both pod rig slots, all four desktop kit slots, the
     /// station prop for *every* station the room declares (any agent may take
     /// any of them), the two decoration bands, the four scenery bands or the
-    /// plan's dressing where there is one — and it is assembled from the
+    /// plan's dressing where there is one, and it is assembled from the
     /// manifest rather than from a `RoomScene`, so it needs no art on disk.
     static func furniture(
         room: Manifest.Room, manifest: Manifest, layout: RoomLayout
@@ -137,7 +137,7 @@ struct RouteFurnitureTests {
             }
             // The kit's `variants` carry their own measured ink boxes and the
             // manifest declares one box for the role, so this places all four
-            // slots at the role's own — which is what `PropRole.variant(_:box:)`
+            // slots at the role's own, which is what `PropRole.variant(_:box:)`
             // falls back to when the art cannot be measured. It costs nothing
             // here: the kit stands on a **camera-facing** desk, downstage of its
             // own seat, so every slot takes the occluder exemption at any height.
@@ -200,7 +200,7 @@ struct RouteFurnitureTests {
     }
 
     /// **Every route one seat's occupant can walk**, each as the full list of
-    /// points it passes through — its chair first, because a character starts a
+    /// points it passes through: its chair first, because a character starts a
     /// beat wherever it is standing and every beat but the entrance starts in
     /// the chair.
     static func routes(
@@ -250,7 +250,7 @@ struct RouteFurnitureTests {
     /// 252 reports over the seven rooms, every one of them an away-facing seat's
     /// exit "88 px upstage of a desk whose ink stands 136…174 in its own column",
     /// and in `office` its two screen rigs as well. Nothing else in the room
-    /// reported, then or now — which is the half of this check that says the
+    /// reported, then or now, which is the half of this check that says the
     /// decoration, the scenery, the plan's hand-placed dressing and every
     /// station's prop are clear, rather than assuming it.
     ///
@@ -260,7 +260,7 @@ struct RouteFurnitureTests {
     /// downstage of the nearest thing in it, and it is in front of every one of
     /// them. The first draft of this test forbade the shared column outright and
     /// reported 250 lecterns, curtains and plants in `briefing` alone. Only the
-    /// far side is a defect, for scenery exactly as for a desk — what differs is
+    /// far side is a defect, for scenery exactly as for a desk: what differs is
     /// that scenery gets no occluder exemption, because scenery is nobody's seat.
     @Test func everyRouteClearsEveryPieceOfTheRoomsFurniture() throws {
         let manifest = try SceneFixtures.manifest()
@@ -285,7 +285,7 @@ struct RouteFurnitureTests {
                 for (what, path) in Self.routes(seat: seat, layout: layout, metrics: metrics) {
                     // **One issue per route and piece, not per sample.** A leaver
                     // walking 88 px through a desk is one defect, and reporting
-                    // it 88 times buries every other line of the run — which is
+                    // it 88 times buries every other line of the run, which is
                     // what the first draft of this did.
                     var worst: [Int: (piece: Piece, at: ScenePoint)] = [:]
                     for point in Self.samples(path) {
@@ -360,7 +360,7 @@ struct RouteFurnitureTests {
             }
         }
         // Four away-facing seats and three camera-facing ones, in each of the
-        // seven rooms — the checkerboard `isBackRow(seat:)` produces.
+        // seven rooms: the checkerboard `isBackRow(seat:)` produces.
         #expect(away == 4 * 7 && toward == 3 * 7, Comment(rawValue:
             "\(away) away-facing and \(toward) camera-facing seats were measured"))
     }
@@ -368,7 +368,7 @@ struct RouteFurnitureTests {
     /// **A character with no seat stops at the furniture of whatever column it is
     /// standing in.** `RoomScene` falls back to `upstageExit(fromX:metrics:)` for
     /// a leaver whose seat is already gone, and that path has to answer the same
-    /// question — a body 32 px wide standing on a seat's column is in front of
+    /// question: a body 32 px wide standing on a seat's column is in front of
     /// that seat's desk whether or not the room still thinks it owns the seat.
     @Test func aSeatlessLeaverStopsAtWhicheverColumnItIsStandingIn() throws {
         let manifest = try SceneFixtures.manifest()
@@ -380,7 +380,7 @@ struct RouteFurnitureTests {
             #expect(layout.upstageExit(fromX: x, metrics: metrics).y
                     == layout.upstageClearance(forSeat: seat, metrics: metrics))
         }
-        // Half a pitch out is nobody's column — the gap the scenery stands in —
+        // Half a pitch out is nobody's column (the gap the scenery stands in),
         // so there is nothing to stop short of and the wall line is the answer.
         #expect(layout.upstageExit(fromX: layout.propColumnX(forSeat: 0), metrics: metrics).y
                 == layout.wallBaseY)

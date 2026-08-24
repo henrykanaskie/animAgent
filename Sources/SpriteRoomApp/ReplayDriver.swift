@@ -7,7 +7,7 @@ import SpriteRoomCore
 /// The stand-in for the live listener until M4. The arrow is the same one the
 /// architecture describes and it points one way: fixture → model → deltas →
 /// director → scene. Nothing here ever asks the model a question, and the
-/// driver deliberately knows nothing about scenes — the panel and the plain
+/// driver deliberately knows nothing about scenes: the panel and the plain
 /// window are two different consumers of the same stream.
 ///
 /// **Deltas cross to the main actor in batches, once per frame.** A burst of
@@ -26,7 +26,7 @@ final class ReplayDriver {
     init() {}
 
     /// Feeds every entry whose `_receivedAt` falls in `(previous, now]`.
-    /// Fixture time, not wall time — the same discipline the replay harness
+    /// Fixture time, not wall time: the same discipline the replay harness
     /// uses, so a headless render and a live panel see identical input.
     func ingest(_ entries: ArraySlice<HookLogEntry>) async {
         for entry in entries {

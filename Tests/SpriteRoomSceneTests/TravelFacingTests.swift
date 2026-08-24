@@ -3,14 +3,14 @@ import Testing
 import SpriteRoomCore
 @testable import SpriteRoomScene
 
-/// **M8 #73 — a character walking up its own column is drawn walking up.**
+/// **M8 #73: a character walking up its own column is drawn walking up.**
 ///
 /// The defect, in the maintainer's own words as complaint #4: *"The orientation
 /// is plain and side-on. Characters should face front and back, so you can
 /// actually see them."* Three quarters of the answer was already on disk. The
 /// manifest declares `walk`, `idle`, `spawn`, `depart` and `deliver` in all four
-/// directions at six frames each — only `working` is side-only, which is the M0
-/// sit-row finding and is correct — and the scene asked for two of the four.
+/// directions at six frames each (only `working` is side-only, which is the M0
+/// sit-row finding and is correct) and the scene asked for two of the four.
 ///
 /// The one line that did it was the travel rule. It was
 /// `forHorizontalTravel(_:current:)`, keyed on `dx` alone, and it returned the
@@ -19,7 +19,7 @@ import SpriteRoomCore
 /// its own comments: an arrival is "straight up its own column", a departure is
 /// "straight back, up its own column, and out through the back of the room", and
 /// "every arrival and every departure is one column, one direction". Both are
-/// pure `dy`, so `dx == 0` was not an edge case to be protected — it was every
+/// pure `dy`, so `dx == 0` was not an edge case to be protected: it was every
 /// entrance and every exit in the room.
 ///
 /// **Nothing in the suite caught it**, which is why this file exists: the full
@@ -29,8 +29,8 @@ struct TravelFacingTests {
 
     // MARK: The rule, as arithmetic
 
-    /// The axis convention, pinned. `wallBaseY` is `floorRows * tile` — the back
-    /// of the room — and `upstageExit` walks to it, so **increasing `y` is away
+    /// The axis convention, pinned. `wallBaseY` is `floorRows * tile` (the back
+    /// of the room) and `upstageExit` walks to it, so **increasing `y` is away
     /// from the camera**. If this ever inverts, every entrance in the room walks
     /// in backwards and this is the assertion that says so.
     @Test func verticalTravelAnswersUpAndDownRatherThanKeepingASideView() {
@@ -41,7 +41,7 @@ struct TravelFacingTests {
                 "a vertical walk still inherits a side view")
     }
 
-    /// Horizontal travel is unchanged — the one lateral route in the room is the
+    /// Horizontal travel is unchanged: the one lateral route in the room is the
     /// delivery corridor, and it must still turn the reporter sideways.
     @Test func horizontalTravelIsUnchanged() {
         #expect(Facing.forTravel(dx: 30, dy: 0, current: .up) == .right)
@@ -71,7 +71,7 @@ struct TravelFacingTests {
     // MARK: The room, measured
 
     /// **The entrance really is vertical**, read off `RoomLayout` rather than
-    /// asserted — this is the premise the whole fix rests on, so it is measured
+    /// asserted: this is the premise the whole fix rests on, so it is measured
     /// instead of quoted from a comment.
     @Test func everyEntranceRouteInTheRoomIsAPureVerticalWalk() {
         let layout = RoomLayout()
@@ -93,7 +93,7 @@ struct TravelFacingTests {
     /// pixels rather than ninety-six.** The exit stops at whatever the seat
     /// stands behind its own occupant
     /// [`RoomLayout.upstageClearance(forSeat:metrics:)`], and what stops it is
-    /// `awayDeskUpstage` — a quarter tile — so the leg survives, shortened. The
+    /// `awayDeskUpstage` (a quarter tile) so the leg survives, shortened. The
     /// direction is what this test is about; the length is
     /// `RouteFurnitureTests`'.
     @Test func everyExitInTheRoomWalksStraightUpstage() throws {
@@ -124,7 +124,7 @@ struct TravelFacingSceneTests {
     }
 
     /// **A character walking in faces away from the camera.** Before the fix
-    /// this was `.right` — `Character.currentFacing`'s initial value — for the
+    /// this was `.right` (`Character.currentFacing`'s initial value) for the
     /// whole of the walk, on every arrival in the room's life.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aCharacterWalkingInIsDrawnWalkingAway() throws {
@@ -151,7 +151,7 @@ struct TravelFacingSceneTests {
             }
         }
         // And the four directions are genuinely four pictures, not one sheet
-        // pointed at four times — the sit row's own defect, which is why
+        // pointed at four times: the sit row's own defect, which is why
         // `working` is excluded here.
         let up = store.frames(variant: variant, state: .walk, facing: .up)
         let down = store.frames(variant: variant, state: .walk, facing: .down)

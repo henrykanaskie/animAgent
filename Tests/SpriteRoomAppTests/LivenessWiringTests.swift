@@ -14,7 +14,7 @@ import Testing
 /// for, a **dark** lamp means we asked and nothing answered. [ADR-004 §6]
 ///
 /// It asserts on node presence and phase only, never on pixels, so it needs the
-/// manifest — which is committed — and not the art, which is not.
+/// manifest (which is committed) and not the art, which is not.
 @MainActor
 @Suite struct LivenessWiringTests {
 
@@ -72,7 +72,7 @@ import Testing
         #expect(binding.scene.camera?.children.count == 1)
     }
 
-    /// Losing the source takes the lamp down rather than freezing it — a lamp
+    /// Losing the source takes the lamp down rather than freezing it: a lamp
     /// left on screen with nothing behind it is the fiction this design is
     /// entirely about not shipping. [I4]
     @Test func losingTheSourceTakesTheLampDown() throws {

@@ -3,12 +3,12 @@ import Testing
 import SpriteRoomCore
 @testable import SpriteRoomScene
 
-/// **ADR-005 — posture carries the turn.**
+/// **ADR-005: posture carries the turn.**
 ///
 /// The defect these tests were written against is the maintainer's own report of
 /// the shipped app: *"the sprites would be doing something for like 1 second then
 /// stopping, then resuming, then stopping"*. `SceneDirector` keyed the body on
-/// the open-call set — `openCalls.isEmpty ? .idle : .working` — and `idle` is a
+/// the open-call set (`openCalls.isEmpty ? .idle : .working`) and `idle` is a
 /// **standing** pose, so a character stood up and sat down on every tool-call
 /// boundary. The median call in `fixtures/` is 23 ms and the median gap between
 /// calls is seconds, so the room asserted that an agent left its workstation
@@ -53,7 +53,7 @@ struct PostureTests {
     /// and its turn has not ended.
     ///
     /// Against the rule this replaces, the close emits `setBody(.idle)` 23 ms
-    /// after the spawn and the next open emits `setBody(.working)` 2.35 s later —
+    /// after the spawn and the next open emits `setBody(.working)` 2.35 s later:
     /// two changes of the loudest channel in the room, carrying nothing the badge
     /// does not already carry.
     @Test func theBodyDoesNotStandUpBetweenTwoCallsOfOneTurn() {
@@ -71,7 +71,7 @@ struct PostureTests {
         #expect(director.bodyState(agent) == .working,
                 "the character stood up 23 ms after sitting down; no event said it left its desk")
         #expect(Self.bodies(closed).isEmpty,
-                "a close emitted \(Self.bodies(closed)) — the turn did not end, so the posture must not move")
+                "a close emitted \(Self.bodies(closed)), the turn did not end, so the posture must not move")
 
         let opened = director.apply(
             [.callOpened(agent: agent, call: Self.call("b", "Bash"))],
@@ -127,8 +127,8 @@ struct PostureTests {
 
     // MARK: The turn boundary that the delta stream carries
 
-    /// `SubagentStop` is the one turn boundary the model emits a delta for —
-    /// `dormancyChanged(true)` — and it is what stands a subagent up. The `Z` tab
+    /// `SubagentStop` is the one turn boundary the model emits a delta for
+    /// (`dormancyChanged(true)`), and it is what stands a subagent up. The `Z` tab
     /// then sits over a body that agrees with it: standing, still, finished.
     ///
     /// A revival seats it again, which is `SubagentStart` or the subagent's next
@@ -198,7 +198,7 @@ struct PostureTests {
     }
 
     /// A turn ending takes no badge and no motion. It is the posture channel and
-    /// nothing else — the same division `gateChanged` keeps in the other
+    /// nothing else: the same division `gateChanged` keeps in the other
     /// direction, where the motion moves and the posture does not.
     @Test func aTurnEndingTakesNoBadgeAndCancelsNoBeat() {
         var director = Self.director()
@@ -224,7 +224,7 @@ struct PostureTests {
                 "a turn ending moved the badge")
     }
 
-    // MARK: The main agent's turn boundary — ADR-005 §3, correction 1
+    // MARK: The main agent's turn boundary, ADR-005 §3, correction 1
 
     /// **The central test of `turnChanged`.** `Stop` is the main thread's turn
     /// boundary and until now it left the model in no form at all, so the main
@@ -241,7 +241,7 @@ struct PostureTests {
         let measured = try await Self.measure("denial-then-work")
         #expect(measured.after == 6, Comment(rawValue:
             "the main character changed posture \(measured.after) times over four prompts and"
-            + " three Stops — ADR-005 §3 measures six"))
+            + " three Stops, ADR-005 §3 measures six"))
     }
 
     /// A turn that uses no tool at all. `fixtures/idle-notification.jsonl` is one
@@ -250,7 +250,7 @@ struct PostureTests {
     /// (0 changes); under the turn rule it sits at the prompt and stands at the
     /// `Stop`.
     ///
-    /// This is M4's defect — *an agent that was thinking was invisible* — read on
+    /// This is M4's defect (*an agent that was thinking was invisible*), read on
     /// the body channel rather than on the roster, and it is the half of it that
     /// was left unfinished.
     @Test func aTurnThatCallsNoToolIsStillVisibleOnTheBody() async throws {
@@ -267,7 +267,7 @@ struct PostureTests {
 
     /// One character's posture over one fixture, under both rules.
     struct PostureTrace: Sendable {
-        /// Posture changes the scene performs, counting the first one — the
+        /// Posture changes the scene performs, counting the first one: the
         /// character has to be drawn in *some* posture when it appears.
         var changes = 0
         var lastState: BodyState?
@@ -280,7 +280,7 @@ struct PostureTests {
         /// The composite above is the honest headline and it is the wrong number
         /// to *diagnose* with, because the two halves mean opposite things. A
         /// short **standing** interval is the defect: the character stood up and
-        /// sat back down, so a turn boundary was drawn where no turn ended —
+        /// sat back down, so a turn boundary was drawn where no turn ended,
         /// which is precisely what ADR-005 §9 risk 3 warns `Stop` could produce.
         /// A short **seated** interval is a short *turn*: the user prompted and
         /// the assistant finished, and the room saying so quickly is the room
@@ -404,7 +404,7 @@ struct PostureTests {
     /// | | keyed to the call | keyed to the turn | + the main agent's `Stop` |
     /// |---|---:|---:|---:|
     /// | posture changes, all 17 fixtures | 95 | 40 | **73** |
-    /// | shortest **standing** dwell | — | 8.196 | **4.226** |
+    /// | shortest **standing** dwell | - | 8.196 | **4.226** |
     /// | shortest **seated** dwell | 0.017 | ∞ | **1.706** |
     ///
     /// **0.017 s is one frame and it is a floor imposed by the measurement**,
@@ -419,12 +419,12 @@ struct PostureTests {
     /// seated interval is a short *turn*: `idle-notification` is one prompt whose
     /// answer took 1.706 s, `three-subagents` has three turns of 1.80–5.23 s.
     /// The room drawing a 1.7 s turn as a 1.7 s seated interval is the room being
-    /// right, and it is drawing **one** transition — the character spawns seated,
+    /// right, and it is drawing **one** transition: the character spawns seated,
     /// stands once, and then stands for 119 s.
     ///
     /// The interval that would be the defect is a short **standing** one: a
     /// character that stood up and sat back down means a turn boundary was drawn
-    /// where no turn ended, which is ADR-005 §9 risk 3 —  `Stop` fires once per
+    /// where no turn ended, which is ADR-005 §9 risk 3: `Stop` fires once per
     /// assistant message stream and can fire several times in one user turn. That
     /// number is **4.226 s**, reproducing ADR-005 §3's own prediction exactly,
     /// and nothing in the corpus is under it. The measurement behind why is in
@@ -439,7 +439,7 @@ struct PostureTests {
             total.absorb(measured)
             rows.append(String(
                 format: "  %-28s before %3d (min %7.3f s)  after %3d (min %7.3f s"
-                    + " — standing %7.3f, seated %7.3f)",
+                    + ", standing %7.3f, seated %7.3f)",
                 (name as NSString).utf8String!, measured.before, measured.minimumDwellBefore,
                 measured.after, measured.minimumDwellAfter,
                 measured.minimumStandingDwell, measured.minimumSeatedDwell))
@@ -448,7 +448,7 @@ struct PostureTests {
         print(rows.joined(separator: "\n"))
         print(String(
             format: "  TOTAL before %d (min %.3f s) after %d (min %.3f s"
-                + " — standing %.3f, seated %.3f)",
+                + ", standing %.3f, seated %.3f)",
             total.before, total.minimumDwellBefore, total.after, total.minimumDwellAfter,
             total.minimumStandingDwell, total.minimumSeatedDwell))
 
@@ -461,7 +461,7 @@ struct PostureTests {
         // which is the strobe returning on the key ADR-005 §9 risk 3 names.
         #expect(total.minimumStandingDwell > 4.0, Comment(rawValue:
             "a character stood up and sat back down inside"
-            + " \(total.minimumStandingDwell) s — Stop is being drawn as a turn end where the"
+            + " \(total.minimumStandingDwell) s, Stop is being drawn as a turn end where the"
             + " turn did not end [ADR-005 §9 risk 3]"))
 
         // Pinned, so that a change to the rule has to restate the table above

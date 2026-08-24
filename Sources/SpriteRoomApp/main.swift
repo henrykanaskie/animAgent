@@ -62,7 +62,7 @@ struct Options {
     /// Live mode: show the first-run consent dialog when hooks are absent.
     var hookPrompt = true
     /// Answer the first-run question without a dialog. For a harness that has
-    /// nobody to click it — never a default, because silence is not consent.
+    /// nobody to click it, never a default, because silence is not consent.
     var consentAnswer: HookConsent?
     /// Live mode: never show the removal-on-quit dialog.
     var quitPrompt = true
@@ -80,7 +80,7 @@ struct Options {
     var renderDirectory: URL?
     var renderTimes: [Double] = []
     /// `--render-scale N`: hold the camera at one rung instead of letting the
-    /// population pick. Only `scripts/preview-theme.py --verify` sets it — see
+    /// population pick. Only `scripts/preview-theme.py --verify` sets it: see
     /// `SceneBinding.pinnedScale` for why that check cannot register the room
     /// without it.
     var renderScale: Int?
@@ -369,14 +369,14 @@ func runHookAction(_ action: HookAction, options: Options) -> Int32 {
 /// **Why the harnesses need this at all.** `--render` is the safe way to look at
 /// what the app draws: it produces the scene offscreen and never touches the
 /// display, unlike `--panel-render`. It used to build a `RoomScene` with no
-/// theme, so it drew the plain office and nothing else — theme selection lived
+/// theme, so it drew the plain office and nothing else; theme selection lived
 /// only in `RoomHost`, which only the `--live` path constructs. A renderer that
 /// cannot show what the app will actually draw is not a renderer of this app.
 ///
 /// **Why the default is derived rather than the manifest default.** `--render`
 /// with no `--theme` now answers the question "what will this fixture's project
 /// look like", and the answer the app itself gives is
-/// `ThemeSelector.theme(for:stored:manifest:)` over the fixture's `cwd` — the
+/// `ThemeSelector.theme(for:stored:manifest:)` over the fixture's `cwd`, the
 /// same function, in the same module, guarded by the same pinned FNV-1a vector.
 /// Silently drawing the default room instead was the bug.
 ///
@@ -387,7 +387,7 @@ func runHookAction(_ action: HookAction, options: Options) -> Int32 {
 /// is the opposite of what a harness is for. `--theme` is how you ask for a
 /// specific room; the flag says it, so nothing is silent either way.
 enum ResolvedTheme {
-    /// The id to hand to *both* halves. `nil` means `manifest.room` — the room
+    /// The id to hand to *both* halves. `nil` means `manifest.room`: the room
     /// this app drew before themes existed, and the honest answer for a
     /// manifest that declares none.
     case theme(String?)
@@ -488,7 +488,7 @@ func replay(
 ///
 /// It binds a *real* ephemeral listener, starts the *real* `ListenerHeartbeat`
 /// against it, and renders the real `RoomScene` through the real `SKRenderer`
-/// on wall time. Halfway through it calls `stopListenerOnly()` — the listener
+/// on wall time. Halfway through it calls `stopListenerOnly()`: the listener
 /// dies, the heartbeat keeps beating against a port nothing is on, every round
 /// trip fails, and the lamp goes dark on its own.
 ///
@@ -501,7 +501,7 @@ func replay(
 /// **Port 0.** Never the user's 8787: this must not bind, disturb or be
 /// mistaken for the app they have running.
 ///
-/// The room is empty for the whole run, on purpose — an empty room is the exact
+/// The room is empty for the whole run, on purpose; an empty room is the exact
 /// picture the maintainer could not tell from a broken app, so it is the
 /// picture the frames have to be of.
 @MainActor
@@ -532,7 +532,7 @@ func renderLivenessDemo(options: Options, root: URL) async throws -> Int {
     print("liveness demo: listener on 127.0.0.1:\(bound), heartbeat every "
         + "\(ListenerHeartbeat.interval)s")
 
-    // One frame every 125 ms — the wink's own length, so no wink can fall
+    // One frame every 125 ms, the wink's own length, so no wink can fall
     // between two samples. A rig that could miss the thing it is measuring is
     // ADR-003 §12 item 1's complaint, answered before it is made.
     let step = LivenessLamp.winkDuration
@@ -603,7 +603,7 @@ func renderOffscreen(options: Options, root: URL, entries: [HookLogEntry]) async
     // hands the same id to the scene (which draws the props) and to the
     // `SceneDirector` (which resolves each agent's station). Building the scene
     // separately and passing it in is what let the director default to `nil`
-    // while the scene was themed — a character seated at a station the room is
+    // while the scene was themed: a character seated at a station the room is
     // not dressed for, silently, because both halves are individually valid.
     // [ADR-002 §8 item 5]
     let binding = SceneBinding(manifest: manifest, themeID: themeID, viewport: viewport)
@@ -734,7 +734,7 @@ final class WindowDelegate: NSObject, NSApplicationDelegate {
                 themeID: themeID,
                 viewport: CGSize(width: options.width, height: options.height))
             let scene = binding.scene
-            window.title = "Sprite Room — \(scene.store.manifest.credit.text)"
+            window.title = "Sprite Room - \(scene.store.manifest.credit.text)"
             view.presentScene(scene)
             self.binding = binding
             self.window = window
@@ -767,7 +767,7 @@ final class WindowDelegate: NSObject, NSApplicationDelegate {
                 if let name = self.capture(scene: scene, at: mark) { written.append(name) }
             },
             // The window host draws to a screen a person is watching in real
-            // time, so wall time is the right clock for a wall-clock dwell —
+            // time, so wall time is the right clock for a wall-clock dwell,
             // including under `--speed`, where fixture time is compressed but
             // the viewer's is not.
             into: { binding.apply($0, at: Date()) })
@@ -802,7 +802,7 @@ final class WindowDelegate: NSObject, NSApplicationDelegate {
 /// The one knot in the composition root: the menu bar and the room, tied
 /// together in the only direction the architecture allows.
 ///
-/// Everything here is a **push** downstream — the host tells the selector what
+/// Everything here is a **push** downstream: the host tells the selector what
 /// exists; the selector's callbacks hand the user's intent back to the host and
 /// then forget about it. The selector never reads `RoomHost`, which is why the
 /// three theme properties are assigned on the roster callback rather than
@@ -811,13 +811,13 @@ final class WindowDelegate: NSObject, NSApplicationDelegate {
 /// It is a function rather than four lines inside `applicationDidFinishLaunching`
 /// so that a test can drive the wiring the app actually ships. Four closures
 /// re-typed in a test file are four closures that can go on passing after the
-/// app's own copy has rotted — and this knot is exactly where a theme pick would
+/// app's own copy has rotted, and this knot is exactly where a theme pick would
 /// stop reaching disk without anything failing.
 @MainActor
 func connect(host: RoomHost, selector: ProjectSelector) {
     // The derived half of ADR-002 §3c. Without this the hash never runs, every
     // project falls straight to `themes.default`, and the picker is the only way
-    // a room is ever anything but the default — which is not the design, it is
+    // a room is ever anything but the default, which is not the design, it is
     // half of it. `rendezvous` lives in `SpriteRoomScene` beside its pinned
     // FNV-1a vector; implementing it here as well would leave that vector
     // guarding half the mapping. [§11 risk 7]
@@ -830,7 +830,7 @@ func connect(host: RoomHost, selector: ProjectSelector) {
         // What **Automatic** would give back, and whether it has anything to
         // give back. Pushed on the same callback as the theme itself, because
         // `rebuild()` is what fires it and a pick, a revert and a project switch
-        // all go through `rebuild()` — so the three can never disagree.
+        // all go through `rebuild()`, so the three can never disagree.
         selector?.derivedThemeID = host?.derivedThemeID
         selector?.isThemePinned = host?.isThemePinned ?? false
         selector?.update(entries: entries, selected: selected)
@@ -875,7 +875,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // `.accessory`: no Dock icon, no app menu, and the app is never
-        // activated by being launched. The first line of defence for I8 — an
+        // activated by being launched. The first line of defence for I8: an
         // accessory app that also refuses key windows has no route to focus at
         // all.
         NSApp.setActivationPolicy(.accessory)
@@ -910,7 +910,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
             controller.start()
 
             let geometry = controller.geometry
-            print("notch panel ready — "
+            print("notch panel ready: "
                 + (geometry.hasPhysicalNotch
                     ? "physical notch \(geometry.physicalNotch!)"
                     : "no notch on this display, hot zone synthesised")
@@ -948,7 +948,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                         await self.tearDownPanel()
                         NSApp.terminate(nil)
                     }
-                    print("replay finished — the panel stays up")
+                    print("replay finished; the panel stays up")
                 }
             }
         } catch {
@@ -1085,7 +1085,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
             let now = Date()
             // Every frame, empty batch or not: the roster ages on this call and
             // a project that has gone quiet produces no deltas to ride in on.
-            // The pilot lamp needs the same treatment for the same reason —
+            // The pilot lamp needs the same treatment for the same reason:
             // its wink ends by the clock passing an instant, and an idle app is
             // exactly the case where no delta will ever arrive to end it.
             host.consume(deltas, at: now, liveness: driver.liveness)
@@ -1178,7 +1178,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
         case .alreadyInstalled:
             print("hooks already registered in \(installer.settingsURL.path)")
         case .installed:
-            print("hooks registered in \(installer.settingsURL.path) — "
+            print("hooks registered in \(installer.settingsURL.path); "
                 + "run `spriteroom --remove-hooks` to take them out again")
         case .reinstalled(let ports):
             print("hooks re-pointed from port(s) \(ports.map(String.init).joined(separator: ", "))"
@@ -1230,7 +1230,7 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
     /// is listening on, so offer to take them out.
     ///
     /// **What goes wrong without this.** The hooks are registered at user
-    /// scope — one registration, routed by `cwd`, which is the design and not
+    /// scope: one registration, routed by `cwd`, which is the design and not
     /// an accident. So they fire for *every* Claude Code session on the
     /// machine, in every project, whether or not SpriteRoom is running. The
     /// moment this process is gone, every tool call in every session POSTs to a
@@ -1244,13 +1244,13 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
     /// match. Removing without asking would also quietly undo a deliberate
     /// choice every time someone quit and relaunched. `HookInstaller.remove()`
     /// does the writing, restoring the original bytes from the install-time
-    /// backup — no second write path exists and none is added here.
+    /// backup; no second write path exists and none is added here.
     ///
     /// **This covers a quit, and only a quit.** A crash, a `kill -9`, a reboot
     /// or a power cut runs no code of ours, so nothing in this app can cover
     /// them; see the note in `README.md`. The menu bar's **Remove Claude Code
     /// Hooks** is the manual equivalent and predates this, and
-    /// `spriteroom --remove-hooks` works with no window server at all — which
+    /// `spriteroom --remove-hooks` works with no window server at all, which
     /// is the recovery path after a crash, because there cannot be another one.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // Before the dialog, not after: an alert with the room still hanging
@@ -1400,7 +1400,7 @@ guard let options = parse(arguments) else { exit(2) }
 
 // Installing hooks opens no window and needs no scene. It happens before
 // anything else so a bad manifest cannot stop the user from *removing* our
-// hooks — the one operation that must always be available.
+// hooks: the one operation that must always be available.
 if let action = options.hookAction {
     exit(runHookAction(action, options: options))
 }
@@ -1409,7 +1409,7 @@ let root = Manifest.developmentRoot()
 
 // `--panel-render` reveals the *real* panel over whatever you are doing, at a
 // level above the menu bar, on every space, ignoring the mouse. It is worth
-// having — the panel is sometimes the thing under test — but it is never worth
+// having (the panel is sometimes the thing under test) but it is never worth
 // having by accident, and it is not the way to look at the scene: `--render`
 // draws the same room offscreen, takes `--theme`, and never touches the
 // display. So the panel path says what it costs and asks you to mean it.
@@ -1431,8 +1431,8 @@ if options.panelRenderDirectory != nil, !options.forcePanelRender {
 
 // `--theme` names the room for the two hosts that build one from a flag. The
 // panel derives a theme per project from its `cwd` and takes overrides from
-// Room ▸ — a flag there would be a fourth answer to a question §3c already
-// answers, so it is refused rather than ignored.
+// Room ▸ (a flag there would be a fourth answer to a question §3c already
+// answers), so it is refused rather than ignored.
 if let requested = options.themeID, requested != "list", options.host == .panel {
     print("--theme applies to --render and --window. The panel derives each "
         + "project's room from its cwd; Room ▸ in the menu bar overrides it.")

@@ -11,7 +11,7 @@ import SpriteRoomScene
 /// `SceneDirector` no theme either, so it always drew the plain office. Theme
 /// selection lived only in `RoomHost`, which only the `--live` path constructs.
 /// That made the offscreen renderer unable to show what the app will actually
-/// draw — and `--render` is the *safe* alternative to `--panel-render`, which
+/// draw, and `--render` is the *safe* alternative to `--panel-render`, which
 /// reveals the real panel over whatever you are doing. So the harness you are
 /// told to use instead was the one that could not answer the question.
 ///
@@ -19,7 +19,7 @@ import SpriteRoomScene
 ///
 /// 1. **The default is derived, not the manifest default.** With no `--theme`,
 ///    the room is what `ThemeSelector.theme(for:stored:manifest:)` returns for
-///    the fixture's `cwd` — the same function the app itself uses, in the same
+///    the fixture's `cwd`, the same function the app itself uses, in the same
 ///    module, guarded by the same pinned FNV-1a vector. Anything else is the
 ///    renderer quietly drawing a different room from the app.
 /// 2. **Both halves get the same id.** The scene draws the props and the
@@ -69,7 +69,7 @@ struct RenderThemeTests {
             options: Self.options(), manifest: manifest, entries: entries)
         else { Issue.record("no theme resolved"); return }
 
-        // Not "some theme" — *the* theme, from the one function that owns the
+        // Not "some theme": *the* theme, from the one function that owns the
         // mapping. Reimplementing the rule here would leave the pinned FNV-1a
         // vector guarding half of it. [ADR-002 §11 item 7]
         let expected = ThemeSelector.theme(for: cwd, stored: [:], manifest: manifest)
@@ -78,7 +78,7 @@ struct RenderThemeTests {
 
     /// The bug, stated as a test: silently drawing the default room instead of
     /// the derived one. This passes only because they happen to differ for this
-    /// fixture — so it is written to fail loudly if that ever stops being true,
+    /// fixture, so it is written to fail loudly if that ever stops being true,
     /// rather than to quietly stop proving anything.
     @Test func theDerivedRoomIsNotJustTheManifestDefault() throws {
         let manifest = try #require(Self.manifest)
@@ -93,12 +93,12 @@ struct RenderThemeTests {
             drawn != manifest.themes.defaultID,
             Comment(rawValue: "this fixture's cwd now derives to the manifest default"
                 + " (\(manifest.themes.defaultID ?? "nil")), so this test no longer"
-                + " distinguishes a derived room from a defaulted one — point it at a"
+                + " distinguishes a derived room from a defaulted one; point it at a"
                 + " fixture whose cwd does not"))
     }
 
     /// Two fixtures, two captured `cwd`s, two rooms. If the renderer ignored
-    /// `cwd` — which is exactly what it used to do — these would be equal.
+    /// `cwd` (which is exactly what it used to do) these would be equal.
     @Test func twoFixturesWithDifferentCwdsDrawDifferentRooms() throws {
         let manifest = try #require(Self.manifest)
         let first = try Self.cwd(Self.mainCapture)
@@ -120,7 +120,7 @@ struct RenderThemeTests {
 
     /// S6: the same project draws the same room on every launch. The renderer
     /// inherits that, and the way it inherits it is by not consulting anything
-    /// that varies — no stored picks, no clock, no process-seeded hash.
+    /// that varies: no stored picks, no clock, no process-seeded hash.
     @Test func theSameFixtureResolvesToTheSameRoomEveryTime() throws {
         let manifest = try #require(Self.manifest)
         let entries = try Self.entries(Self.mainCapture)

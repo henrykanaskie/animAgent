@@ -2,7 +2,7 @@
 """Catalogue import pass. Brings the WHOLE of the purchased packs within reach.
 
 `process-assets.py` imports the narrow slice the scene draws today: the Office
-singles, the Room Builder, six premade characters and the badge sheet — 2,246
+singles, the Room Builder, six premade characters and the badge sheet: 2,246
 files out of 53,933 on disk, or 4.2% of what was bought. This script imports the
 rest, so that choosing a prop is a lookup rather than a shopping trip back into
 the raw packs.
@@ -13,10 +13,10 @@ Every themed prop ships **nine times**: three lighting treatments (with shadow,
 black shadow, shadowless) at three sizes (16x16, 32x32, 48x48). Importing all
 nine would be importing the same picture nine times. This takes:
 
-  - **one lighting treatment** — the default, with the pack's own baked shadow,
+  - **one lighting treatment**: the default, with the pack's own baked shadow,
     because `process-assets.py` already has `strip_shadow` for the room pass and
     a shadow can be removed but not invented;
-  - **two sizes** — 32x32, which the app is built on, and 48x48, which
+  - **two sizes**: 32x32, which the app is built on, and 48x48, which
     `docs/ASSET-INVENTORY.md` argues is the single largest legibility lever
     available. 16x16 is skipped: nothing renders at it and it is a downscale of
     art we already have.
@@ -34,8 +34,8 @@ reasons:
   - **A byte copy is trivially idempotent.** No encoder, no rounding, no
     parameter key. Re-running cannot change output.
 
-Each entry is *measured* on the way through — content box, alpha coverage, peak
-saturation and value — so the placement pass can filter on I7 compliance without
+Each entry is *measured* on the way through (content box, alpha coverage, peak
+saturation and value) so the placement pass can filter on I7 compliance without
 reopening a single PNG.
 
 Python 3 stdlib only, like every other script here. No pip, no Pillow.
@@ -139,15 +139,15 @@ def theme_singles(size, entries, stats):
 
     **Shadowless, and the choice is forced rather than aesthetic.**
 
-    The pack ships each theme's singles three times — default (baked shadow),
-    Black_Shadow and Shadowless — and the three do **not** share a numbering.
+    The pack ships each theme's singles three times: default (baked shadow),
+    Black_Shadow and Shadowless, and the three do **not** share a numbering.
     Measured across all 24 themes: nine disagree, some wildly. Classroom is 249
     default against 75 shadowless; Music and Sport is 164 against 249; Birthday
     Party 46 against 29. An index means a different picture in each set.
 
     `scripts/contact-sheet.py` renders **Shadowless**, and contact sheets are how
-    every prop in this project gets identified — by eye, the method the manifest
-    records for `desk`. Importing one set and identifying against another would
+    every prop in this project gets identified (by eye, the method the manifest
+    records for `desk`). Importing one set and identifying against another would
     attach names to the wrong props in nine themes, silently, with nothing to
     catch it. So the import follows the identification tool.
 
@@ -201,7 +201,7 @@ def animated_objects(size, entries, stats):
         src = os.path.join(root, f)
         extra = {}
         try:
-            # 33 bytes, not a full decode — the strip's aspect is all we need
+            # 33 bytes, not a full decode: the strip's aspect is all we need
             # and `measure` is about to decode it properly anyway.
             w, h = pnglite.read_header(src)[:2]
             if h and w % h == 0:
@@ -215,11 +215,11 @@ def animated_objects(size, entries, stats):
 def ui_emotes(entries, stats):
     """Emotes, UI sheets and the portrait generator.
 
-    **`Animated_Spritesheets/` is 24 GIFs and no PNGs** — checked, not assumed.
+    **`Animated_Spritesheets/` is 24 GIFs and no PNGs** (checked, not assumed).
     The emote *pixels* live in `UI_thinking_emotes_animation_32x32.png`, a
     320x320 sheet (a 10x10 grid of 32 px cells: ten emotes, ten frames each),
     which is taken below. The GIFs stay where they are and remain what
-    `process-assets.py:gif_timing` reads frame rates out of — the one place in
+    `process-assets.py:gif_timing` reads frame rates out of: the one place in
     any of these packs that states how fast a thing is meant to move.
     """
     base = os.path.join(INTERIORS, "4_User_Interface_Elements")
@@ -242,7 +242,7 @@ def ui_emotes(entries, stats):
 
 
 def room_builder(size, entries, stats):
-    """Walls, floors, borders, entryways — the room construction kit."""
+    """Walls, floors, borders, entryways: the room construction kit."""
     for pack, sub in ((INTERIORS, os.path.join("1_Interiors", size, "Room_Bulder_subfiles_" + size)),
                       (INTERIORS, os.path.join("1_Interiors", size, "Room_Builder_subfiles_" + size))):
         root = os.path.join(pack, sub)

@@ -7,7 +7,7 @@ import Testing
 /// 10 000 requests.
 ///
 /// The number matters because there is no `async` field on the HTTP hook
-/// schema — the session blocks on the answer, so this latency is added to every
+/// schema: the session blocks on the answer, so this latency is added to every
 /// tool call the user makes. A listener that held for 3 s was measured adding
 /// 3 s per call. [I5]
 @Suite(.serialized) struct ListenerLatencyTests {

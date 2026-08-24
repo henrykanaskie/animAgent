@@ -1,7 +1,7 @@
 import Foundation
 import SpriteRoomCore
 
-/// The badge above a character's head — the layer that carries *which tool*.
+/// The badge above a character's head: the layer that carries *which tool*.
 ///
 /// Declaration order **is** the ordinal used to pick a badge when several calls
 /// are open. Reordering these cases changes on-screen behaviour. [I3]
@@ -14,7 +14,7 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
     case plug
     case questionMark
 
-    /// Position in the mapping table. Lower wins when several calls are open —
+    /// Position in the mapping table. Lower wins when several calls are open,
     /// deterministic ordering is what keeps the badge stable while calls
     /// interleave. Most-recent-wins flickers.
     public var ordinal: Int {
@@ -45,7 +45,7 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
     /// Anything unrecognised is the question mark, never a guess. A new tool
     /// name appearing tomorrow must not need new art. [I1]
     ///
-    /// **There are seven badges and no more are coming** — four are authored and
+    /// **There are seven badges and no more are coming**: four are authored and
     /// no further art packs will be bought [04-ART-DIRECTION, M5c]. So the only
     /// question a new tool can raise is "does it belong in a bucket that
     /// exists", never "what glyph does it need". Where the answer is no, the
@@ -59,7 +59,7 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
         // `ToolSearch` queries the tool catalogue by name or keyword and hands
         // back schemas. It reads no file, but neither does `Glob`, which is in
         // this bucket for matching *names* while `Grep` is here for matching
-        // *contents* — the bucket is retrieval, not the filesystem. `ToolSearch`
+        // *contents*: the bucket is retrieval, not the filesystem. `ToolSearch`
         // is the same act against a different index: a query in, matches out,
         // nothing mutated and nothing off-machine. Not `globe`, which is the
         // network, and `ToolSearch` never leaves the process.
@@ -70,14 +70,14 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
         case "WebSearch", "WebFetch":
             return .globe
         // `Agent` is the hook-payload name for subagent dispatch, and it is the
-        // only one. `Task` — the model-facing name, which never appears in a
-        // payload — was mapped here too, on the stated grounds that
+        // only one. `Task`: the model-facing name, which never appears in a
+        // payload: was mapped here too, on the stated grounds that
         // `docs/04-ART-DIRECTION.md` still listed it. `13fd7fc` removed it from
         // that copy, so the row existed in neither table and this was the last
         // residue of a documented M0 error [FINDINGS-M0, defect 81]. It is gone:
         // the tables own this mapping and the switch implements them, so a name
         // in no table is a divergence rather than a courtesy. Nothing is lost if
-        // the hook name is ever renamed — the room shows the question mark and
+        // the hook name is ever renamed: the room shows the question mark and
         // logs the tool as unmapped, which is the alarm this project designed
         // [I1], and `everyToolInEveryFixtureIsEitherMappedOrDeliberatelyNot`
         // fails on the first capture that carries the new name. Pre-accepting a
@@ -86,8 +86,8 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
         // **`SendMessage` is in this bucket on the strength of the capture, not
         // on a reading of its name.** `docs/03-EVENT-MODEL.md` already records
         // that a `SendMessage` `PreToolUse` is followed ~20 ms later by a
-        // `SubagentStart` — `fixtures/four-subagents.jsonl` has it twice, at
-        // 25 ms and 26 ms — which is the same event `Agent` produces and the
+        // `SubagentStart`: `fixtures/four-subagents.jsonl` has it twice, at
+        // 25 ms and 26 ms, which is the same event `Agent` produces and the
         // reason `SubagentStart` is not once per agent. So the room's own model
         // already treats `SendMessage` as dispatch, and badging it as anything
         // else would have the glyph disagree with the character waking up beside
@@ -99,8 +99,8 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
         // `command`, which "runs in the same shell environment as Bash", or a
         // `ws` WebSocket. The badge is keyed by name alone, so `terminal` would
         // be a claim about a shell for a call that may be a socket, and `globe`
-        // the reverse. The fixtures hold one `Monitor` call — 1 of the 83 in
-        // `fixtures/` — so the bucket would be right rarely and wrong rarely,
+        // the reverse. The fixtures hold one `Monitor` call: 1 of the 83 in
+        // `fixtures/`, so the bucket would be right rarely and wrong rarely,
         // and when the two are that close the honest glyph wins. [I1]
         default:
             return .questionMark
@@ -108,7 +108,7 @@ public enum ToolBadge: String, Sendable, Hashable, CaseIterable, Comparable {
     }
 
     /// Whether this badge was reached by falling through the table. The caller
-    /// logs these — an unmapped tool is a fact worth noticing, not an error.
+    /// logs these: an unmapped tool is a fact worth noticing, not an error.
     public static func isUnmapped(_ toolName: String) -> Bool {
         badge(forTool: toolName) == .questionMark
     }
@@ -125,11 +125,11 @@ public struct BadgeSelection: Sendable, Hashable {
     /// three concurrent calls read as three without needing three icons. [I3]
     public let count: Int
     /// Set while a `Notification` is outstanding for this character. **It wins
-    /// the badge slot** — see `isAttention`.
+    /// the badge slot**: see `isAttention`.
     public let attention: AttentionKind?
-    /// Set while this character has finished a turn and is still assigned —
+    /// Set while this character has finished a turn and is still assigned,
     /// `WorldDelta.dormancyChanged`. **It wins the slot against a tool badge and
-    /// loses it to attention** — see `isSleeping`.
+    /// loses it to attention**: see `isSleeping`.
     public let isDormant: Bool
 
     public static let none = BadgeSelection(
@@ -154,18 +154,18 @@ public struct BadgeSelection: Sendable, Hashable {
     ///    your agents are doing", letting an unactionable icon hide an
     ///    actionable one inverts the product.
     /// 2. It is the *more* truthful of the two. A call parked at a permission
-    ///    gate is not running — `PermissionRequest` lands ~16 ms after
-    ///    `PreToolUse` and the call then sits there — so drawing `terminal`
+    ///    gate is not running: `PermissionRequest` lands ~16 ms after
+    ///    `PreToolUse` and the call then sits there, so drawing `terminal`
     ///    over a gated `Bash` asserts work that is not happening, while the
     ///    attention glyph asserts a wait that is. [I1]
     /// 3. Showing both would need a second badge position, and the manifest
     ///    carries exactly one badge anchor (bottom-centre, tail pointing at the
-    ///    head). A second slot would be an eyeballed offset dressed as data —
+    ///    head). A second slot would be an eyeballed offset dressed as data,
     ///    the same reason M5 left the monitors unplaced. [I1]
     ///
     /// The `×N` goes because it annotates a *tool* badge: "N calls, of which
     /// this is the lowest ordinal". Pinned to the attention glyph it would read
-    /// as N notifications, which is never true — `idle_prompt` fires once and
+    /// as N notifications, which is never true: `idle_prompt` fires once and
     /// we count notifications nowhere.
     ///
     /// Determinism is unaffected: attention is a single flag, so the badge is
@@ -181,8 +181,8 @@ public struct BadgeSelection: Sendable, Hashable {
     ///
     /// **sleep over tool is unreachable and is defined anyway.** A dormant agent
     /// has no open calls: `SubagentStop` abandons every one of them in the same
-    /// batch that sets dormancy, and the only path that opens a call —
-    /// `PreToolUse` — goes through `WorldModel.ensureAgent`, which revives the
+    /// batch that sets dormancy, and the only path that opens a call,
+    /// `PreToolUse`: goes through `WorldModel.ensureAgent`, which revives the
     /// agent *before* the call opens. So the two are mutually exclusive in the
     /// live stream. The order is still written down rather than left to whatever
     /// the code happens to do, because "unreachable" is a property of today's
@@ -193,7 +193,7 @@ public struct BadgeSelection: Sendable, Hashable {
     /// **attention over sleep is reachable, and attention wins.** The path is
     /// narrow but real: `PermissionRequest` arms an agent's gate mark *without*
     /// going through `ensureAgent`, so it does not revive, and a
-    /// `permission_prompt` `Notification` then badges every marked agent — a
+    /// `permission_prompt` `Notification` then badges every marked agent: a
     /// dormant one included. It also arrives on the reconstruction path, where
     /// `ProjectRegistry` replays both facts for a project the user switched
     /// back to. Three reasons, and they are the same three that put attention
@@ -204,7 +204,7 @@ public struct BadgeSelection: Sendable, Hashable {
     ///    product whose one sentence is "you glance at the notch and know what
     ///    your agents are doing".
     /// 2. **It is the more urgent of two true things.** Both are true at once
-    ///    here, so this is not a truth question the way attention-over-tool is —
+    ///    here, so this is not a truth question the way attention-over-tool is,
     ///    it is a question of which true thing is worth the one anchor. "Waiting
     ///    on you, now" outranks "finished a turn, might come back", because only
     ///    the first has a deadline the user owns.
@@ -213,14 +213,14 @@ public struct BadgeSelection: Sendable, Hashable {
     ///    the monitors unplaced and the reason attention suppresses the `×N`.
     ///
     /// Nothing is lost by the loss: dormancy is a standing state, not an event,
-    /// so the `Z` comes back by itself the moment the badge above it clears —
+    /// so the `Z` comes back by itself the moment the badge above it clears,
     /// the agent's next consumed event clears the attention *and* revives it,
     /// which is one delta each and both in the same batch.
     public var isSleeping: Bool { isDormant && !isAttention }
 
     /// Lowest-ordinal badge across the open set, plus the total.
     ///
-    /// Order of `toolNames` is irrelevant by construction — that is the whole
+    /// Order of `toolNames` is irrelevant by construction: that is the whole
     /// point. Two calls opening in either order produce the same badge, so the
     /// badge changes at most once per change of the open-call set.
     ///
@@ -229,7 +229,7 @@ public struct BadgeSelection: Sendable, Hashable {
     /// to re-announce the calls.
     ///
     /// **`closingBeat` is the slot's lowest-precedence source and it is reached
-    /// only when the open set is empty** — the `guard` below is the whole of
+    /// only when the open set is empty**: the `guard` below is the whole of
     /// that ordering, so there is no new rule to get wrong. [ADR-003 §8 item 6]
     /// It carries `count: 0`, which is not a special case either: the count
     /// annotates the *open* set, the open set is empty for every frame of a
@@ -239,7 +239,7 @@ public struct BadgeSelection: Sendable, Hashable {
     /// The full order in this slot is **attention > sleep > open tool badge >
     /// closing beat**: the existing three with one entry appended at the
     /// bottom. `isAttention` and `isSleeping` are unchanged and both still win,
-    /// and they win *more* strongly here than over a live tool badge — they are
+    /// and they win *more* strongly here than over a live tool badge: they are
     /// beating a glyph about something that has already finished.
     public static func select(
         openToolNames toolNames: some Collection<String>,
@@ -259,7 +259,7 @@ public struct BadgeSelection: Sendable, Hashable {
     /// What this selection actually **draws**, as a value that compares equal
     /// when two selections put the same pixels in the slot.
     ///
-    /// The `×N` is drawn only above one — `Character.apply(badge:)` — so
+    /// The `×N` is drawn only above one (`Character.apply(badge:)`) so
     /// `(magnifier, count: 1)` and `(magnifier, count: 0)` are the same picture.
     /// That distinction is what ADR-003's closing beat turns from a curiosity
     /// into something the flicker bounds have to be stated in terms of: the
@@ -268,7 +268,7 @@ public struct BadgeSelection: Sendable, Hashable {
     /// flicker that no eye can see.
     ///
     /// Deliberately **not** `==`. The selection's own equality stays exact,
-    /// because the `setBadge` intent has to carry the true count — the ground-
+    /// because the `setBadge` intent has to carry the true count: the ground-
     /// truth rig compares it against the open-call set and a suppressed count
     /// change would read there as the room lying. [I1]
     public var drawn: Drawn {

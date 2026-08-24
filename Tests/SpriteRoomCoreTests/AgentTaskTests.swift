@@ -5,9 +5,9 @@ import Testing
 
 /// **What a subagent was dispatched to do.**
 ///
-/// The `Agent` tool's `PreToolUse` carries `tool_input.description` — a real
+/// The `Agent` tool's `PreToolUse` carries `tool_input.description`: a real
 /// 3–5 word task summary written at dispatch. `fixtures/` holds thirteen of
-/// them — ten written as capture prompts, and three off a real session
+/// them: ten written as capture prompts, and three off a real session
 /// (`authoring-subagents`, #72), which is where "3–5 words written for a
 /// colleague" stops being an assumption. The model
 /// repeats that string and does nothing else to it: no summarising, no
@@ -16,7 +16,7 @@ import Testing
 /// The whole join is `tool_use_id`. The description belongs to the *dispatching*
 /// call, and the child's `agent_id` is not known until that call's
 /// `PostToolUse`, so the two halves meet at the same instant the parent link
-/// does — which makes this retroactive by construction, exactly as
+/// does, which makes this retroactive by construction, exactly as
 /// `agentLinked` is. [I3]
 struct AgentTaskTests {
 
@@ -57,7 +57,7 @@ struct AgentTaskTests {
     }
 
     /// Every `tool_input.description` anywhere in the corpus, keyed by the tool
-    /// that carried it. `Agent` is not the only tool with the field — that is
+/// that carried it. `Agent` is not the only tool with the field: that is
     /// the whole reason the decode is restricted to it.
     static func descriptionsByTool() throws -> [String: [String]] {
         var found: [String: [String]] = [:]
@@ -113,7 +113,7 @@ struct AgentTaskTests {
 
         print("""
 
-            three-subagents.jsonl — dispatching tool_use_id -> agent_id, task
+            three-subagents.jsonl: dispatching tool_use_id -> agent_id, task
             \(reported.joined(separator: "\n"))
 
             """)
@@ -129,7 +129,7 @@ struct AgentTaskTests {
         #expect(await model.snapshot().agents.isEmpty)
     }
 
-    /// The task also stands in the snapshot, not only in the delta stream — a
+    /// The task also stands in the snapshot, not only in the delta stream: a
     /// scene attaching after the fact reads the same value.
     @Test func theTaskStandsInTheSnapshotUntilTheCharacterLeaves() async throws {
         let entries = try Fixtures.entries("three-subagents")
@@ -158,7 +158,7 @@ struct AgentTaskTests {
         #expect(subagents.allSatisfy { $0.parent == .mainThread })
     }
 
-    // MARK: [I1] — only a string the payload carried, and only from `Agent`
+    // MARK: [I1] - only a string the payload carried, and only from `Agent`
 
     /// **Every task the model ever emits is a `description` some `Agent`
     /// dispatch actually carried**, checked over all eighteen captures against
@@ -182,7 +182,7 @@ struct AgentTaskTests {
     /// the decode is keyed on the tool name.**
     ///
     /// 88 of the corpus's `Bash` calls carry one, and so does its single
-    /// `Monitor` call — but on a `Bash` it describes a shell command, not an
+    /// `Monitor` call, but on a `Bash` it describes a shell command, not an
     /// agent's assignment. Capturing those would put "Create the sandbox
     /// files" on a nameplate as though somebody had been sent to do it. [I1]
     ///
@@ -239,7 +239,7 @@ struct AgentTaskTests {
     }
 
     /// A `SendMessage` resume returns a `tool_response.agentId` and carries no
-    /// `description` — its `tool_input` has `summary`, `content`, `recipient`
+    /// `description`: its `tool_input` has `summary`, `content`, `recipient`
     /// and no such field. So a resume links without tasking, and saying nothing
     /// is the whole of the fallback. [I1]
     @Test func aResumeLinksWithoutInventingATask() async throws {
@@ -304,7 +304,7 @@ struct AgentTaskTests {
     }
 
     /// **The app attached mid-session.** With every `SubagentStart` dropped, the
-    /// dispatching `PostToolUse` arrives before the child exists — so the link
+    /// dispatching `PostToolUse` arrives before the child exists, so the link
     /// *and* the task wait together in `pendingParents` and are played out by
     /// the child's own first `PreToolUse`, in that order.
     ///
@@ -340,7 +340,7 @@ struct AgentTaskTests {
         #expect(await model.snapshot().agents.isEmpty)
     }
 
-    // MARK: [I4] — nothing held here outlives the call that held it
+    // MARK: [I4] - nothing held here outlives the call that held it
 
     /// **The description is held on the `OpenCall` and nowhere else, so a
     /// dispatch the reaper abandons takes it with it.**
@@ -349,7 +349,7 @@ struct AgentTaskTests {
     /// `Agent` dispatch, the clock is then advanced past that call's 15-minute
     /// deadline so the reaper closes it, and the capture's own `PostToolUse`
     /// for that same `tool_use_id` is delivered afterwards. The child is still
-    /// linked — `tool_response.agentId` is on the event, not on the call — and
+    /// linked (`tool_response.agentId` is on the event, not on the call) and
     /// carries **no** task, because the string went out with the call it lived
     /// on. Saying nothing is the fallback. [I1]
     ///
@@ -390,8 +390,8 @@ struct AgentTaskTests {
         #expect(abandoned)
         #expect(await model.snapshot().openCalls.isEmpty)
 
-        // The real close, delivered late. The link still lands — it rides on
-        // `tool_response.agentId`, which is on the event and not on the call —
+        // The real close, delivered late. The link still lands (it rides on
+        // `tool_response.agentId`, which is on the event and not on the call)
         // and there is nothing left to say about the task.
         let spawned = try #require(dispatch.spawned)
         var after = await model.ingest(try #require(closeEntry.event), at: reapedAt)
@@ -416,7 +416,7 @@ struct AgentTaskTests {
     /// The other force-close path, and the reason no bookkeeping is needed for
     /// it: `SessionEnd` removes the whole `SessionState`, which is where every
     /// `OpenCall`, every `AgentState.task` and every pending link live. Replay
-    /// every capture that reaches one and assert the world is empty — a
+    /// every capture that reaches one and assert the world is empty: a
     /// surviving task would need a store outside that structure, and there is
     /// none. [I4]
     @Test func sessionEndTakesEveryTaskWithIt() async throws {
@@ -431,10 +431,10 @@ struct AgentTaskTests {
         #expect(checked >= 3, "no fixture exercised a task through SessionEnd")
     }
 
-    // MARK: [I5] — the decode never walks a large `tool_input`
+    // MARK: [I5] - the decode never walks a large `tool_input`
 
-    /// A `PreToolUse` whose `tool_input` is megabytes — a 5.5 MB `Edit`
-    /// produces a 5.7 MB POST — must not cost the session anything for this
+    /// A `PreToolUse` whose `tool_input` is megabytes (a 5.5 MB `Edit`
+    /// produces a 5.7 MB POST) must not cost the session anything for this
     /// feature. It does not, because the branch that opens `tool_input` is
     /// reached only for `tool_name == "Agent"`, and an `Agent` dispatch's input
     /// is a prompt.

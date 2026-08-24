@@ -3,8 +3,8 @@ import Testing
 import SpriteRoomCore
 @testable import SpriteRoomApp
 
-/// The menu bar's model. Driven by real captured payloads — M0's fixtures,
-/// through the real `WorldModel` — so the delta shapes it folds are the shapes
+/// The menu bar's model. Driven by real captured payloads (M0's fixtures,
+/// through the real `WorldModel`) so the delta shapes it folds are the shapes
 /// that actually occur.
 ///
 /// M0 captured one project, so a second `cwd` is produced by *re-addressing*
@@ -164,7 +164,7 @@ struct ProjectRegistryTests {
         registry.absorb(
             try await Self.deltas("three-subagents", project: "/work/alpha"), at: Self.t0)
         #expect(registry.population(of: "/work/alpha") == 0)
-        // The project itself survives — it is a bucket, not a character.
+        // The project itself survives: it is a bucket, not a character.
         #expect(registry.projects == ["/work/alpha"])
     }
 
@@ -179,11 +179,11 @@ struct ProjectRegistryTests {
         #expect(registry.projects == ["/work/beta", "/work/alpha"])
     }
 
-    // MARK: Ageing — when a project stops being live
+    // MARK: Ageing: when a project stops being live
     //
     // The clock is advanced by handing `sweep` a later `Date`. There is no
     // `sleep` anywhere in this section, and the whole elapsed range covered
-    // below — up to a full day — costs nothing to run.
+    // below (up to a full day) costs nothing to run.
 
     @Test func aPopulatedProjectStaysLiveHoweverLongTheClockRuns() async throws {
         var registry = ProjectRegistry()
@@ -196,7 +196,7 @@ struct ProjectRegistryTests {
         #expect(registry.population(of: "/work/alpha") > 0)
 
         // A day of silence with characters still in the room is not this
-        // type's problem to solve — the reaper upstream owns that, and if it
+        // type's problem to solve: the reaper upstream owns that, and if it
         // ever fires the departures arrive here as deltas.
         let aged = registry.sweep(at: Self.t(86_400), pinning: nil)
         #expect(aged == false)
@@ -320,7 +320,7 @@ struct ProjectRegistryTests {
         #expect(ProjectRegistry.forgottenAfter == Reaper().sessionIdleTimeout)
     }
 
-    // MARK: Reconstruction — what switching projects feeds a fresh scene
+    // MARK: Reconstruction: what switching projects feeds a fresh scene
 
     @Test func reconstructionRebuildsExactlyTheLiveRoster() async throws {
         var registry = ProjectRegistry()
@@ -351,7 +351,7 @@ struct ProjectRegistryTests {
 
         // **A dormant character is still dormant after a project switch.**
         // Three of `three-subagents`' four agents stop before its `SessionEnd`,
-        // so the roster this reconstructs has three sleepers in it — and a
+        // so the roster this reconstructs has three sleepers in it, and a
         // fresh `SceneDirector` starts every presentation awake, so this delta
         // is the only thing that stops switching away and back waking them.
         let asleep = rebuilt.filter {
@@ -375,7 +375,7 @@ struct ProjectRegistryTests {
     /// the corpus's eight never close at all, so a gate is very likely to still
     /// be open when the user comes back to the project. A fresh `SceneDirector`
     /// starts every presentation ungated, so without the replay the switch would
-    /// put a blocked agent's body back into the busiest phrase in the room —
+    /// put a blocked agent's body back into the busiest phrase in the room:
     /// the exact fiction ADR-005 §7 removes, reintroduced by a menu click.
     ///
     /// `concurrent-permission-gates` is the fixture because it is the one that
@@ -429,7 +429,7 @@ struct ProjectRegistryTests {
     ///
     /// `SceneDirector` hands out a seat and a costume in the order agents
     /// appear, so the order of the `agentAppeared` deltas *is* the seating
-    /// plan. This walked `agents.keys.sorted()` — deterministic, so switching
+    /// plan. This walked `agents.keys.sorted()`, deterministic, so switching
     /// to a project twice looked identical both times, and nobody noticed that
     /// neither of them matched the room the live stream had built. Picking a
     /// theme rebuilds the room you are looking at, which is where two
@@ -471,7 +471,7 @@ struct ProjectRegistryTests {
     }
 
     /// An agent that leaves and comes back is a new arrival and goes to the end
-    /// of the room — the same thing the live stream does with it, which is the
+    /// of the room, the same thing the live stream does with it, which is the
     /// only claim arrival order makes.
     @Test func anAgentThatLeavesAndReturnsIsSeatedAsANewArrival() async throws {
         var registry = ProjectRegistry()
@@ -551,8 +551,8 @@ struct ProjectRegistryTests {
     /// **The posture is replayed after the open calls, and the order is the
     /// claim.**
     ///
-    /// `callOpened` is itself a turn opener — any `PreToolUse` seats a character
-    /// — so a rebuild that restated the posture before re-opening the calls would
+    /// `callOpened` is itself a turn opener (any `PreToolUse` seats a character)
+    /// so a rebuild that restated the posture before re-opening the calls would
     /// seat exactly the characters it had just stood up. The two really do
     /// co-occur: five `Stop`s in the corpus arrive with an interactively denied
     /// `Bash` still open that nothing in their stream will ever close, and

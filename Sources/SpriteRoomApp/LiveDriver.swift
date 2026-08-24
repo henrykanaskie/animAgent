@@ -10,7 +10,7 @@ import SpriteRoomCore
 ///
 /// **Two clocks, deliberately.** Events are stamped with the instant they are
 /// *drained*, not the instant they were received, because the listener must not
-/// spend a syscall on `Date()` inside the response path — I5 caps what happens
+/// spend a syscall on `Date()` inside the response path: I5 caps what happens
 /// there at decode-and-enqueue. The drain runs microseconds later; a deadline
 /// measured in tens of seconds does not care, and the user's every tool call
 /// does.
@@ -73,7 +73,7 @@ final class LiveDriver {
         boundPort = bound
 
         // Only now, and against the port that was actually bound rather than
-        // the one that was asked for — `--port 0` asks for an ephemeral one, so
+        // the one that was asked for: `--port 0` asks for an ephemeral one, so
         // those are different numbers and probing the requested one would probe
         // nothing.
         let heartbeat = ListenerHeartbeat(port: bound)

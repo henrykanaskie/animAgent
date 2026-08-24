@@ -3,7 +3,7 @@ import Testing
 
 @testable import SpriteRoomCore
 
-/// **ADR-005 §3, correction 1 — the main agent's turn boundary.**
+/// **ADR-005 §3, correction 1: the main agent's turn boundary.**
 ///
 /// The ADR shipped with a named blind spot. Four of the five closers §3 lists
 /// reach the scene as deltas; the fifth, `Stop`, reached it as nothing at all,
@@ -50,8 +50,8 @@ import Testing
     }
 
     /// **A subagent never receives one.** Its turn boundary is `SubagentStop`,
-    /// which already leaves the model as `dormancyChanged` — `03-EVENT-MODEL.md`
-    /// names it *the* turn boundary the delta stream carries — and two deltas for
+    /// which already leaves the model as `dormancyChanged`: `03-EVENT-MODEL.md`
+    /// names it *the* turn boundary the delta stream carries, and two deltas for
     /// one fact would give the scene two writers of one field.
     @Test func noSubagentIsEverToldAboutATurnBoundary() async throws {
         for name in Fixtures.all {
@@ -69,7 +69,7 @@ import Testing
     /// five `Stop`s in the corpus are that shape.
     ///
     /// Every one of them is an interactively denied `Bash` that nothing in its
-    /// stream will ever close — the shape ADR-001 exists for — so the set is
+    /// stream will ever close (the shape ADR-001 exists for), so the set is
     /// stale and standing the character up is the truer picture. Consulting it
     /// would also re-couple the two channels ADR-005 §3 separated, on the side
     /// where the set is known to be wrong.
@@ -111,8 +111,8 @@ import Testing
     /// that is I4's character-that-types-forever on the posture channel.
     ///
     /// So the check is that nothing is left seated once every close path has run.
-    /// Four paths bound it — `Stop`, `SessionEnd`, the 30-minute idle sweep and
-    /// eviction — and the last three take the character with them, exactly as
+    /// Four paths bound it (`Stop`, `SessionEnd`, the 30-minute idle sweep and
+    /// eviction), and the last three take the character with them, exactly as
     /// `dormancyChanged` and `gateChanged` do.
     @Test func noCharacterIsLeftSeatedOnceTheReaperHasHadItsSay() async throws {
         for name in Fixtures.all {
@@ -157,7 +157,7 @@ import Testing
                     seated.remove(agent)
                 case let .callOpened(agent, _):
                     #expect(seated.contains(agent), Comment(rawValue:
-                        "\(name): \(agent) opened a call while standing — the room would draw the"
+                        "\(name): \(agent) opened a call while standing: the room would draw the"
                         + " busiest agent as the one with no turn in progress"))
                     checked += 1
                 default:
@@ -177,8 +177,8 @@ import Testing
     /// A `Stop` for a session nothing has been seen from creates the session and
     /// its main agent, and that character is drawn **standing**.
     ///
-    /// The creation is not new — `createsSession` has always included `Stop`, and
-    /// nothing may wait for a lifecycle event to make identity — but what it
+    /// The creation is not new (`createsSession` has always included `Stop`, and
+    /// nothing may wait for a lifecycle event to make identity), but what it
     /// draws is. It used to be a seated character, which asserted a turn in
     /// progress out of an event that says a turn just ended.
     @Test func aStopIsTheOnlyEventThatCreatesACharacterAlreadyStanding() async throws {
@@ -218,7 +218,7 @@ import Testing
     }
 
     /// The three openers ADR-005 §3 names, each re-seating a stopped character:
-    /// `UserPromptSubmit`, `PreToolUse`, and — for a subagent — `SubagentStart`.
+    /// `UserPromptSubmit`, `PreToolUse`, and, for a subagent, `SubagentStart`.
     ///
     /// Only the first two are reachable for the main thread, because a
     /// `SubagentStart` carries an `agent_id` and therefore names somebody else.

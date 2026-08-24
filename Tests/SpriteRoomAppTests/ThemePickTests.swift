@@ -10,17 +10,17 @@ import Testing
 /// `RoomHost` → `ThemeStore` → disk → the next launch.
 ///
 /// The defect these are written against was not in any one of those pieces. The
-/// menu listed the themes, `ThemeStore` could write, `RoomHost` could rebuild —
+/// menu listed the themes, `ThemeStore` could write, `RoomHost` could rebuild,
 /// and `themes.json` was still never written by anything, so every project was
 /// a pure function of its `cwd` for the life of the app and the maintainer saw
 /// the same room every time they looked. Each piece was fine; the path was not
-/// there. So these tests drive `connect(host:selector:)` — the app's own
-/// wiring, not a copy of it — and finish by reading the file back through a
+/// there. So these tests drive `connect(host:selector:)` (the app's own
+/// wiring, not a copy of it) and finish by reading the file back through a
 /// second `ThemeStore`, which is exactly what the next launch does.
 ///
 /// **Window-server gated.** `RoomHost` builds an `SKView` and `ProjectSelector`
 /// builds an `NSStatusItem`; neither exists without a logged-in GUI session.
-/// See `PanelFixtures.swift` — these move `expectedGatedTestCount`.
+/// See `PanelFixtures.swift`: these move `expectedGatedTestCount`.
 ///
 /// Nothing here writes to the real
 /// `~/Library/Application Support/SpriteRoom/`. That directory holds
@@ -37,7 +37,7 @@ struct ThemePickTests {
     static let manifest: Manifest? = try? Manifest.load(root: Manifest.developmentRoot())
 
     /// A real captured `cwd`, from `fixtures/`. Ground truth beats a path
-    /// invented to make a hash land somewhere convenient — and the derived
+    /// invented to make a hash land somewhere convenient, and the derived
     /// answer below is whatever the pinned FNV-1a says it is, never a literal.
     static func fixtureCwd() throws -> String {
         let url = Manifest.developmentRoot().appending(path: "fixtures/three-subagents.jsonl")
@@ -99,7 +99,7 @@ struct ThemePickTests {
         return Launch(store: store, host: host, selector: selector)
     }
 
-    /// Some theme that is not the one this project would get anyway — the pick
+    /// Some theme that is not the one this project would get anyway: the pick
     /// has to be observable, and picking the derived room proves nothing about
     /// whether anything was written.
     static func aDifferentTheme(from current: String?, in manifest: Manifest) throws -> String {
@@ -122,13 +122,13 @@ struct ThemePickTests {
         launch.host.select(cwd)
 
         // The one function that owns the mapping, in the module whose pinned
-        // FNV-1a vector guards it. Not a literal id — a literal here would go
+        // FNV-1a vector guards it. Not a literal id: a literal here would go
         // on passing after the hash changed under it.
         let derived = ThemeSelector.theme(for: cwd, stored: [:], manifest: manifest)
         #expect(launch.host.themeID == derived)
         #expect(launch.host.derivedThemeID == derived)
         #expect(!launch.host.isThemePinned)
-        // Read once at launch, written only on a pick — looking at a room
+        // Read once at launch, written only on a pick: looking at a room
         // creates no file. [ADR-002 §3d]
         #expect(sandbox.bytes == nil)
     }
@@ -150,7 +150,7 @@ struct ThemePickTests {
         #expect(launch.host.isThemePinned)
         #expect(launch.store[cwd] == wanted)
         #expect(launch.store.writeFailures == 0)
-        // On disk, under the exact `cwd` the events carried — not a tidied one.
+        // On disk, under the exact `cwd` the events carried, not a tidied one.
         #expect(sandbox.text?.contains(cwd) == true)
     }
 
@@ -173,7 +173,7 @@ struct ThemePickTests {
         #expect(second.store.load == .loaded(count: 1))
         #expect(second.host.themeID == wanted)
         #expect(second.host.isThemePinned)
-        // And the derived answer has not moved — it is simply no longer the
+        // And the derived answer has not moved: it is simply no longer the
         // one in use. That is what makes Automatic able to name it.
         #expect(second.host.derivedThemeID == derived)
     }
@@ -232,8 +232,8 @@ struct ThemePickTests {
         #expect(!next.host.isThemePinned)
     }
 
-    /// Picking the room the project would have derived anyway still pins it —
-    /// the user said *this room*, not "whatever the hash says today" — and
+    /// Picking the room the project would have derived anyway still pins it (
+    /// the user said *this room*, not "whatever the hash says today") and
     /// Automatic still takes it back. The two are different states even though
     /// they draw the same room, which is why `isThemePinned` exists at all.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
@@ -261,7 +261,7 @@ struct ThemePickTests {
 
     /// §6 rule 4: a theme change is a **rebuild**, not a transition. The scene
     /// the panel is showing is a different object afterwards, dressed in the
-    /// theme that was picked — and the view is presenting that one, not the
+    /// theme that was picked, and the view is presenting that one, not the
     /// old one still sitting in a variable.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func aPickAndARevertEachRebuildTheRoom() throws {
@@ -293,7 +293,7 @@ struct ThemePickTests {
     /// two scenes built side by side; what it cannot see is the app's own
     /// rebuild path, where the characters come back from
     /// `ProjectRegistry.reconstruct` rather than from the delta stream. Same
-    /// agents, same seats, same plates, same badges — the room changed and
+    /// agents, same seats, same plates, same badges: the room changed and
     /// nobody in it moved.
     ///
     /// Real deltas, from a real capture, through the real `WorldModel`.
@@ -312,7 +312,7 @@ struct ThemePickTests {
         }
         let cwd = try #require(deltas.compactMap { $0.projectKey }.first)
         // Up to the first departure. The capture ends with its session, so the
-        // whole stream leaves an empty room — and an empty room compares equal
+        // whole stream leaves an empty room, and an empty room compares equal
         // to an empty room whatever the theme did to it.
         let occupied = Array(deltas.prefix {
             if case .agentDeparted = $0 { return false }
@@ -361,7 +361,7 @@ struct ThemePickTests {
 
     /// The selector never reads the host. Everything it shows about the theme
     /// arrives on the roster callback, and this is the assertion that the three
-    /// values arrive together — a stale `isThemePinned` would offer a way out
+    /// values arrive together: a stale `isThemePinned` would offer a way out
     /// of a pick that is not there.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func theMenuIsToldWhichRoomItIsShowingWithoutAskingTheHost() throws {

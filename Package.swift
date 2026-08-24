@@ -11,7 +11,7 @@ let package = Package(
         .executable(name: "spriteroom-replay", targets: ["SpriteRoomReplay"]),
     ],
     targets: [
-        // Pure logic. Must not import AppKit or SpriteKit — enforced by
+        // Pure logic. Must not import AppKit or SpriteKit: enforced by
         // Tests/SpriteRoomCoreTests/ImportBoundaryTests.swift.
         .target(
             name: "SpriteRoomCore",

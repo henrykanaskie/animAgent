@@ -1,7 +1,7 @@
 import Testing
 @testable import SpriteRoomApp
 
-/// The notch region, as arithmetic. Nothing here needs a screen — which is the
+/// The notch region, as arithmetic. Nothing here needs a screen, which is the
 /// point of keeping `NotchGeometry` free of `NSScreen`.
 struct NotchGeometryTests {
 
@@ -50,7 +50,7 @@ struct NotchGeometryTests {
         #expect(geometry.region.minY <= geometry.display.maxY - 39)
     }
 
-    // MARK: Without a notch — the case the milestone asks about
+    // MARK: Without a notch - the case the milestone asks about
 
     @Test func aDisplayWithoutAHousingGetsACentredSyntheticRegion() {
         let geometry = Self.plain()
@@ -103,7 +103,7 @@ struct NotchGeometryTests {
         let geometry = Self.notched()
         let hidden = geometry.hiddenPanelFrame(size: .room)
         let shown = geometry.revealedPanelFrame(size: .room)
-        // Same rectangle, moved. Never resized — resizing would re-lay-out the
+        // Same rectangle, moved. Never resized: resizing would re-lay-out the
         // scene on every frame of the animation.
         #expect(hidden.width == shown.width)
         #expect(hidden.height == shown.height)

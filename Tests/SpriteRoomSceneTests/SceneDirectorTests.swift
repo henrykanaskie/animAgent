@@ -22,7 +22,7 @@ struct SceneDirectorTests {
             deadline: start.addingTimeInterval(60))
     }
 
-    // MARK: Appearance — criterion 1
+    // MARK: Appearance - criterion 1
 
     @Test func everyAgentInTheFixtureGetsExactlyOneCharacter() async throws {
         var director = Self.director()
@@ -74,7 +74,7 @@ struct SceneDirectorTests {
         #expect(spawned <= 1)
     }
 
-    // MARK: Body state — criterion 2, and [I2]
+    // MARK: Body state - criterion 2, and [I2]
 
     /// **`agent is working ⟺ !openCalls.isEmpty` is unchanged, and it is a
     /// statement about the *motion*.** [I2, ADR-005 §6]
@@ -124,7 +124,7 @@ struct SceneDirectorTests {
     }
 
     /// An abandoned call is our blind spot, not the user's failure. The badge
-    /// comes down, the motion stops, and nothing else is shown — in particular
+    /// comes down, the motion stops, and nothing else is shown: in particular
     /// the character does not get up, because a reap says nothing about where
     /// the agent is. [I4, ADR-005 §3]
     @Test func anAbandonedCallClosesLikeAnyOther() {
@@ -174,7 +174,7 @@ struct SceneDirectorTests {
         #expect(exitStyles.contains(.walkOff))
         // And nothing exits by the report route, because nothing in this
         // capture reports and departs in the same frame. `SubagentStop` no
-        // longer departs anyone — the three subagents report at 34.5 s, 37.4 s
+    /// longer departs anyone: the three subagents report at 34.5 s, 37.4 s
         // and 40.9 s and are still in their seats when `SessionEnd` clears the
         // room at 42.7 s.
         #expect(!exitStyles.contains { if case .report = $0 { return true } else { return false } })
@@ -185,8 +185,8 @@ struct SceneDirectorTests {
     ///
     /// This was `seatedCharactersAlwaysFaceSideways`, and its reason was that
     /// "asking for `working` facing up or down is asking for art nobody drew".
-    /// The premise is a real measurement and it is still true — both sit rows
-    /// are side art in all four blocks [M0] — but the conclusion stopped
+    /// The premise is a real measurement and it is still true (both sit rows
+    /// are side art in all four blocks [M0]) but the conclusion stopped
     /// following at ADR-008: a seat facing the camera does not ask for a sit
     /// frame at all, it draws the standing `idle` row, which the manifest
     /// declares in all four directions, and lets the seat's own occluder do the
@@ -220,11 +220,11 @@ struct SceneDirectorTests {
         #expect(seen == Set((0..<layout.seatCapacity).map { layout.seatedFacing($0) }))
     }
 
-    // MARK: The permission gate — ADR-005 §7
+    // MARK: The permission gate - ADR-005 §7
 
     /// **The gate is its own channel, and it moves neither of the other two.**
     ///
-    /// A blocked character is seated (it is in a turn, at its desk — standing it
+    /// A blocked character is seated (it is in a turn, at its desk; standing it
     /// up would say it walked away from a dialog it is stopped at) and wears
     /// whatever the badge layer decided (its tool glyph for the first six
     /// seconds, the attention bubble after). What changes is that it stops
@@ -274,7 +274,7 @@ struct SceneDirectorTests {
     /// twin of the character that types forever.
     ///
     /// **The sweep is part of the test rather than an afterthought**, because two
-    /// of the corpus's gates are still open when their event stream ends — the
+    /// of the corpus's gates are still open when their event stream ends: the
     /// pair in `concurrent-permission-gates`, one of which never sees a human at
     /// all. A character stopped at a dialog nobody ever answered is *correctly*
     /// still at the end of the stream; what may not happen is for it to be still
@@ -298,8 +298,8 @@ struct SceneDirectorTests {
                         else { gated.remove(agent) }
                     // **An exit is an ending too, and it is the one the corpus
                     // actually takes.** The model clears the gate and departs
-                    // the agent in one batch — the idle sweep abandons the
-                    // marked call, which disarms — and the director suppresses
+                    // the agent in one batch (the idle sweep abandons the
+                    // marked call, which disarms) and the director suppresses
                     // the clear for a character it is removing in the same
                     // frame, because there is no body left to unfreeze. The
                     // node goes with the walk-off.
@@ -321,7 +321,7 @@ struct SceneDirectorTests {
 
             #expect(gated.isEmpty, Comment(rawValue:
                 "\(name): \(gated.count) character(s) still stopped at a permission gate after"
-                + " the idle sweep — a character frozen forever [I4]"))
+                + " the idle sweep: a character frozen forever [I4]"))
             // And nothing is holding a gated presentation either, which is the
             // same claim read off the director rather than off its output.
             for agent in director.seats.keys {
@@ -331,11 +331,11 @@ struct SceneDirectorTests {
         #expect(everGated >= 4, "the gated fixtures stopped producing gates: \(everGated)")
     }
 
-    // MARK: Badge — criterion 3
+    // MARK: Badge - criterion 3
 
     /// **The close no longer takes the badge down at the close.** ADR-003 leaves
     /// it up for `D` and then clears it, so the assertion this test has always
-    /// made — "the badge disappears on the matching close" — is now an assertion
+    /// made ("the badge disappears on the matching close") is now an assertion
     /// about the instant `D` later. The clock is injected, so nothing waits.
     ///
     /// The `count` half is checked at both instants because it is the half that
@@ -400,7 +400,7 @@ struct SceneDirectorTests {
         #expect(nonEmpty.map(\.count).max() == 5)
     }
 
-    // MARK: Criterion 6 — no flicker
+    // MARK: Criterion 6 - no flicker
 
     /// The badge may change at most once per change of the open-call set, for
     /// every character, over the whole fixture. Anything more is flicker.
@@ -534,7 +534,7 @@ struct SceneDirectorTests {
     ///
     /// `SubagentStop` used to emit `reportDelivered` *and* `agentDeparted`, and
     /// the walk was carried by the departure. A subagent that stops goes dormant
-    /// in its seat instead, so nothing follows the report — if this delta did
+    /// in its seat instead, so nothing follows the report: if this delta did
     /// not produce the choreography, the one dramatisation the project allows
     /// would silently vanish from the room.
     @Test func aReportIsAWalkOnItsOwnAndTakesNobodyOutOfTheRoom() {
@@ -596,8 +596,8 @@ struct SceneDirectorTests {
 
     /// A `reportDelivered` for a character the scene does not have is not a
     /// reason to invent one. The model already refuses to spawn on an unknown
-    /// `SubagentStop` — the TUI's suggestion helper emits those on ordinary
-    /// turns — and this is the same refusal one layer down. [I1]
+    /// `SubagentStop` (the TUI's suggestion helper emits those on ordinary
+    /// turns) and this is the same refusal one layer down. [I1]
     @Test func aReportForACharacterThatIsNotOnScreenDrawsNothing() {
         var director = Self.director()
         let intents = director.apply([.reportDelivered(agent: Self.ref(.subagent("ghost")))])
@@ -606,7 +606,7 @@ struct SceneDirectorTests {
 
     /// `reportDelivered` and `agentDeparted` in one batch is no longer what
     /// `SubagentStop` produces, but `SessionEnd` can still land on top of a stop.
-    /// The character must leave by the report route, not be yanked off screen —
+    /// The character must leave by the report route, not be yanked off screen,
     /// and must not *also* be sent on a round trip to a seat it no longer has.
     @Test func reportAndDepartureInOneFrameBecomeTheReportExit() {
         var director = Self.director()
@@ -627,8 +627,8 @@ struct SceneDirectorTests {
 
     /// A linked child reports to *its parent's* seat, not to seat 0.
     ///
-    /// The link is applied retroactively — `SubagentStart` arrives before the
-    /// `PostToolUse` that carries it — so the character is drawn first and told
+    /// The link is applied retroactively (`SubagentStart` arrives before the
+    /// `PostToolUse` that carries it) so the character is drawn first and told
     /// who it reports to afterwards. This is the only moment that knowledge
     /// changes anything visible.
     @Test func aLinkedChildReportsToItsParentsSeatRatherThanTheMainAgents() {
@@ -687,7 +687,7 @@ struct SceneDirectorTests {
     }
 
     /// Every subagent in the capture is a child of the main thread, so the
-    /// link and the fallback agree — which is exactly why implementing it
+    /// link and the fallback agree, which is exactly why implementing it
     /// changed no pixel of the existing fixtures.
     @Test func everyReportInTheCaptureStillAnchorsAtSeatZero() async throws {
         var director = Self.director()
@@ -781,7 +781,7 @@ struct SceneDirectorTests {
     }
 
     /// **Three subagents of one type, with no dispatch between them, are now one
-    /// plate — and this is the regression the one-row instruction bought.**
+    /// plate, and this is the regression the one-row instruction bought.**
     ///
     /// M4 watched exactly this happen live and M5 fixed it with an `agent_id`
     /// discriminator on a row of its own. The maintainer has since asked for the
@@ -791,8 +791,8 @@ struct SceneDirectorTests {
     /// seat.
     ///
     /// It bites only where the room has nothing else to say. A dispatch gives
-    /// each of them its own line — `threeSubagentsEndUpWithThreeDifferentHeadlines`
-    /// is the same three agents in the real capture — so what is lost is the
+    /// each of them its own line (`threeSubagentsEndUpWithThreeDifferentHeadlines`
+    /// is the same three agents in the real capture) so what is lost is the
     /// untasked case and the case where two tasks shorten alike.
     @Test func sameTypedSubagentsWithNoDispatchNowShareOnePlate() {
         var director = Self.director()
@@ -809,7 +809,7 @@ struct SceneDirectorTests {
         #expect(plates.allSatisfy { $0.role == "general-purpose" })
 
         // Down to the pixels, because a value that compares equal could still
-        // have drawn differently — and it does not.
+        // have drawn differently, and it does not.
         let accent = Bitmap.RGBA(255, 136, 77)
         let drawn = plates.map { SceneBitmaps.nameplate($0, accent: accent).pixels }
         #expect(Set(drawn).count == 1)
@@ -869,7 +869,7 @@ struct SceneDirectorTests {
         #expect(zip(scales, scales.dropFirst()).allSatisfy { $0 != $1 }, "scale re-emitted")
     }
 
-    // MARK: Overflow — the room says what it cannot seat [I1, S5]
+    // MARK: Overflow - the room says what it cannot seat [I1, S5]
 
     /// `count` agents appearing in one batch: the main thread and `count - 1`
     /// subagents.
@@ -897,8 +897,8 @@ struct SceneDirectorTests {
     }
 
     /// **The defect this exists for.** `RoomLayout.seatColumn` and `ring` both
-    /// wrap mod `seatCapacity`, so seat 7 is seat 0's column *and* — the two-row
-    /// fold keys on ring parity — seat 0's row. Before this, the eighth agent
+    /// wrap mod `seatCapacity`, so seat 7 is seat 0's column *and* (the two-row
+    /// fold keys on ring parity) seat 0's row. Before this, the eighth agent
     /// was seated on top of the first and the room drew seven characters while
     /// eight were running: a false population [I1] and S5 failing at the first
     /// crowd past the seat count.
@@ -918,7 +918,7 @@ struct SceneDirectorTests {
     }
 
     /// The count is right at every population the room can be handed, and no
-    /// two drawn characters ever land on the same spot — position, not seat
+    /// two drawn characters ever land on the same spot: position, not seat
     /// index, because the index is what the wrap made a liar.
     @Test func everyPopulationIsEitherDrawnOrCountedAndNeverBoth() {
         let layout = RoomLayout()
@@ -956,7 +956,7 @@ struct SceneDirectorTests {
     /// **A seat that frees goes to whoever has waited longest, and they walk
     /// in.** Without this the overflow would be permanent: seats are released on
     /// departure and reused by *new* arrivals, so an agent that found the room
-    /// full would still be undrawn after everyone on screen had left — a room of
+    /// full would still be undrawn after everyone on screen had left: a room of
     /// empty desks under a plate reading "+3", which is true and useless.
     @Test func aFreedSeatGoesToWhoeverHasWaitedLongest() {
         var director = Self.director()
@@ -1081,7 +1081,7 @@ struct SceneDirectorTests {
         #expect(director.badge(agent).badge == .questionMark)
     }
 
-    // MARK: The task reaches the plate — M7e
+    // MARK: The task reaches the plate - M7e
 
     static func plates(_ intents: [SpriteIntent]) -> [(AgentRef, NameplateText)] {
         intents.compactMap {
@@ -1112,8 +1112,8 @@ struct SceneDirectorTests {
         }
         #expect(agent == child)
         #expect(plate.headline == "READ ALPH…")
-        // The type is still carried — it is the rung under the task, and it is
-        // what this character wore a moment ago — but it is no longer drawn.
+        // The type is still carried (it is the rung under the task, and it is
+        // what this character wore a moment ago) but it is no longer drawn.
         #expect(plate.role == "Explore")
     }
 
@@ -1174,7 +1174,7 @@ struct SceneDirectorTests {
     }
 
     /// **The real capture, end to end: three subagents, three headlines.** This
-    /// is what the feature is for — before it, every plate in this room read
+    /// is what the feature is for: before it, every plate in this room read
     /// `EXPLORE` or `GENERAL-P…` and the seat was the only thing that told them
     /// apart. The main agent is in the same room with no task, which is the
     /// other half of the picture.
@@ -1207,7 +1207,7 @@ struct SceneDirectorTests {
     /// purpose. Asserted down to the pixels, because the plate is what the user
     /// sees.
     ///
-    /// A wider line does not rescue it — `TOUCH FILE S1` needs thirteen glyphs
+    /// A wider line does not rescue it: `TOUCH FILE S1` needs thirteen glyphs
     /// and the seat pitch cannot afford them. See
     /// `SceneBitmaps.nameplateGlyphLimit`.
     @Test func twoNearlyIdenticalDispatchesNowShareAPlateEntirely() async throws {

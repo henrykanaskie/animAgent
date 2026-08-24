@@ -7,7 +7,7 @@ import SpriteRoomCore
 /// pure string arithmetic and need neither a screen nor the art on disk.
 struct ThemeSelectorTests {
 
-    // MARK: §8 item 1 — the pinned hash
+    // MARK: §8 item 1 - the pinned hash
 
     /// **The pinned vector, and the only thing standing between this project and
     /// every user's room redecorating itself on launch.**
@@ -15,7 +15,7 @@ struct ThemeSelectorTests {
     /// The failure it exists to catch is not a wrong answer; it is a *plausible*
     /// one. Swift's `Hasher` is seeded per process, so a cleanup that swaps
     /// `fnv1a64` for `hashValue` still produces a deterministic-looking spread
-    /// of themes — it just produces a different one every launch, which surfaces
+    /// of themes, it just produces a different one every launch, which surfaces
     /// as "the scene keeps changing my room" and gets debugged in the renderer.
     /// [§3c, §11 item 7]
     ///
@@ -39,7 +39,7 @@ struct ThemeSelectorTests {
         #expect(ThemeSelector.fnv1a64([0]) == 0xcbf2_9ce4_8422_2325 &* 0x100_0000_01b3)
     }
 
-    // MARK: §8 item 2 — rendezvous
+    // MARK: §8 item 2 - rendezvous
 
     @Test func anEmptyPoolSelectsNothing() {
         #expect(ThemeSelector.rendezvous(key: "anything", over: []) == nil)
@@ -52,7 +52,7 @@ struct ThemeSelectorTests {
     /// **The simulated process restart.** [§8 tests, bullet 2]
     ///
     /// A test that resolves the same key twice inside one process cannot catch
-    /// `Hasher`, because `Hasher` is perfectly stable inside one process — that
+    /// `Hasher`, because `Hasher` is perfectly stable inside one process, that
     /// is exactly what makes it such a good disguise. What catches it is an
     /// expected value written down in a file, compared against on a later run in
     /// a different process. These four are that: the pool is synthetic and fixed
@@ -68,7 +68,7 @@ struct ThemeSelectorTests {
 
     /// Order of the pool must not reach the answer. Without the tie-break a
     /// 64-bit collision would let it, and the room would then depend on which
-    /// order a dictionary happened to iterate in that launch — a bug that would
+    /// order a dictionary happened to iterate in that launch, a bug that would
     /// appear once a decade and never reproduce. [§3c]
     @Test func theSelectionDoesNotDependOnTheOrderOfThePool() {
         let pool = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"]
@@ -98,8 +98,8 @@ struct ThemeSelectorTests {
     /// them, which means the day a seventh theme ships every user's rooms change
     /// at once and the change looks like a bug.
     ///
-    /// The bound is generous — a sixth of the corpus, against an expectation of
-    /// a seventh — because this is asserting a *property*, not a number. Modulo
+    /// The bound is generous (a sixth of the corpus, against an expectation of
+    /// a seventh) because this is asserting a *property*, not a number. Modulo
     /// over the same corpus is measured beside it rather than argued about, and
     /// it comes out at roughly six sevenths.
     @Test func addingAThemeMovesOnlyASmallFractionOfProjects() {
@@ -115,7 +115,7 @@ struct ThemeSelectorTests {
         }
         let fraction = Double(moved) / Double(corpus.count)
         #expect(fraction < 1.0 / 6.0, "rendezvous moved \(moved) of \(corpus.count)")
-        #expect(moved > 0, "adding a theme moved nothing at all — the pool is not being read")
+        #expect(moved > 0, "adding a theme moved nothing at all: the pool is not being read")
 
         // What the rejected implementation would have done, measured rather
         // than asserted, so the margin is visible when this is read.
@@ -127,11 +127,11 @@ struct ThemeSelectorTests {
             if a != b { modulo += 1 }
         }
         #expect(Double(modulo) / Double(corpus.count) > 0.5,
-                "modulo moved \(modulo) of \(corpus.count) — the comparison is not doing its job")
+                "modulo moved \(modulo) of \(corpus.count): the comparison is not doing its job")
     }
 
     /// Every key lands somewhere, and the pool is not one bucket wearing six
-    /// names. Not a distribution proof — that is not what the mechanism owes —
+    /// names. Not a distribution proof (that is not what the mechanism owes),
     /// only that no theme is unreachable, which a broken concatenation would
     /// produce.
     @Test func everyThemeInThePoolIsReachable() {
@@ -147,14 +147,14 @@ struct ThemeSelectorTests {
         #expect(seen == Set(pool))
     }
 
-    // MARK: §8 item 4 — stations
+    // MARK: §8 item 4 - stations
 
     /// **The one §8 spelled out twice, because it is the one that gets missed.**
     ///
     /// M0c observed `agent_type` arriving as the empty string, and
     /// `docs/03-EVENT-MODEL.md` records it. An implementation that only checked
     /// for `nil` would put an empty-typed subagent through the rendezvous with
-    /// `""` as its key — a perfectly stable answer that means nothing, and one
+    /// `""` as its key: a perfectly stable answer that means nothing, and one
     /// that would quietly collide a genuinely unknown agent with whichever
     /// numbered station `""` happens to hash to.
     @Test func emptyAndAbsentAgentTypeTakeTheSameBranch() {
@@ -165,8 +165,8 @@ struct ThemeSelectorTests {
         #expect(absent == ThemeSelector.defaultStationID)
     }
 
-    /// Absence of `agent_id` **is** the main agent — the identity rule, not a
-    /// fallback — so no value of `agent_type` may reach past it. [CLAUDE.md]
+    /// Absence of `agent_id` **is** the main agent (the identity rule, not a
+    /// fallback), so no value of `agent_type` may reach past it. [CLAUDE.md]
     @Test func absentAgentIDIsTheMainStationWhateverTheTypeSays() {
         let theme = ThemeFixtures.stationed(count: 4)
         for type: String? in [nil, "", "Explore", "general-purpose", "main", "default", "0"] {
@@ -176,7 +176,7 @@ struct ThemeSelectorTests {
     }
 
     /// A typed subagent draws from the numbered pool, and `main`/`default` are
-    /// not in it — they are reached by the identity rules or not at all.
+    /// not in it: they are reached by the identity rules or not at all.
     @Test func aTypedSubagentTakesANumberedStation() {
         let theme = ThemeFixtures.stationed(count: 4)
         for type in ["Explore", "general-purpose", "scene-engineer", "Plan"] {
@@ -188,7 +188,7 @@ struct ThemeSelectorTests {
 
     /// §4's deliberate thinness: **four `general-purpose` subagents get four
     /// identical desks.** Keyed on `agent_type`, "same desk" means "same kind of
-    /// worker" — a rule a user can read off the room. Keyed on `agent_id` the
+    /// worker", a rule a user can read off the room. Keyed on `agent_id` the
     /// desks would all differ and none of them would mean anything.
     @Test func agentsOfOneTypeShareOneStation() {
         let theme = ThemeFixtures.stationed(count: 4)
@@ -200,8 +200,8 @@ struct ThemeSelectorTests {
     }
 
     /// A theme with no numbered stations seats every typed subagent at
-    /// `default`. **This case is not in §8** — §4's third line has no answer for
-    /// an empty pool — and it is the case every theme in the shipped manifest
+    /// `default`. **This case is not in §8** (§4's third line has no answer for
+    /// an empty pool), and it is the case every theme in the shipped manifest
     /// actually takes, since none of them declares a station at all. Resolved to
     /// `default` because `default` is already this function's answer for "we
     /// have nothing that distinguishes this agent", and reported as a gap.
@@ -229,8 +229,8 @@ struct ThemeResolutionTests {
         #expect(ThemeSelector.theme(for: cwd, stored: [cwd: other], manifest: manifest) == other)
     }
 
-    /// A stored entry naming a theme the manifest does not have — a removed
-    /// theme, an older manifest — falls to the derived default *for that project
+    /// A stored entry naming a theme the manifest does not have (a removed
+    /// theme, an older manifest) falls to the derived default *for that project
     /// only*, and does not throw. The caller keeps the entry: the theme may come
     /// back. [§3d]
     @Test func anUnknownStoredThemeFallsToTheDerivedDefault() throws {
@@ -270,7 +270,7 @@ struct ThemeResolutionTests {
     }
 
     /// The derived default draws only from `assignable: true`. All six shipped
-    /// themes are assignable, so this checks the *pool* rather than the split —
+    /// themes are assignable, so this checks the *pool* rather than the split:
     /// the flag exists so the first theme that would read as a claim about the
     /// work can be offered without ever being assigned. [§3e, §14a]
     @Test func theDerivedDefaultOnlyDrawsFromTheAssignablePool() throws {
@@ -284,7 +284,7 @@ struct ThemeResolutionTests {
     }
 
     /// The floor under §3c: a manifest with no themes at all names none, and the
-    /// room is the one this app has always drawn. Not a corner case — it is
+    /// room is the one this app has always drawn. Not a corner case: it is
     /// every checkout that has not run the import scripts.
     @Test func aManifestWithNoThemesNamesNone() throws {
         let manifest = try SceneFixtures.manifest()
@@ -344,7 +344,7 @@ struct ThemeContractTests {
     /// The floor and the wall a theme actually draws, loaded.
     ///
     /// A theme that declares neither falls to the heuristic, which is legal and
-    /// is what the default room does — so this asserts the *resolved* pair
+    /// is what the default room does, so this asserts the *resolved* pair
     /// rather than the declaration, and records which route each theme took.
     @Test(.enabled(if: SceneArt.isAvailable)) @MainActor
     func everyThemeResolvesAFloorAndAWallOfTheDeclaredTileSize() throws {
@@ -366,15 +366,15 @@ struct ThemeContractTests {
             }
         }
         #expect(declared > 0, Comment(rawValue:
-            "no theme declared builder.floor/builder.wall — the heuristic is doing all"
+            "no theme declared builder.floor/builder.wall: the heuristic is doing all"
             + " the work and floors are not themeable"))
     }
 
     /// §7's pose clause: every state named by `characters.poses.working` must
     /// exist in `characters.states` with **exactly** `right` and `left`.
     ///
-    /// Both sit rows in the pack are side art in all four direction blocks —
-    /// there is no front- or back-facing sitting sprite at any size — so a pose
+    /// Both sit rows in the pack are side art in all four direction blocks:
+    /// there is no front- or back-facing sitting sprite at any size, so a pose
     /// table naming a state with an `up` or a `down` block is naming art that
     /// was never drawn. The table is empty today, which is a legal state and is
     /// §5b item 2's "inert with no code path to delete"; the check is here so it
@@ -417,7 +417,7 @@ struct ThemeContractTests {
     ///
     /// The check above tests *side-on*, by requiring exactly `right` and `left`.
     /// That is necessary and it is not sufficient, and the gap is not
-    /// hypothetical — it is the shape of every remaining pose row in the pack.
+    /// hypothetical: it is the shape of every remaining pose row in the pack.
     /// Modern Interiors' `pick_up` (row 9), `lift` (11), `throw` (12) and
     /// `push_cart` (8) are laid out in the ordinary four direction blocks whose
     /// blocks 0 and 2 are near-mirrors, so any of them can be cut `right`/`left`
@@ -428,8 +428,8 @@ struct ThemeContractTests {
     /// event says. [I1]
     ///
     /// **The discriminator is measured, not named.** A pose row cannot be
-    /// trusted by its label — `sleep` was a head on a pillow and `phone_b` is a
-    /// person reading — so this reads the pixels. A character is bottom-aligned
+    /// trusted by its label (`sleep` was a head on a pillow and `phone_b` is a
+    /// person reading), so this reads the pixels. A character is bottom-aligned
     /// in its 32×64 frame with the anchor on the canvas's bottom edge, so the
     /// last pixel row is the floor a standing character stands on:
     ///
@@ -441,7 +441,7 @@ struct ThemeContractTests {
     ///   variant-directions.
     ///
     /// `walk`, `spawn` and `depart` would *pass* a bottom-row check taken on one
-    /// frame — a mid-stride foot leaves the floor — which is why the assertion
+    /// frame (a mid-stride foot leaves the floor), which is why the assertion
     /// is over every frame of the loop rather than a representative one.
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyNamedPoseStateIsSeatedRatherThanMerelySideOn() throws {
@@ -472,7 +472,7 @@ struct ThemeContractTests {
 
         // Calibration: standing means standing on the last row, everywhere.
         let standing = try frames(.idle)
-        #expect(!standing.isEmpty, "no idle frames — the calibration checked nothing")
+        #expect(!standing.isEmpty, "no idle frames: the calibration checked nothing")
         for (label, path) in standing {
             #expect(try touchesFloorRow(path), Comment(rawValue:
                 "\(label) does not reach row \(floorRow), so the floor row is not"
@@ -502,15 +502,15 @@ struct ThemeContractTests {
     /// code change rather than a manifest swap.
     ///
     /// It reads string *literals* rather than the whole file, so the prose in a
-    /// doc comment — which mentions the Modern Office pack by name in several
-    /// places, correctly — is not what is being policed. What is policed is
+    /// doc comment (which mentions the Modern Office pack by name in several
+    /// places, correctly) is not what is being policed. What is policed is
     /// anything the compiler could compare against.
     ///
     /// **It used to scan `Sources/SpriteRoomScene` only, and non-recursively**,
     /// while this comment and §8 item 5 both said `Sources/`. The gap was not
     /// theoretical: `Sources/SpriteRoomApp/ThemeCatalog.swift` carries the
     /// comment "No theme name appears in this file, and none may" and was
-    /// covered by nothing at all — the app is where a theme id is *stored*, so
+    /// covered by nothing at all: the app is where a theme id is *stored*, so
     /// it is the likelier place for one to be hardcoded, not the less likely.
     /// The property held; the test did not enforce it.
     ///
@@ -525,7 +525,7 @@ struct ThemeContractTests {
     ///   only module that loads a texture, and is where "final art must drop in
     ///   as a manifest swap with zero code change" is the rule. It is not
     ///   checked across the whole tree because `SpriteRoomApp/main.swift`
-    ///   legitimately holds `.png` names — `"panel-%.0fx%.0f-t%06.2f.png"` and
+    ///   legitimately holds `.png` names: `"panel-%.0fx%.0f-t%06.2f.png"` and
     ///   friends, the render harness's *output* filenames. Those are not art
     ///   and never reach a texture. Widening the suffix rule over them would
     ///   need an exemption list, and an exemption list is how a mechanical rule
@@ -533,7 +533,7 @@ struct ThemeContractTests {
     /// - **An art *path* is forbidden everywhere**, which catches the thing the
     ///   suffix rule was really for without catching output names: nothing
     ///   outside the manifest may name a location inside the processed art
-    ///   tree. `assets/manifest.json` itself is not that — it is the contract,
+    ///   tree. `assets/manifest.json` itself is not that: it is the contract,
     ///   `Manifest.developmentRoot` legitimately spells it, and a rule that
     ///   forbade it would forbid loading the file the rest of this depends on.
     @Test func noThemeNameAndNoArtFilenameIsWrittenDownInSources() throws {
@@ -567,7 +567,7 @@ struct ThemeContractTests {
         }
 
         #expect(scanned > 30,
-                "the source scan found almost nothing — it is not reading the files")
+                "the source scan found almost nothing: it is not reading the files")
         #expect(scannedInScene > 5, "the scene module was not reached")
         // All three modules, or the recursion is not doing what it says. The
         // core's sources live in `Ingest/` and `Model/` subdirectories, which is
@@ -599,7 +599,7 @@ enum ThemeFixtures {
     /// the rendezvous half of §4 on its own. Against the shipped manifest every
     /// name in the corpus below would be answered by tier 1 and the hash would
     /// go untested. It also carries the numeric ids §7 specified, which keeps
-    /// the pre-§14c fallback — "the pool is the ids that are digits" — exercised
+    /// the pre-§14c fallback ("the pool is the ids that are digits") exercised
     /// by something.
     static func stationed(count: Int) -> Manifest.Theme {
         let box = Manifest.PropRole.Box(x: 0, y: 0, width: 8, height: 8)
@@ -625,13 +625,13 @@ enum ThemeFixtures {
 /// about filenames.
 ///
 /// Not a parser. It skips `//` and `/* */` comments and takes double-quoted runs
-/// with `\"` honoured, which is all this project's sources contain — there is no
+/// with `\"` honoured, which is all this project's sources contain, there is no
 /// raw string and no multi-line literal in `SpriteRoomScene`. If one ever
 /// appears, this under-reports rather than over-reports, and the test above says
 /// how many files it scanned so a silent zero is visible.
 enum SourceLiterals {
 
-    /// The same source with `//` and `/* */` comments removed — everything the
+    /// The same source with `//` and `/* */` comments removed: everything the
     /// compiler actually sees.
     ///
     /// Needed by any rule of the form "this file may not name that type",

@@ -4,7 +4,7 @@ import Testing
 
 /// I8, asserted on the real window object rather than argued for in a comment.
 ///
-/// These need a window server — an `NSPanel` cannot be built without one — so
+/// These need a window server (an `NSPanel` cannot be built without one) so
 /// they skip rather than fail when there is no GUI session. The hysteresis and
 /// the geometry, which are the parts with logic in them, need no such thing and
 /// always run.
@@ -15,7 +15,7 @@ struct NotchPanelTests {
     ///
     /// The question itself now lives in `PanelWindowServer` (`PanelFixtures.swift`),
     /// alongside the always-on notice and the pinned count that make the skip
-    /// legible — the same arrangement `SceneArt` has for the art. This forwards
+    /// legible: the same arrangement `SceneArt` has for the art. This forwards
     /// rather than being renamed away so that 26 gate annotations across three
     /// files did not have to change to close that hole.
     nonisolated static var hasWindowServer: Bool { PanelWindowServer.isAvailable }
@@ -63,7 +63,7 @@ struct NotchPanelTests {
         #expect(panel.collectionBehavior.contains(.fullScreenAuxiliary))
         #expect(panel.level.rawValue > NSWindow.Level.mainMenu.rawValue)
         #expect(panel.level.rawValue > NSWindow.Level.statusBar.rawValue)
-        // Not above the screen saver — covering a locked screen with the room
+        // Not above the screen saver: covering a locked screen with the room
         // would be a privacy bug.
         #expect(panel.level.rawValue < NSWindow.Level.screenSaver.rawValue)
     }
@@ -98,7 +98,7 @@ struct NotchPanelTests {
     func nothingInThePanelCanTakeAKeystroke() {
         _ = NSApplication.shared
         // The real content view. A stock `SKView` accepts first responder
-        // status — the focus probe found that — so the panel uses a subclass
+        // status (the focus probe found that) so the panel uses a subclass
         // that does not, and this is the test that keeps it that way.
         let content = RoomView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
         #expect(content.acceptsFirstResponder == false)
@@ -123,7 +123,7 @@ struct NotchPanelTests {
     /// cannot clear by hand: `ignoresMouseEvents` so clicks pass through, a
     /// level above the menu bar so nothing can be raised in front of it, and
     /// `canJoinAllSpaces` so it follows every desktop. The maintainer hit it,
-    /// and killing the process did not help — the process was already gone.
+    /// and killing the process did not help; the process was already gone.
     ///
     /// `hide()` is the teardown call every exit path now goes through. It has
     /// to work from the revealed state, which is the only state that leaves a
@@ -142,7 +142,7 @@ struct NotchPanelTests {
         controller.hide(at: 1)
 
         // Ordered out is what removes the surface from the window server.
-        // Nothing else in this type does that synchronously — `slide` only
+        // Nothing else in this type does that synchronously: `slide` only
         // orders out in an animation completion handler, which is precisely
         // the callback a process that is exiting never runs.
         #expect(controller.panel.isVisible == false, "the panel is still on the screen")
@@ -172,7 +172,7 @@ struct NotchPanelTests {
 
     /// The gate on the harness that caused the ghost. `--render` draws the same
     /// scene offscreen and touches no display, so the panel path is only wanted
-    /// when the panel is the thing under test — and then it is asked for
+    /// when the panel is the thing under test, and then it is asked for
     /// explicitly.
     @Test func panelRenderIsOptOutOfNothingAndOptInToSomething() {
         #expect(parse(["--panel-render", "out"])?.forcePanelRender == false)

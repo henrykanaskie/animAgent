@@ -4,10 +4,10 @@ import AppKit
 ///
 /// Every line of the configuration below exists to make one sentence true:
 /// **this window can never take focus from what you are doing.** The invariant
-/// is not "we try not to steal focus" — it is that there is no code path by
+/// is not "we try not to steal focus"; it is that there is no code path by
 /// which focus could arrive here.
 ///
-/// * `.nonactivatingPanel` — ordering the panel in does not activate the app.
+/// * `.nonactivatingPanel`: ordering the panel in does not activate the app.
 /// * `canBecomeKey` / `canBecomeMain` are hard `false`. AppKit asks these
 ///   before it makes any window key; answering `false` means the window is not
 ///   a candidate, so `makeKeyAndOrderFront` is a no-op rather than a bug
@@ -15,7 +15,7 @@ import AppKit
 /// * `acceptsFirstResponder` is `false` and the panel installs no field editor.
 ///   Keyboard events are routed to the key window; a window that is never key
 ///   receives none, ever.
-/// * `ignoresMouseEvents = true` — the panel does not consume clicks either.
+/// * `ignoresMouseEvents = true`: the panel does not consume clicks either.
 ///   Nothing in the room is clickable (read-only, always), so a click that
 ///   lands on it belongs to the window underneath and is passed straight
 ///   through. Hover is detected by sampling the pointer's global position, not
@@ -48,7 +48,7 @@ final class NotchPanel: NSPanel {
         // `canJoinAllSpaces` puts it on every desktop; `fullScreenAuxiliary` is
         // what lets it sit over a full-screen space instead of being confined
         // to the desktop that owns it. Both are required for the third exit
-        // criterion — either alone is not enough.
+        // criterion; either alone is not enough.
         collectionBehavior = [
             .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle,
         ]

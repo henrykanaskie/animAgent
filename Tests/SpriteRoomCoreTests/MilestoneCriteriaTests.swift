@@ -5,7 +5,7 @@ import Testing
 ///
 /// `docs/05-MILESTONES.md` closes a criterion by naming the tests that prove
 /// it. A criterion naming a function nobody can run is a criterion that cannot
-/// fail — the same shape as an assertion arranged so it cannot produce the
+/// fail: the same shape as an assertion arranged so it cannot produce the
 /// failure it names, and it goes unnoticed for the same reason: reading the
 /// bullet tells you a test exists, and nothing checks that reading.
 ///
@@ -43,9 +43,9 @@ import Testing
     /// lowerCamelCase identifier of at least three words.
     ///
     /// The threshold is not taste, it is measured against both sides. Every
-    /// `@Test` function in `Tests/` carries at least two capitals — asserted
+    /// `@Test` function in `Tests/` carries at least two capitals (asserted
     /// below by `everyTestIsNamedLikeASentence`, so the rule cannot quietly stop
-    /// being true — while every two-word identifier the document
+    /// being true) while every two-word identifier the document
     /// backticks is a symbol rather than a test: `comfortablePopulation`,
     /// `reportingSlots`, `claimStation`, `releaseStation`, `ensureAgent`.
     ///
@@ -53,13 +53,13 @@ import Testing
     /// document already writes `RoomCamera`'s `comfortablePopulation` and
     /// `Reaper.permissionGateGraceInterval`; the dot takes it out of this set.
     /// If an unqualified three-word symbol is ever introduced this test goes red
-    /// and asks for the qualification — which is a smaller cost than the failure
+    /// and asks for the qualification, which is a smaller cost than the failure
     /// it is here to catch.
     ///
     /// There is no exemption list, for the reason `ThemeTests` gives for not
     /// having one: an exemption list is how a mechanical rule turns back into a
-    /// convention. A milestone that wants to record a name it no longer has —
-    /// M6 does it three times — writes it in quotes rather than backticks.
+    /// convention. A milestone that wants to record a name it no longer has
+    /// (M6 does it three times) writes it in quotes rather than backticks.
     /// Backticks are the claim; quotes are the history.
     static func namesATest(_ span: String) -> Bool {
         guard let first = span.first, first.isLowercase, first.isLetter else { return false }
@@ -127,7 +127,7 @@ import Testing
     }
 
     /// Functions carrying a `@Test` attribute, which may sit on the declaration
-    /// or on any of the three lines above it — `@Test(.enabled(if:))` and
+    /// or on any of the three lines above it: `@Test(.enabled(if:))` and
     /// `@Test(arguments:)` are both wrapped that way in this suite.
     ///
     /// The attribute has to *open* the line. Anything else picks up every doc
@@ -166,10 +166,10 @@ import Testing
         // magnitude for that reason, low enough not to fight ordinary edits.
         #expect(claims.count >= 40, """
             only \(claims.count) test names were read out of \
-            docs/05-MILESTONES.md — the scan found nothing to check
+            docs/05-MILESTONES.md: the scan found nothing to check
             """)
         #expect(functions.count >= 300, """
-            only \(functions.count) functions were read out of Tests/ — \
+            only \(functions.count) functions were read out of Tests/: \
             the walk found nothing to check against
             """)
 
@@ -179,8 +179,8 @@ import Testing
             exist in Tests/:
             \(missing.map { "  05-MILESTONES.md:\($0.line)  \($0.name)" }.joined(separator: "\n"))
             A criterion naming a function nobody can run is a criterion that \
-            cannot fail. Point it at the test that replaced it, or — if the \
-            property is now held by construction — say that, and say what \
+            cannot fail. Point it at the test that replaced it, or (if the \
+            property is now held by construction) say that, and say what \
             proves it now.
             """)
     }
@@ -222,29 +222,29 @@ import Testing
 /// identifier: a test name in `docs/05-MILESTONES.md`. The rest of `docs/` drifts
 /// the same way and had nothing reading it at all. `01-PRD.md`,
 /// `02-ARCHITECTURE.md`, `03-EVENT-MODEL.md`, `04-ART-DIRECTION.md` and the three
-/// ADRs cite code on almost every page — a type, a property, the test that pins a
-/// number — and a rename leaves every one of those citations reading exactly as it
+/// ADRs cite code on almost every page (a type, a property, the test that pins a
+/// number) and a rename leaves every one of those citations reading exactly as it
 /// did while it was true. It found two on the run that introduced it, both of them
 /// a test that had been replaced by a better one.
 ///
 /// ## The dot is the rule, and it is the whole answer to false positives
 ///
 /// A backticked span is treated as a claim about this repository's code when it is
-/// **qualified** — `Type.member`, or `Type.Nested.member`, optionally with an
-/// argument-label list — and when the `Type` is one this repository declares.
+/// **qualified** (`Type.member`, or `Type.Nested.member`, optionally with an
+/// argument-label list) and when the `Type` is one this repository declares.
 /// Everything else in backticks is left alone. That single rule disposes of the
 /// three ways a looser one goes wrong here, without an exemption list:
 ///
 /// - **Names that are not ours.** These documents backtick `PostToolUse`,
 ///   `WebFetch`, `SessionEnd`, `NSPanel`, `DispatchQueue`, `canJoinAllSpaces` and
-///   `ignoresMouseEvents` — hook events, tool names, AppKit. There is nothing to
+///   `ignoresMouseEvents`: hook events, tool names, AppKit. There is nothing to
 ///   resolve them against and they are not drift. A bare identifier gives no way to
 ///   tell them from ours, and this was measured rather than assumed: of the five
 ///   bare three-word identifiers in `docs/` that do not resolve, **three** are
 ///   AppKit or a key of `~/.claude.json`. So the bare form is not checkable outside
 ///   `05-MILESTONES.md`, whose subject is tests, and this suite does not pretend
-///   otherwise. A qualified span whose head we do not declare — `NSPanel.canJoin…`
-///   — is skipped by the same mechanism, not by being listed.
+///   otherwise. A qualified span whose head we do not declare (`NSPanel.canJoin…`)
+///   is skipped by the same mechanism, not by being listed.
 /// - **Paths.** `Manifest.swift` and `Cargo.toml` are `Type.member` shaped. A span
 ///   whose last component is a file extension is a path and is skipped.
 /// - **Names a document mentions *because* they were removed.** This is the one
@@ -253,16 +253,16 @@ import Testing
 ///   project already has the convention and `MilestoneCriteriaTests` states it:
 ///   **backticks are the claim, quotes are the history.** A document recording a
 ///   name it no longer has writes it in quotes. Both spans this check found were
-///   exactly that case — `04-ART-DIRECTION.md` on a costume assertion that has
+///   exactly that case: `04-ART-DIRECTION.md` on a costume assertion that has
 ///   since flipped, `ADR-001-denied-calls.md` on a permission test that was
-///   replaced — and both were converted to quotes rather than exempted. The rule
+///   replaced, and both were converted to quotes rather than exempted. The rule
 ///   needs no list and the prose lost nothing: it still says what the old name was
 ///   and why it is gone.
 ///
 /// ## What "exists" means, deliberately generously
 ///
 /// The set a component resolves against is every identifier declared anywhere in
-/// `Sources/` or `Tests/` — any `func`, `var`, `let`, `case`, or type. It is not
+/// `Sources/` or `Tests/`: any `func`, `var`, `let`, `case`, or type. It is not
 /// scoped to the type the span names, so this cannot tell you a member moved from
 /// one type to another. That is on purpose: a check that fires only when a name
 /// exists **nowhere** is one whose failures are never arguable, and arguable
@@ -303,7 +303,7 @@ import Testing
 
     /// The identifier introduced by each `keyword` on a line, if any.
     ///
-    /// The keyword has to stand alone — `letterbox` is not a `let`, and
+    /// The keyword has to stand alone: `letterbox` is not a `let`, and
     /// `deskPosition` is not a `case`. Comment lines are skipped for the reason
     /// `declaredFunctions` gives: a prose mention would enlarge the set the
     /// cross-check resolves *against*, which is how a document could cite a symbol
@@ -409,8 +409,8 @@ import Testing
                     let unresolved = parts.dropFirst().filter { !names.contains($0) }
                     guard !unresolved.isEmpty else { continue }
                     offenders.append("""
-                          \(document.lastPathComponent):\(offset + 1)  \(span) \
-                        — \(unresolved.joined(separator: ", ")) is declared nowhere in \
+                          \(document.lastPathComponent):\(offset + 1)  \(span): \
+                        \(unresolved.joined(separator: ", ")) is declared nowhere in \
                         Sources/ or Tests/
                         """)
                 }
@@ -420,12 +420,12 @@ import Testing
         // Both sides pinned, for the reason the milestone cross-check pins its
         // own: a document reformatted out from under this scan, or a sources walk
         // that stopped finding files, would leave nothing to check and nothing to
-        // fail — and would read in the log exactly like a clean run.
+        // fail, and would read in the log exactly like a clean run.
         #expect(documents >= 8, "only \(documents) documents were read out of docs/")
         #expect(names.count >= 500, "only \(names.count) declarations were read out of Sources/ and Tests/")
         #expect(types.count >= 50, "only \(types.count) type names were read out of Sources/ and Tests/")
         #expect(checked >= 30, """
-            only \(checked) qualified symbol references were read out of docs/ — \
+            only \(checked) qualified symbol references were read out of docs/: \
             the scan found nothing to check
             """)
 
@@ -434,7 +434,7 @@ import Testing
             \(offenders.joined(separator: "\n"))
             Point the sentence at the symbol that replaced it. If the sentence is \
             *about* the removal, write the old name in quotes rather than \
-            backticks — backticks are the claim, quotes are the history.
+            backticks: backticks are the claim, quotes are the history.
             """)
     }
 
@@ -480,7 +480,7 @@ import Testing
             name a head type this repository does not declare, so they are not \
             cross-checked at all:
             \(skipped.joined(separator: "\n"))
-            A handful of these is expected — `NSPanel.canJoinAllSpaces` is not ours \
+            A handful of these is expected: `NSPanel.canJoinAllSpaces` is not ours \
             to resolve. A jump in the count means one of our own types was renamed \
             and every citation of it went quiet instead of going red.
             """)

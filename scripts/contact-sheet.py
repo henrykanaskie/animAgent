@@ -4,7 +4,7 @@
 Why this exists
 ---------------
 LimeZu names its singles by index only. `00_Modern_Office_Singles.ase` holds one
-unnamed layer and 339 unnamed frames — no slices, no tags — and the 24 theme
+unnamed layer and 339 unnamed frames (no slices, no tags) and the 24 theme
 sorter sets in Modern Interiors are the same. There is nothing to look up and no
 auto-slicer here, so the only way to find out what single 171 *is* is to render
 it and look at it.
@@ -141,7 +141,7 @@ def scale_up(src, sw, sh, k):
 
 def sheet(files, root, out_path, cols, scale, page_label, start_index):
     """Render one page. Cells are sized to the largest sprite on the page so
-    nothing is cropped — a cropped contact sheet is how you mis-identify a prop."""
+    nothing is cropped; a cropped contact sheet is how you mis-identify a prop."""
     imgs = []
     for f in files:
         w, h, px = pnglite.load(os.path.join(root, f))
@@ -221,7 +221,7 @@ def grid_sheet(src, tile, r0, r1, scale, out_path):
     """Label every cell of a uniform tile sheet with its `row-col` address.
 
     The Room Builder sheets are plain integer grids, so unlike the singles they
-    need no bounding-box work — only an address, so that a pick can be written
+    need no bounding-box work: only an address, so that a pick can be written
     down as (row, col) and re-opened by the next person.
     """
     w, h, px = pnglite.load(src)

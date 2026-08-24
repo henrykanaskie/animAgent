@@ -3,7 +3,7 @@ import os
 
 /// Bounded handoff from the listener to the model actor.
 ///
-/// `enqueue` is synchronous, non-blocking and order-preserving — the three
+/// `enqueue` is synchronous, non-blocking and order-preserving: the three
 /// things I5 needs. The listener never awaits anything to answer a request.
 public final class EventQueue: Sendable {
 
@@ -41,7 +41,7 @@ public final class EventQueue: Sendable {
     }
 }
 
-/// What the ingest path saw. Counters only — a malformed body is an increment
+/// What the ingest path saw. Counters only: a malformed body is an increment
 /// and a `202`, never an error back into the user's session. [I5]
 public struct IngestCounters: Sendable, Hashable {
     public var requests = 0
@@ -54,7 +54,7 @@ public struct IngestCounters: Sendable, Hashable {
     /// room's pilot lamp is lit by them.
     ///
     /// **On its own axis, and deliberately outside `requests`.** Every other
-    /// counter here describes the hook stream, and a probe is not part of it —
+    /// counter here describes the hook stream, and a probe is not part of it:
     /// folded into `requests` it would add one a second forever and make the
     /// number useless for the thing it exists for, and folded into `malformed`
     /// (which is where an undeclared probe would land, since it carries no

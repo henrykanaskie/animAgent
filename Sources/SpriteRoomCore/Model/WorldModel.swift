@@ -21,7 +21,7 @@ public actor WorldModel {
         /// Who launched this agent, once the `Agent` call's `PostToolUse` told
         /// us. `nil` until then, and `nil` forever if we never see it.
         var parent: AgentID?
-        /// What this agent was dispatched to do — the launching `Agent` call's
+        /// What this agent was dispatched to do: the launching `Agent` call's
         /// `tool_input.description`, learned from the same `PostToolUse` and at
         /// the same instant as `parent`.
         ///
@@ -30,9 +30,9 @@ public actor WorldModel {
         /// subagent whose dispatch this app never saw. Both say nothing. [I1]
         var task: String?
         /// Raised by `Notification`, cleared by this agent's next consumed
-        /// event. Orthogonal to `openCalls` — see `clearsAttention(_:)`.
+        /// event. Orthogonal to `openCalls`: see `clearsAttention(_:)`.
         var attention: AttentionKind?
-        /// **ADR-001 (d) — the permission-gate marker.** `nil` is disarmed.
+        /// **ADR-001 (d): the permission-gate marker.** `nil` is disarmed.
         /// Non-`nil` is "a gate opened for this agent, and these are the
         /// `tool_use_id`s it held open at that instant".
         ///
@@ -41,18 +41,18 @@ public actor WorldModel {
         /// nothing.
         ///
         /// **It lives inside `AgentState` on purpose, and that is what makes it
-        /// reapable** [I4]. Every path that ends an agent — `SessionEnd`,
-        /// `SubagentStop`'s departure, the 30-minute idle sweep — removes the
+        /// reapable** [I4]. Every path that ends an agent: `SessionEnd`,
+        /// `SubagentStop`'s departure, the 30-minute idle sweep: removes the
         /// whole `AgentState`, so this cannot outlive the character it belongs
         /// to. A parallel dictionary keyed by agent would have been one more
         /// thing to remember to clear, i.e. one more thing to leak.
         var permissionGate: Set<ToolUseID>?
-        /// **ADR-005 §3 — whether this agent has a turn in progress.** The whole
+        /// **ADR-005 §3: whether this agent has a turn in progress.** The whole
         /// of what the posture channel says, and the fact `Stop` used to carry
         /// nowhere.
         ///
         /// `true` at creation, because an agent exists *because* an event for it
-        /// arrived and an event for it arriving means it is in a turn — which is
+        /// arrived and an event for it arriving means it is in a turn, which is
         /// the same reasoning `SceneDirector` already applies at
         /// `agentAppeared`. Closed by `Stop` and re-opened by `UserPromptSubmit`
         /// or `PreToolUse`.
@@ -60,7 +60,7 @@ public actor WorldModel {
         /// **It lives inside `AgentState`, which is what makes it reapable**
         /// [I4]: every path that ends an agent removes the whole struct, so a
         /// turn cannot outlive the character holding it. The delta stream has a
-        /// second obligation of its own — see `WorldDelta.turnChanged`.
+        /// second obligation of its own: see `WorldDelta.turnChanged`.
         var hasTurn = true
     }
 
@@ -83,7 +83,7 @@ public actor WorldModel {
         var source: String?
         var agents: [AgentID: AgentState] = [:]
         /// Links learned before the child existed. `SubagentStart` normally
-        /// arrives *first*, so this is the rare direction — but the app can
+        /// arrives *first*, so this is the rare direction, but the app can
         /// attach mid-session and see the `PostToolUse` without the
         /// `SubagentStart` that preceded it.
         ///
@@ -149,11 +149,11 @@ public actor WorldModel {
     /// because `SessionStart` never fired once in five captured headless
     /// sessions.
     ///
-    /// Two kinds are excluded. `sessionEnd` is pure teardown — it can only
+    /// Two kinds are excluded. `sessionEnd` is pure teardown: it can only
     /// remove what is there. And an `unhandled` event must change nothing at
     /// all: `fixtures/unknown-events.jsonl` replays seven of them *after* the
     /// session's `SessionEnd`, and creating state from one would resurrect a
-    /// dead session. See the report accompanying M1 — this is the one place
+    /// dead session. See the report accompanying M1: this is the one place
     /// `docs/03-EVENT-MODEL.md` ("first event of any kind") and
     /// `fixtures/README.md` ("none of them changes the world") disagree, and
     /// the fixture is ground truth.
@@ -171,13 +171,13 @@ public actor WorldModel {
     /// from the same agent clears that agent's attention badge.**
     ///
     /// There is no "notification answered" event. Nothing in 2.1.224 observes
-    /// the click — `PermissionDenied` has never fired, on either denial path.
+    /// the click: `PermissionDenied` has never fired, on either denial path.
     /// So the badge has to be cleared by inference, and the only honest
     /// inference available is *the session moved*. Both captured
     /// `notification_type`s mean "blocked on the human": while a permission
     /// dialog is up the main thread emits nothing at all, and while a session
     /// sits at the prompt it emits nothing at all. A main-thread event is
-    /// therefore evidence the human acted — the fixtures show exactly that.
+    /// therefore evidence the human acted: the fixtures show exactly that.
     /// In `fixtures/permission-prompt.jsonl` the approved call's `Notification`
     /// is followed 1.81 s later by its `PostToolUse`, and the denied call's is
     /// followed by the user's next `UserPromptSubmit`.
@@ -185,27 +185,27 @@ public actor WorldModel {
     /// **Same agent, not same session.** Only events with no `agent_id` say
     /// anything about the main thread. Without that restriction an async
     /// subagent churning through `Read`s would wipe the badge off a main thread
-    /// that is genuinely still stuck at a dialog —
+    /// that is genuinely still stuck at a dialog,
     /// `fixtures/three-subagents.jsonl` is full of exactly those interleavings
-    /// — and so would the phantom `SubagentStop` the TUI's suggestion helper
+    ///, and so would the phantom `SubagentStop` the TUI's suggestion helper
     /// emits on every interactive turn.
     ///
     /// **It reads the same when the badge is on a subagent**, which it now can
-    /// be — see `attentionTargets(for:of:resolved:)`. A badge raised on a gated
+    /// be: see `attentionTargets(for:of:resolved:)`. A badge raised on a gated
     /// subagent clears on *that subagent's* next consumed event, which on the
     /// approve path is the gated call's own `PostToolUse`: 5.5 s in
     /// `fixtures/subagent-permission.jsonl`, against 1.81 s for the main-thread
     /// approve path. Main-thread traffic does not clear it, and that is the
-    /// point — in `fixtures/concurrent-permission-gates.jsonl` one subagent's
+    /// point: in `fixtures/concurrent-permission-gates.jsonl` one subagent's
     /// gate is answered while a second subagent is still at its own, and only
     /// the first agent's badge comes down. The rule did not have to change to
     /// cope with this; it was already agent-scoped.
     ///
-    /// **Three kinds are excluded.** `notification` itself, obviously — it is
+    /// **Three kinds are excluded.** `notification` itself, obviously: it is
     /// the raise. `unhandled`, which must change nothing at all, by the same
     /// rule that stops it creating a session. And `permissionRequest`, which is
     /// consumed as of ADR-001 but is the *announcement of the wait*, not
-    /// evidence it ended — it arrives 6 s before the `Notification` it
+    /// evidence it ended: it arrives 6 s before the `Notification` it
     /// precedes, so clearing on it would erase a badge before it was raised,
     /// and a second gate opening while the first is still up would erase a
     /// badge that is still true. `sessionEnd` is excluded too, but only because
@@ -216,8 +216,8 @@ public actor WorldModel {
     /// clear the badge are separate decisions, and `permissionRequest` is the
     /// first event to take one without the other.
     ///
-    /// **Erring early is the deliberate direction.** M4's rule — *a late reap
-    /// is a blind spot, an early one is fiction* — is about closing a state
+    /// **Erring early is the deliberate direction.** M4's rule: *a late reap
+    /// is a blind spot, an early one is fiction*: is about closing a state
     /// that asserts "working", so it points at a long deadline. This badge has
     /// the opposite polarity: it is a *positive* assertion, so a late clear is
     /// the fiction ("Claude needs your permission" when it does not) and an
@@ -227,8 +227,8 @@ public actor WorldModel {
     /// **What it can still get wrong**, stated rather than papered over: a
     /// main-thread batch holding several calls where one is gated and the
     /// others complete would clear the badge while the dialog is still up. No
-    /// capture shows that shape — every observed `PermissionRequest` is a lone
-    /// call — and the failure is a miss, not a lie.
+    /// capture shows that shape: every observed `PermissionRequest` is a lone
+    /// call, and the failure is a miss, not a lie.
     private static func clearsAttention(_ kind: HookEvent.Kind) -> Bool {
         switch kind {
         case .notification, .unhandled, .sessionEnd, .permissionRequest: return false
@@ -257,8 +257,8 @@ public actor WorldModel {
     /// **That is load-bearing, not incidental.** Per-agent scoping is what makes
     /// the synchronous-`Agent` case safe: in the same fixture the main thread's
     /// `Agent` call is open from t=3.504 to t=19.805 *while* the child's dialog
-    /// is on screen, so a session-scoped mark — the natural simplification,
-    /// since the mark holds no `tool_use_id` — would mark the parent's `Agent`
+    /// is on screen, so a session-scoped mark: the natural simplification,
+    /// since the mark holds no `tool_use_id`: would mark the parent's `Agent`
     /// call and let a synthetic `UserPromptSubmit` shorten it. ADR-001 states
     /// that exclusion as structural and it is not; this scoping is the reason it
     /// holds. Do not widen it.
@@ -274,7 +274,7 @@ public actor WorldModel {
     ///
     /// The problem this answers: `PermissionRequest` carries `agent_id`, and the
     /// `Notification` that follows it 6.0 s later **does not**
-    /// (`fixtures/subagent-permission.jsonl`, verified at M6c — a subagent's
+    /// (`fixtures/subagent-permission.jsonl`, verified at M6c: a subagent's
     /// gate, then a `Notification` with no `agent_id` at all). Read through the
     /// identity rule alone it is therefore a main-thread event, so the badge
     /// landed on the main character while the agent actually blocked at the
@@ -294,7 +294,7 @@ public actor WorldModel {
     ///   happen and we cannot say whose it is; the main agent is the honest
     ///   default and the one `docs/03-EVENT-MODEL.md` already falls back to
     ///   elsewhere. This is also the ordinary path for a plain main-thread gate,
-    ///   where the main thread *is* the marked agent — so nothing about the
+    ///   where the main thread *is* the marked agent, so nothing about the
     ///   required fixtures moves.
     /// - **`idle_prompt`** is about the session sitting at the prompt, not about
     ///   a gated call, so it stays on the main thread whatever is marked. Same
@@ -356,14 +356,14 @@ public actor WorldModel {
             // character, and that character is idle, which is what actually
             // happened. [I2]
             //
-            // ADR-001 (d) rule 3 — and *only* when this agent's gate is still
+            // ADR-001 (d) rule 3, and *only* when this agent's gate is still
             // armed. A prompt on its own means nothing: rule (b), "the next
             // `UserPromptSubmit` closes stragglers", was rejected because a
             // subagent's result reaches the main thread as a synthetic prompt
             // and two calls in `three-subagents` are genuinely still running
             // when one arrives. The mark is what tells the two apart.
             answerPermissionGate(ref: ref, at: now, into: &deltas)
-            // ADR-005 §3 — the main thread's turn opener. Behind the gate answer
+            // ADR-005 §3: the main thread's turn opener. Behind the gate answer
             // so the stream reads in the order the facts happened: the wait
             // ended, then the next turn began. Silent unless a `Stop` closed the
             // last one, which is what makes a mid-turn synthetic prompt free.
@@ -390,7 +390,7 @@ public actor WorldModel {
             ensureAgent(ref, agentType: event.agentType, lifecycle: .active, into: &deltas)
             // The closed call is read, not discarded: an `Agent` dispatch
             // carried its child's task on `tool_input.description`, and this is
-            // the instant both halves of that payload's news are in hand — the
+            // the instant both halves of that payload's news are in hand: the
             // call still holding the description, and the response naming the
             // child it belongs to.
             let closed = close(toolUseID, ref: ref, outcome: .succeeded, into: &deltas)
@@ -429,7 +429,7 @@ public actor WorldModel {
 
         case .permissionRequest:
             // ADR-001 (d) rule 1. An agent-level marker: it opens no call,
-            // closes no call, and names no `tool_use_id` — it has none to name.
+            // closes no call, and names no `tool_use_id`: it has none to name.
             // What it records is this agent's open-call set at this instant,
             // which the model already holds. That performs no join, so it cannot
             // join wrongly. [I3]
@@ -437,7 +437,7 @@ public actor WorldModel {
             // **It emits one delta, and only the `Bool`.** It used to emit none
             // at all, on the grounds that a marker is not a fact about the room.
             // The marker is not; *being stopped at a gate* is, and it is the one
-            // fact in this model that answers "is any agent stuck" — so the body
+            // fact in this model that answers "is any agent stuck", so the body
             // stops moving for as long as it holds, which is 9 to 249 s of the
             // corpus's eight gates. The marked set stays interior for the
             // original reason. [ADR-005 §7]
@@ -446,7 +446,7 @@ public actor WorldModel {
             }
 
         case .stop:
-            // Fires once per assistant message stream — four times in one turn
+            // Fires once per assistant message stream: four times in one turn
             // in `three-subagents`. Not end-of-session, not a reap trigger, and
             // the character's idleness is already implied by an empty open-call
             // set. [I1]
@@ -478,7 +478,7 @@ public actor WorldModel {
             // whole representation. [I1]
             //
             // *Which* character (or characters) it lands on is the one
-            // interesting question, and it is answered in exactly one place —
+            // interesting question, and it is answered in exactly one place,
             // `attentionTargets(for:of:resolved:)`. A `permission_prompt` badges
             // every agent with an open gate; everything else badges `ref`.
             for target in attentionTargets(for: attention, of: event, resolved: ref) {
@@ -533,7 +533,7 @@ public actor WorldModel {
     /// `sweep(at:)` answers "what is expired *now*", which is the right question
     /// for a live clock ticking once a second and the wrong one for a replay,
     /// which jumps from one captured event to the next. A deadline falling in
-    /// the gap gets reported at the far end of the jump — or, if a `SessionEnd`
+    /// the gap gets reported at the far end of the jump, or, if a `SessionEnd`
     /// closes the call first, never reported at all. That is not a cosmetic
     /// difference: ADR-001's shortened deadline for
     /// `fixtures/denial-then-work.jsonl` falls at t=94.98 with 157 s of real
@@ -542,7 +542,7 @@ public actor WorldModel {
     ///
     /// **It cannot reap anything early**, which is the property the whole thing
     /// rests on: each step is one ordinary `sweep(at:)` at an instant this
-    /// method never invents — every instant is some open call's own deadline,
+    /// method never invents: every instant is some open call's own deadline,
     /// and never past `instant`. No new close path exists here; this only
     /// chooses when the existing sweep runs. `fixtures/tool-failure.jsonl` is
     /// the regression that proves it, because every call in it closes through
@@ -627,13 +627,13 @@ public actor WorldModel {
     }
 
     /// Creates an agent if we have not seen it. A subagent whose
-    /// `SubagentStart` we missed — because the app attached mid-session —
+    /// `SubagentStart` we missed, because the app attached mid-session,
     /// still gets a character on its first tool call.
     ///
     /// **Creation is idempotent, and for a known id it is also the revival
     /// path.** A background subagent resumed with `SendMessage` emits a *second*
-    /// `SubagentStart` ~20 ms after that call's `PreToolUse` — six starts across
-    /// four agents in `fixtures/four-subagents.jsonl` — so "not once per agent"
+    /// `SubagentStart` ~20 ms after that call's `PreToolUse`: six starts across
+    /// four agents in `fixtures/four-subagents.jsonl`, so "not once per agent"
     /// is the observed shape and every path here funnels through `revive`.
     private func ensureAgent(
         _ ref: AgentRef, agentType: String?, lifecycle: AgentLifecycle,
@@ -666,8 +666,8 @@ public actor WorldModel {
     /// Records `tool_response.agentId`: this parent's `tool_use_id` launched
     /// that child.
     ///
-    /// Retroactive by construction — `SubagentStart` fires before the
-    /// `PostToolUse` that carries the link — so the normal case is that the
+    /// Retroactive by construction: `SubagentStart` fires before the
+    /// `PostToolUse` that carries the link, so the normal case is that the
     /// child is already a character and gets told who it reports to a
     /// millisecond later. If the child does not exist yet (the app attached
     /// mid-session and missed its `SubagentStart`) the link waits for it rather
@@ -677,9 +677,9 @@ public actor WorldModel {
     /// `Agent` call's `tool_input.description`, taken off the `OpenCall` this
     /// same `PostToolUse` just closed, and this is the first moment anything
     /// knows which `agent_id` it describes. It is `nil` far more often than not
-    /// — a `SendMessage` resume returns an `agentId` and carries no
+    ///: a `SendMessage` resume returns an `agentId` and carries no
     /// `description`, and a dispatch whose call was reaped before its close
-    /// took the description with it — and `nil` means say nothing. [I1]
+    /// took the description with it, and `nil` means say nothing. [I1]
     ///
     /// The two facts are recorded independently, not as a pair: a child already
     /// linked by one event may be told its task by another, and neither is
@@ -692,13 +692,13 @@ public actor WorldModel {
         let childRef = AgentRef(project: parent.project, session: parent.session, agent: child)
 
         guard projects[parent.project]!.sessions[parent.session]!.agents[child] != nil else {
-            // Not there yet — the app attached mid-session and missed the
+            // Not there yet: the app attached mid-session and missed the
             // child's `SubagentStart`. Both halves wait together, and
             // `ensureAgent` plays them out when the character arrives.
             var pending = projects[parent.project]!.sessions[parent.session]!
                 .pendingParents[child] ?? PendingLink(parent: parent.agent)
-            // The parent keeps the behaviour it has always had — the most
-            // recent writer — and the task takes the first one that said
+            // The parent keeps the behaviour it has always had: the most
+            // recent writer, and the task takes the first one that said
             // anything, which is what makes its eventual delta at-most-once
             // regardless of how many dispatches named this child before it
             // appeared. A later `nil` is silence, not a retraction, so it may
@@ -726,8 +726,8 @@ public actor WorldModel {
     ///
     /// Idempotent in both directions, and it may not assume any notification
     /// arrives at most once. `idle_prompt` fires once per *idle stretch*, not
-    /// once per session — `fixtures/denial-then-work.jsonl` has two, 60 s after
-    /// each of two `Stop`s — and a second identical `permission_prompt` is the
+    /// once per session: `fixtures/denial-then-work.jsonl` has two, 60 s after
+    /// each of two `Stop`s, and a second identical `permission_prompt` is the
     /// same fact. Neither may produce a second badge change: a delta stream that
     /// repeats itself makes the scene's suppression memory the only thing
     /// standing between a stable badge and a flicker. A repeat *after* a clear
@@ -747,7 +747,7 @@ public actor WorldModel {
         deltas.append(.attentionChanged(agent: ref, attention: attention))
     }
 
-    // MARK: The permission gate marker — ADR-001 (d)
+    // MARK: The permission gate marker: ADR-001 (d)
 
     /// Rule 1. Record that a gate is open for this agent, and which calls it
     /// held open at that instant.
@@ -756,9 +756,9 @@ public actor WorldModel {
     /// conservative reading of something observed rather than of something
     /// merely untested. ADR-001 refused to assume "at most one gate at a time"
     /// and M6c refuted it: `fixtures/concurrent-permission-gates.jsonl` holds
-    /// two gates open together for 31.8 s. They are on two *different* agents —
+    /// two gates open together for 31.8 s. They are on two *different* agents,
     /// one agent holding two at once has still never been seen, which follows
-    /// from the TUI serialising a batch's tool calls — so this path is the
+    /// from the TUI serialising a batch's tool calls, so this path is the
     /// unobserved one, and taking the later snapshot is the safe answer for it:
     /// the agent's open-call set as of the most recent thing we know it is
     /// blocked on.
@@ -785,15 +785,15 @@ public actor WorldModel {
     /// Rule 2. The gate is no longer pending, so nothing may act on the mark.
     ///
     /// **Every path that clears the mark comes through here, and every one of
-    /// them now says so out loud** [I4]. There are five — a marked call closing
+    /// them now says so out loud** [I4]. There are five: a marked call closing
     /// or being abandoned (`removeCall`), `Stop`, `SubagentStop`, and the
-    /// `UserPromptSubmit` that answers the dialog — and the sixth, departure,
+    /// `UserPromptSubmit` that answers the dialog, and the sixth, departure,
     /// deliberately does not: it deletes the whole `AgentState`, and the
     /// `agentDeparted` riding with it takes the character the fact was about.
     /// That is the same division `dormancyChanged` already makes.
     ///
     /// The guard is what keeps it a change rather than a repeat: disarming a
-    /// gate that was never armed is silent, which is the ordinary case — every
+    /// gate that was never armed is silent, which is the ordinary case: every
     /// `Stop` in a session that saw no dialog, and every close of every call.
     private func disarmPermissionGate(ref: AgentRef, into deltas: inout [WorldDelta]) {
         guard projects[ref.project]?.sessions[ref.session]?
@@ -803,7 +803,7 @@ public actor WorldModel {
     }
 
     /// Rule 3. A `UserPromptSubmit` reached an agent whose gate is still armed,
-    /// so the human answered and the answer was **no** — an approval closes the
+    /// so the human answered and the answer was **no**: an approval closes the
     /// gated call, and that close disarms the mark before any prompt can reach
     /// here.
     ///
@@ -813,7 +813,7 @@ public actor WorldModel {
     /// on its next sweep past the new deadline and emits `.callAbandoned`
     /// exactly as it always has, so the character simply returns to idle. [I4]
     ///
-    /// The mark is spent either way — this is the answer it was waiting for.
+    /// The mark is spent either way: this is the answer it was waiting for.
     ///
     /// **What this can still get wrong**, stated rather than hidden: the marked
     /// set is *all* of the agent's open calls, because nothing in the event
@@ -843,7 +843,7 @@ public actor WorldModel {
     /// The marked set for one agent, or `nil` when the gate is disarmed.
     ///
     /// Internal, not public. **The *set* drives no drawing and belongs in no
-    /// delta** — it decides deadlines, it names no gated call because the event
+    /// delta**: it decides deadlines, it names no gated call because the event
     /// names none, and a scene given it could only guess. Whether the gate is
     /// open at all is a different question and it does leave, as
     /// `WorldDelta.gateChanged`; `AgentSnapshot.isGated` is the same `Bool` as a
@@ -854,14 +854,14 @@ public actor WorldModel {
         projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.permissionGate
     }
 
-    // MARK: The turn — ADR-005 §3
+    // MARK: The turn: ADR-005 §3
 
     /// **The main thread's turn boundary, and the only path that closes one
     /// without also removing the character.**
     ///
     /// `Stop` fires once per assistant message stream and can fire several times
     /// in one user turn, which `docs/03-EVENT-MODEL.md` has always warned makes
-    /// it an unreliable *end-of-turn* signal — and which ADR-005 §9 risk 3 names
+    /// it an unreliable *end-of-turn* signal, and which ADR-005 §9 risk 3 names
     /// as the one thing that could put the strobe back on a different key. The
     /// measurement over all seventeen captures, taken before this was built:
     ///
@@ -871,7 +871,7 @@ public actor WorldModel {
     ///   `UserPromptSubmit` (12 of them; 4.23 s at the shortest) or by the
     ///   session ending (14).
     /// - **That is structural rather than lucky.** The way an async subagent
-    ///   wakes the main thread — the very shape §9 worried about — is a
+    ///   wakes the main thread (the very shape §9 worried about) is a
     ///   *synthetic* `UserPromptSubmit`, which is itself an opener. So "several
     ///   `Stop`s in one user turn" always has a prompt between them, and the room
     ///   draws the same picture either way: the main thread stopped, then was
@@ -884,7 +884,7 @@ public actor WorldModel {
     /// says that matters five times: three `Stop`s in `denial-then-work` and one
     /// each in `parallel-denial` and `permission-prompt` arrive with a `Bash`
     /// still open. Every one of those five is an interactively denied call that
-    /// **nothing in its stream will ever close** — the shape ADR-001 exists for —
+    /// **nothing in its stream will ever close**: the shape ADR-001 exists for,
     /// so standing that character up is the truer picture, not the less true one.
     /// Consulting the open-call set here would also re-couple the two channels
     /// ADR-005 §3 separated, on the side where the set is known to be stale.
@@ -898,7 +898,7 @@ public actor WorldModel {
     /// The openers ADR-005 §3 names: `UserPromptSubmit`, `SubagentStart`, and any
     /// `PreToolUse`. An agent doing something is in a turn.
     ///
-    /// Silent for an agent already in one, which is the ordinary case — every
+    /// Silent for an agent already in one, which is the ordinary case: every
     /// `PreToolUse` of every fixture but the eleven that follow a `Stop`. The
     /// guard is what keeps this a change rather than a repeat.
     private func beginTurn(ref: AgentRef, into deltas: inout [WorldDelta]) {
@@ -912,7 +912,7 @@ public actor WorldModel {
         projects[ref.project]?.sessions[ref.session]?.agents[ref.agent]?.lifecycle = lifecycle
     }
 
-    // MARK: Dormancy — `SubagentStop` is a turn boundary, not a death
+    // MARK: Dormancy: `SubagentStop` is a turn boundary, not a death
 
     /// **A subagent that stops does not leave the room. It goes dormant and
     /// stays on screen.**
@@ -927,12 +927,12 @@ public actor WorldModel {
     /// dropping to two for 7.3 s and to one for 6.7 s, while the parent had four
     /// assigned throughout. For a surface whose one sentence is "you glance at
     /// the notch and know what your agents are doing", that is the [I1]
-    /// violation — not the fix for one. A dormant character is the honest
+    /// violation, not the fix for one. A dormant character is the honest
     /// rendering of a fact we actually hold.
     ///
     /// **The `.reporting` beat is untouched.** `reportDelivered` is still
     /// emitted, still on the same event, and it still licenses the one
-    /// dramatisation this project allows — walk to the anchor, deliver. What
+    /// dramatisation this project allows: walk to the anchor, deliver. What
     /// changed is only where the character ends up afterwards: its own seat,
     /// idle, instead of off screen.
     ///
@@ -942,22 +942,22 @@ public actor WorldModel {
     ///
     /// The old argument: "finished and might come back" and "between tool calls"
     /// are different facts and the room would be better for separating them, but
-    /// nothing we own can draw the difference — there are six body states and
+    /// nothing we own can draw the difference: there are six body states and
     /// none means dormant, and the single badge anchor held one non-tool glyph,
     /// `attention`, which asserts "the room needs you" and would be a lie here.
     /// Inventing a pose is what [I1] forbids, so both rendered `idle` and no
     /// delta carried the lifecycle.
     ///
     /// The half that survives is the **body**: M6b cut the pack's `sleep` row
-    /// and measured it — six frames of a head on a pillow, drawn from above,
+    /// and measured it: six frames of a head on a pillow, drawn from above,
     /// with no body, to be composited onto a top-down bed. On a character
     /// sitting side-on in an office chair it is a floating head. There is still
     /// no dormant body state and there must not be one.
     ///
     /// The half that does not is the **badge**, because the premise "the single
     /// badge anchor holds one non-tool glyph" stopped being true. Modern
-    /// Interiors' UI sheet carries a blue `Z` bubble — the same component, in
-    /// the same frame, as `attention` — and `badges.states` exists precisely for
+    /// Interiors' UI sheet carries a blue `Z` bubble: the same component, in
+    /// the same frame, as `attention`, and `badges.states` exists precisely for
     /// badge states that answer to no tool. It ships as `badges.states.sleep`,
     /// it needs no new manifest key and no new `BodyState`, and it asserts
     /// exactly what this flag knows: *this character finished a turn and is
@@ -965,16 +965,16 @@ public actor WorldModel {
     /// saying a true thing. [I1]
     ///
     /// So `dormancyChanged` is emitted here and cleared in `revive`, and the
-    /// seam the old paragraph named — "if a scene ever earns an honest treatment
-    /// for dormancy, that delta is the seam" — is the delta that now exists.
+    /// seam the old paragraph named: "if a scene ever earns an honest treatment
+    /// for dormancy, that delta is the seam": is the delta that now exists.
     ///
     /// **Reapable, with no deadline of its own.** [I4] Dormancy lives inside
-    /// `AgentState`, so the two paths that genuinely mean *gone* — `SessionEnd`
-    /// and the 30-minute session-idle sweep — remove it with the character, by
+    /// `AgentState`, so the two paths that genuinely mean *gone*: `SessionEnd`
+    /// and the 30-minute session-idle sweep: remove it with the character, by
     /// construction and not by remembering to. A third timer was considered and
     /// rejected: "depart after N minutes dormant" would be a number with nothing
     /// behind it, and it would reintroduce the bug for any agent resumed later
-    /// than N. The bound that exists is the right one — an assignment is live
+    /// than N. The bound that exists is the right one: an assignment is live
     /// for exactly as long as its session is.
     private func goDormant(ref: AgentRef, into deltas: inout [WorldDelta]) {
         guard projects[ref.project]?.sessions[ref.session]?.agents[ref.agent] != nil else { return }
@@ -983,7 +983,7 @@ public actor WorldModel {
         // fact for a subagent, so the mark cannot survive it. This is load-
         // bearing now rather than incidental: departure used to clear the mark
         // by deleting the whole `AgentState`, and an agent that stops holding an
-        // *empty* marked set — a legal snapshot — would otherwise carry an armed
+        // *empty* marked set (a legal snapshot) would otherwise carry an armed
         // gate into dormancy forever and be badged by a later `permission_prompt`
         // it has nothing to do with. [I1/I4]
         //
@@ -1007,9 +1007,9 @@ public actor WorldModel {
     ///
     /// Reached from `ensureAgent`, so *every* consumed event for a dormant agent
     /// revives it, not only the lifecycle one. That is deliberate and it is the
-    /// stricter half: `SubagentStart` is not guaranteed — the app can attach
+    /// stricter half: `SubagentStart` is not guaranteed: the app can attach
     /// mid-session and a resumed agent's first evidence is then its own
-    /// `PreToolUse` — and an agent left dormant while it is demonstrably working
+    /// `PreToolUse`, and an agent left dormant while it is demonstrably working
     /// would be a second lie in the other direction.
     ///
     /// It restores `.active` and never the caller's requested lifecycle, which
@@ -1025,8 +1025,8 @@ public actor WorldModel {
     /// identically and is not any more.
     ///
     /// The guard is what keeps it a change rather than a repeat: an agent that
-    /// was not dormant produces no delta, so the ordinary case — every consumed
-    /// event of a live agent passing through `ensureAgent` — is still silent.
+    /// was not dormant produces no delta, so the ordinary case: every consumed
+    /// event of a live agent passing through `ensureAgent`: is still silent.
     ///
     /// It fires *before* the event's own effect, so an event that both revives
     /// and opens a call emits the wake first and the `callOpened` behind it,
@@ -1066,7 +1066,7 @@ public actor WorldModel {
     }
 
     /// Closing is idempotent. `PostToolBatch` re-reports calls the other two
-    /// paths already closed — both happen for the same `tool_use_id` in
+    /// paths already closed: both happen for the same `tool_use_id` in
     /// `fixtures/tool-failure.jsonl`. A second `.callClosed` would drive the
     /// scene's open-call count negative.
     ///
@@ -1111,14 +1111,14 @@ public actor WorldModel {
     ///
     /// ADR-001 (d) rule 2 lives here for that reason, and *only* that reason:
     /// the three close paths are verified and load-bearing and are not being
-    /// changed — `PostToolUse`, `PostToolUseFailure` and `PostToolBatch` still
+    /// changed: `PostToolUse`, `PostToolUseFailure` and `PostToolBatch` still
     /// close exactly the ids they always closed and emit exactly the deltas they
     /// always emitted. What the marker needs is to notice that a marked call
     /// went away, and there is exactly one place where that happens.
     ///
     /// **Any close of any marked call disarms the whole mark**, which is the
     /// approve path: the gated call closes normally, so the human said yes and
-    /// no later prompt may shorten anything. Abandonment counts too — a call
+    /// no later prompt may shorten anything. Abandonment counts too: a call
     /// already reaped is not one a deadline change could still help.
     ///
     /// The `gateChanged(isGated: false)` that disarm now emits lands **ahead of**

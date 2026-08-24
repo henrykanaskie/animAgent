@@ -4,10 +4,10 @@ import os
 
 /// The in-process HTTP listener Claude Code POSTs hook payloads to.
 ///
-/// **I5 — the handler never does work.** Read the body, decode, enqueue,
+/// **I5: the handler never does work.** Read the body, decode, enqueue,
 /// respond `202` with an empty body. Nothing else happens on that path: no
 /// rendering, no disk, no lock held across a response. There is no `async`
-/// field on the HTTP hook schema, so the session *blocks* on our answer — a
+/// field on the HTTP hook schema, so the session *blocks* on our answer: a
 /// listener that holds for 3 s adds 3 s to every tool call. Measured.
 ///
 /// **Loopback only.** Bound to `127.0.0.1`. Never `0.0.0.0`.
@@ -161,7 +161,7 @@ public final class HookListener: Sendable {
     /// `ListenerHeartbeat.path` is the app asking itself whether it is still
     /// answering; it is not a hook, it carries no event, and the one thing it
     /// must not do is reach the world. It is counted on its own axis and
-    /// returns — never decoded, never enqueued, so it can neither create a
+    /// returns: never decoded, never enqueued, so it can neither create a
     /// session nor inflate the malformed count that exists to notice a real
     /// problem. [I1]
     private func handle(_ request: HTTPRequest) {
@@ -171,7 +171,7 @@ public final class HookListener: Sendable {
         }
         // **Before decoding, and before the malformed check.** A capture that
         // only held the bodies this version can parse would be useless for
-        // diagnosing the ones it cannot — which is the main thing a capture is
+        // diagnosing the ones it cannot, which is the main thing a capture is
         // for. `record` hands off to its own queue and does no I/O here, so I5
         // holds. [HookRecorder]
         recorder?.record(request.body)
@@ -191,7 +191,7 @@ public final class HookListener: Sendable {
 /// `Content-Length` framing only: Claude Code POSTs a JSON body from an
 /// ordinary HTTP client, which always sets it. A body framed any other way
 /// reads as empty, which decodes to nothing, which is counted as malformed and
-/// still answered `202` — the failure mode stays harmless.
+/// still answered `202`; the failure mode stays harmless.
 struct HTTPRequest {
     let body: Data
     let keepAlive: Bool
@@ -257,7 +257,7 @@ struct HTTPRequest {
 
         let lines = headerText.split(separator: "\r\n")
         // `METHOD target VERSION`. A request line that is not that shape names
-        // no target, so it is not a probe — which is the safe answer, because
+        // no target, so it is not a probe, which is the safe answer, because
         // the alternative is a hook request being silently swallowed.
         let target = lines.first?.split(separator: " ").dropFirst().first
         let isProbe = target.map { $0 == ListenerHeartbeat.path } ?? false
@@ -272,7 +272,7 @@ struct HTTPRequest {
             // **Clamped at zero, and that is a crash fix rather than tidiness.**
             // `Int(value) ?? 0` accepted a negative, which made `bodyEnd` land
             // *before* `bodyStart`, and `buffer[bodyStart..<bodyEnd]` on a
-            // reversed range is a trap, not an error — one malformed header
+            // reversed range is a trap, not an error: one malformed header
             // would take the listener down and with it every session posting to
             // it. A negative length frames no body, so it reads as empty, which
             // decodes to nothing, which is counted malformed and answered `202`

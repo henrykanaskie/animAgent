@@ -3,7 +3,7 @@ import Foundation
 /// A typed view of `assets/manifest.json`.
 ///
 /// Everything the scene draws is addressed through this type. No filename and
-/// no frame index appears anywhere else in `SpriteRoomScene` — final art must
+/// no frame index appears anywhere else in `SpriteRoomScene`: final art must
 /// drop in as a manifest swap with zero code change.
 public struct Manifest: Sendable, Hashable {
 
@@ -41,7 +41,7 @@ public struct Manifest: Sendable, Hashable {
         /// `scripts/build-manifest.py` off the frames themselves. [ADR-008]
         ///
         /// `AmbientMotion`'s phrase table is a schedule over two positions of
-        /// one bob — `settled` and `raised` — and `raised` used to be computed
+        /// one bob (`settled` and `raised`) and `raised` used to be computed
         /// as "the last frame". That is a measurement of the three-frame `sit`
         /// row `(rest, rest, up)` and it is wrong for every other row: the
         /// six-frame `idle` row bobs on frames **2 and 3** and comes back to
@@ -55,7 +55,7 @@ public struct Manifest: Sendable, Hashable {
         /// an old manifest draws exactly what it drew before.
         public let raisedFrame: Int?
         /// Frame paths per direction. `working` carries `right` and `left`
-        /// only — the pack ships no front- or back-facing sitting pose.
+        /// only: the pack ships no front- or back-facing sitting pose.
         public let frames: [Facing: [String]]
 
         public func frames(facing: Facing) -> [String]? { frames[facing] }
@@ -76,7 +76,7 @@ public struct Manifest: Sendable, Hashable {
         /// selected premades' most saturated pixels land inside a 30° arc and
         /// two are hue-identical. `nil` only if the manifest omits it, in which
         /// case `TextureStore` falls back to sampling and the weak channel is
-        /// back — so the lint requires the field.
+        /// back, so the lint requires the field.
         public let accentHex: Bitmap.RGBA?
         public let states: [BodyState: StateAnimation]
 
@@ -87,15 +87,15 @@ public struct Manifest: Sendable, Hashable {
     /// in the generator's own back-to-front order. [ADR-002 §4, the costume
     /// amendment]
     ///
-    /// A layer is variant-shaped on purpose — the same `states` map, the same
-    /// facings, the same frame counts — because that is literally what the art
+    /// A layer is variant-shaped on purpose: the same `states` map, the same
+    /// facings, the same frame counts, because that is literally what the art
     /// is. Modern Interiors' `Character_Generator/Outfits` sheets are the
     /// premade sheet's exact geometry, registered frame for frame on every pose
     /// row including `sit`, so a layer is a second `CharacterVariant` drawn over
     /// the first with no offset to solve. Verified before this type was written:
     /// an outfit composited onto each of the six cast premades' seated frames
     /// lands on the torso, covers the premade's own garment, and leaves the
-    /// hair and the skin — which is where M0 put the variant identity — alone.
+    /// hair and the skin (which is where M0 put the variant identity) alone.
     ///
     /// **There is no hair layer and there must not be one.** The generator ships
     /// 200 hairstyles and they register just as well; the cast's hair is the one
@@ -104,7 +104,7 @@ public struct Manifest: Sendable, Hashable {
     /// unproven one.
     public struct Costume: Sendable, Hashable {
         public let id: String
-        /// What the costume *is*, in the manifest's words. Never drawn — it is
+        /// What the costume *is*, in the manifest's words. Never drawn: it is
         /// what an art report and a contract test name it by.
         public let title: String
         /// **Whether wearing this makes a claim about the work.**
@@ -113,8 +113,8 @@ public struct Manifest: Sendable, Hashable {
         /// when the user named the agent `test-engineer` and the manifest
         /// translates that name; it is fiction when a hash put an arbitrary
         /// `agent_type` in it. So an asserting costume may be reached only
-        /// through `Costumes.roles` — the tier that is keyed on the exact text
-        /// the user wrote — and never through the pool. `ThemeSelector` enforces
+        /// through `Costumes.roles`: the tier that is keyed on the exact text
+        /// the user wrote, and never through the pool. `ThemeSelector` enforces
         /// the reachability; `CostumeContractTests` enforces that the pool
         /// contains no costume declaring this. [I1]
         public let asserts: Bool
@@ -143,12 +143,12 @@ public struct Manifest: Sendable, Hashable {
         }
     }
 
-    /// `characters.costumes` — the wardrobe, and the two tiers that keep it
+    /// `characters.costumes`: the wardrobe, and the two tiers that keep it
     /// honest.
     ///
     /// ```
     /// costume(agent) =
-    ///     nil                            if agent_id is absent   — the main thread
+    ///     nil                            if agent_id is absent: the main thread
     ///     nil                            if agent_type is absent or ""
     ///     roles[agent_type]              if the manifest translates that exact name
     ///     rendezvous(agent_type, pool)   otherwise
@@ -156,7 +156,7 @@ public struct Manifest: Sendable, Hashable {
     /// ```
     ///
     /// **Tier 1 translates; tier 2 must not claim.** `roles` is a table the
-    /// manifest carries, keyed on `agent_type` **exactly as received** — the same
+    /// manifest carries, keyed on `agent_type` **exactly as received**: the same
     /// rule `ThemeSelector.theme(for:stored:manifest:)` follows for `cwd`, and
     /// for the same reason: this app does not invent normalisations of the user's
     /// own strings. A `test-engineer` in a lab coat is the room repeating a name
@@ -193,7 +193,7 @@ public struct Manifest: Sendable, Hashable {
         ///
         /// `0` for a manifest that predates the measurement or declares no
         /// wardrobe, which makes the standoff the chair's own height plus the
-        /// collar allowance — the safe direction, since it shows *more* of the
+        /// collar allowance: the safe direction, since it shows *more* of the
         /// character rather than less.
         public let inkTopAboveFeet: Int
 
@@ -210,10 +210,10 @@ public struct Manifest: Sendable, Hashable {
         public let anchor: Anchor
         public let frameRate: Double
         /// Keyed by variant id (`"06"`, `"07"`, …). Iterate `orderedVariantIDs`
-        /// when order matters — dictionary order is not stable.
+        /// when order matters: dictionary order is not stable.
         public let variants: [String: CharacterVariant]
         public let orderedVariantIDs: [String]
-        /// `characters.poses.working` — badge id → the name of a seated state,
+        /// `characters.poses.working`: badge id → the name of a seated state,
         /// plus a required `default`. [ADR-002 §7]
         ///
         /// **Empty is the shipped state and it is a legal one.** The pack ships
@@ -226,12 +226,12 @@ public struct Manifest: Sendable, Hashable {
         /// **A pose named here must be seated, and side-on is not the same
         /// claim.** §5a's sentence is "a *seated* pose in every case"; the
         /// facings clause only says it is drawn `right` and `left`. Four of the
-        /// pack's remaining rows — `pick_up`, `lift`, `throw`, `push_cart` —
+        /// pack's remaining rows: `pick_up`, `lift`, `throw`, `push_cart`,
         /// satisfy the facings clause exactly and are people standing up, so the
         /// two are checked separately:
         /// `ThemeContractTests.everyNamedPoseStateExistsWithExactlyRightAndLeftFrames`
         /// and `…IsSeatedRatherThanMerelySideOn`. The second reads pixels,
-        /// because a pose row cannot be trusted by its label — the row called
+        /// because a pose row cannot be trusted by its label: the row called
         /// `sleep` is a head on a pillow. See `03-EVENT-MODEL.md`, "One seated
         /// pose is all the pack has".
         public let workingPoses: [String: String]
@@ -242,7 +242,7 @@ public struct Manifest: Sendable, Hashable {
 
         /// The key §7 requires every pose table to carry. It is what
         /// `question_mark` resolves to, and therefore what every unmapped tool
-        /// gets — which is what makes a tool name nobody has heard of need no
+        /// gets, which is what makes a tool name nobody has heard of need no
         /// new art. [§5a]
         public static let defaultPoseKey = "default"
 
@@ -255,7 +255,7 @@ public struct Manifest: Sendable, Hashable {
         ///
         /// A name the table gives that is not one of the six body states
         /// resolves to the same floor. `BodyState` is a closed enum, so a
-        /// seventh seated pose needs a case adding beside its manifest entry —
+        /// seventh seated pose needs a case adding beside its manifest entry,
         /// recorded as a gap in §8 item 7 rather than worked around with a
         /// stringly-typed state that nothing could draw.
         public func workingPose(forBadgeKey key: String?) -> BodyState {
@@ -279,8 +279,8 @@ public struct Manifest: Sendable, Hashable {
         ///
         /// Deliberately separate from `map`: `map` is keyed by `ToolBadge` and
         /// every one of its keys must exist or the manifest is malformed, while
-        /// these answer to no tool at all. Both are pack art — `attention` from
-        /// M0b, `sleep` from M6b — and both are components of the same UI sheet,
+        /// these answer to no tool at all. Both are pack art: `attention` from
+        /// M0b, `sleep` from M6b, and both are components of the same UI sheet,
         /// which is why adding the second one needed no new key and no new
         /// anchor.
         public let states: [String: BadgeArt]
@@ -289,12 +289,12 @@ public struct Manifest: Sendable, Hashable {
         /// here, so no other file in the scene spells it.
         public static let attentionKey = "attention"
 
-        /// The `badges.states` key for the dormant badge — a subagent that
+        /// The `badges.states` key for the dormant badge: a subagent that
         /// finished a turn, kept its seat, and may be revived by a later event.
         ///
         /// Beside `attention` rather than in `map` for the identical reason: it
         /// answers to no tool. It is the *badge* half of dormancy and there is
-        /// no body half — the pack's `sleep` body row is a head on a pillow
+        /// no body half: the pack's `sleep` body row is a head on a pillow
         /// drawn for a top-down bed and cannot be worn by a character sitting
         /// side-on. [I1]
         public static let sleepKey = "sleep"
@@ -310,7 +310,7 @@ public struct Manifest: Sendable, Hashable {
     /// inside the canvas.
     ///
     /// The Modern Office singles are 64×96 canvases with the object dropped in
-    /// wherever it sat on the source sheet — they are neither bottom-aligned nor
+    /// wherever it sat on the source sheet: they are neither bottom-aligned nor
     /// centred, and two objects' baselines differ by as much as 20 px. So the
     /// scene places a prop by putting `contentBox`'s bottom-centre on a named
     /// point. That is placement by measurement; a fixed offset would be a guess
@@ -325,11 +325,11 @@ public struct Manifest: Sendable, Hashable {
         ///
         /// **Additive beside `file`, and `file` is always frame 0.** A reader
         /// that knows nothing about this key draws a still prop and is correct
-        /// — which is exactly why nothing broke when the key landed, and also
+        ///, which is exactly why nothing broke when the key landed, and also
         /// why nothing noticed that the art survey was not counting the other
         /// frames. [ADR-002 §14b]
         public let animation: Animation?
-        /// `props.roles.<role>.surface_y` — **how many pixels above the floor
+        /// `props.roles.<role>.surface_y`: **how many pixels above the floor
         /// this prop's top surface sits**, when the generator measured one.
         /// Carried by the `desk` role and by nothing else today. [ADR-006 §2b]
         ///
@@ -337,7 +337,7 @@ public struct Manifest: Sendable, Hashable {
         /// the key exists: `content_box` measures a prop's ink footprint, not the
         /// plane you may stand something on, and for a desk with something
         /// already drawn on it the two disagree. `library` binds a school desk
-        /// with an open book on top — box top 44, slab 36 — so a reader that used
+        /// with an open book on top (box top 44, slab 36) so a reader that used
         /// the box would float every desk-top object 8 px above the wood.
         ///
         /// `nil` for every other role, and for a `desk` in a manifest older than
@@ -346,18 +346,18 @@ public struct Manifest: Sendable, Hashable {
         /// the answer the room drew before this key existed.
         public let surfaceY: Int?
 
-        /// `props.roles.<role>.variants` — **every file this role may be drawn
+        /// `props.roles.<role>.variants`: **every file this role may be drawn
         /// with, `file` first**. Never empty, and `variants[0] == file` always.
         ///
         /// **Additive beside `file`, exactly as `animation` is**, and the
         /// manifest says so in its own `variants_note`: a reader that has never
         /// heard of this key draws `file` and is correct. That is why a manifest
-        /// without it needs no special case here — absence decodes to `[file]`,
+        /// without it needs no special case here: absence decodes to `[file]`,
         /// which is what every theme but `office` gets and what every caller
         /// that asks for variant 0 gets everywhere.
         ///
         /// **Nothing in a `WorldDelta` may choose an entry.** What indexes it is
-        /// the seat, once, at room-build time — a seat is stable for the life of
+        /// the seat, once, at room-build time: a seat is stable for the life of
         /// a scene, so the room is still built once and never rebuilt. A prop
         /// that changed because an agent did something would be the fiction
         /// ADR-002 §6 rule 1 exists to prevent. [I1]
@@ -384,8 +384,8 @@ public struct Manifest: Sendable, Hashable {
             self.surfaceY = surfaceY
             // The one place the "`file` first, always" contract is enforced, so
             // no caller has to check it. A list that does not lead with `file`
-            // is a list this reader cannot index safely — variant 0 would draw
-            // something other than what a variant-blind reader draws — so it is
+            // is a list this reader cannot index safely: variant 0 would draw
+            // something other than what a variant-blind reader draws, so it is
             // discarded whole rather than repaired.
             let declared = variants ?? []
             self.variants = declared.first == file && !declared.contains(where: \.isEmpty)
@@ -396,8 +396,8 @@ public struct Manifest: Sendable, Hashable {
         /// negative indices wrap, so a caller may hand this a seat number
         /// without knowing how much stock the manifest declared.
         ///
-        /// The copy keeps the role's own `content_box` and `surface_y` — a
-        /// variant is the same slot in the same theme — and **drops
+        /// The copy keeps the role's own `content_box` and `surface_y`: a
+        /// variant is the same slot in the same theme, and **drops
         /// `animation`**, because `animation.frames[0]` is `file` and a variant
         /// that is not `file` has no frames of its own. A role that both idles
         /// and carries stock would otherwise play frame 0 of the wrong picture.
@@ -405,8 +405,8 @@ public struct Manifest: Sendable, Hashable {
         /// from being a defect.
         ///
         /// **The caller is responsible for the box when a variant's art is not
-        /// registered with `file`'s.** `RoomScene` measures it — see
-        /// `TextureStore.inkBox(path:)` — because the manifest declares one
+        /// registered with `file`'s.** `RoomScene` measures it: see
+        /// `TextureStore.inkBox(path:)`, because the manifest declares one
         /// `content_box` per role and the office `desk_kit` stock is four
         /// objects cut from four different source sheets.
         public func variant(_ index: Int) -> PropRole {
@@ -425,7 +425,7 @@ public struct Manifest: Sendable, Hashable {
         /// measured `file` itself and a declared box outranks a measured one
         /// wherever there is a declaration to read. So a theme with no stock, or
         /// a seat that lands on entry 0, draws exactly what it drew before this
-        /// key existed — including if the measurement is unavailable.
+        /// key existed: including if the measurement is unavailable.
         public func variant(_ index: Int, box: Box?) -> PropRole {
             let picked = variant(index)
             guard picked.file != file, let box else { return picked }
@@ -445,7 +445,7 @@ public struct Manifest: Sendable, Hashable {
             /// Every frame, in order. `frames[0]` is `PropRole.file`.
             public let frames: [String]
             public let fps: Double
-            /// Always `true` — §14b says so in as many words, and the manifest
+            /// Always `true`: §14b says so in as many words, and the manifest
             /// has never carried another value. Decoded rather than assumed
             /// because `PropAnimation` is total over both and a decoded `false`
             /// that was silently looped would be the manifest and the screen
@@ -462,7 +462,7 @@ public struct Manifest: Sendable, Hashable {
         /// One place, because there are two of them now and `file` is a subset
         /// of the frames rather than a separate asset. Anything that walks the
         /// manifest asking "what art does this need" has to ask this rather
-        /// than read `file` — the art survey read `file` and was silently
+        /// than read `file`: the art survey read `file` and was silently
         /// blind to frames 1..N, which would have let
         /// `SPRITE_ROOM_REQUIRE_ART=1` pass with an animation half on disk.
         public var declaredPaths: [String] {
@@ -490,7 +490,7 @@ public struct Manifest: Sendable, Hashable {
     /// One piece of scenery: a prop plus the depth band it stands in.
     ///
     /// **The band is the only placement fact the manifest carries**, and that is
-    /// deliberate. `docs/PLACEMENT-BANDS.md` is a measured negative result — the
+    /// deliberate. `docs/PLACEMENT-BANDS.md` is a measured negative result: the
     /// pixels do not say whether a sprite hangs on a wall or stands on a floor,
     /// `painting_framed`, `desk_wood` and `table_console` measure geometrically
     /// identical, and 62% of the catalogue cannot be classified at all. So the
@@ -514,14 +514,14 @@ public struct Manifest: Sendable, Hashable {
     /// [ADR-008]
     ///
     /// It read "`chair` must be side view with the backrest on the left so a
-    /// person on it faces right — the only direction the pack's sit rows were
+    /// person on it faces right: the only direction the pack's sit rows were
     /// drawn for", and that was true while every seat in the room was side-on.
     /// A seat now declares which way its occupant faces, and the sentence splits
     /// in two:
     ///
-    /// - **`chair`** — still the side view with the backrest on the left, still
+    /// - **`chair`**: still the side view with the backrest on the left, still
     ///   for the sit rows, and still the *only* chair a side-on seat may take.
-    /// - **`chair_back`** — the same office chair drawn from behind, for a seat
+    /// - **`chair_back`**: the same office chair drawn from behind, for a seat
     ///   whose occupant faces away from the camera. A side chair under a
     ///   back-facing occupant is a chair pointing 90° away from the person in
     ///   it, so this is not a variant of the first, it is the other view of it.
@@ -533,7 +533,7 @@ public struct Manifest: Sendable, Hashable {
     ///
     /// **`desk` and `chair` are the theme's own unless the station overrides
     /// them.** Every station the shipped manifest declares overrides neither, so
-    /// what a station changes is what stands *beside* the seat — which is the
+    /// what a station changes is what stands *beside* the seat, which is the
     /// only channel the art we own can actually separate. The pack's desks all
     /// desaturate to the same pale slab, and it ships exactly two chairs worth
     /// binding: one side view and one back view, both of them the same chair.
@@ -577,14 +577,14 @@ public struct Manifest: Sendable, Hashable {
     public struct Room: Sendable, Hashable {
         public let tile: Size
         public let builderTiles: [String]
-        /// `builder.floor` — the tile the floor is drawn from, **declared**
+        /// `builder.floor`: the tile the floor is drawn from, **declared**
         /// rather than searched for.
         ///
         /// The search is `TextureStore.roomTileChoice()`'s heuristic, and the
         /// art-director measured what it costs: of the Office room's 141 builder
         /// tiles it accepts exactly 2, because it takes only tiles that are
         /// fully opaque *and* a single flat colour. So a room drawn wide is two
-        /// flat colour fields and the other 139 tiles are dead weight — which is
+        /// flat colour fields and the other 139 tiles are dead weight, which is
         /// most of why a wide room reads as empty floor. A floor that carries a
         /// pattern cannot pass that filter by construction, so no amount of art
         /// would have fixed it.
@@ -595,8 +595,8 @@ public struct Manifest: Sendable, Hashable {
         public let declaredFloor: String?
         /// `builder.wall`. Deliberately an `authored` flat in every theme that
         /// declares one: every tile in `Room_Builder_Walls` carries vertical
-        /// trim — measured, the left and right edge columns differ on 28–32 of
-        /// 32 rows — so tiling one across a 25-tile room seams every 32 px. It
+        /// trim: measured, the left and right edge columns differ on 28–32 of
+        /// 32 rows, so tiling one across a 25-tile room seams every 32 px. It
         /// is also the better answer under I7 regardless, since the wall is the
         /// largest continuous area on screen and sits directly behind every
         /// character.
@@ -609,18 +609,18 @@ public struct Manifest: Sendable, Hashable {
         public let propsIdentified: Bool
         /// The singles that *have* been identified, keyed by role
         /// (`"desk"`, `"chair"`, …). Empty is a legal state and means the scene
-        /// falls back to placeholders — the room still draws.
+        /// falls back to placeholders: the room still draws.
         ///
         /// **The role names are placement slots, not object nouns.** A theme
         /// fills `plant` with whatever plays the part of the repeated back-wall
-        /// and walkway accent — a console terminal, a bookcase, a stage curtain.
+        /// and walkway accent: a console terminal, a bookcase, a stage curtain.
         /// [04-ART-DIRECTION, "The five themes"]
         public let propRoles: [String: PropRole]
-        /// **`props.scenery` — the room's dressing, in declaration order.**
+        /// **`props.scenery`: the room's dressing, in declaration order.**
         ///
         /// The four `propRoles` above are the slots the room's *arithmetic*
         /// needs: a surface and a seat at every seat, one standing object, one
-        /// repeated accent. This is everything else — the printers, cabinets,
+        /// repeated accent. This is everything else: the printers, cabinets,
         /// bins, coolers and wall boards that make a floor read as a place. Each
         /// entry names the depth band it stands in and nothing else; where
         /// inside that band it lands is `RoomLayout.sceneryAnchors(_:)`'s to
@@ -641,7 +641,7 @@ public struct Manifest: Sendable, Hashable {
         public let stationRoles: [String: String]
         /// Tier 2: the pool `rendezvous` draws from for an `agent_type` nobody
         /// anticipated. Sorted, because the pool must not depend on dictionary
-        /// order — the tie-break in `rendezvous` is only half of that guarantee.
+        /// order: the tie-break in `rendezvous` is only half of that guarantee.
         ///
         /// **Nothing in it may assert.** Arbitrary user text licenses no claim
         /// about the work, so a hashed station may say only *this is a different
@@ -649,7 +649,7 @@ public struct Manifest: Sendable, Hashable {
         /// `StationContractTests.noAssertingStationIsInThePoolTheHashDrawsFrom`.
         /// [I1]
         public let assignableStationIDs: [String]
-        /// **`plan` — the authored floor plan this theme's room is drawn on.**
+        /// **`plan`: the authored floor plan this theme's room is drawn on.**
         /// [ADR-007]
         ///
         /// `RoomPlan.open` for a theme that declares none, which is five of the
@@ -681,7 +681,7 @@ public struct Manifest: Sendable, Hashable {
             // **The numeric convention is the fallback, not the rule.** §7
             // numbered the subagent stations and the pool was "the ids that are
             // digits"; §14c replaced that with a declared list, for the reason
-            // costumes already had one — a pool the hash may reach has to be
+            // costumes already had one: a pool the hash may reach has to be
             // stated, not inferred from a naming habit. A manifest or a test
             // fixture that predates the list still gets the old convention, so
             // the flat shape keeps working exactly as it did.
@@ -693,7 +693,7 @@ public struct Manifest: Sendable, Hashable {
 
         /// The art one hand-placed piece draws, from whichever of the two pools
         /// it names. `nil` for a role this theme does not bind or an index past
-        /// the end of the scenery list — the same silence an unreadable scenery
+        /// the end of the scenery list: the same silence an unreadable scenery
         /// entry gets, and `RoomPlan.dressingViolations` is what makes it loud.
         public func piece(_ piece: RoomPlan.Piece) -> PropRole? {
             switch piece {
@@ -727,7 +727,7 @@ public struct Manifest: Sendable, Hashable {
     /// loader and not two. [§14a]
     public struct Theme: Sendable, Hashable {
         /// The manifest key. This, never the title, is what is stored and
-        /// compared — a title is prose and may be reworded.
+        /// compared: a title is prose and may be reworded.
         public let id: String
         /// What the user reads in the menu.
         public let title: String
@@ -750,7 +750,7 @@ public struct Manifest: Sendable, Hashable {
 
         /// A theme with nothing in it, for the `SceneDirector` initialiser that
         /// takes variant ids and no manifest. Its station pool is empty, so
-        /// every typed subagent lands on `default` — which is what a director
+        /// every typed subagent lands on `default`, which is what a director
         /// that was never told about a room should say.
         public static let unbound = Theme(
             id: "", title: "", isAssignable: false,
@@ -800,7 +800,7 @@ public struct Manifest: Sendable, Hashable {
     public let badges: Badges
     public let room: Room
     public let themes: Themes
-    /// Directory that manifest-relative paths resolve against — the repository
+    /// Directory that manifest-relative paths resolve against: the repository
     /// root, since paths are recorded as `assets/processed/...`.
     public let root: URL
 
@@ -810,7 +810,7 @@ public struct Manifest: Sendable, Hashable {
 
     /// The room bindings for a theme id.
     ///
-    /// **`nil` means `room`, exactly.** Not "the default theme's set" — those
+    /// **`nil` means `room`, exactly.** Not "the default theme's set": those
     /// are the same pixels but not the same files, and `nil` is what every
     /// caller that has not selected a theme passes. So a scene built without a
     /// theme draws precisely what this app drew before themes existed, which is
@@ -824,7 +824,7 @@ public struct Manifest: Sendable, Hashable {
         return theme.room
     }
 
-    /// The same resolution, as a `Theme` — what
+    /// The same resolution, as a `Theme`: what
     /// `ThemeSelector.station(agentID:agentType:in:)` takes.
     ///
     /// An unknown or absent id synthesises one around `manifest.room`, so the
@@ -976,7 +976,7 @@ public struct Manifest: Sendable, Hashable {
         }
 
         // Themes. `themes.sets.<id>` has the same shape as `room`, so it goes
-        // through the same loader — that is the whole reason §14a chose the
+        // through the same loader: that is the whole reason §14a chose the
         // shipped key path over §7's. [§14a]
         let themesObject = (object["themes"] as? [String: Any]) ?? [:]
         var sets: [String: Theme] = [:]
@@ -1007,7 +1007,7 @@ public struct Manifest: Sendable, Hashable {
             orderedIDs: sets.keys.sorted())
     }
 
-    /// Decodes a `states` map — the shape a character variant and a costume
+    /// Decodes a `states` map: the shape a character variant and a costume
     /// layer share, because the art is the same geometry drawn on two sheets.
     ///
     /// One decoder for both. Two decoders over one shape drift, and this one
@@ -1050,7 +1050,7 @@ public struct Manifest: Sendable, Hashable {
     /// Two entries are dropped rather than thrown on, and both droppings are the
     /// honest answer rather than leniency:
     ///
-    /// - a `roles` entry naming a costume that is not in `sets` — a costume
+    /// - a `roles` entry naming a costume that is not in `sets`: a costume
     ///   removed from the art, or a hand-edited manifest. That `agent_type`
     ///   falls through to the pool, which is what it would have done had the
     ///   entry never been written.
@@ -1120,7 +1120,7 @@ public struct Manifest: Sendable, Hashable {
         }
         // **A scenery entry the room cannot place draws nothing and the rest
         // still draw.** An unknown band, or art whose box will not decode, is a
-        // manifest ahead of this build — the vocabulary is closed and its
+        // manifest ahead of this build: the vocabulary is closed and its
         // unmatched case is silence, which is the same answer the identity model
         // gives an ambiguous attribution. It is *not* a throw: a room that
         // refuses to load because one printer moved is worse than a room with
@@ -1134,7 +1134,7 @@ public struct Manifest: Sendable, Hashable {
         }
         let declared = try Self.stationSpecs(props["stations"], context: context)
         // **Inheritance is all-or-nothing, per theme.** A theme either states
-        // its own stations or takes the room's whole block — sets, roles and
+        // its own stations or takes the room's whole block: sets, roles and
         // pool together. Merging the two would let a theme silently keep a role
         // entry pointing at a station it had just replaced. [§14c]
         let effective = declared.isEmpty ? (inherited ?? declared) : declared
@@ -1166,7 +1166,7 @@ public struct Manifest: Sendable, Hashable {
     /// room that refuses to load because one wall moved is worse than a room
     /// drawn on the open floor the app has always drawn. A space whose surface
     /// is not declared, or whose rect is degenerate, is dropped and the rest
-    /// still draw — and `RoomPlanContractTests` is what turns that silence into
+    /// still draw, and `RoomPlanContractTests` is what turns that silence into
     /// a red test rather than a quietly emptier room. [I1]
     private static func plan(_ raw: Any?) -> RoomPlan {
         guard let object = raw as? [String: Any] else { return .open }
@@ -1293,9 +1293,9 @@ public struct Manifest: Sendable, Hashable {
 
     /// Decodes `props.stations` in either shape.
     ///
-    /// The tiered shape — `{sets, roles, assignable}` — is what ships, and it is
-    /// `characters.costumes`' shape for the reason §14c gives. The flat shape —
-    /// a bare map of id → station — is what §7 originally specified and what
+    /// The tiered shape (`{sets, roles, assignable}`) is what ships, and it is
+    /// `characters.costumes`' shape for the reason §14c gives. The flat shape,
+    /// a bare map of id → station: is what §7 originally specified and what
     /// hand-built fixtures still write; it carries no tiers, so its pool is the
     /// numeric-id convention and its `roles` table is empty.
     private static func stationSpecs(
@@ -1332,7 +1332,7 @@ public struct Manifest: Sendable, Hashable {
         return out
     }
 
-    /// A `{file, content_box}` entry. `nil` for anything that is not one —
+    /// A `{file, content_box}` entry. `nil` for anything that is not one,
     /// including absence, which is how an optional station prop reads.
     private static func propRole(_ raw: Any?) -> PropRole? {
         guard let entry = raw as? [String: Any],
@@ -1352,7 +1352,7 @@ public struct Manifest: Sendable, Hashable {
             surfaceY: entry["surface_y"] as? Int,
             // **Never throws, and never for anything.** A list of anything but
             // strings, a list that does not lead with `file`, an empty list, the
-            // key absent — every one of them decodes to `[file]`, which is the
+            // key absent: every one of them decodes to `[file]`, which is the
             // picture the room drew before the key existed. Losing a seat's
             // stock is a smaller failure than losing the room, and it is the
             // same call `propAnimation` makes for a malformed `animation`. The
@@ -1361,7 +1361,7 @@ public struct Manifest: Sendable, Hashable {
     }
 
     /// A `{frames, fps, loop}` entry. `nil` for anything that is not one,
-    /// including absence — a role with no `animation` key is a still prop, which
+    /// including absence: a role with no `animation` key is a still prop, which
     /// is every role but one.
     ///
     /// A malformed `animation` degrades to `nil` rather than throwing: `file` is

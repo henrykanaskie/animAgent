@@ -5,7 +5,7 @@ import Testing
 
 /// `themes.json` is the **first thing this app has ever persisted**
 /// (ADR-002 §3d), so these tests are about what survives and what refuses to
-/// become fatal — not about what any call returned.
+/// become fatal, not about what any call returned.
 ///
 /// The whole of §3d's failure list is here, and every one of them has the same
 /// answer: the app launches, nothing throws, and every project takes its
@@ -59,7 +59,7 @@ struct ThemeStoreTests {
 
     /// Stands in for what §7's contract will produce once the manifest declares
     /// themes. Theme *names* are allowed to appear here and nowhere in
-    /// `Sources/` — ADR-002 §8 item 5.
+    /// `Sources/` (ADR-002 §8 item 5).
     static let catalog = ThemeCatalog(
         themes: [
             ThemeCatalog.Theme(id: "briefing", title: "Briefing Room", isAssignable: true),
@@ -81,7 +81,7 @@ struct ThemeStoreTests {
         catalog.themeID(for: cwd, stored: store.stored, derive: derive)
     }
 
-    // MARK: §3d — every failure degrades to the derived default
+    // MARK: §3d - every failure degrades to the derived default
 
     @Test func aMissingFileIsTheFirstRunCaseAndNotAFailure() {
         let sandbox = Sandbox()
@@ -107,7 +107,7 @@ struct ThemeStoreTests {
         }
         #expect(Self.resolve("/work/alpha", store) == "briefing")
 
-        // "the user's bytes are still on disk if they want them" — §3d.
+        // "the user's bytes are still on disk if they want them" (§3d).
         let kept = try #require(try? Data(contentsOf: sandbox.bad))
         #expect(String(decoding: kept, as: UTF8.self) == original)
     }
@@ -134,7 +134,7 @@ struct ThemeStoreTests {
 
     /// An entry naming a theme the manifest does not have falls back "*for that
     /// project only*, and the entry is left in the file, because the theme may
-    /// come back" — §3d.
+    /// come back" (§3d).
     @Test func anUnknownThemeIdFallsBackForThatProjectAloneAndIsNotDeleted() {
         let sandbox = Sandbox()
         sandbox.write("""
@@ -180,7 +180,7 @@ struct ThemeStoreTests {
             try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
         #expect(object["schema"] as? Int == 1)
         #expect(object["themes"] as? [String: String] == ["/work/alpha": "mission_control"])
-        // "Nothing else in the file." — §3d.
+        // "Nothing else in the file." (§3d).
         #expect(Set(object.keys) == ["schema", "themes"])
     }
 
@@ -195,7 +195,7 @@ struct ThemeStoreTests {
         #expect(Self.resolve("/work/alpha", reread) == "mission_control")
     }
 
-    /// "No eviction." — §3d. A project you have not opened in a year is
+    /// "No eviction." (§3d). A project you have not opened in a year is
     /// exactly the one whose choice you would be annoyed to lose.
     @Test func choosingForOneProjectKeepsEveryOtherProjectsChoice() {
         let sandbox = Sandbox()
@@ -208,7 +208,7 @@ struct ThemeStoreTests {
         #expect(reread.stored == ["/work/alpha": "mission_control", "/work/beta": "office"])
     }
 
-    /// Keys are "the exact `cwd` strings the events carried" — §3d. The theme
+    /// Keys are "the exact `cwd` strings the events carried" (§3d). The theme
     /// inherits the app's existing bucketing and invents no normalisation, so
     /// a trailing slash is a different project here exactly as it is
     /// everywhere else.
@@ -233,7 +233,7 @@ struct ThemeStoreTests {
     /// crash mid-write cannot leave a truncated file."
     ///
     /// The observable form of that promise: a write that cannot complete leaves
-    /// the previous good file exactly as it was — not truncated, not empty, not
+    /// the previous good file exactly as it was: not truncated, not empty, not
     /// missing.
     @Test func aFailedWriteLeavesTheExistingGoodFileByteForByte() throws {
         let sandbox = Sandbox()
@@ -245,7 +245,7 @@ struct ThemeStoreTests {
         store.choose("office", for: "/work/beta")
 
         #expect(sandbox.bytes == good)
-        // "Write failures are counted, not surfaced." — §3d. The picker still
+        // "Write failures are counted, not surfaced." (§3d). The picker still
         // works for this launch; it forgets on the next.
         #expect(store.writeFailures == 1)
         #expect(store["/work/beta"] == "office")
@@ -269,7 +269,7 @@ struct ThemeStoreTests {
         #expect(left == ["themes.json"], "left behind: \(left)")
     }
 
-    /// The directory is created if it is not there — but only when there is
+    /// The directory is created if it is not there, but only when there is
     /// something to write, and never on the read path.
     @Test func theSupportDirectoryIsMadeOnDemandAndNotOnLaunch() {
         let sandbox = Sandbox()
@@ -284,8 +284,8 @@ struct ThemeStoreTests {
 
     /// The default location, stated once so a refactor that moves it is a
     /// failing test rather than a lost preference file. It sits beside
-    /// `settings-backup.json` in a directory we already own — §3d, "no new
-    /// location is introduced".
+    /// `settings-backup.json` in a directory we already own (§3d, "no new
+    /// location is introduced").
     @Test func theDefaultLocationIsBesideTheHookBackup() {
         #expect(ThemeStore.defaultURL().lastPathComponent == "themes.json")
         #expect(
@@ -309,7 +309,7 @@ struct ThemeCatalogTests {
                 derive: ThemeStoreTests.derive) == "mission_control")
     }
 
-    /// The derived default draws from `assignable: true` only — §3e. A hash
+    /// The derived default draws from `assignable: true` only (§3e). A hash
     /// that picks a theme reading as a claim about the work has said something
     /// the user did not.
     @Test func theDerivedDefaultIsOfferedOnlyTheAssignablePool() {

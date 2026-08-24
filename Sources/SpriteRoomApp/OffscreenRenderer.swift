@@ -19,7 +19,7 @@ final class OffscreenRenderer {
 
         var description: String {
             switch self {
-            case .noMetalDevice: return "no Metal device — cannot render offscreen"
+            case .noMetalDevice: return "no Metal device, cannot render offscreen"
             case .noCommandQueue: return "could not create a Metal command queue"
             case .noTexture: return "could not create the render target texture"
             }
@@ -65,7 +65,7 @@ final class OffscreenRenderer {
     ///
     /// **Must be called every simulated frame, not only at the frames we keep.**
     /// `SKRenderer.update(atTime:)` on its own does not advance the action
-    /// tree — characters stay wherever they spawned and no animation ever
+    /// tree: characters stay wherever they spawned and no animation ever
     /// plays. Rendering each step is what makes the offscreen clock behave like
     /// a real one, which is the whole point of rendering offscreen at all.
     func renderFrame() {

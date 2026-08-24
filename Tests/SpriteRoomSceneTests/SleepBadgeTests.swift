@@ -6,7 +6,7 @@ import SpriteRoomCore
 /// The dormant badge on the scene side: what it outranks, what outranks it,
 /// what it never touches, and that the art it needs is real.
 ///
-/// Dormancy is `SubagentStop` — "this subagent finished a turn and is still
+/// Dormancy is `SubagentStop`: "this subagent finished a turn and is still
 /// assigned". It was drawn as plain `idle` until the `sleep` badge was wired,
 /// on the grounds that nothing we own could honestly draw the difference between
 /// finished-and-might-return and waiting-for-work. `badges.states.sleep` is
@@ -63,9 +63,9 @@ struct SleepBadgeTests {
 
     /// **sleep > tool, and it suppresses the `×N`.**
     ///
-    /// Unreachable from the live stream — `SubagentStop` abandons every open
+    /// Unreachable from the live stream: `SubagentStop` abandons every open
     /// call in the batch that sets dormancy, and the only path that opens one
-    /// revives the agent first — so this pins the value type's behaviour rather
+    /// revives the agent first, so this pins the value type's behaviour rather
     /// than a picture anybody can produce. It is written down because
     /// "unreachable" is a property of today's model and `BadgeSelection` is a
     /// value anything may construct.
@@ -119,7 +119,7 @@ struct SleepBadgeTests {
     /// open-call set, `SubagentStop` abandons every call in the same batch that
     /// sets dormancy, so the body was already `idle` and the `Z` changed
     /// nothing. That was the tab agreeing with the body by coincidence rather
-    /// than by construction — and between two calls of one turn the same body
+    /// than by construction, and between two calls of one turn the same body
     /// state was drawn for an agent that was working.
     ///
     /// `dormancyChanged` *is* `SubagentStop`, which is a turn boundary, so it is
@@ -127,8 +127,8 @@ struct SleepBadgeTests {
     /// character that has stood up, and the two channels say one thing.
     ///
     /// **No new body state.** The pack's `sleep` **body** row is a head on a
-    /// pillow drawn from above for compositing onto a top-down bed — M6b cut it
-    /// and measured it — so on a character sitting side-on it is a floating
+    /// pillow drawn from above for compositing onto a top-down bed (M6b cut it
+    /// and measured it), so on a character sitting side-on it is a floating
     /// head. What dormancy selects is the standing pose the room already has.
     @Test func dormancyStandsTheCharacterUpAndRevivalSeatsItAgain() {
         var director = Self.director()
@@ -147,7 +147,7 @@ struct SleepBadgeTests {
         #expect(BodyState(rawValue: "sleep") == nil, "a dormant body state was added")
     }
 
-    /// Emitted only when it actually changed — a second `SubagentStop` for an
+    /// Emitted only when it actually changed: a second `SubagentStop` for an
     /// already-dormant agent must not re-set a badge it already wears.
     @Test func aRepeatedDormancyEmitsNoSecondIntent() {
         var director = Self.director()
@@ -195,7 +195,7 @@ struct SleepBadgeTests {
 
     // MARK: Against the real capture
 
-    /// **End to end from `four-subagents`** — the capture dormancy was built
+    /// **End to end from `four-subagents`**: the capture dormancy was built
     /// for. Four background subagents; two stop, are resumed with
     /// `SendMessage`, and stop again. Every stop must put a `Z` up and every
     /// resume must take one down, and at the end of the replay every character
@@ -223,7 +223,7 @@ struct SleepBadgeTests {
             }
         }
 
-        // Six stops across four agents — two of them stop twice — and two
+        // Six stops across four agents (two of them stop twice) and two
         // revivals, which is the shape `docs/03-EVENT-MODEL.md` records. The
         // capture's other five `SubagentStop`s are the TUI suggestion helper's
         // phantoms, for `agent_id`s that never started, and they are no-ops.
@@ -233,7 +233,7 @@ struct SleepBadgeTests {
 
         // **The fact the whole feature is about: four dispatched, four drawn.**
         // At the moment the last of them fell asleep the room held all four
-        // plus the main thread — where the departing lifecycle this replaced
+        // plus the main thread, where the departing lifecycle this replaced
         // would have been down to one.
         #expect(populationWithEverybodyAsleep == 5,
                 "four subagents plus the main thread were not all in the room")
@@ -243,7 +243,7 @@ struct SleepBadgeTests {
     }
 
     /// Nothing but a `SubagentStop` sleeps anybody. A fixture with no subagent
-    /// in it must produce no `Z` at all — the badge is not a general-purpose
+    /// in it must produce no `Z` at all: the badge is not a general-purpose
     /// "idle" glyph and there is no idle badge. [I2]
     @Test func aSessionWithNoSubagentNeverSleeps() async throws {
         var director = Self.director()
@@ -291,7 +291,7 @@ struct SleepBadgeTests {
     /// it, and clearing the attention gives it back.
     ///
     /// **What dormancy draws is no longer the pack's bubble.** It is
-    /// an authored 9x11 dark tab, since removed — see `Character`'s badge layer for
+    /// an authored 9x11 dark tab, since removed; see `Character`'s badge layer for
     /// the reversal. The precedence this
     /// test was written for is untouched: attention still takes the slot and
     /// still gives it back.
@@ -304,8 +304,8 @@ struct SleepBadgeTests {
         let character = Character(
             variant: variant, nameplate: NameplateText(lead: "8DE", role: "Explore"), store: store)
         // **Dormancy is the pack's own bubble again.** This asserted the
-        // opposite — that the slot held the authored 9x11 dark tab and
-        // explicitly *not* `sleepTexture()` — which pinned a decision the
+        // opposite (that the slot held the authored 9x11 dark tab and
+        // explicitly *not* `sleepTexture()`), which pinned a decision the
         // maintainer reversed on sight: at 1x the tab reads as a black text
         // box, in the room's lettering family, where every other badge is art.
         // The distinction the tab bought is carried by hue instead: attention

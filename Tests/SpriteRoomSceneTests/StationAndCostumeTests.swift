@@ -14,19 +14,19 @@ import SpriteRoomCore
 /// `props.roles.chair` at every seat, once, at build time.
 ///
 /// It was found by rendering, not by reading: a manifest carrying six visually
-/// wild stations in all six themes — a chalkboard, a drum kit, a softbox, a flip
-/// chart, a two-screen post — rendered **byte-identical** to a manifest with no
+/// wild stations in all six themes: a chalkboard, a drum kit, a softbox, a flip
+/// chart, a two-screen post, rendered **byte-identical** to a manifest with no
 /// stations at all. Six pairs, zero differing bytes, over a fixture with three
 /// agents of two `agent_type`s at 720×400.
 ///
 /// Every assertion the suite had at the time passed. That is the interesting
 /// part, and it is what these tests are shaped against:
 ///
-/// - `theDirectorStoresAStationForEveryCharacter` passed — the id was stored.
-/// - `typedSubagentsOfOneKindShareAStation` passed — the hash worked.
-/// - `theStationIsNeverRewrittenAfterSpawn` passed — vacuously, since nothing
+/// - `theDirectorStoresAStationForEveryCharacter` passed: the id was stored.
+/// - `typedSubagentsOfOneKindShareAStation` passed: the hash worked.
+/// - `theStationIsNeverRewrittenAfterSpawn` passed: vacuously, since nothing
 ///   could rewrite what nothing read.
-/// - `changingTheThemeRedressesTheRoomAndMovesNoCharacter` passed — themes did
+/// - `changingTheThemeRedressesTheRoomAndMovesNoCharacter` passed: themes did
 ///   redress the room; stations were not what redressed it.
 ///
 /// So the missing assertion is not about ids, or hashes, or nodes, or counts.
@@ -38,7 +38,7 @@ import SpriteRoomCore
 /// > pixels at their seats.**
 ///
 /// `RoomScene.furnitureForTesting(seat:)` reports what is actually on screen at
-/// a seat — path, placement, anchor, depth — and `SeatRaster` composites it. The
+/// a seat (path, placement, anchor, depth), and `SeatRaster` composites it. The
 /// comparison is between two seats drawn by the same compositor, so no
 /// convention error in the compositor can turn different art into an equal
 /// result: an offset bug moves both seats identically. It can only ever fail to
@@ -60,15 +60,15 @@ struct StationSceneTests {
     /// It used to run the other way up. The control was "with no stations
     /// declared the two seats are pixel-identical", asserted against
     /// `assets/manifest.json` itself, with the claim demonstrated only on a
-    /// hand-built fixture — a test that pins an empty spec and reads as
+    /// hand-built fixture, a test that pins an empty spec and reads as
     /// coverage, which is exactly the shape that let the station spend three
     /// months resolved, stored and drawn by nothing. Inverted, not deleted, the
     /// way `CostumeContractTests` was.
     ///
     /// Two claims, and the second is what makes the first mean anything:
     ///
-    /// - `Explore` and `general-purpose` — the two `agent_type`s that actually
-    ///   occur in `fixtures/`, 23 and 165 times — draw **different** pixels at
+    /// - `Explore` and `general-purpose` (the two `agent_type`s that actually
+    ///   occur in `fixtures/`, 23 and 165 times) draw **different** pixels at
     ///   their seats.
     /// - two `general-purpose` agents draw **identical** pixels at theirs, which
     ///   is §4's rule ("same desk means same kind of worker") and is also the
@@ -122,7 +122,7 @@ struct StationSceneTests {
             + "\(drawn.patches[0].height) patch of room at their seats. The station"
             + " resolved and reached nothing. [ADR-002 §4]"))
 
-        // §4: identical agents get identical desks, deliberately — compared on
+        // §4: identical agents get identical desks, deliberately, compared on
         // the two seats that share a facing as well as a station.
         #expect(drawn.stations[2] == drawn.stations[3])
         #expect(SeatRaster.differences(drawn.patches[2], drawn.patches[3]) == 0,
@@ -131,7 +131,7 @@ struct StationSceneTests {
 
     /// The other half of the same claim, and it is a different one: the pixels
     /// have to differ **because of the station**, not because two seats happen
-    /// to sit under different scenery. Same theme, same seats, same everything —
+    /// to sit under different scenery. Same theme, same seats, same everything:
     /// only the manifest's stations change.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aStationChangesTheSeatItIsDrawnAt() throws {
@@ -189,7 +189,7 @@ struct StationSceneTests {
             #expect(paths.contains(desk), "seat \(seat) lost the theme's desk")
             // **The chair the seat's own facing asks for**, which used to be
             // `props.roles.chair` at every seat and is now `chair_back` at an
-            // away-facing seat and *nothing at all* at a camera-facing one — the
+            // away-facing seat and *nothing at all* at a camera-facing one: the
             // body covers a chair entirely at that angle. [ADR-008] The fallback
             // being tested is unchanged: it is still the theme's `props.roles`
             // rather than a station's, and only the key moved.
@@ -214,8 +214,8 @@ struct StationSceneTests {
     /// `security-reviewer` leaves its bench behind for whoever sits there next.
     ///
     /// **The room's own prop nodes are not touched by any of it**, which is what
-    /// keeps §6 rule 1 — "zero prop-node rebuilds across an entire fixture
-    /// replay" — true through every arrival and departure: the theme-wide pair is
+    /// keeps §6 rule 1 ("zero prop-node rebuilds across an entire fixture
+    /// replay") true through every arrival and departure: the theme-wide pair is
     /// hidden, never destroyed.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aStationGoesUpAtSpawnAndComesDownWhenItsAgentIsRetired() throws {
@@ -262,7 +262,7 @@ struct StationSceneTests {
     /// standing at a seat after the cast has gone.
     ///
     /// The existing sweep runs against the shipped manifest, where no theme
-    /// declares a station — so it exercises the branch that draws nothing. This
+    /// declares a station, so it exercises the branch that draws nothing. This
     /// is the same sweep down the branch that draws something.
     @Test(.enabled(if: SceneArt.isAvailable))
     func noStationSurvivesAnyFixtureReplay() async throws {
@@ -317,7 +317,7 @@ struct StationSceneTests {
 
 // MARK: - Station contract
 
-/// What a manifest carrying stations has to satisfy. Runs on a fresh clone —
+/// What a manifest carrying stations has to satisfy. Runs on a fresh clone:
 /// every assertion but the last asks what the manifest *declares*, never what is
 /// on disk.
 struct StationContractTests {
@@ -329,7 +329,7 @@ struct StationContractTests {
     /// manifest declares no stations and that is a legal state". It was true,
     /// and it read as coverage of a feature that was drawing nothing. Inverted
     /// rather than deleted, exactly as the wardrobe's was, and it now fails in
-    /// both directions — an empty station table fails here, and a table the
+    /// both directions: an empty station table fails here, and a table the
     /// resolver cannot reach fails on the last lines.
     @Test func theShippedManifestDeclaresStationsTheResolverCanReach() throws {
         let manifest = try SceneFixtures.manifest()
@@ -367,8 +367,8 @@ struct StationContractTests {
     ///
     /// This is the test the wardrobe does not have and should. `characters
     /// .costumes.roles` is keyed almost entirely on **this repository's own
-    /// invented subagent names** — `test-engineer`, `scene-engineer`,
-    /// `art-director` — none of which any user outside this repo will ever run,
+    /// invented subagent names**: `test-engineer`, `scene-engineer`,
+    /// `art-director`, none of which any user outside this repo will ever run,
     /// so its expressive half is addressed to an audience of one. The captured
     /// sessions contain exactly three `agent_type` values: `general-purpose`,
     /// `Explore`, and the empty string. The first two must be translated here or
@@ -394,12 +394,12 @@ struct StationContractTests {
     }
 
     /// **The wardrobe's asserting tier, held to the same standard as the
-    /// station's** — this is the test the comment above says the wardrobe does
+    /// station's**: this is the test the comment above says the wardrobe does
     /// not have.
     ///
     /// It did not have it, and the consequence was exactly what that comment
     /// predicted: `roles` named `Explore` and `general-purpose` but spent its
-    /// four *expressive* costumes — lab coat, hi-vis, dungarees, apron — on
+    /// four *expressive* costumes (lab coat, hi-vis, dungarees, apron) on
     /// `test-engineer`, `build-verifier`, `scene-engineer`, `ingest-engineer`,
     /// `ui-engineer` and `art-director`, every one of them a name invented for
     /// this repository's own dev team. A real session produced a plain shirt
@@ -480,7 +480,7 @@ struct StationContractTests {
 
     /// Every theme binds the same stations, because the block is declared once
     /// under `room` and inherited. A theme that lost them would seat its agents
-    /// at identical desks while the others did not — a difference the user would
+    /// at identical desks while the others did not, a difference the user would
     /// read as a bug in the theme. [§14c]
     @Test func everyThemeBindsTheSameStations() throws {
         let manifest = try SceneFixtures.manifest()
@@ -503,7 +503,7 @@ struct StationContractTests {
     }
 
     /// Every theme the room can be dressed in, the manifest's own default
-    /// included — `manifest.room` *is* the resolved default theme [§14a] and a
+    /// included: `manifest.room` *is* the resolved default theme [§14a] and a
     /// check that skips it skips the room most users see.
     static func everyTheme(_ manifest: Manifest) throws -> [(String, Manifest.Room)] {
         var themes: [(String, Manifest.Room)] = [("room", manifest.room)]
@@ -553,7 +553,7 @@ struct StationContractTests {
         // room drew over every face in `library` for a milestone.** A station
         // that does not override the desk inherits the theme's, and the theme's
         // is drawn by `buildRoom` at every seat whether anybody is sitting there
-        // or not — so the limits have to bind what the room *draws*, not what
+        // or not, so the limits have to bind what the room *draws*, not what
         // the station *says*. Two themes bound a desk that failed both:
         // `library`'s was 56×70 and `mission_control`'s 44×36.
         //
@@ -564,12 +564,12 @@ struct StationContractTests {
         // arithmetically true of the rule as the rule was then written, and the
         // maintainer was looking at a `mission_control` desk drawn across a
         // character's nose while it was true. `shortestHead` is where a head
-        // *starts* — its crown, 44 px up — so "44 px or less may go in front"
+        // *starts* (its crown, 44 px up), so "44 px or less may go in front"
         // was the guard's own sentence read upside down: 44 px is the height at
         // which a surface hides the head **completely**. The chin is at 16–18.
         //
         // The limit is not this number any more and is not a single number at
-        // all — see `SeatedHeadOcclusionTests`, which measures it off the sit
+        // all: see `SeatedHeadOcclusionTests`, which measures it off the sit
         // frames and per column, because a desk's near edge falls at `+12` or
         // `+8` from the seat and the seated silhouette is a different height at
         // each. What survives here is the *shape* of the check, over every desk
@@ -591,7 +591,7 @@ struct StationContractTests {
                 deskCount += 1
                 // The scene's own two functions, called the way the scene calls
                 // them, so this cannot pass against a room that draws otherwise.
-                // Without art on disk `cast` is empty and the clearance is 0 —
+                // Without art on disk `cast` is empty and the clearance is 0:
                 // an unmeasurable head is not a head to assume.
                 let clearance = cast?.clearance(
                     nearEdgeX: RoomScene.surfaceNearEdgeX(of: desk, layout: layout)) ?? 0
@@ -611,7 +611,7 @@ struct StationContractTests {
         }
         #expect(deskCount >= 12, "only \(deskCount) desks were examined")
         // Without art the clearance is 0 and every desk goes behind, which is the
-        // conservative branch and is correct — but it would also make the branch
+        // conservative branch and is correct, but it would also make the branch
         // above vacuous, so it is only pinned where the art can be read.
         if SceneArt.isAvailable {
             #expect(inFront > 0, """
@@ -628,7 +628,7 @@ struct StationContractTests {
         // desk's overhang, and once `1c0eeb3` re-cut that desk to 32 the bound
         // carried 8px of slack over every desk the room draws. A limit with slack
         // over the worst shipped case absorbs the first regression instead of
-        // reporting it — art could go back to overhanging by 8 and nothing would
+        // reporting it: art could go back to overhanging by 8 and nothing would
         // say so. Tightened to the measurement, so the next widening fails here.
         //
         // Zero is the right number rather than a coincidence: it is where a
@@ -638,7 +638,7 @@ struct StationContractTests {
         // **It is measured at every seat now, and it used to be measured at a
         // seat the room does not have.** The arithmetic here was
         // `seatPosition(0).x + sideOnDeskOffsetX + w/2`, which is where a desk
-        // stands at a *side-on* seat — and ADR-008 left no side-on seat in the
+        // stands at a *side-on* seat, and ADR-008 left no side-on seat in the
         // lattice, so for a milestone this bounded an arrangement nothing drew
         // while the two facings the room does draw went unchecked. It asks
         // `deskPosition(seat:metrics:)` per seat instead, which is the function
@@ -649,7 +649,7 @@ struct StationContractTests {
         // −4 (32px art) and 0 (`mission_control`'s 40px); the office pod, 64px
         // and centred on its column at both of its facings, reaches **−16**. A
         // pod is *further* from its neighbour than the bench it replaced, which
-        // inverts the risk the task carried — see `aPodDoesNotReachIntoTheNext
+        // inverts the risk the task carried: see `aPodDoesNotReachIntoTheNext
         // SeatsLane` for the same number stated per facing.
         //
         // **The lane is found by column, not by seat index.** Seats fill outward
@@ -702,7 +702,7 @@ struct StationContractTests {
         }
     }
 
-    /// Every frame a declared station names is on disk — the check that would
+    /// Every frame a declared station names is on disk: the check that would
     /// catch a station pointing at art nobody imported.
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyDeclaredStationFrameIsOnDisk() throws {
@@ -723,7 +723,7 @@ struct StationContractTests {
     /// Read out of `fixtures/` rather than written down, because a list written
     /// down is a list that stops being true. `fixtures/` is tracked in git, so
     /// this runs on a fresh clone with no art.
-    /// **Also `SeatedHeadOcclusionTests`' way of covering every station** — the
+    /// **Also `SeatedHeadOcclusionTests`' way of covering every station**: the
     /// types the manifest translates are the only way to reach a named station,
     /// and a station nobody can be seated at is a station this suite would test
     /// in the abstract while the room drew something else.
@@ -759,8 +759,8 @@ struct StationContractTests {
 /// `characters.costumes`: what an agent wears, and the two tiers that keep it
 /// honest.
 ///
-/// The maintainer's ask is specific — *the software developers should have a
-/// computer, then the tester or verifier should have a lab coat* — and it is
+/// The maintainer's ask is specific: *the software developers should have a
+/// computer, then the tester or verifier should have a lab coat*, and it is
 /// asking for a costume that **says something**. That is allowed exactly as far
 /// as `agent_type` licenses it, and no further:
 ///
@@ -792,7 +792,7 @@ struct CostumeTests {
         let named = try #require(wardrobe.roles.first)
         #expect(ThemeSelector.costume(agentID: "a1", agentType: named.key, in: wardrobe)
                 == named.value)
-        // And it is reached by *exact* text, with no folding — the same rule
+        // And it is reached by *exact* text, with no folding, the same rule
         // `theme(for:stored:manifest:)` follows for `cwd`. A folded match would
         // be this app inventing a normalisation of the user's own string.
         #expect(ThemeSelector.costume(
@@ -873,7 +873,7 @@ struct CostumeTests {
     }
 
     /// The costume reaches the character, and it reaches every state the body
-    /// plays — a coat that vanishes when its wearer stands up is not clothing.
+    /// plays: a coat that vanishes when its wearer stands up is not clothing.
     ///
     /// The layers here are another cast variant's own frames used as an overlay.
     /// That is not what a costume will look like; it is the right *geometry*,
@@ -917,7 +917,7 @@ struct CostumeTests {
         character.apply(state: .working, facing: .right, startingAt: 0)
         // **An open call, because after ADR-005 `working` alone no longer moves.**
         // The posture is keyed to the turn and the motion to the open-call set, so
-        // a seated character with an empty set correctly holds one frame — which
+        // a seated character with an empty set correctly holds one frame, which
         // is the whole fix, and it would make this test's premise unreachable.
         // What the test is actually about is whether the costume stays in phase
         // with a body that *is* animating, so it has to give the body a reason to
@@ -933,7 +933,7 @@ struct CostumeTests {
             }
         }
         #expect(frames == 24)
-        #expect(seen.count > 1, "the costume layer never changed frame — it is a still image")
+        #expect(seen.count > 1, "the costume layer never changed frame: it is a still image")
     }
 
     /// A costume whose layer does not match the body's frame count is **not
@@ -980,7 +980,7 @@ struct CostumeTests {
 
 // MARK: - Contract
 
-/// What a manifest carrying a wardrobe has to satisfy. Runs on a fresh clone —
+/// What a manifest carrying a wardrobe has to satisfy. Runs on a fresh clone:
 /// it asks what the manifest *declares*, never what is on disk.
 struct CostumeContractTests {
 
@@ -991,7 +991,7 @@ struct CostumeContractTests {
     /// manifest declares nothing, which is a legal state and is asserted as one
     /// rather than skipped past". That was the right assertion to write while
     /// the art did not exist, and it is exactly the shape that let the station
-    /// spend three months resolved, stored and drawn by nothing — a test
+    /// spend three months resolved, stored and drawn by nothing, a test
     /// pinning an empty spec reads as coverage and is the absence of it.
     ///
     /// So it is inverted rather than deleted, and it now fails in **both**
@@ -1012,7 +1012,7 @@ struct CostumeContractTests {
             agentID: "a1", agentType: recognised, in: costumes) == costumes.roles[recognised])
         #expect(ThemeSelector.costume(agentID: nil, agentType: nil, in: costumes) == nil)
 
-        // An unrecognised type still resolves — to the neutral pool, never to
+        // An unrecognised type still resolves: to the neutral pool, never to
         // nothing, or the hash half of the two tiers is unreachable.
         let unknown = ThemeSelector.costume(
             agentID: "a2", agentType: "a-type-nobody-anticipated", in: costumes)
@@ -1022,7 +1022,7 @@ struct CostumeContractTests {
 
     /// **No costume the hash can reach may assert**, over whatever the manifest
     /// actually declares. This is the contract check that binds the day the art
-    /// lands rather than the day after — the same reason the seated-pose guard
+    /// lands rather than the day after, the same reason the seated-pose guard
     /// was written against an empty pose table.
     @Test func noAssertingCostumeIsInThePoolTheHashDrawsFrom() throws {
         let manifest = try SceneFixtures.manifest()
@@ -1032,7 +1032,7 @@ struct CostumeContractTests {
                 "costume \(id) (\(costume.title)) asserts and is assignable: a hash would"
                 + " be making a claim about an agent_type nobody anticipated [I1]"))
         }
-        // Every role entry names a costume that exists — enforced at decode, and
+        // Every role entry names a costume that exists, enforced at decode, and
         // asserted here so the enforcement is visible rather than implied.
         for (agentType, id) in manifest.characters.costumes.roles {
             #expect(manifest.characters.costumes.costume(id) != nil,
@@ -1041,7 +1041,7 @@ struct CostumeContractTests {
     }
 
     /// Every frame a declared costume names must exist on every state its own
-    /// layer declares, with the same facings the body carries — the check that
+    /// layer declares, with the same facings the body carries: the check that
     /// would catch a half-imported outfit sheet.
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyDeclaredCostumeFrameIsOnDisk() throws {
@@ -1064,9 +1064,9 @@ struct CostumeContractTests {
 ///
 /// The room draws a desk at every seat and, since ADR-002, a station's own desk
 /// under whoever is sitting there. A desk short enough to sit at is drawn *in
-/// front of* the body on purpose — at 32 px the only cue that a character is
+/// front of* the body on purpose, at 32 px the only cue that a character is
 /// sitting **at** a desk rather than beside one is whether its near edge crosses
-/// the body — and `RoomScene.surfaceDepthBias(deskHeight:headClearance:)` is the
+/// the body, and `RoomScene.surfaceDepthBias(deskHeight:headClearance:)` is the
 /// guard that keeps the crossing off the face.
 ///
 /// The guard was passed `canvas.height − head_top_px`, which is where a head
@@ -1088,7 +1088,7 @@ struct SeatedHeadOcclusionTests {
 
     /// **Where the head line comes from, on art this test draws itself.**
     ///
-    /// No pack, no manifest, no cast — a figure assembled here out of three
+    /// No pack, no manifest, no cast: a figure assembled here out of three
     /// blocks so the property being claimed is separable from the six sprites it
     /// happens to hold for. A wide head, a narrow neck, a narrower torso:
     /// `SeatedHead.neckRow` has to find the pinch, and the clearance it reports
@@ -1098,7 +1098,7 @@ struct SeatedHeadOcclusionTests {
     /// measurement's one precondition stated out loud:** the head is the widest
     /// part of a seated body here, because the hair is. A figure whose torso were
     /// wider would have no pinch below its widest row and is answered "all head",
-    /// which sends every surface behind it — the conservative reading, and the
+    /// which sends every surface behind it, the conservative reading, and the
     /// one to keep for art this cannot interpret.
     ///
     /// 32×64 like the real canvas: head 20 wide on rows 10…29, neck 4 wide on
@@ -1179,8 +1179,8 @@ struct SeatedHeadOcclusionTests {
         }
 
         // And the crown is emphatically not the answer. 44 is what the room used
-        // to compare against — the *shortest* variant's head-above-feet, which is
-        // the largest `head_top_px` — and at every x it is above the clearance,
+        // to compare against (the *shortest* variant's head-above-feet, which is
+        // the largest `head_top_px`), and at every x it is above the clearance,
         // which is the whole defect in one line.
         let crown = manifest.characters.variants.values
             .map { manifest.characters.canvas.height - $0.headTopPx }.min() ?? 0
@@ -1191,7 +1191,7 @@ struct SeatedHeadOcclusionTests {
 
     // MARK: The proof
 
-    /// **Nothing the room draws in front of a seated body covers its head — over
+    /// **Nothing the room draws in front of a seated body covers its head, over
     /// every theme, every station, every variant and every frame of the sit
     /// loop.**
     ///
@@ -1274,25 +1274,25 @@ struct SeatedHeadOcclusionTests {
 
         // Pinned on both sides. A walk that stopped finding furniture, or one
         // that never found a piece in front of a body, would report exactly the
-        // clean run this is meant to distinguish from — and "nothing is in front
+        // clean run this is meant to distinguish from, and "nothing is in front
         // of anybody" is itself a defect, because the near-edge cue is the reason
         // the in-front branch exists.
         #expect(themesChecked >= 7, "only \(themesChecked) rooms were dressed")
         // **118, and both halves of the move are measured.** The walk counted
-        // **142** pieces before M8 — 28 chairs and 4 screen rigs among them — and
+        // **142** pieces before M8 (28 chairs and 4 screen rigs among them), and
         // counts 118 after, with **0 chairs and 8 rigs**:
         //
         // - **−28.** No seat draws a chair any more. A 46 px `chair_back` does not
         //   fit between an occupant's head and its own nameplate at any standoff
         //   [`RoomLayout.SeatFacing.seatRole`, which carries the subtraction], so
-        //   the away-facing seat lost the one it had — four seats in each of the
+        //   the away-facing seat lost the one it had, four seats in each of the
         //   seven rooms. The camera-facing seats never had one.
         // - **+4.** The office's four away-facing pods stand a rig in **both** kit
         //   slots rather than one, because the `monitor` role is a whole
         //   workstation and one of them covers half a slab
         //   [`RoomLayout.monitorPosition(_:slot:metrics:)`].
         //
-        // The pin the ADR-008 note claimed was "tight" was not — it read 126
+        // The pin the ADR-008 note claimed was "tight" was not: it read 126
         // against an actual 142, 16 pieces of slack, which is how four chairs a
         // room could have vanished without this failing. This one is tight against
         // its own count, so a piece disappearing for any other reason fails here.
@@ -1329,7 +1329,7 @@ struct SeatedHeadOcclusionTests {
     ///
     /// It took a `Facing` and always read the `working` row, which was the whole
     /// story while every seat was side-on. A turned seat draws the standing
-    /// `idle` row — `BodyState.artState(facing:)` — so the mask has to come from
+    /// `idle` row (`BodyState.artState(facing:)`), so the mask has to come from
     /// there or the proof below would be measuring furniture against a head that
     /// is not on screen.
     /// **Where the head starts, for a facing whose art has no visible neck.**
@@ -1337,7 +1337,7 @@ struct SeatedHeadOcclusionTests {
     /// `SeatedHead.neckRow` finds the row where a *side-view* silhouette pinches
     /// between the hair and the shoulders. It is a measurement of the sit row and
     /// it means nothing on a back view, where there is no neck to find and the
-    /// heuristic answers with a row down by the hips — which would make this
+    /// heuristic answers with a row down by the hips, which would make this
     /// proof report the legs as a face. So a turned facing gets the line the
     /// **wardrobe** measures instead: `characters.costumes.ink_top_px` is how
     /// far up the figure any costume reaches (22 px), the anatomy above it is
@@ -1371,9 +1371,9 @@ struct SeatedHeadOcclusionTests {
     /// Which head pixels of `head`, seated at `origin`, a piece of furniture
     /// covers.
     ///
-    /// **Both rectangles are placed the way SpriteKit places them** — bottom-left
+    /// **Both rectangles are placed the way SpriteKit places them**: bottom-left
     /// from the node's own anchor, size and position, all of which
-    /// `DrawnFurniture` carries out of the live scene — so this cannot invent an
+    /// `DrawnFurniture` carries out of the live scene, so this cannot invent an
     /// overlap by using a different convention from the renderer. A character is
     /// bottom-centre-anchored on its seat by `RoomScene`, which is where the
     /// second rectangle comes from.
@@ -1437,7 +1437,7 @@ struct SeatedHeadOcclusionTests {
     ///
     /// A station is only reachable by the `agent_type` the manifest translates,
     /// so the batches are built out of `stationRoles` rather than out of station
-    /// ids — testing a station the resolver cannot reach would be testing
+    /// ids: testing a station the resolver cannot reach would be testing
     /// something the room never draws. `main` arrives with the main thread, which
     /// every batch carries, and `default` with a type nothing translates.
     static func stationBatches(_ manifest: Manifest, themeID: String?, layout: RoomLayout)
@@ -1463,8 +1463,8 @@ struct SeatedHeadOcclusionTests {
 /// Manifests built by editing the real one and reloading it through
 /// `Manifest.load(contentsOf:root:)`.
 ///
-/// **Real art, real decoder, real root.** The alternative — a `Manifest` value
-/// assembled in Swift — cannot exercise the decoding at all, and a fixture whose
+/// **Real art, real decoder, real root.** The alternative (a `Manifest` value
+/// assembled in Swift) cannot exercise the decoding at all, and a fixture whose
 /// paths point at nothing cannot exercise the drawing. These edit
 /// `assets/manifest.json` in memory, write it beside the test run, and load it
 /// with the repository as the root, so every path in them resolves to the same
@@ -1492,7 +1492,7 @@ enum ManifestFixtures {
     /// built out of the other themes' own desks, chairs and accents.
     ///
     /// Real files, byte-different from each other, already measured and already
-    /// through the import pass — which is what makes a pixel comparison over
+    /// through the import pass, which is what makes a pixel comparison over
     /// them mean something. It is deliberately *not* what the art will be; the
     /// art-director owns that. It is the shape the scene has to be able to draw.
     static func stationed(_ manifest: Manifest, bindMainAndDefault: Bool = true) throws
@@ -1551,7 +1551,7 @@ enum ManifestFixtures {
     /// The shipped manifest with its **wardrobe removed**, decoded for real.
     ///
     /// Exists because the degradation test used to read the shipped manifest
-    /// directly and assert it declared nothing — which was true until the
+    /// directly and assert it declared nothing, which was true until the
     /// wardrobe landed, and then the test was asserting the absence of the
     /// feature rather than the presence of the fallback. A manifest that
     /// predates costumes is still a real thing to load, so it is built by
@@ -1628,7 +1628,7 @@ enum ManifestFixtures {
 /// what makes a hand-rolled rasteriser safe here. Two seats go through the same
 /// code with the same window, so a wrong offset or a flipped axis moves both
 /// identically and cannot turn two different desks into an equal result. It can
-/// only under-report, which is the direction this has to be wrong in — the
+/// only under-report, which is the direction this has to be wrong in: the
 /// failure it exists to catch is a *false* difference being reported, and it
 /// cannot report one.
 ///

@@ -33,12 +33,12 @@ public struct AgentRef: Hashable, Sendable, Comparable, CustomStringConvertible 
 public enum AgentLifecycle: String, Sendable, Hashable {
     /// Created by `SubagentStart`. Walks in from the room edge.
     case spawning
-    /// On screen and answering to events. Working or idle is *not* this — that
+    /// On screen and answering to events. Working or idle is *not* this: that
     /// is decided by the open-call set alone, and by nothing here. [I2/I3]
     case active
     /// The handing-over beat `reportDelivered` licenses: walk to the anchor,
     /// deliver. Named here because it is a real state a character passes
-    /// through, but the **model never rests in it** — it holds no clock and so
+    /// through, but the **model never rests in it**: it holds no clock and so
     /// has no way to know when the walk ends. `SubagentStop` sets `dormant`,
     /// which is where the beat finishes.
     case reporting
@@ -49,7 +49,7 @@ public enum AgentLifecycle: String, Sendable, Hashable {
     /// has two agents stopped and then resumed by the parent with
     /// `SendMessage`, each resume emitting a second `SubagentStart`. Departing
     /// on a turn boundary made the room assert *this agent is gone* out of data
-    /// that says only *this agent finished a turn* — the room drew one character
+    /// that says only *this agent finished a turn*: the room drew one character
     /// where the parent had four assigned. A dormant character is the honest
     /// rendering of the fact we actually hold. [I1]
     ///
@@ -58,16 +58,16 @@ public enum AgentLifecycle: String, Sendable, Hashable {
     /// was that nothing we own can honestly draw the difference between
     /// finished-and-might-return and waiting-for-work, so both rendered `idle`
     /// and no delta carried the lifecycle at all. That was right about the body
-    /// — the pack's `sleep` row is a head on a pillow drawn from above, for
+    ///: the pack's `sleep` row is a head on a pillow drawn from above, for
     /// compositing onto a top-down bed, and it cannot be worn by a character
-    /// sitting side-on — and wrong about the badge, which is one layer up.
+    /// sitting side-on, and wrong about the badge, which is one layer up.
     /// `badges.states.sleep` is real pack art, the same construction as
     /// `attention`, and a `Z` says exactly the fact this case holds and nothing
     /// more. So `dormancyChanged` exists and the scene draws it. [I1]
     ///
     /// Reapable like everything else [I4]: dormancy lives inside `AgentState`,
     /// so `SessionEnd` and the 30-minute idle sweep both take it with the
-    /// character. It carries no deadline of its own — see the same doc for why
+    /// character. It carries no deadline of its own: see the same doc for why
     /// inventing one would recreate the bug it fixes.
     case dormant
     /// Set on the way out, for the instant before the state is removed.
@@ -75,7 +75,7 @@ public enum AgentLifecycle: String, Sendable, Hashable {
 }
 
 /// How a call ended. `reconciled` means a `PostToolBatch` was the only close we
-/// ever saw — true of every permission-denied call — so we know it ended but
+/// ever saw (true of every permission-denied call) so we know it ended but
 /// not whether it succeeded. Saying more than that would be fiction. [I1]
 public enum CallOutcome: String, Sendable, Hashable {
     case succeeded
@@ -104,18 +104,18 @@ public struct OpenCall: Sendable, Hashable, Comparable, CustomStringConvertible 
     /// other call, which is every call but ten in the whole corpus.
     ///
     /// **It lives here, and nowhere else, because this is the only store the
-    /// model keys by `tool_use_id`** — and a `tool_use_id` is what the
+    /// model keys by `tool_use_id`**, and a `tool_use_id` is what the
     /// description belongs to, since the child's `agent_id` is not known until
     /// the `PostToolUse`. A side table `toolUseID → description` would be new
     /// open state with its own reaping obligation; on the `OpenCall` there is
     /// nothing to reap, because every path that ends a call already removes the
-    /// whole struct — the three close paths, the deadline sweep, `SubagentStop`,
+    /// whole struct: the three close paths, the deadline sweep, `SubagentStop`,
     /// `SessionEnd` and the 30-minute idle sweep, all through
     /// `WorldModel.removeCall`. That is the argument the permission-gate mark
     /// makes for living inside `AgentState` rather than beside it. [I4]
     ///
-    /// A dispatch whose call is closed before its `PostToolUse` arrives —
-    /// abandoned by the reaper, or force-closed at `SessionEnd` — therefore
+    /// A dispatch whose call is closed before its `PostToolUse` arrives,
+    /// abandoned by the reaper, or force-closed at `SessionEnd`: therefore
     /// loses its description with the call, and the child is linked with no
     /// task. That is the intended outcome: the fallback is to say nothing. [I1]
     public let dispatchedTask: String?
@@ -164,19 +164,19 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// *before* it. So the link is always applied retroactively, and a scene
     /// that has already drawn the character has to be told afterwards.
     ///
-    /// Emitted at most once per agent. Its absence is not an error — a subagent
+    /// Emitted at most once per agent. Its absence is not an error: a subagent
     /// whose link we never saw anchors to the main agent, which is the
     /// documented fallback, not a guess. [I1]
     case agentLinked(agent: AgentRef, parent: AgentID)
     /// **What this subagent was dispatched to do**, verbatim from the `Agent`
-    /// call's `tool_input.description` — `Touch file s1`,
+    /// call's `tool_input.description`: `Touch file s1`,
     /// `Read delta/epsilon, sleep, reread alpha`. A real string the payload
     /// carried, repeated; nothing here is derived, summarised or guessed. [I1]
     ///
     /// **Retroactive by construction, exactly as `agentLinked` is, and for the
     /// same reason.** The description belongs to the dispatching `tool_use_id`,
     /// and the child's `agent_id` is not known until that call's `PostToolUse`
-    /// — which arrives *after* the child's `SubagentStart`. So the character is
+    ///, which arrives *after* the child's `SubagentStart`. So the character is
     /// already on screen when it learns its task, and if the child does not
     /// exist yet the fact waits for it rather than conjuring one. It is emitted
     /// in the same batch as `agentLinked`, immediately behind it: they are two
@@ -188,7 +188,7 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// therefore no task; the dispatch happened before this app attached; or
     /// the link came from a `SendMessage` resume, whose `tool_input` carries no
     /// `description` at all. In every one of them the honest rendering is to
-    /// say nothing — the same fallback an unlinked subagent takes when it
+    /// say nothing: the same fallback an unlinked subagent takes when it
     /// anchors to the main agent. [I1]
     ///
     /// **The string is carried whole.** Shortening `Move the badge beside the
@@ -207,18 +207,18 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// **It is no longer followed by an `agentDeparted`.** It used to be, on the
     /// same event, and the walk-off was carried by that departure. The agent now
     /// goes `dormant` and stays in its seat, so this delta is the *whole* signal
-    /// for the beat — a report is a round trip that ends where it started, not
+    /// for the beat: a report is a round trip that ends where it started, not
     /// an exit. It can fire several times for one character: two of the four
     /// agents in `fixtures/four-subagents.jsonl` report twice.
     case reportDelivered(agent: AgentRef)
     /// This character is, or is no longer, waiting on a human. `nil` clears it.
     ///
     /// Raised by `Notification`. The event carries no `agent_id`, so *which*
-    /// character it names is inferred — from the permission-gate marks, which do
-    /// carry one — rather than read; see
+    /// character it names is inferred: from the permission-gate marks, which do
+    /// carry one, rather than read; see
     /// `WorldModel.attentionTargets(for:of:resolved:)`. One `Notification` can
     /// therefore produce several of these, one per agent genuinely at a gate.
-    /// **Cleared by the next consumed event from the same agent** — see
+    /// **Cleared by the next consumed event from the same agent**: see
     /// `WorldModel.clearsAttention(_:)` for why that is the rule and what it
     /// costs.
     ///
@@ -231,7 +231,7 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// **The narrowest delta that carries the fact, deliberately.** It is a
     /// `Bool` and not an `AgentLifecycle` because the other four cases are
     /// either already carried (`spawning` and `active`, on `agentAppeared`),
-    /// never rested in (`reporting` — the model holds no clock and cannot know
+    /// never rested in (`reporting`: the model holds no clock and cannot know
     /// when the walk ends), or already have a delta of their own (`departed` is
     /// `agentDeparted`). A `lifecycleChanged` carrying the whole enum could
     /// therefore express three transitions the model never makes, and a delta
@@ -245,11 +245,11 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// It rides *beside* `reportDelivered` on the same event and does not
     /// replace it: the report beat is a dramatisation of the hand-over and this
     /// is the state the character is left in afterwards. The scene therefore
-    /// raises the badge and plays the walk in the same batch, which is right —
+    /// raises the badge and plays the walk in the same batch, which is right,
     /// the turn is over from the instant `SubagentStop` arrives, and the walk is
     /// the room saying so.
     case dormancyChanged(agent: AgentRef, isDormant: Bool)
-    /// This character is, or is no longer, **stopped at a permission gate** —
+    /// This character is, or is no longer, **stopped at a permission gate**,
     /// ADR-001 (d)'s marker, which until ADR-005 §7 left the model in no form at
     /// all.
     ///
@@ -258,21 +258,21 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// lifetimes across `fixtures/` are 9.43, 13.52, 34.05, 36.60, 37.76 and
     /// 248.78 s, plus two that never close in their stream at all. The scene
     /// spends it holding the body still, because a call parked at a gate is not
-    /// running and a phrase over it asserts work that is not happening — the
+    /// running and a phrase over it asserts work that is not happening: the
     /// same sentence ADR-003 §1 already used to keep the *badge* layer from
     /// drawing `terminal` over a gated `Bash`. [I1, ADR-005 §7]
     ///
     /// **Not the same fact as `attentionChanged`, and it must not be folded into
     /// it.** The `Notification` that raises attention arrives **6.0 s after** the
-    /// `PermissionRequest` that arms this — four measured occurrences, 6.014 /
-    /// 6.006 / 6.032 / 6.016 s — so for those six seconds this is the only
+    /// `PermissionRequest` that arms this: four measured occurrences, 6.014 /
+    /// 6.006 / 6.032 / 6.016 s, so for those six seconds this is the only
     /// signal there is. It also names its agent outright, where a `Notification`
     /// carries no `agent_id` and has to be attributed through these very marks.
     ///
     /// **A *change*, never a repeat**, exactly as `dormancyChanged` and
     /// `attentionChanged` are: a second `PermissionRequest` for an
-    /// already-marked agent re-snapshots the marked call set — see
-    /// `WorldModel.armPermissionGate` — but says nothing new about *whether* a
+    /// already-marked agent re-snapshots the marked call set: see
+    /// `WorldModel.armPermissionGate`, but says nothing new about *whether* a
     /// gate is open, so it emits nothing. The marked set itself is interior and
     /// deliberately absent from this delta: it exists to decide deadlines, it
     /// names no gated call (the event carries none), and nothing downstream may
@@ -280,20 +280,20 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     ///
     /// **Reapable, with no deadline of its own** [I4]. The mark is a field of
     /// `AgentState`, so the paths that end a character take it with them; the
-    /// paths that end only the *gate* — a marked call closing or being
+    /// paths that end only the *gate*: a marked call closing or being
     /// abandoned, `Stop`, `SubagentStop`, and the `UserPromptSubmit` that
-    /// answers it — each emit this delta with `false`. Departure does not, for
+    /// answers it: each emit this delta with `false`. Departure does not, for
     /// the same reason `dormancyChanged(false)` is not emitted there: the
     /// `agentDeparted` behind it removes the character the fact belonged to.
     case gateChanged(agent: AgentRef, isGated: Bool)
-    /// **This agent has, or no longer has, a turn in progress** — the main
+    /// **This agent has, or no longer has, a turn in progress**: the main
     /// thread's turn boundary, which until now left the model in no form at all.
     ///
     /// ADR-005 §3 keys the posture to the turn: a character is seated from any
     /// event this app consumes for it until that agent's turn ends. Four of the
-    /// five closers §3 names already reach the scene — `SubagentStop` as
+    /// five closers §3 names already reach the scene: `SubagentStop` as
     /// `dormancyChanged`, and `SessionEnd`, the idle sweep and eviction as
-    /// `agentDeparted` — and the fifth, `Stop`, reached it as nothing. So the
+    /// `agentDeparted`, and the fifth, `Stop`, reached it as nothing. So the
     /// main character sat down at its session's first event and stood up only
     /// when it left: a blind spot rather than a fiction, but one that cost the
     /// 26 `Stop`s in `fixtures/` any picture at all while a subagent's turn end
@@ -302,7 +302,7 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     /// **A `Bool`, on `gateChanged`'s exact footing, and the ADR's sketched
     /// one-shot `turnEnded(agent:)` would not have worked.** The scene needs the
     /// *opening* edge as well, and for the main thread the only event that
-    /// carries it — a second `UserPromptSubmit` — emits nothing else at all
+    /// carries it (a second `UserPromptSubmit`) emits nothing else at all
     /// (correction 1 under ADR-005 §3): the agent already exists, so
     /// `ensureAgent` is silent. A one-directional delta would therefore have
     /// needed a second one beside it to say the same fact twice. `dormancyChanged`
@@ -315,7 +315,7 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     ///
     /// **It is the main thread's, and a subagent never gets one.** `Stop` carries
     /// no `agent_id` by construction, and a subagent's turn boundary is
-    /// `SubagentStop` — which already leaves the model as `dormancyChanged`, and
+    /// `SubagentStop`, which already leaves the model as `dormancyChanged`, and
     /// which `docs/03-EVENT-MODEL.md` already names as the turn boundary the
     /// delta stream carries. Emitting both for one fact would give the scene two
     /// writers of one field. Checked over every capture by
@@ -323,14 +323,14 @@ public enum WorldDelta: Sendable, Hashable, CustomStringConvertible {
     ///
     /// **Reapable, with no deadline of its own** [I4], and the obligation runs in
     /// the opposite direction from `gateChanged`'s. The dangerous standing value
-    /// here is `true` — a character seated forever is the room asserting a turn
-    /// that ended — and it is bounded four ways: `Stop`, `SessionEnd`, the
+    /// here is `true`: a character seated forever is the room asserting a turn
+    /// that ended, and it is bounded four ways: `Stop`, `SessionEnd`, the
     /// 30-minute idle sweep, and eviction. The last three take the character with
     /// them and so emit `agentDeparted` instead, exactly as `dormancyChanged` and
     /// `gateChanged` do. The `false` direction needs no reaping at all: standing
     /// is the room declining to claim anything, and any work that resumes re-opens
-    /// the turn before the call opens. That equivalence — *nothing holds an open
-    /// call while standing* — is what
+    /// the turn before the call opens. That equivalence: *nothing holds an open
+    /// call while standing*: is what
     /// `TurnBoundaryTests.noCharacterEverWorksWhileItsTurnIsOver` checks on the
     /// stream over all seventeen captures.
     case turnChanged(agent: AgentRef, hasTurn: Bool)
@@ -382,7 +382,7 @@ public struct AgentSnapshot: Sendable, Hashable {
     /// `WorldDelta.dormancyChanged`; this field is the standing value.
     public let lifecycle: AgentLifecycle
     /// Who this agent reports to, when the `Agent` call that launched it told
-    /// us. `nil` means unlinked — anchor to the main agent. [I1]
+    /// us. `nil` means unlinked: anchor to the main agent. [I1]
     public let parent: AgentID?
     /// What this agent was dispatched to do, when the `Agent` call that
     /// launched it carried a `description`. Learned at the same instant as
@@ -393,13 +393,13 @@ public struct AgentSnapshot: Sendable, Hashable {
     /// we never saw has nothing to repeat, and a `SendMessage` resume carries
     /// no description. Say nothing. [I1]
     public let task: String?
-    /// Sorted by start time. A *set* of calls — never a single current tool.
+    /// Sorted by start time. A *set* of calls: never a single current tool.
     public let openCalls: [OpenCall]
     /// Raised by `Notification`, cleared by this agent's next consumed event.
     /// Orthogonal to `openCalls`: a character can be working *and* blocked at a
     /// permission gate, which is exactly what a denied `Bash` looks like.
     public let attention: AttentionKind?
-    /// **Whether this agent is stopped at a permission gate** — ADR-001 (d)'s
+    /// **Whether this agent is stopped at a permission gate**: ADR-001 (d)'s
     /// marker, armed by `PermissionRequest`. The transition is carried by
     /// `WorldDelta.gateChanged`; this field is the standing value.
     ///
@@ -408,12 +408,12 @@ public struct AgentSnapshot: Sendable, Hashable {
     /// names none. This is the whole of what may leave the model. [I3]
     ///
     /// It is on the snapshot so that the mark's reaping can be *checked* from
-    /// outside the actor rather than inferred from deadlines — an agent left
+    /// outside the actor rather than inferred from deadlines: an agent left
     /// gated after `SessionEnd` or the idle sweep is orphaned open state of
     /// exactly the kind I4 exists to catch, and a character frozen forever is
     /// the same class of failure as one that types forever.
     public let isGated: Bool
-    /// **Whether this agent has a turn in progress** — ADR-005 §3's posture
+    /// **Whether this agent has a turn in progress**: ADR-005 §3's posture
     /// interval. The transition is carried by `WorldDelta.turnChanged`; this
     /// field is the standing value.
     ///

@@ -2,7 +2,7 @@ import Foundation
 
 /// Population in, integer scale out. [I6]
 ///
-/// Deliberately free of SpriteKit types so it unit-tests directly — nothing in
+/// Deliberately free of SpriteKit types so it unit-tests directly: nothing in
 /// this file's signatures is anything but `Int` and `Double`. Fractional
 /// scaling resamples pixel art into shimmer; there is no level between 2 and 1,
 /// and `1x` is the floor because below it the art is being destroyed rather
@@ -17,7 +17,7 @@ public struct RoomCamera: Sendable, Hashable {
     ///
     /// **Empty by default: the room is drawn wide, at `1x`, whatever the
     /// population.** A scale absent from this table is never preferred on
-    /// population grounds — which is why the table is read as an allow-list
+    /// population grounds, which is why the table is read as an allow-list
     /// rather than "anything unlisted wins", the reading an earlier version
     /// used.
     public let comfortablePopulation: [Int: Int]
@@ -36,7 +36,7 @@ public struct RoomCamera: Sendable, Hashable {
     ///
     /// **The cost, stated so nobody has to discover it:** the camera changes
     /// scale when the fourth agent arrives. That is a visible step, and it is
-    /// the price of the ladder being integer [I6] — there is no level between 2
+    /// the price of the ladder being integer [I6]: there is no level between 2
     /// and 1 to slide through. It is paid in exchange for the three features
     /// that are illegible at `1x` and readable at `2x`: costumes (0.00%
     /// silhouette difference, a hue channel), held objects (~90 px), and
@@ -49,7 +49,7 @@ public struct RoomCamera: Sendable, Hashable {
     ) {
         let sorted = scales.filter { $0 >= 1 }.sorted(by: >)
         self.scales = sorted.isEmpty ? [1] : sorted
-        // Was `[3: 2, 2: 5]` — 3x up to two characters, 2x up to five. The
+        // Was `[3: 2, 2: 5]`: 3x up to two characters, 2x up to five. The
         // maintainer looked at the shipped panel and said the room should be
         // bigger from the start, that it "doesn't need to be so zoomed in", and
         // that the zoomed-out view "looks fine with the size of the sprites".
@@ -59,9 +59,9 @@ public struct RoomCamera: Sendable, Hashable {
         // are legible at `1x` because that is the size they were drawn for.
         //
         // Note this reverses part of M5's composition fix, which made one agent
-        // fill the panel at 3x. That fix was right about the bug it found — the
+        // fill the panel at 3x. That fix was right about the bug it found (the
         // camera framed a nominal box that made 3x unreachable at any
-        // population — and overshot on the remedy. The framing arithmetic it
+        // population) and overshot on the remedy. The framing arithmetic it
         // corrected stays; only the preference changes.
         //
         // The ladder is untouched and still integer [I6]. Closer scales remain
@@ -85,24 +85,24 @@ public struct RoomCamera: Sendable, Hashable {
         // frames 240×133. Against that, from the manifest and `RoomLayout`:
         //
         // - *Height.* The band is **192**: 51 px of badge slot above the feet and
-        //   13 px of plate below them — the character's own art — over 64 px of
+        //   13 px of plate below them (the character's own art) over 64 px of
         //   seat rows, a 32 px walkway and a 32 px delivery row. It **fits `2x`**,
         //   with 8 px to spare, and does not fit `3x`. It was 300 until M6f,
-        //   which spent two terms: 96 px of delivery row — one per ring — and
+        //   which spent two terms: 96 px of delivery row (one per ring) and
         //   34 px of badge, which moved from above the head to beside it. Those
         //   rows were what let a reporter walk to its anchor without crossing
         //   anybody, and deleting them deleted the walk; **one** of them has been
         //   bought back out of what the one-row nameplate freed, shared by every
         //   reporter rather than one per ring, and that is the 32. 128 px is the
         //   room's own share now and it cannot go lower without giving the walk
-        //   up again — two seat rows, one row to arrive on, one row to walk along.
+        //   up again: two seat rows, one row to arrive on, one row to walk along.
         // - *Width.* `RoomLayout.occupiedSpan` pads one seat to 160 px and the
         //   seat pitch is 96, so 360 px holds three seat columns (352) and not
         //   four (448). Seven agents span **736**.
         //
         // So **width is what holds the camera down now**, and it holds it only
         // above three agents. The width alone would look answerable by clustering
-        // the seats — it is not, and `RoomLayout.isBackRow(seat:)` carries why a
+        // the seats; it is not, and `RoomLayout.isBackRow(seat:)` carries why a
         // narrower room cannot be built at all. It *is* partly answerable by
         // narrowing the pitch, which is the plate's number and not a composition
         // one; see `RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:
@@ -112,7 +112,7 @@ public struct RoomCamera: Sendable, Hashable {
         //
         // **The table therefore stays empty as a decision, not as a fact.** A
         // room of one to three agents *could* now be drawn at `2x`, and whether
-        // it should is the maintainer's call — the cost is a camera that changes
+        // it should is the maintainer's call: the cost is a camera that changes
         // scale as the fourth agent arrives, which is the lurch
         // `theRoomIsDrawnWideAtEveryPopulation` exists to prevent.
         // `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt` pins the arithmetic
@@ -133,7 +133,7 @@ public struct RoomCamera: Sendable, Hashable {
     ///
     /// A scale is preferred only if `comfortablePopulation` names it *and* the
     /// population is within its ceiling. Anything else falls to the floor, so
-    /// an empty table means the wide view always — which is the default.
+    /// an empty table means the wide view always, which is the default.
     ///
     /// An empty or negative population is an empty room, which still has to
     /// draw at *some* scale; it gets the same wide view as a busy one, so the
@@ -149,12 +149,12 @@ public struct RoomCamera: Sendable, Hashable {
     /// Scale for a population that also has to fit the room inside a viewport.
     ///
     /// Takes the population's preferred scale and steps *down* the integer
-    /// ladder until the content fits, stopping at the floor. It never steps up
-    /// — a two-character room in a huge window stays at `3x` rather than
+    /// ladder until the content fits, stopping at the floor. It never steps up:
+    /// a two-character room in a huge window stays at `3x` rather than
     /// inventing a `7x` that is not on the ladder.
     ///
     /// All dimensions are in the same unit (unscaled scene pixels for content,
-    /// device-independent points or backing pixels for the viewport — the
+    /// device-independent points or backing pixels for the viewport; the
     /// caller picks, consistently).
     public func scale(
         forPopulation population: Int,

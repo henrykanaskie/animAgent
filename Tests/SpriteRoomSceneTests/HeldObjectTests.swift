@@ -59,7 +59,7 @@ struct HeldObjectPolicyTests {
 }
 
 /// The art itself. Pure bitmap arithmetic, so none of this needs the pack on
-/// disk — and it needs checking *here* rather than in `scripts/lint-palette.py`,
+/// disk, and it needs checking *here* rather than in `scripts/lint-palette.py`,
 /// because that lint reads `assets/manifest.json` and this layer is drawn by the
 /// scene, exactly like the nameplate and the `×N`. A layer no lint can see is a
 /// layer whose I7 numbers are whatever somebody last typed.
@@ -85,7 +85,7 @@ struct HeldObjectArtTests {
 
     /// **No held object is ever the darkest thing on screen.** It bottoms out at
     /// the pack's own outline ink, which is the cast's floor to three decimals,
-    /// because it *is* the cast's ink — every one of the eleven files in
+    /// because it *is* the cast's ink: every one of the eleven files in
     /// `Character_Generator/{Books,Smartphones}` is built on `(58, 58, 80)`.
     ///
     /// The tolerance is one 255th, which is a rounding step and not a margin: a
@@ -137,8 +137,8 @@ struct HeldObjectArtTests {
         #expect(abs(Self.value(HeldObjectArt.outline) - Self.castDarkestValue) < 1.0 / 255)
     }
 
-    /// **The pack's grid.** The 32x art is a 2x scale-up of a 16-px design —
-    /// every feature in a seated frame is a 2x2 block — so a glyph drawn at
+    /// **The pack's grid.** The 32x art is a 2x scale-up of a 16-px design (every
+    /// feature in a seated frame is a 2x2 block), so a glyph drawn at
     /// 1 px line weight beside it reads as a different hand immediately. This
     /// asserts the doubling actually happened rather than trusting that the
     /// design tables were transcribed onto it.
@@ -167,7 +167,7 @@ struct HeldObjectArtTests {
         for object in HeldObject.allCases {
             let bitmap = HeldObjectArt.bitmap(object)
             #expect(bitmap.opaquePixelCount > 40,
-                    "\(object.rawValue) is nearly empty — \(bitmap.opaquePixelCount) px")
+                    "\(object.rawValue) is nearly empty: \(bitmap.opaquePixelCount) px")
             if let clash = seen[bitmap] {
                 Issue.record("\(object.rawValue) is pixel-identical to \(clash.rawValue)")
             }
@@ -186,12 +186,12 @@ struct HeldObjectArtTests {
     /// anchor and it can be measured.
     ///
     /// **What is invariant, stated as the measurement found it rather than as I
-    /// first wrote it down.** Over 36 frames — six variants, three `sit` frames,
-    /// both facings — the skin below the shoulder line always occupies **columns
+    /// first wrote it down.** Over 36 frames (six variants, three `sit` frames,
+    /// both facings) the skin below the shoulder line always occupies **columns
     /// 14...17** and always **ends on row 55**. What varies is the *top*: on some
     /// variants a forearm is visible above the hand and the run starts at row 48
     /// or 50 rather than 52. The first version of this test asserted one box for
-    /// all 36 and failed on three of them, which is the test doing its job — the
+    /// all 36 and failed on three of them, which is the test doing its job: the
     /// anchor is the hand, not the arm, so it is taken from the four rows every
     /// frame agrees on, `52...55`, and the arm is allowed to be there.
     ///
@@ -230,7 +230,7 @@ struct HeldObjectArtTests {
                     // Ties broken by brightness, and that is not a detail:
                     // `Dictionary` has no stable order, so `max(by:)` on the
                     // count alone picks a different colour from run to run when
-                    // two tie — which made this test fail on one frame in three
+                    // two tie, which made this test fail on one frame in three
                     // runs out of four and pass in the fourth. Skin is the
                     // brightest large field on a face, so the tie-break is also
                     // the right answer rather than merely a deterministic one.
@@ -303,7 +303,7 @@ struct HeldObjectSceneTests {
     /// **The middle block is ADR-005 §5.** The guard used to be `currentState ==
     /// .working`, which answered this question correctly only because `working`
     /// *was* "the open-call set is non-empty". A character between two calls of
-    /// one turn is now seated — `working` by name, holding nothing — so the
+    /// one turn is now seated (`working` by name, holding nothing), so the
     /// guard moved onto the open-call count and this is where that is checked in
     /// pixels rather than in policy.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -325,7 +325,7 @@ struct HeldObjectSceneTests {
         character.apply(state: .idle, facing: .right, startingAt: 0)
         #expect(character.heldObjectForTesting == nil)
 
-        // And every other body state the room plays, with a badge still set —
+        // And every other body state the room plays, with a badge still set:
         // walking to hand a report over is not working, so the hands are empty
         // for the whole beat.
         for state in BodyState.allCases where state != .working {
@@ -339,13 +339,13 @@ struct HeldObjectSceneTests {
 
     /// **ADR-003's closing beat reaches the badge slot and never the hands.**
     ///
-    /// The beat is defined as a glyph over a body that asserts no ongoing work —
+    /// The beat is defined as a glyph over a body that asserts no ongoing work:
     /// §6 condition 1, the one the ADR says voids it if an implementer drops it,
     /// as restated by ADR-005 §5. The hands are a body-layer claim about work in
     /// progress, so they empty at the close with the motion.
     ///
     /// **This is the case the old guard would have got wrong.** A beat's body is
-    /// now seated — `working` by name — for every one of its 500 ms, so
+    /// now seated (`working` by name) for every one of its 500 ms, so
     /// `currentState == .working` would have put a book in the hands of an agent
     /// whose `Read` had returned. The selection carries `count: 0` for every
     /// frame of a beat, which is what the guard reads instead.
@@ -369,8 +369,8 @@ struct HeldObjectSceneTests {
 
     /// **Attention and dormancy empty the hands as well as the tool slot.**
     ///
-    /// A call parked at a permission gate is not running — `ADR-003 §1` and the
-    /// `isAttention` note both turn on that — so the room must not assert the
+    /// A call parked at a permission gate is not running (`ADR-003 §1` and the
+    /// `isAttention` note both turn on that), so the room must not assert the
     /// work with a second, larger channel while the badge is correctly refusing
     /// to. The body still animates, because I2 keys it on the open set alone and
     /// that is not this layer's to change.
@@ -411,8 +411,8 @@ struct HeldObjectSceneTests {
     /// **The object lands on the hands, and it is on whole pixels at 1x, 2x and
     /// 3x.** [I6]
     ///
-    /// The rectangle has to overlap the measured hand box — an object beside the
-    /// hands is the "it looks detached" failure — and its edges have to be whole
+    /// The rectangle has to overlap the measured hand box (an object beside the
+    /// hands is the "it looks detached" failure), and its edges have to be whole
     /// numbers, because a half pixel multiplied by an integer scale is still a
     /// half pixel and shimmers at exactly the zooms I6 protects.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -429,7 +429,7 @@ struct HeldObjectSceneTests {
         let hands = CGRect(x: -2, y: 8, width: 4, height: 4)
         let rect = character.heldRect
         #expect(rect.intersects(hands), "the object is not on the hands: \(rect)")
-        // And it does not merely clip a corner — the hands are inside it, which
+        // And it does not merely clip a corner: the hands are inside it, which
         // is what "held" means.
         #expect(rect.contains(CGPoint(x: hands.midX, y: hands.midY)),
                 "the hand centre is outside the object: \(rect)")
@@ -438,7 +438,7 @@ struct HeldObjectSceneTests {
             for edge in [rect.minX, rect.maxX, rect.minY, rect.maxY] {
                 let scaled = edge * CGFloat(scale)
                 #expect(scaled == scaled.rounded(),
-                        "edge \(edge) lands at \(scaled) at \(scale)x — half a pixel")
+                        "edge \(edge) lands at \(scaled) at \(scale)x: half a pixel")
             }
         }
     }
@@ -465,7 +465,7 @@ struct HeldObjectSceneTests {
     }
 
     /// The object is over the body and over any costume, and far under the badge
-    /// and the nameplate — so nothing a character holds can cover an identity,
+    /// and the nameplate, so nothing a character holds can cover an identity,
     /// which is the rule `Character.Layer` exists to enforce.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theObjectDrawsOverTheBodyAndUnderEveryIdentityLayer() throws {

@@ -26,14 +26,14 @@ final class SceneBinding {
     /// It is also what keeps `scripts/preview-theme.py --verify` an honest
     /// check: that harness compares its own composition against `spriteroom
     /// --render` pixel for pixel with an empty register, so a lamp drawn in a
-    /// listener-less render would fail the I7 gate — correctly, because it
+    /// listener-less render would fail the I7 gate, correctly, because it
     /// would be a pixel the room cannot account for.
     private var lamp: LivenessLamp?
 
     /// The scene and the director must be given the **same** id. The scene
     /// draws the theme's props; the director resolves each agent's station
     /// within it. Hand them different ids and a character sits at a station the
-    /// room is not dressed for — silently, because both halves are
+    /// room is not dressed for, silently, because both halves are
     /// individually valid. [ADR-002 §8 item 5]
     ///
     /// **So there is no id parameter here.** This used to take one alongside
@@ -41,7 +41,7 @@ final class SceneBinding {
     /// value twice, and `--render` did not: it built an unthemed scene, passed
     /// no id, and drew the plain office no matter what. The id is now read back
     /// off the scene that was actually built, so "both halves agree" is not a
-    /// rule a caller can break — there is nothing left to get wrong.
+    /// rule a caller can break: there is nothing left to get wrong.
     init(scene: RoomScene) {
         self.scene = scene
         self.director = SceneDirector(
@@ -66,13 +66,13 @@ final class SceneBinding {
     /// **The empty-batch guard is gone and its absence is load-bearing.**
     /// `SceneDirector` is a function of deltas *and time* as of ADR-003: the
     /// closing beat ends by the clock passing its expiry, and the frame that
-    /// ends it is almost always a frame with nothing in it — an agent whose
+    /// ends it is almost always a frame with nothing in it: an agent whose
     /// open-call set has just emptied is by definition not producing deltas.
     /// Guarding on `!deltas.isEmpty` would leave the beat up until that agent's
     /// next event, which the M7a capture measures at a mean of 18.5 s.
     /// **`--render-scale`: hold the camera at one rung of the ladder.**
     ///
-    /// `nil` — the default and the only value the shipped app ever has — means
+    /// `nil` (the default and the only value the shipped app ever has) means
     /// the population decides, which is `RoomCamera.scale(forPopulation:)`.
     ///
     /// It exists for `scripts/preview-theme.py --verify`, which compares the
@@ -81,8 +81,8 @@ final class SceneBinding {
     /// registration needs the whole field inside the frame, and the field is
     /// 1344×672 unscaled: at `1x` it fits a 1600×900 render with margin, at `2x`
     /// it is 2688×1344 and cannot fit any frame that tool would want to compare
-    /// over. An *empty* room — which is the only room that harness compares,
-    /// because a character on stage is ink it does not model — takes `2x` from
+    /// over. An *empty* room (which is the only room that harness compares,
+    /// because a character on stage is ink it does not model) takes `2x` from
     /// `defaultComfortablePopulation`, so the check had no way to see the room
     /// at all.
     ///
@@ -122,8 +122,8 @@ final class SceneBinding {
 
     /// One frame of the pilot lamp.
     ///
-    /// `nil` means this run has no listener to report on — a replay, a render,
-    /// a capture — and the lamp is taken down if one was ever up. It does not
+    /// `nil` means this run has no listener to report on (a replay, a render,
+    /// a capture), and the lamp is taken down if one was ever up. It does not
     /// mean "the listener is down": that case arrives as a `Liveness` whose
     /// `lastBeatAt` has gone stale, which is a lamp drawn `dark`, and the
     /// difference between *no answer* and *nothing to answer for* is exactly

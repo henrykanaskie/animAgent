@@ -1,5 +1,5 @@
 // Replay harness. Drives a captured fixture through the `WorldModel` and
-// prints the resulting deltas. No window, no pixels — this is M1's whole
+// prints the resulting deltas. No window, no pixels: this is M1's whole
 // user interface.
 //
 //   spriteroom-replay --all
@@ -12,15 +12,15 @@
 // The clock advances *between* events as well as at them. Before each event the
 // model is walked forward to that event's instant, sweeping at each open call's
 // own deadline on the way, so an abandonment is reported when it happens rather
-// than at the end of the run — `WorldModel.advance(to:)`. Without that, ADR-001
+// than at the end of the run: `WorldModel.advance(to:)`. Without that, ADR-001
 // was undemonstrable here: `denial-then-work`'s shortened deadline falls at
 // t=94.98 with 157 s of session left, and a harness that only swept at the end
 // printed `sessionEnded` at 252.06 and could not tell 60 s from 900 s.
 //
 // The closing sweep is unchanged and still runs at a fixture instant past the
 // longest deadline, because after the last event there is no more information
-// about when anything happened. Orphans that outlive their stream —
-// `killed-session`, `permission-prompt` — are still reported exactly there.
+// about when anything happened. Orphans that outlive their stream,
+// `killed-session`, `permission-prompt`: are still reported exactly there.
 
 import Foundation
 import SpriteRoomCore
@@ -111,7 +111,7 @@ struct FixtureReport {
     var orphansAtEndOfStream: [(agent: AgentRef, call: OpenCall)] = []
     /// Calls the reaper closed *while the stream was still running*, each at its
     /// own deadline. Non-zero is the interesting case and the only one that
-    /// prints a line — ADR-001's whole point is a deadline that falls inside a
+    /// prints a line: ADR-001's whole point is a deadline that falls inside a
     /// session that then keeps working.
     var abandonedMidStream = 0
     var abandonedBySweep = 0
@@ -157,7 +157,7 @@ func replay(_ url: URL, options: Options) async -> FixtureReport {
 
         // Walk the model forward to this event, reaping at each deadline that
         // falls on the way. Before the decode, so that a malformed payload does
-        // not skip it — a deadline expiring is a fact about the world, not
+        // not skip it: a deadline expiring is a fact about the world, not
         // about the line we are looking at. [I4]
         for step in await model.advance(to: entry.receivedAt) {
             report.deltas += step.deltas.count
@@ -187,7 +187,7 @@ func replay(_ url: URL, options: Options) async -> FixtureReport {
         }
     }
 
-    // Orphans: what is still open when the stream runs out — the calls the
+    // Orphans: what is still open when the stream runs out: the calls the
     // event stream never closed and whose deadlines have not yet fallen. For
     // every fixture but `killed-session` and the denial captures this must be
     // empty; if `tool-failure` needs the reaper at all, a close path is wrong.

@@ -8,7 +8,7 @@ import Testing
 /// The pilot lamp: what it draws, when it stops drawing it, and what it costs.
 ///
 /// **No art gate.** The lamp draws its own bitmaps, so unlike every other test
-/// that touches the scene this one runs identically on a fresh clone — which is
+/// that touches the scene this one runs identically on a fresh clone, which is
 /// what a test of "is this app alive" ought to do.
 @MainActor
 @Suite struct LivenessLampTests {
@@ -113,7 +113,7 @@ import Testing
     /// Measured off the pictures rather than restated, so a change to either
     /// one moves this number and this test is where it is noticed. The ceiling
     /// it is compared against is *not* `04-ART-DIRECTION.md`'s 1461 px/s prop
-    /// budget — that number rests on "an idling character is the quietest thing
+    /// budget: that number rests on "an idling character is the quietest thing
     /// the cast can be", and an idling character now moves 0, so the
     /// justification is void and the document says so. The comparison that
     /// governs here is against a **working** character, because the only thing
@@ -155,7 +155,7 @@ import Testing
 
     // MARK: The node
 
-    /// A bare `SKScene` with a camera — enough to place a lamp, and no art.
+    /// A bare `SKScene` with a camera: enough to place a lamp, and no art.
     private func scene(width: Double = 720, height: Double = 400) -> SKScene {
         let scene = SKScene(size: CGSize(width: width, height: height))
         let camera = SKCameraNode()
@@ -197,7 +197,7 @@ import Testing
         #expect(lamp.phase == .dark)
     }
 
-    /// The frame moves — the camera rescales with population — and the lamp
+    /// The frame moves (the camera rescales with population) and the lamp
     /// stays in its corner.
     @Test func theLampStaysInTheCornerWhenTheFrameResizes() throws {
         let scene = scene()

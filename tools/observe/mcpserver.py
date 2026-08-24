@@ -11,7 +11,7 @@ in a real room.
 except `Bash` closes in about ten milliseconds, while the model takes seconds to
 decide on the next one. So a character driven by `Read` or `Edit` is idle
 essentially all of the time and the odds of a filmstrip frame catching its badge
-are near zero — the first baseline caught 235 tool-frames and every one was
+are near zero: the first baseline caught 235 tool-frames and every one was
 `Bash`, because `Bash` was the only tool that could be made to last. A tool that
 holds for a stated number of seconds is what makes the badge *observable*, and
 observability is the whole point of the capture.

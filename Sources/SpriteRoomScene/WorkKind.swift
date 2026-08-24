@@ -3,7 +3,7 @@ import Foundation
 /// **What kind of work a character has been doing**, as the desk under it says
 /// it. [ADR-006 §1]
 ///
-/// Four kinds and an abstention — `nil` is the fifth answer and it is the one
+/// Four kinds and an abstention: `nil` is the fifth answer and it is the one
 /// this room gives most often. The vocabulary is closed: no extension point, no
 /// plugin, no room for a fifth. ADR-006 §1a gives three independent ceilings
 /// that all land on four, and the binding one for this file is the evidence
@@ -15,8 +15,8 @@ import Foundation
 /// # It is not the badge, and the difference is tense
 ///
 /// The badge says *a call of this class is open right now* and goes out when the
-/// call closes [ADR-003 §1]. A work kind is **dispositional** — *this is the
-/// desk this agent works at* — and stays true between turns. That is why it is a
+/// call closes [ADR-003 §1]. A work kind is **dispositional**: *this is the
+/// desk this agent works at*, and stays true between turns. That is why it is a
 /// second slot rather than a second reading of the first, and why ADR-006 §10
 /// rejects putting a work kind on the badge, on the held object, or on the
 /// current tool call.
@@ -42,14 +42,14 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// derived from it is keyed off `tool_name` and nothing else too. Re-checked
     /// against the committed `ToolBadge` when this was written: `badge(forTool:)`
     /// is total (its `default` arm is `questionMark`), the enum has exactly seven
-    /// cases, and all seven are answered below — so this function is total over
+    /// cases, and all seven are answered below, so this function is total over
     /// every tool name that exists or ever will.
     ///
     /// **Two of the seven abstain, and that is I1 on this layer.**
     /// `questionMark` is a tool nobody recognised: putting a *thing* on the desk
     /// for it would be the guess the question mark exists to refuse, with a
     /// bigger surface to be wrong on. `plug` is `mcp__*`, whose substrate is
-    /// unknown by name for the same reason `Monitor` is a question mark — an MCP
+    /// unknown by name for the same reason `Monitor` is a question mark: an MCP
     /// tool may read, write or run, and furniture would pick one. `HeldObject
     /// .init?(badge:)` has exactly this shape and abstains for exactly this
     /// reason on `questionMark`; this one abstains on `plug` as well, because a
@@ -91,8 +91,8 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// authored bitmap.
     ///
     /// **Only the authored arm is exercised by a test.** The role arm is
-    /// currently unreachable — nothing can name a role while this returns `nil`
-    /// for every kind — so there is no honest way to cover it without a seam
+    /// currently unreachable: nothing can name a role while this returns `nil`
+    /// for every kind, so there is no honest way to cover it without a seam
     /// that exists only for the test. `everyKindIsAuthoredAndNamesNoManifestRole`
     /// pins the shipped half instead, and this paragraph is the record that the
     /// other half is untested rather than a claim that it is not.
@@ -110,8 +110,8 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     ///
     /// | kind | object | screen |
     /// |---|---|---|
-    /// | `authoring` | a laptop, lid up | **yes** — `DeskWorkArt.laptop`'s `a` rows |
-    /// | `running` | a desk monitor | **yes** — `DeskMonitorArt`'s whole glass |
+    /// | `authoring` | a laptop, lid up | **yes**: `DeskWorkArt.laptop`'s `a` rows |
+    /// | `running` | a desk monitor | **yes**: `DeskMonitorArt`'s whole glass |
     /// | `research` | a stack of paper | no |
     /// | `coordinating` | a pad | no |
     ///
@@ -120,7 +120,7 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// using; a *dimmed sheet of paper* is a picture of nothing at all, because
     /// paper does not have an off state to draw. The room would be inventing a
     /// second appearance for an object in order to repeat a fact the character's
-    /// own dim (`CharacterDim`) already carries truthfully — and I1's
+    /// own dim (`CharacterDim`) already carries truthfully, and I1's
     /// instruction for the case where truthful representation is not available
     /// is to show nothing. So an agent that has been reading is dimmed with its
     /// papers unchanged, and the room says exactly as much as it knows.
@@ -140,7 +140,7 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// bitmaps and `TextureStore` caches by key, so a shared key would hand the
     /// first one drawn to every later caller and the screen would appear stuck.
     /// The two kinds with no screen return the same bitmap for either state, so
-    /// their two keys hold identical textures — a duplicate entry in a cache of
+    /// their two keys hold identical textures: a duplicate entry in a cache of
     /// two dozen, which is cheaper than a key rule with an exception in it.
     func textureKey(screen state: DeskScreen) -> String {
         "deskobject:" + rawValue + (state == .lit ? "" : ":dark")
@@ -152,7 +152,7 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// classifies.**
     ///
     /// It is read from `tool_input.description` on an `Agent` dispatch and on no
-    /// other tool — the field `WorldModel` already decodes, `AgentSnapshot.task`
+    /// other tool: the field `WorldModel` already decodes, `AgentSnapshot.task`
     /// already carries and `SceneDirector.taskLine(_:)` already draws on the
     /// nameplate. Classifying it is strictly less exposing than the echoing that
     /// already ships: the output is one of five closed values instead of ten
@@ -193,7 +193,7 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
             "REVIEW", "REVIEWS", "REVIEWING",
             "LOCATE", "LOCATES", "SURVEY", "SURVEYS", "STUDY",
         ],
-        // Executing commands. `verifying` is folded in here — ADR-006 §1b —
+        // Executing commands. `verifying` is folded in here: ADR-006 §1b,
         // because separating "ran the tests" from "ran a script" needs the Bash
         // command string, which §6 refuses to read.
         .running: [
@@ -221,7 +221,7 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
     /// Total, and it abstains twice over: a description matching keywords of two
     /// kinds contributes nothing, and so does one matching none. That is the
     /// same answer the identity model already gives when attribution is
-    /// ambiguous — the room shows the plain desk. [ADR-006 §3 step 1, §6c rule 5]
+    /// ambiguous: the room shows the plain desk. [ADR-006 §3 step 1, §6c rule 5]
     ///
     /// The split is `SceneDirector.taskLine(_:)`'s own: uppercase, then cut at
     /// everything that is not a letter, a digit or a hyphen, so `alpha.txt` is
@@ -244,34 +244,34 @@ public enum WorkKind: String, Sendable, Hashable, CaseIterable {
 
 /// **One agent's votes, for one turn.** [ADR-006 §3, §4a]
 ///
-/// A counter over `PreToolUse` opens plus at most one opening claim — never "the
+/// A counter over `PreToolUse` opens plus at most one opening claim: never "the
 /// current tool". That is I3 held rather than restated: the tally is indifferent
 /// to how many calls are open at once and to what order they opened in, so two
 /// calls landing in either order produce the same desk.
 ///
 /// It is scoped to a turn because votes only accumulate. An unscoped tally makes
-/// a long-lived agent *more* rigid the longer it runs — `research` at 40 votes
-/// would need 80 `authoring` votes to be corrected — so an agent that read for
+/// a long-lived agent *more* rigid the longer it runs: `research` at 40 votes
+/// would need 80 `authoring` votes to be corrected, so an agent that read for
 /// five minutes and then coded for twenty would keep a paper stack. Per turn,
 /// the desk reflects **this** turn's work, and a turn is exactly the unit of
 /// "what I asked it to do".
 public struct WorkTally: Sendable, Hashable {
 
-    /// **One observed tool call furnishes a bare desk.** [ADR-006 §3, retuned —
+    /// **One observed tool call furnishes a bare desk.** [ADR-006 §3, retuned,
     /// see the note appended to §3a]
     ///
     /// ADR-006 proposed **3**, on the premise that the object makes a claim a
     /// person might rely on, and predicted that 22 of 27 agents in the corpus
     /// would keep a bare desk. The maintainer redefined what the object is for
-    /// while this was being built — *"it doesn't need real data, the screen isn't
+    /// while this was being built: *"it doesn't need real data, the screen isn't
     /// going to be big enough or have enough resolution for that; just needs to
-    /// be a prop on the table"* — and a rule that abstains four times out of five
+    /// be a prop on the table"*, and a rule that abstains four times out of five
     /// is the wrong rule for furniture. One `Bash` really is evidence that this
     /// agent ran something, and a monitor after one `Bash` is honest.
     ///
     /// **What did not move is the abstention.** An agent with no recognisable
-    /// evidence at all — nothing but `mcp__*` and unmapped tools, or no tool
-    /// calls yet — still gets the bare desk, and that is not a confidence
+    /// evidence at all: nothing but `mcp__*` and unmapped tools, or no tool
+    /// calls yet: still gets the bare desk, and that is not a confidence
     /// threshold: it is the difference between a fact and no fact. [I1]
     public static let adoptionFloor = 1
 
@@ -281,7 +281,7 @@ public struct WorkTally: Sendable, Hashable {
     /// *correcting itself* and is the loud event. [ADR-006 §4c]
     ///
     /// It is what stops one stray call at the start of a new turn from
-    /// rearranging a desk — the tally is turn-scoped, so an incumbent adopted
+    /// rearranging a desk: the tally is turn-scoped, so an incumbent adopted
     /// last turn holds **zero** votes in this one and would otherwise be
     /// overturned by the first `Read` of the next turn. Two calls agreeing with
     /// each other is the smallest evidence that is not one event.
@@ -315,14 +315,14 @@ public struct WorkTally: Sendable, Hashable {
     /// kind fired, and a session that edits three files while running forty
     /// commands to build and test them counts as `running` by a factor of
     /// thirteen. Every real coding session has that shape. `authoring` was
-    /// therefore close to unreachable on live data — and the corpus had already
+    /// therefore close to unreachable on live data, and the corpus had already
     /// said so from the other direction, since no fixture contains a single
     /// `Edit`, `Write`, `NotebookEdit`, `Grep` or `Glob`.
     ///
     /// # Why precedence rather than a weight
     ///
-    /// A weight big enough to fix the reported case is about 15 — the number
-    /// that lets three edits beat forty commands — and "one edit is worth
+    /// A weight big enough to fix the reported case is about 15: the number
+    /// that lets three edits beat forty commands, and "one edit is worth
     /// fifteen shell commands" is not a claim anything measured. Precedence
     /// states the actual belief instead: **changing a file is what an agent is
     /// doing, and the commands around it are how it gets done.** Reading, running
@@ -330,7 +330,7 @@ public struct WorkTally: Sendable, Hashable {
     ///
     /// # Why the floor is 2 and not 1
     ///
-    /// At 1 a single incidental write hijacks the whole turn — a research agent
+    /// At 1 a single incidental write hijacks the whole turn: a research agent
     /// that saves one note would sit behind a laptop for the rest of its life.
     /// Two observed edits is the smallest number that distinguishes *this agent
     /// edits files* from *this agent wrote something down once*, and it is
@@ -351,7 +351,7 @@ public struct WorkTally: Sendable, Hashable {
     /// description.
     ///
     /// It exists because the floor is now 1, and a floor of 1 without this would
-    /// let a *description* furnish a desk on its own — an agent dispatched to
+    /// let a *description* furnish a desk on its own: an agent dispatched to
     /// "read the logs" would get a paper stack before it had done anything at
     /// all. The description is inference about intent written *before* the agent
     /// acted [ADR-006 §3 step 1]; it is admissible as a vote and it is not
@@ -376,7 +376,7 @@ public struct WorkTally: Sendable, Hashable {
     public var total: Int { votes.values.reduce(0, +) }
 
     /// One observed vote, from one `PreToolUse`. `nil` is an abstention and costs
-    /// nothing — an unmapped tool and an `mcp__*` tool add no evidence rather
+    /// nothing: an unmapped tool and an `mcp__*` tool add no evidence rather
     /// than adding a guess. [I1]
     public mutating func record(_ kind: WorkKind?) {
         guard let kind else { return }
@@ -388,7 +388,7 @@ public struct WorkTally: Sendable, Hashable {
     /// [ADR-006 §3 step 1]
     ///
     /// The dispatch description is worth exactly as much as one real observed
-    /// call, so it gets exactly as much — that is what makes the maintainer's
+    /// call, so it gets exactly as much: that is what makes the maintainer's
     /// honest case work: an agent *told to plan* that is in fact editing files
     /// ties its own brief on the second edit and beats it on the third. It does
     /// not count towards `observedVotes`, so it can break a tie and add weight
@@ -398,7 +398,7 @@ public struct WorkTally: Sendable, Hashable {
         votes[kind, default: 0] += 1
     }
 
-    /// The turn ended. **The tally resets and the drawn object does not** — that
+    /// The turn ended. **The tally resets and the drawn object does not**: that
     /// separation is ADR-006 §4b and it lives at the call site, because this
     /// type does not know what is on the desk.
     public mutating func clear() {
@@ -409,7 +409,7 @@ public struct WorkTally: Sendable, Hashable {
     /// **What the desk should show, given what is on it now.**
     ///
     /// Returns `incumbent` unchanged whenever the tally has not earned a change,
-    /// and `nil` only while the desk is bare and has not earned anything — so
+    /// and `nil` only while the desk is bare and has not earned anything, so
     /// **nothing this function returns ever takes an object away.** That is
     /// ADR-006 §4b held structurally rather than by a rule at the call site.
     ///
@@ -421,7 +421,7 @@ public struct WorkTally: Sendable, Hashable {
     ///    favour of the incumbent, and a tie with no incumbent in it changes
     ///    nothing. No recency, no ordering dependence, no most-recent-wins: the
     ///    three properties ADR-003 §5 protects for the badge, kept here for the
-    ///    same reasons — and load-bearing now in a way they were not under the
+    ///    same reasons, and load-bearing now in a way they were not under the
     ///    original threshold, because a tie is reachable at one vote each.
     /// 3. **A bare desk adopts on `adoptionFloor` votes**, provided at least one
     ///    of them was observed rather than read off the dispatch description.

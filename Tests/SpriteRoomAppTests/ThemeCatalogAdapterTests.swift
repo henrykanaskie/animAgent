@@ -8,14 +8,14 @@ import Testing
 /// menu bar, and for a while it was a stub returning `.empty`.
 ///
 /// **That stub was invisible to the whole suite.** Every other theme-menu test
-/// builds its catalog by hand — correctly, because they are testing the menu,
-/// not the manifest — and `.empty` is *also* the legitimate answer for a
+/// builds its catalog by hand (correctly, because they are testing the menu,
+/// not the manifest), and `.empty` is *also* the legitimate answer for a
 /// checkout with no art. So the one thing nothing checked was whether the
 /// adapter reads the manifest at all, and the symptom of the regression is a
 /// `Room ▸` submenu that is silently empty in the shipped app while every test
 /// stays green.
 ///
-/// It is the same shape as the two stubs it sat beside — `RoomHost.derive`
+/// It is the same shape as the two stubs it sat beside: `RoomHost.derive`
 /// returning `nil`, `SceneBinding` not forwarding a theme. Each was a declared
 /// seam with its reasoning attached, left open because the other half did not
 /// exist yet, and nothing closed the loop when it did. This is the loop.
@@ -41,7 +41,7 @@ import Testing
     /// Every field the menu draws comes from the manifest, not from a default.
     ///
     /// A catalog that returned the right *ids* with blank titles would list six
-    /// unreadable rows, so the title is checked too — and `isAssignable` is what
+    /// unreadable rows, so the title is checked too, and `isAssignable` is what
     /// keeps the derived default from picking a room that reads as a claim about
     /// the work [ADR-002 §3e], which is worth more than a menu label.
     @Test func everyThemeCarriesItsTitleAndAssignability() throws {
@@ -56,8 +56,8 @@ import Testing
         }
     }
 
-    /// `.empty` stays the honest answer for a manifest with no themes — that is
-    /// a checkout that predates them, not a defect — so the adapter must not
+    /// `.empty` stays the honest answer for a manifest with no themes (that is
+    /// a checkout that predates them, not a defect), so the adapter must not
     /// invent one. Proving both directions is what stops "fix the stub" from
     /// becoming "hard-code six".
     ///

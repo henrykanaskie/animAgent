@@ -15,7 +15,7 @@ public final class TextureStore {
     /// Which theme's bindings this store resolves. `nil` is the room this app
     /// has always drawn. [ADR-002 §8 item 5]
     public let themeID: String?
-    /// The resolved bindings — `manifest.room` or `manifest.themes.sets[id]`.
+    /// The resolved bindings: `manifest.room` or `manifest.themes.sets[id]`.
     /// Every room-facing lookup goes through here rather than through
     /// `manifest.room`, which is what makes the theme a *selection* rather than
     /// a branch at each call site.
@@ -45,7 +45,7 @@ public final class TextureStore {
     /// searching for the flattest thing in the set.
     ///
     /// So `builder.floor` and `builder.wall` are now read when the manifest
-    /// declares them — which is a *measurement recorded at import time* rather
+    /// declares them, which is a *measurement recorded at import time* rather
     /// than a filename written down in `Sources/`, so nothing about the rule
     /// this heuristic protects has been given up. The heuristic remains, and is
     /// still exercised: `room` itself declares neither, so the default room
@@ -55,7 +55,7 @@ public final class TextureStore {
         public let floor: String
         public let wall: String
         /// `true` when both came from `builder.floor`/`builder.wall`. Diagnostic
-        /// only — a test asserts a theme is read rather than searched, and this
+        /// only: a test asserts a theme is read rather than searched, and this
         /// is how it can tell the two apart without reading pixels.
         public let isDeclared: Bool
     }
@@ -84,13 +84,13 @@ public final class TextureStore {
     }
 
     /// **One file's opaque bounding box**, in the same frame `content_box` is
-    /// written in — image space, y down. `nil` when the art will not load.
+    /// written in: image space, y down. `nil` when the art will not load.
     ///
     /// **This is a measurement the manifest should be carrying and does not,
     /// and it is called from exactly one place for that reason.** `content_box`
     /// is declared per *role*, and a role's `variants` are separate singles
     /// dropped into a 64×96 canvas wherever they sat on their own source sheet
-    /// — the office `desk_kit` stock measures `8,72 24×22`, `16,50 32×24`,
+    ///: the office `desk_kit` stock measures `8,72 24×22`, `16,50 32×24`,
     /// `16,78 30×18` and `24,66 18×18`, four boxes that share no edge. Placing
     /// entry 3 against entry 0's box would put a mug 20 px into the air, so the
     /// scene measures what the manifest did not declare rather than drawing it
@@ -128,7 +128,7 @@ public final class TextureStore {
     ///
     /// `working` is drawn `right` and `left` only, so a request for it facing
     /// up or down falls back to the nearest side view rather than returning
-    /// nothing — a seated character facing the camera is art that was never
+    /// nothing: a seated character facing the camera is art that was never
     /// drawn. [04-ART-DIRECTION]
     public func frames(variant: String, state: BodyState, facing: Facing) -> [SKTexture] {
         guard let animation = manifest.characters.variant(variant)?.animation(state) else {
@@ -157,13 +157,13 @@ public final class TextureStore {
         return (animation.frames(facing: resolved) ?? []).compactMap { texture(path: $0) }
     }
 
-    /// One costume's layers for one state and facing, back to front — **one
+    /// One costume's layers for one state and facing, back to front: **one
     /// entry per declared layer**, `nil` where that layer draws nothing here.
     ///
     /// Positional rather than compacted, and that is not fussiness: the caller
     /// owns one node per declared layer at a fixed depth, so a compacted array
     /// would silently draw layer 1's art on layer 0's node the moment a costume
-    /// omitted a state — an overlay in the wrong order, in one pose out of six.
+    /// omitted a state: an overlay in the wrong order, in one pose out of six.
     ///
     /// **A layer whose frame count does not match the body's is `nil`, not
     /// stretched.** The generator's sheets are the premade sheets' geometry, so
@@ -227,7 +227,7 @@ public final class TextureStore {
     /// The dormant badge, from `badges.states.sleep`. One glyph, and it says the
     /// one thing the lifecycle knows: this character finished a turn and is
     /// still assigned. There is no body state to go with it and there must not
-    /// be one — see `Manifest.Badges.sleepKey`. [I1]
+    /// be one: see `Manifest.Badges.sleepKey`. [I1]
     public func sleepTexture() -> SKTexture? {
         guard let art = manifest.badges.sleep else { return nil }
         return texture(path: art.file)
@@ -268,8 +268,8 @@ public final class TextureStore {
     /// The tiles that are fully opaque **and** a single flat colour, which is
     /// the whole of the old selection rule.
     ///
-    /// Exposed because the interesting fact about it is *how few there are* —
-    /// 2 of the Office room's 141 — and a number that explains a design decision
+    /// Exposed because the interesting fact about it is *how few there are*,
+    /// 2 of the Office room's 141, and a number that explains a design decision
     /// should be measurable rather than quoted. A patterned floor cannot pass
     /// this filter by construction, which is why no amount of art would have
     /// widened it and why `builder.floor` exists.
@@ -316,7 +316,7 @@ public final class TextureStore {
     /// The variant's accent, from `accent_hex` in the manifest.
     ///
     /// **Assigned, not sampled, and that is the point.** The obvious
-    /// implementation — take the most saturated pixel of the sprite — is what
+    /// implementation (take the most saturated pixel of the sprite) is what
     /// this used to do, and M2 measured the result: all six selected premades'
     /// accents land inside a 30° arc, 07 and 17 are hue-identical, and 07/19
     /// differ by 3.5°, because the generator dresses one body in variations of
@@ -324,8 +324,8 @@ public final class TextureStore {
     /// worse than none, because it looks like one.
     ///
     /// So the manifest carries six hues 60° apart and this reads them. The
-    /// accent is drawn as the nameplate border — a colour the *scene* puts on
-    /// screen — so assigning it is not a claim about any pixel in the sprite,
+    /// accent is drawn as the nameplate border: a colour the *scene* puts on
+    /// screen, so assigning it is not a claim about any pixel in the sprite,
     /// and `scripts/lint-palette.py` checks the separation rather than
     /// asserting it.
     ///

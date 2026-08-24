@@ -5,7 +5,7 @@ import Testing
 
 /// Quitting with the hook block still in `~/.claude/settings.json`.
 ///
-/// **The defect.** Hooks are registered at user scope — one registration,
+/// **The defect.** Hooks are registered at user scope: one registration,
 /// routed by `cwd`, which is the design. So they fire for every Claude Code
 /// session on the machine, in every project, whether or not SpriteRoom is
 /// listening. The moment the app is gone, every tool call in every session
@@ -18,7 +18,7 @@ import Testing
 /// **The fix has two halves and this file is about the second one.** Offering
 /// is easy; the half that has to be right is that *no answer other than
 /// "remove" writes anything*. `~/.claude/settings.json` is the user's file, the
-/// install path asks, and the removal path has to match — removing silently
+/// install path asks, and the removal path has to match; removing silently
 /// would be worse than the error, because it would quietly undo a deliberate
 /// choice every time somebody quit and relaunched.
 ///
@@ -29,7 +29,7 @@ struct HookQuitTests {
 
     typealias Sandbox = HookInstallerTests.Sandbox
 
-    /// Records whether the question was put at all — which matters as much as
+    /// Records whether the question was put at all, which matters as much as
     /// the answer, because a dialog that appears when there is nothing of ours
     /// in the file is a dialog interrupting a quit for no reason.
     final class Asker {
@@ -70,7 +70,7 @@ struct HookQuitTests {
 
     // MARK: The answers that write nothing
 
-    /// Nobody to ask — a harness, a non-interactive run, `--no-quit-prompt`.
+    /// Nobody to ask: a harness, a non-interactive run, `--no-quit-prompt`.
     ///
     /// The same rule the install path has, pointing the other way: a write to
     /// the user's configuration with nobody present is a write nobody agreed
@@ -143,8 +143,8 @@ struct HookQuitTests {
 
     /// Entries pointing at some other port are still ours, and they still cost
     /// the user a failed POST on every tool call. Offering only the exact-port
-    /// case would leave the commonest stale install — an earlier run on a
-    /// different `--port` — quietly unhandled.
+    /// case would leave the commonest stale install (an earlier run on a
+    /// different `--port`) quietly unhandled.
     @Test func hooksPointingAtAnotherPortAreStillOffered() throws {
         let sandbox = Sandbox()
         sandbox.write(HookInstallerTests.realistic)
@@ -161,8 +161,8 @@ struct HookQuitTests {
 
     // MARK: Somebody else's hooks
 
-    /// Another tool's entries survive. `remove` matches ours by shape — an HTTP
-    /// hook posting to `/hook` on loopback — and everything else in the file is
+    /// Another tool's entries survive. `remove` matches ours by shape (an HTTP
+    /// hook posting to `/hook` on loopback) and everything else in the file is
     /// somebody else's business.
     @Test func quittingDoesNotRemoveHooksThatAreNotOurs() throws {
         let sandbox = Sandbox()
@@ -200,7 +200,7 @@ struct HookQuitTests {
         #expect(parse(["--quit-answer", "keep"])?.quitAnswer == .keep)
         #expect(parse(["--quit-answer", "maybe"]) == nil)
         #expect(parse(["--quit-answer"]) == nil)
-        // Absent is absent — not "keep", not "remove". Nothing may infer an
+        // Absent is absent: not "keep", not "remove". Nothing may infer an
         // answer from the flag not being there.
         #expect(parse([])?.quitAnswer == nil)
         #expect(parse([])?.quitPrompt == true)

@@ -8,7 +8,7 @@ import SpriteRoomCore
 /// The office theme's seat furniture is `scripts/compose-scene.py`'s `desk_pod`:
 /// a 64×38 slab with a screen rig on it where a screen is honest, and an
 /// orientation-neutral object where it is not. Everything here is arithmetic over
-/// the shipped manifest, so it runs on a fresh clone with no art — the numbers
+/// the shipped manifest, so it runs on a fresh clone with no art: the numbers
 /// that decide whether a pod fits are content boxes, not pixels.
 ///
 /// Every assertion is measured off the manifest rather than written down, with
@@ -138,8 +138,8 @@ import SpriteRoomCore
     /// **The pod's two kit slots tile its slab exactly, and a rig stands in each
     /// of them.**
     ///
-    /// This asserted the opposite until M8 — *"the theme's screen rig takes the
-    /// left one; ADR-006's work-kind object takes the right"* — and the picture
+    /// This asserted the opposite until M8 (*"the theme's screen rig takes the
+    /// left one; ADR-006's work-kind object takes the right"*), and the picture
     /// that produced is why it changed: the `monitor` role is
     /// `workstation_composite`, a rig carrying its own desk surface and front
     /// edge, so one of them covers half the slab and the other half stays plain
@@ -148,7 +148,7 @@ import SpriteRoomCore
     ///
     /// **What ADR-006 keeps is unchanged and is asserted next door**: the right
     /// slot is still the work-kind object's, and the rig standing in it is
-    /// furniture the object replaces —
+    /// furniture the object replaces:
     /// `theWorkKindObjectStandsInTheRightRigSlotAndTakesItsRigDown`.
     @Test func bothPodRigSlotsAreFilledAndTheyTileTheSlabExactly() throws {
         let manifest = try SceneFixtures.manifest()
@@ -196,8 +196,8 @@ import SpriteRoomCore
     /// and it is arithmetic rather than care.
     ///
     /// ADR-008 §5 left a camera-facing desk bare for two independent reasons, and
-    /// the geometric one — *"the theme desk is 32 px wide and the body occupies
-    /// all of it"* — expired when the desk became 64. What replaces it is this:
+    /// the geometric one (*"the theme desk is 32 px wide and the body occupies
+    /// all of it"*) expired when the desk became 64. What replaces it is this:
     /// an object's lift plus its own ink height reaches no higher than the desk's
     /// back edge, so whatever its width it stands in front of pixels the desk was
     /// already covering. The honesty reason is untouched and is why the objects
@@ -226,7 +226,7 @@ import SpriteRoomCore
                     + " floor point, which is off the front edge rather than on the top"))
                 #expect(lift + height <= metrics.deskInkHeight, Comment(rawValue:
                     "\(slot) reaches \(lift + height)px above the desk's floor point with a"
-                    + " \(height)px object, against a \(metrics.deskInkHeight)px desk — so it"
+                    + " \(height)px object, against a \(metrics.deskInkHeight)px desk, so it"
                     + " crosses the face the orientation exists to show"))
             }
         }
@@ -241,7 +241,7 @@ import SpriteRoomCore
     /// **The shipped desktop stock, each object measured, against that bound.**
     ///
     /// The test above quantifies over heights the room might one day carry; this
-    /// one is the four objects it carries today, at their own measured ink — the
+    /// one is the four objects it carries today, at their own measured ink: the
     /// manifest declares one `content_box` for the `desk_kit` role and the stock
     /// is four singles cut from four source sheets, so an object's clearance
     /// cannot be read out of the role.
@@ -304,7 +304,7 @@ import SpriteRoomCore
     /// kit at.** [ADR-009]
     ///
     /// The paper stack stood in the right-hand slot at a lift of 16, which was
-    /// `deskTopLift` — the rig's number. `backRight` is that slot, and its lift
+    /// `deskTopLift`, the rig's number. `backRight` is that slot, and its lift
     /// for that object is now `deskInkHeight − inkHeight`, which is the object's
     /// own art's number, and 38 − 22 is also 16. Two derivations meeting is worth
     /// pinning: if a future desk or a future rig separates them, the diff should
@@ -312,7 +312,7 @@ import SpriteRoomCore
     /// about.
     ///
     /// **Which object stands there is the seat's**, so the paper stack itself
-    /// holds this slot at seat 0 and rotates out of it at seat 2 —
+    /// holds this slot at seat 0 and rotates out of it at seat 2:
     /// `everyCameraFacingSeatCarriesTheWholeStockAndTwoSeatsArrangeItDifferently`
     /// is where that is stated. What does not move is the geometry.
     @Test func theSlotThisRoomAlreadyDrewAKitInIsExactlyWhereItWas() throws {
@@ -338,12 +338,12 @@ import SpriteRoomCore
     }
 
     /// **A pod is centred on its occupant at both facings, and a narrow desk is
-    /// not** — ADR-008 §7's own condition, as arithmetic.
+    /// not**: ADR-008 §7's own condition, as arithmetic.
     ///
     /// That section kept the away-facing desk beside its occupant and closed with
     /// the case in which it would not: *"The pack can centre its figure because
     /// its desk is 64 px wide with two monitors at ±16 and the person between
-    /// them; ours is 32."* Ours is 64 now, so it centres — which is what puts a
+    /// them; ours is 32."* Ours is 64 now, so it centres, which is what puts a
     /// rig at each shoulder in `output/01-engineering-office.png`.
     @Test func aPodCentresItsAwayFacingOccupantAndANarrowDeskDoesNot() throws {
         let manifest = try SceneFixtures.manifest()
@@ -394,7 +394,7 @@ import SpriteRoomCore
         let pitch = layout.seatPosition(1).x - layout.seatPosition(0).x
         let laneHalf = Double(manifest.characters.canvas.width) / 2
         // **The lane one pitch to the right, by column rather than by seat
-        // index.** `seat + 1` is not the seat to the right — seats fill outward
+        // index.** `seat + 1` is not the seat to the right: seats fill outward
         // in pairs, so seat 1 is a pitch right of seat 0 and seat 2 is a pitch
         // *left* of it. Every column in this room is some seat's, and a station
         // prop stands a tile to its own character's left, so the lane a pitch
@@ -412,7 +412,7 @@ import SpriteRoomCore
         #expect(laneLeft(0)
                 == layout.stationPropPosition(1).x
                     - Double(manifest.characters.canvas.width) / 2)
-        // Seat 0 faces the camera, seat 1 faces away — one of each, and the two
+        // Seat 0 faces the camera, seat 1 faces away: one of each, and the two
         // are a pitch apart so the lane arithmetic is the same shape at both.
         #expect(layout.seatFacing(0) == .towardCamera)
         #expect(layout.seatFacing(1) == .awayFromCamera)
@@ -425,8 +425,8 @@ import SpriteRoomCore
         // The office pod overlaps its **own** station-prop lane by 16px, and that
         // is stated rather than discovered. The lane is a tile to the character's
         // left and 32px wide, so it spans `x−48 … x−16`, and a 64px desk centred
-        // on the column reaches `x−32`. The two are on **different rows** — the
-        // prop stands on the seat row, the desk a facing's depth away from it —
+        // on the column reaches `x−32`. The two are on **different rows** (the
+        // prop stands on the seat row, the desk a facing's depth away from it),
         // so `Character.Layer.rowDepth` sorts them deterministically and neither
         // is a character. Nothing about a body or a nameplate is touched: the
         // prop still stops a whole half-canvas short of the seat's own column,
@@ -443,8 +443,8 @@ import SpriteRoomCore
 
     /// **The room draws what the layout says, in every theme.** The arithmetic
     /// above is only worth having if the scene reads it, and the failure it has
-    /// to catch — a pod whose kit was placed at `surface_y`, or drawn at a
-    /// camera-facing seat — produces perfectly correct node counts.
+    /// to catch (a pod whose kit was placed at `surface_y`, or drawn at a
+    /// camera-facing seat) produces perfectly correct node counts.
     @MainActor @Test(.enabled(if: SceneArt.isAvailable))
     func theRoomDrawsAScreenRigAtEveryAwayFacingSeatOfThePodAndNowhereElse() throws {
         let manifest = try SceneFixtures.manifest()
@@ -470,7 +470,7 @@ import SpriteRoomCore
                         + " \(piece.x),\(piece.y); its rig slots are \(points)"))
                 }
                 // **Each object against the slot the layout puts it in**, at its
-                // own measured ink height — the whole point of the stock being
+                // own measured ink height: the whole point of the stock being
                 // four objects rather than four alternatives is that they are not
                 // interchangeable in y.
                 let kitPieces = drawn.filter { kitStock.contains($0.path) }
@@ -498,7 +498,7 @@ import SpriteRoomCore
         }
     }
 
-    // MARK: Stock — `variants` [I1, ADR-002 §6 rule 1]
+    // MARK: Stock - `variants` [I1, ADR-002 §6 rule 1]
 
     /// **A role with no `variants` draws its `file`, and that is the whole of
     /// what a variant-blind reader sees.**
@@ -516,7 +516,7 @@ import SpriteRoomCore
             for (role, prop) in room.propRoles.sorted(by: { $0.key < $1.key }) {
                 #expect(prop.variants.first == prop.file, Comment(rawValue:
                     "\(name).\(role) leads its stock with \(prop.variants.first ?? "nothing"),"
-                    + " not with its own \(prop.file) — a variant-blind reader and this one"
+                    + " not with its own \(prop.file); a variant-blind reader and this one"
                     + " would draw different pictures"))
                 #expect(Set(prop.variants).count == prop.variants.count,
                         "\(name).\(role) declares the same file twice")
@@ -537,7 +537,7 @@ import SpriteRoomCore
 
     /// **A malformed `variants` costs the room its stock and never its props.**
     ///
-    /// The decoder is total over this key by construction — `PropRole.init` is
+    /// The decoder is total over this key by construction: `PropRole.init` is
     /// the only way to build one and it discards anything that does not lead with
     /// `file`. The cases are the ones a hand-edited or half-generated manifest
     /// produces: the key absent, an empty list, a list that leads with something
@@ -554,7 +554,7 @@ import SpriteRoomCore
         #expect(role(["b.png", "a.png"]).variants == ["a.png"])
         #expect(role(["a.png", ""]).variants == ["a.png"])
         #expect(role(["a.png", "b.png"]).variants == ["a.png", "b.png"])
-        // And the wrap is total, including on a negative index — a caller hands
+        // And the wrap is total, including on a negative index: a caller hands
         // this a seat number without knowing how much stock there is.
         let stocked = role(["a.png", "b.png", "c.png"])
         #expect((0...6).map { stocked.variant($0).file }
@@ -579,7 +579,7 @@ import SpriteRoomCore
     /// manifest generator's (`scripts/build-manifest.py`'s `content_box`) and to
     /// the tests' own third copy (`SceneFixtures.inkBox`). They agree on the file
     /// all three can see, which is what makes it credible that the measured box
-    /// is the right thing to place entries 1…N against — the entries no
+    /// is the right thing to place entries 1…N against: the entries no
     /// `content_box` exists for.
     @Test(.enabled(if: SceneArt.isAvailable))
     func variantZeroSMeasuredBoxIsTheOneTheManifestDeclares() throws {
@@ -608,7 +608,7 @@ import SpriteRoomCore
     /// same order.
     ///
     /// **The key is the seat and nothing else.** Entry `(slot + seat) % count`,
-    /// evaluated when the room is built and never again — no agent, no tool, no
+    /// evaluated when the room is built and never again: no agent, no tool, no
     /// open-call count, nothing hashed out of a payload. `theSameSeatDrawsTheSame
     /// StockWhoeverIsSittingInIt` is the other half of that sentence.
     @MainActor @Test(.enabled(if: SceneArt.isAvailable))
@@ -644,8 +644,8 @@ import SpriteRoomCore
         #expect(Set(rigs.values).count > 1, Comment(rawValue:
             "every away-facing seat drew the same rig: \(rigs.sorted { $0.key < $1.key })"))
 
-        // Entry 0 is where a variant-blind reader would have put it — the right
-        // back slot of seat 0 — so the change did not move the picture this room
+        // Entry 0 is where a variant-blind reader would have put it (the right
+        // back slot of seat 0), so the change did not move the picture this room
         // already drew, it added to it.
         #expect(arrangements[0]?.first == kit.file)
         for (seat, file) in rigs {
@@ -664,7 +664,7 @@ import SpriteRoomCore
         // **Two of the four rigs never reach the screen, and that is a fact
         // about the lattice rather than about this mechanism.** Every away-facing
         // seat is a back-row seat, the back row is seats 1, 2, 5 and 6, and
-        // `seat % 4` over those is 1, 2, 1, 2 — so the stock's entries 0 and 3
+        // `seat % 4` over those is 1, 2, 1, 2, so the stock's entries 0 and 3
         // have no seat to stand at. Pinned rather than left to be noticed later:
         // the desktop stock does not have the problem (every camera-facing seat
         // carries all four objects), so it is the rig's key that would have to
@@ -682,7 +682,7 @@ import SpriteRoomCore
     ///
     /// The failure this exists to catch is the one ADR-002 §6 rule 1 and I1 both
     /// forbid: a prop that changed because an agent did something. Two different
-    /// agents — different variant, different type, different work — take seat 0
+    /// agents (different variant, different type, different work) take seat 0
     /// in two scenes, and the desktop is identical.
     @MainActor @Test(.enabled(if: SceneArt.isAvailable))
     func theSameSeatDrawsTheSameStockWhoeverIsSittingInIt() throws {
@@ -731,7 +731,7 @@ import SpriteRoomCore
     /// This is the guard on the repair that was tried first and refused. Standing
     /// the object in the right slot and hiding that slot's rig is the obvious
     /// reading of "the right slot is ADR-006's", and it makes a *theme prop*
-    /// absent because an agent ran a tool — the thing ADR-002 §6 rule 1 and I1
+    /// absent because an agent ran a tool: the thing ADR-002 §6 rule 1 and I1
     /// forbid, and the thing
     /// `theSameSeatDrawsTheSameStockWhoeverIsSittingInIt` next door catches from
     /// the other side. This one catches it from this side, and it also pins the
@@ -777,7 +777,7 @@ import SpriteRoomCore
             #expect(rigs.count == RoomLayout.PodRigSlot.allCases.count, Comment(rawValue:
                 "seat \(seat) draws \(rigs.count) rigs while a work-kind object stands"
                 + " on it, against \(RoomLayout.PodRigSlot.allCases.count) at an empty"
-                + " seat — the object took a piece of theme furniture down with it"))
+                + " seat; the object took a piece of theme furniture down with it"))
             // In the right slot's column…
             let slot = try #require(scene.layout.monitorPosition(
                 0 + seat, slot: .right, metrics: metrics))

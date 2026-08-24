@@ -3,7 +3,7 @@ import Foundation
 /// What a nameplate says: three candidate lines, of which the plate draws
 /// exactly one.
 ///
-/// **The plate is one row — see `SceneBitmaps.nameplate`.** The maintainer, at
+/// **The plate is one row: see `SceneBitmaps.nameplate`.** The maintainer, at
 /// the running app: *"the nameplates are still wrong, they take up too much
 /// space, should just have the summary of what they are doing in one or 2
 /// words. and that's it."* So this type is no longer a stack of rows to be laid
@@ -16,12 +16,12 @@ import Foundation
 ///
 /// **What went with the rows.** The plate used to carry the `agent_type` on a
 /// second row and the `agent_id` discriminator on a third. Both are gone from
-/// the room — the discriminator is no longer even produced (see
+/// the room: the discriminator is no longer even produced (see
 /// `SceneDirector.nameplate(for:)`), and the type is drawn only when there is
 /// no task to outrank it. The cost is recorded where it bites:
 /// `SceneDirectorTests.twoNearlyIdenticalDispatchesNowShareAPlateEntirely`.
 public struct NameplateText: Sendable, Hashable {
-    /// The name for an agent that has nothing more specific — the main agent,
+    /// The name for an agent that has nothing more specific: the main agent,
     /// whose absence of an `agent_id` *is* its identity [CLAUDE.md, Identity
     /// model], and the overflow plate, which belongs to nobody.
     ///
@@ -29,19 +29,19 @@ public struct NameplateText: Sendable, Hashable {
     /// two rungs above it are empty. Empty is legal and means the plate has
     /// nothing to say at all; nothing is invented to fill it. [I1]
     public var lead: String
-    /// `agent_type` — the headline for a subagent we never saw a dispatch for.
+    /// `agent_type`: the headline for a subagent we never saw a dispatch for.
     /// `nil` or empty when there is none: the main agent, whose `lead` is then
     /// the only thing to draw.
     public var role: String?
 
     /// **What this agent was dispatched to do, already shortened.** One or two
-    /// words off the `Agent` call's own `tool_input.description` — never a
+    /// words off the `Agent` call's own `tool_input.description`: never a
     /// paraphrase, and never present unless a real dispatch carried one. [I1]
     ///
     /// **It arrives after the plate is already on screen** and it is the reason
     /// `SpriteIntent.setNameplate` exists: `agentTasked` rides one event behind
     /// the `SubagentStart` that created the character. The plate does not change
-    /// shape when it lands — one row before, one row after — so the update is a
+    /// shape when it lands (one row before, one row after) so the update is a
     /// single substitution on a line that keeps its size and its position.
     ///
     /// The shortening itself is `SceneDirector.taskLine(_:)`. This field holds
@@ -60,8 +60,8 @@ public struct NameplateText: Sendable, Hashable {
     /// else `lead`.
     ///
     /// **One ladder, and now it is also the whole layout.** Its bottom rung is
-    /// the rule the main agent has always taken — no `agent_type` at all, so
-    /// `lead` is the only name it has — and its top rung is the maintainer's
+    /// the rule the main agent has always taken: no `agent_type` at all, so
+    /// `lead` is the only name it has, and its top rung is the maintainer's
     /// instruction that the task is what they want to read. Nothing is
     /// synthesised at any rung: an agent with no task shows its type, which is a
     /// true statement about it, and never a placeholder shaped like a task. [I1]
@@ -78,12 +78,12 @@ public struct NameplateText: Sendable, Hashable {
     var textureKey: String { lead + "\u{1}" + (role ?? "") + "\u{1}" + (task ?? "") }
 }
 
-/// Everything the scene draws itself rather than loading — the nameplate and
+/// Everything the scene draws itself rather than loading: the nameplate and
 /// the placeholder furniture. Pure bitmap arithmetic, no graphics framework, so
 /// each of these is inspectable in a test.
 public enum SceneBitmaps {
 
-    /// Glyphs the plate's one line gets — the task, or the `agent_type` when
+    /// Glyphs the plate's one line gets: the task, or the `agent_type` when
     /// there is no task.
     ///
     /// **Ten, and the causality behind the number has been turned round.** It
@@ -93,7 +93,7 @@ public enum SceneBitmaps {
     /// the plate was not allowed to argue with.
     ///
     /// The pitch is no longer the given. The plate is **the widest thing any
-    /// character owns** — a body is 32 px, a desk 32–40 — so it is the plate
+    /// character owns** (a body is 32 px, a desk 32–40) so it is the plate
     /// that sets the pitch and not the other way round, and the pitch is
     /// quantised to whole 32 px tiles. That makes **64 the only target worth
     /// hitting**: a plate of 65 and a plate of 95 both buy the same three-tile
@@ -104,7 +104,7 @@ public enum SceneBitmaps {
     ///
     /// **Losing the rows freed height, not width, and this is where that is
     /// recorded.** The obvious move once the type and the discriminator left the
-    /// plate was to spend their width on the line that remains — more glyphs is
+    /// plate was to spend their width on the line that remains: more glyphs is
     /// fewer collisions. It was measured and it is refused, for two reasons that
     /// do not depend on each other:
     ///
@@ -112,14 +112,14 @@ public enum SceneBitmaps {
     ///   tile, not of how many rows the plate has, so eleven or twelve glyphs
     ///   still buys nothing and still puts the plate the wrong side of 64.
     /// - **It would not fix the collision it is for.** `Touch file s1` needs
-    ///   *thirteen* glyphs to reach the `S1` — at eleven and twelve it clips to
+    ///   *thirteen* glyphs to reach the `S1`: at eleven and twelve it clips to
     ///   `TOUCH FILE…` and still collides with `Touch file s2`. Thirteen is
     ///   81 px, which `RoomLayout.minimumSeatSpacingTiles` prices at a **four**
     ///   tile pitch, a 128 px seat spacing, and three seat columns then span
-    ///   more than the 360 px a `2x` frame gives — so the one width that would
+    ///   more than the 360 px a `2x` frame gives, so the one width that would
     ///   fix it is the one that costs `2x`. [`RoomCamera.defaultComfortablePopulation`]
     ///
-    /// The ellipsis stays because it is the honest fallback — see
+    /// The ellipsis stays because it is the honest fallback: see
     /// `SceneDirector.taskLine(_:)` for why no abbreviation scheme replaced it.
     public static let nameplateGlyphLimit = 10
 
@@ -127,7 +127,7 @@ public enum SceneBitmaps {
     ///
     /// **The second pixel of air was the cheapest 2 px in the room and it is
     /// gone.** It bought nothing legibility owns: the glyphs still never touch
-    /// the border, which is the property that matters at `1x` — ink against a
+    /// the border, which is the property that matters at `1x`: ink against a
     /// frame merges into it. What it cost was width, and width is what decides
     /// the seat pitch.
     private static let platePadX = 2
@@ -145,10 +145,10 @@ public enum SceneBitmaps {
     public static let nameplateInk = Bitmap.RGBA(238, 238, 244)
     /// The dark field the room's own lettering sits on: the overflow plate, the
     /// dormancy tab, the `×N` chip and the pilot lamp. **A character's nameplate
-    /// no longer draws it at all** — the plate is one accent band edge to edge
+    /// no longer draws it at all**: the plate is one accent band edge to edge
     /// now, and this colour went out with the rows underneath it.
     ///
-    /// **Fully opaque.** It was `alpha 235` — 8% of whatever is behind it came
+    /// **Fully opaque.** It was `alpha 235`: 8% of whatever is behind it came
     /// through, which was invisible against today's near-empty grey floor and
     /// will not be against a furnished themed room. A plate that borrows its
     /// contrast from the background does not survive a change of background.
@@ -156,7 +156,7 @@ public enum SceneBitmaps {
     /// Ink for the line when the accent it sits on is light.
     public static let nameplateBandInkDark = Bitmap.RGBA(20, 18, 26, 255)
 
-    /// The nameplate: **one accent band carrying one line — what this agent was
+    /// The nameplate: **one accent band carrying one line: what this agent was
     /// dispatched to do**, in a word or two, and nothing else.
     ///
     /// The line is a ladder, not three layouts: task, else `agent_type`, else
@@ -167,7 +167,7 @@ public enum SceneBitmaps {
     /// The maintainer, looking at the running app: *"the nameplates are still
     /// wrong, they take up too much space, should just have the summary of what
     /// they are doing in one or 2 words. and that's it."* The plate was three
-    /// rows for a tasked agent — task on the band, `agent_type` under it, the
+    /// rows for a tasked agent: task on the band, `agent_type` under it, the
     /// `agent_id` discriminator under that, 63 × 29 px hanging under a 32 px
     /// character. It is 63 × 11 now.
     ///
@@ -178,7 +178,7 @@ public enum SceneBitmaps {
     /// and `Touch file s2`; both shorten to `TOUCH FIL…`, so those two
     /// characters now carry **byte-identical plates** and nothing but their
     /// seats tells them apart. That is a genuine regression in S4 and it is the
-    /// price of the instruction, not an oversight — it is pinned by
+    /// price of the instruction, not an oversight: it is pinned by
     /// `SceneDirectorTests.twoNearlyIdenticalDispatchesNowShareAPlateEntirely`
     /// so it stays a known property. The same goes for two untasked subagents of
     /// one type: `GENERAL-P…` twice.
@@ -201,7 +201,7 @@ public enum SceneBitmaps {
     ///   plate is now band edge to edge, so that channel got *louder* as the
     ///   plate got smaller.
     /// - **No magnification, in either axis.** Horizontally the plate has 59 px
-    ///   of interior, which is five glyphs at 2× — `GENE…`, `SECU…` — not an
+    ///   of interior, which is five glyphs at 2× (`GENE…`, `SECU…`) not an
     ///   identification. Vertically a 1×-wide, 2×-tall line was implemented and
     ///   rendered at `1x` and is *less* legible, not more: a 5×14 cell keeps 1 px
     ///   vertical strokes against 2 px horizontal ones, so `MAIN` reads as
@@ -218,8 +218,8 @@ public enum SceneBitmaps {
         let lineWidth = line.isEmpty ? 0 : font.width(of: line)
 
         let width = max(1, lineWidth) + 2 * platePadX
-        // A plate with nothing to say keeps a 3 px stub — two borders and a
-        // pixel of accent — rather than vanishing or drawing a blank row. It is
+        // A plate with nothing to say keeps a 3 px stub: two borders and a
+        // pixel of accent, rather than vanishing or drawing a blank row. It is
         // unreachable from `SceneDirector.nameplate(for:)`, where every rung of
         // the ladder is non-empty by construction, and is kept because the
         // geometry should not depend on that being true elsewhere.
@@ -241,7 +241,7 @@ public enum SceneBitmaps {
     /// `M` because it is the widest glyph in the table and every glyph is the
     /// same width anyway, so this is the bound rather than a sample.
     ///
-    /// It is one row because every plate is one row — the bound and the ordinary
+    /// It is one row because every plate is one row: the bound and the ordinary
     /// case are the same shape now, which is what makes `maximumNameplateHeight`
     /// a constant of the font rather than of who happens to be on screen.
     private static var largestPossiblePlate: Bitmap {
@@ -250,7 +250,7 @@ public enum SceneBitmaps {
             accent: .clear)
     }
 
-    /// Tallest plate the font and the limits can produce — **11 px**, where the
+    /// Tallest plate the font and the limits can produce: **11 px**, where the
     /// three-row plate was 29.
     ///
     /// The camera's content band is derived from this rather than from a
@@ -295,19 +295,19 @@ public enum SceneBitmaps {
     /// this many more of them than are drawn.
     ///
     /// It used to be a second row under the count. The plate is one row now, so
-    /// the two are one line — `+3 MORE` — which keeps both facts rather than
+    /// the two are one line (`+3 MORE`) which keeps both facts rather than
     /// dropping the word that makes the number a sentence.
     public static let overflowLabel = "MORE"
 
     /// **The plate that says how many agents the room has no seat for.**
     ///
-    /// The room has seven seats and cannot honestly have more — see
+    /// The room has seven seats and cannot honestly have more: see
     /// `RoomLayout.seatCapacity` for why neither raising the count nor reusing
     /// the back row survives its own arithmetic. What it can do is show the
     /// seats it has and say out loud that there are `count` more, which asserts
     /// nothing false [I1] and keeps the count answerable: seven characters plus
-    /// "+1" is still eight. The alternative — seating the eighth agent on top of
-    /// the first — is the room stating a population that is wrong, and quietly
+    /// "+1" is still eight. The alternative: seating the eighth agent on top of
+    /// the first: is the room stating a population that is wrong, and quietly
     /// dropping it is the same lie with nothing on screen to catch it.
     ///
     /// **It is a nameplate with no accent, and that is deliberate.** Same
@@ -315,7 +315,7 @@ public enum SceneBitmaps {
     /// lettering rather than as chrome bolted on; but every character's plate
     /// carries a saturated accent band assigned 60° apart, and this one carries
     /// the plate colour itself. So it cannot be mistaken for somebody's
-    /// identity — there is nobody it belongs to.
+    /// identity: there is nobody it belongs to.
     ///
     /// **The count leads the line.** It is the half that differs; `MORE` is the
     /// context that makes it a sentence. Both used to have a row each and the
@@ -332,18 +332,18 @@ public enum SceneBitmaps {
     }
 
     /// The letter the dormancy tab carries. The pack's `sleep` glyph is a `Z`
-    /// and this says the same thing in the room's own lettering — the assertion
+    /// and this says the same thing in the room's own lettering: the assertion
     /// is not being changed, only its volume. [I1]
     public static let dormancyLabel = "Z"
 
-    /// **The tab that says a character finished a turn — deliberately not a
+    /// **The tab that says a character finished a turn: deliberately not a
     /// bubble.**
     ///
     /// # The defect this exists for
     ///
     /// The room renders at `2x` up to three agents and at `1x` from four
     /// [`RoomCamera.defaultComfortablePopulation`], so **`1x` is the scale a busy
-    /// room is drawn at** — which is exactly when the badge layer most needs
+    /// room is drawn at**, which is exactly when the badge layer most needs
     /// reading. (This paragraph said `1x` *always*, on a
     /// `comfortablePopulation` that has not been empty since `44e82f0`.) At `1x`
     /// the badge slot's *presence* is the loudest thing on screen: a bright
@@ -351,10 +351,10 @@ public enum SceneBitmaps {
     /// drawn in that slot from the pack's own speech bubble, and measured against
     /// the six tool bubbles it was:
     ///
-    /// - **the same shape** — silhouette IoU 0.792, and the sleep silhouette is a
+    /// - **the same shape**: silhouette IoU 0.792, and the sleep silhouette is a
     ///   strict **subset** of every tool bubble (548 px of 692, 100% contained);
-    /// - **the same value** — median 210 against a floor of 154;
-    /// - **the same size in the room** — 548 badge-slot pixels against a working
+    /// - **the same value**: median 210 against a floor of 154;
+    /// - **the same size in the room**: 548 badge-slot pixels against a working
     ///   badge's 678, i.e. **84%**, measured off a real 1x frame.
     ///
     /// So six glyphs meant *this agent is working* and a seventh, in the same
@@ -396,7 +396,7 @@ public enum SceneBitmaps {
     /// | phase | core | says |
     /// |---|---|---|
     /// | `lit` | 5×5 | a hook posted to this app landed within the last `hold` |
-    /// | `wink` | 3×3 | …and one landed within the last 125 ms — this is the pulse |
+    /// | `wink` | 3×3 | …and one landed within the last 125 ms: this is the pulse |
     /// | `dark` | none | nothing has landed for `hold`; the listener is not answering |
     ///
     /// **Extent, because extent is what survives `1x`.** That is the dormancy
@@ -411,7 +411,7 @@ public enum SceneBitmaps {
     /// reason there are three pictures instead of two.** If the pulse were an
     /// off-frame, then "no ink in the lamp" would mean *either* the pulse *or*
     /// a dead listener, and a glance landing inside a 125 ms wink would read as
-    /// "broken" — the exact confusion this feature exists to remove, moved from
+    /// "broken": the exact confusion this feature exists to remove, moved from
     /// the room into the indicator. With a contraction the rule is total and
     /// has no exceptions to remember:
     ///
@@ -440,7 +440,7 @@ public enum SceneBitmaps {
     /// A desk, drawn as an obvious placeholder.
     ///
     /// Modern Office ships 339 object singles named by index only, and the
-    /// manifest records `room.props.identified = false` — nothing in that set
+    /// manifest records `room.props.identified = false`: nothing in that set
     /// is *known* to be a desk. Picking one because it looks desk-shaped would
     /// be building against a filename, which is the thing that makes M5's
     /// "manifest swap, zero code change" impossible. So: a flat block at the
@@ -451,8 +451,8 @@ public enum SceneBitmaps {
     /// **A vertical floor-plan line**: 2 px dark, 10 px light, 2 px dark, with
     /// the same 2 px dark closing each end.
     ///
-    /// The section is measured, not chosen — `docs/06-SET-BUILDING.md` §2, down
-    /// x=16 of the pack's own `tile_r01_c01` — and the two colours are the
+    /// The section is measured, not chosen: `docs/06-SET-BUILDING.md` §2, down
+    /// x=16 of the pack's own `tile_r01_c01`, and the two colours are the
     /// **manifest's**, taken off the cap tile this surface is drawn with. So
     /// nothing about a partition's appearance lives in `Sources/`: the shape is
     /// the pack's measurement and the ink is the theme's.
@@ -460,7 +460,7 @@ public enum SceneBitmaps {
     /// It is authored rather than tiled from the pack because the pack's own
     /// plain runs, T-junctions and jambs are 12–14 px stripes on otherwise empty
     /// tiles, and `scripts/process-assets.py` drops every tile under 60% opaque
-    /// — correctly, since laying one as floor would show the void behind the
+    ///: correctly, since laying one as floor would show the void behind the
     /// room. Twenty of the sheet's 161 tiles fall under that cut and they are
     /// exactly the pieces a plan is drawn with. `scripts/compose-scene.py`
     /// reached the same conclusion and draws its runs the same way.
@@ -492,7 +492,7 @@ public enum SceneBitmaps {
     /// `scripts/compose-scene.py`'s `draw_plan` step 3, which measured them.
     ///
     /// **It is not a prop and it does not move.** It is drawn once at build
-    /// time, from the plan alone, and nothing in the delta stream can reach it —
+    /// time, from the plan alone, and nothing in the delta stream can reach it,
     /// so I7's motion budget has nothing to price here. [ADR-002 §6 rule 1]
     public static func wallContactShadow(width: Int = 32) -> Bitmap {
         let alphas: [UInt8] = [70, 46, 26, 12]
@@ -505,13 +505,13 @@ public enum SceneBitmaps {
 
     public static func placeholderDesk(width: Int = 32, height: Int = 26) -> Bitmap {
         // Kept inside the room's value band [0.55, 0.92] so the placeholder
-        // cannot own the darkest pixel on screen — that belongs to the
+        // cannot own the darkest pixel on screen: that belongs to the
         // characters. [I7]
         let body = Bitmap.RGBA(142, 138, 132)
         let edge = Bitmap.RGBA(120, 117, 112)
         let hatch = Bitmap.RGBA(120, 117, 112)
         var bitmap = Bitmap(width: width, height: height)
-        // Top surface and a leg each side — a side-view desk silhouette.
+        // Top surface and a leg each side: a side-view desk silhouette.
         bitmap.fill(x: 0, y: 0, w: width, h: 5, body)
         bitmap.fill(x: 2, y: 5, w: 5, h: height - 5, body)
         bitmap.fill(x: width - 7, y: 5, w: 5, h: height - 5, body)

@@ -4,7 +4,7 @@ import Testing
 
 @testable import SpriteRoomCore
 
-/// I5 — the handler never does work. Read the body, decode, enqueue, respond
+/// I5: the handler never does work. Read the body, decode, enqueue, respond
 /// `202` with an empty body. There is no `async` field on the HTTP hook schema:
 /// the session blocks on our answer, so every millisecond here is a millisecond
 /// on the user's every tool call.
@@ -51,7 +51,7 @@ import Testing
         }
     }
 
-    /// A malformed body still gets a `202` and a counter increment — never an
+    /// A malformed body still gets a `202` and a counter increment, never an
     /// error back into the session.
     @Test func malformedBodyStillGets202AndIsCounted() async throws {
         try await Self.withListener { port, _, stats in

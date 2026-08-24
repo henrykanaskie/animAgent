@@ -44,7 +44,7 @@ struct NameplateTests {
         #expect(lower.pixels == upper.pixels)
     }
 
-    /// A glyph we do not have must not silently shorten the name — that would
+    /// A glyph we do not have must not silently shorten the name: that would
     /// turn two different agents into the same plate.
     @Test func anUnknownGlyphBecomesASpaceRatherThanVanishing() {
         #expect(font.normalise("A☃B").count == 3)
@@ -100,7 +100,7 @@ struct NameplateTests {
     /// Truncation is lossy and no glyph count fixes that: two types sharing a
     /// ten-character prefix truncate alike, and `claude-code-guide` against a
     /// hypothetical `claude-code-runner` is the case. The discriminator row used
-    /// to catch exactly that, and the plate is one row now — so this records
+    /// to catch exactly that, and the plate is one row now, so this records
     /// that the two are the same plate, which is the second half of what the
     /// row was doing and the second half of what its removal cost.
     @Test func typesSeparateOnTheOneLineAndNothingCatchesTheRest() {
@@ -122,7 +122,7 @@ struct NameplateTests {
     }
 
     /// Integer scaling is pixel doubling, so a 2× line is exactly the 1× line
-    /// magnified — no second set of letterforms exists to be drawn wrong. [I6]
+    /// magnified: no second set of letterforms exists to be drawn wrong. [I6]
     @Test func scalingAGlyphIsExactPixelDoubling() {
         let one = font.render("R", colour: Bitmap.RGBA(255, 255, 255))
         let two = font.render("R", colour: Bitmap.RGBA(255, 255, 255), scale: 2)
@@ -146,12 +146,12 @@ struct NameplateTests {
     }
 
     /// The plate has to fit inside one seat's spacing, or two neighbours'
-    /// nameplates overlap and neither reads — and "fits" is not "touches".
+    /// nameplates overlap and neither reads, and "fits" is not "touches".
     ///
     /// The maintainer's complaint at the wide default was that two plates
     /// *nearly touch*: the 12-glyph single-line plate was 77 px against a 96 px
     /// pitch, a 19 px gap. This is the number that fixes the headline at eleven
-    /// glyphs — twelve would be 77 px again, and the complaint back with it.
+    /// glyphs: twelve would be 77 px again, and the complaint back with it.
     ///
     /// **The two seat rows do not buy any slack here, and it is worth writing
     /// down because they look like they should.** Ring parity puts adjacent
@@ -165,7 +165,7 @@ struct NameplateTests {
     ///
     /// **What this asserts is non-occlusion, not comfort.** It used to demand
     /// 24 px of daylight between two neighbouring plates, which was a crowding
-    /// judgement wearing an invariant's clothes — the maintainer's own direction
+    /// judgement wearing an invariant's clothes: the maintainer's own direction
     /// is that sprites and desks may sit close together as long as they do not
     /// cover anything up. The bound kept is the margin the *other* axis already
     /// has, `tile − plateHeight`, so the room clears by the same amount both
@@ -182,7 +182,7 @@ struct NameplateTests {
     }
 
     /// Two subagents can stop within a second of each other and both step out to
-    /// report. They stand on one row — the walkway — a seat pitch apart, so the
+    /// report. They stand on one row (the walkway), a seat pitch apart, so the
     /// pitch is what clears them across. What the **row** pitch has to clear is
     /// the other axis: a walkway character's plate against the seat row above it,
     /// and a front-row character's against the back row's. A tile taller than the
@@ -198,7 +198,7 @@ struct NameplateTests {
     /// A seated character stands one tile above a character on the walkway. A
     /// plate taller than that tile would put a seated plate and a walkway plate
     /// in the same horizontal strip, at which point `noTwoNameplatesEverIntersect`
-    /// would be resting on x-separation alone — which is a seat pitch, and the
+    /// would be resting on x-separation alone, which is a seat pitch, and the
     /// pitch is only one plate wide plus a margin.
     @Test func thePlateIsShorterThanTheGapBetweenTheAisleAndTheSeatRow() {
         let layout = RoomLayout()
@@ -211,7 +211,7 @@ struct NameplateTests {
     /// The maintainer's instruction, asserted as geometry: there is one run of
     /// ink, it is one glyph tall, and every pixel that is not that ink is the
     /// accent. No second row, no dark field under it, and no empty slot left
-    /// where a row used to be. [I1 — a viewer cannot be shown a slot and left
+    /// where a row used to be. [I1: a viewer cannot be shown a slot and left
     /// to wonder what should have been in it]
     @Test func thePlateIsOneLineOnOneBandAndNothingElse() throws {
         let accent = Bitmap.RGBA(255, 136, 77)
@@ -228,7 +228,7 @@ struct NameplateTests {
         #expect(bottom - top + 1 <= font.glyphHeight, "more than one row of ink: \(inkRows)")
         #expect(!plate.pixels.isEmpty)
 
-        // Every non-ink pixel is the accent — the dark plate colour the rows
+        // Every non-ink pixel is the accent: the dark plate colour the rows
         // used to sit on is not drawn at all.
         for y in 0..<plate.height {
             for x in 0..<plate.width where plate.at(x, y) != ink {
@@ -236,7 +236,7 @@ struct NameplateTests {
             }
         }
 
-        // And the line is the 1× face and nothing else — no stretch, no second
+        // And the line is the 1× face and nothing else: no stretch, no second
         // letterform set. [I6]
         var inkCount = 0
         for y in 0..<plate.height {
@@ -278,7 +278,7 @@ struct NameplateTests {
 
     /// The accent is no longer a one-pixel outline. M2 refuted hue *sampled
     /// from the art*; these hues are assigned 60° apart and lint-enforced, so
-    /// they are the one identity channel that measurably works — and a band is
+    /// they are the one identity channel that measurably works, and a band is
     /// catchable from the corner of the eye where an outline is not.
     ///
     /// **It got louder as the plate got smaller**: the band was the top 11 px of
@@ -312,7 +312,7 @@ struct NameplateTests {
     }
 
     /// The whole plate is opaque: a nameplate that lets the room through does
-    /// not read at 1x, which is the size it has to read at — and a themed room
+    /// not read at 1x, which is the size it has to read at, and a themed room
     /// with real furniture behind it is coming.
     @Test func thePlateIsFullyOpaqueNotJustFullyCovered() {
         let plate = SceneBitmaps.nameplate(
@@ -370,7 +370,7 @@ struct NameplateTests {
         }
     }
 
-    /// An empty `agent_type` — M0c found it arrives — must not draw a blank
+    /// An empty `agent_type` (M0c found it arrives) must not draw a blank
     /// plate. With nothing above it on the ladder, `lead` is what is left.
     @Test func anEmptyRoleFallsThroughToTheLead() {
         let accent = Bitmap.RGBA(255, 136, 77)
@@ -391,7 +391,7 @@ struct NameplateTests {
         #expect(SceneBitmaps.badgeCount(12).width > SceneBitmaps.badgeCount(2).width)
     }
 
-    /// The desk is a placeholder and has to look like one — but it must still
+    /// The desk is a placeholder and has to look like one, but it must still
     /// stay inside the room's value band so it never owns the darkest pixel on
     /// screen. [I7]
     @Test func thePlaceholderDeskStaysInsideTheRoomValueBand() {
@@ -409,11 +409,11 @@ struct NameplateTests {
         }
     }
 
-    // MARK: The task line — the plate's only occupant
+    // MARK: The task line - the plate's only occupant
 
     /// **An agent with no task shows its type on the same one row**, and that is
     /// the whole of "shows nothing where the task would be". There is no empty
-    /// row and no placeholder — a viewer cannot be shown a slot and left to
+    /// row and no placeholder: a viewer cannot be shown a slot and left to
     /// wonder what should have been in it. [I1]
     @Test func aPlateWithNoTaskShowsTheTypeOnTheSameOneRow() {
         let accent = Bitmap.RGBA(77, 195, 255)
@@ -449,7 +449,7 @@ struct NameplateTests {
     }
 
     /// **Ten glyphs is the plate's width.** One row, so the line's limit *is*
-    /// the plate's width — and the plate's width is the term the seat pitch and
+    /// the plate's width, and the plate's width is the term the seat pitch and
     /// the camera are both derived from.
     @Test func theTaskLineGetsThePlatesWidthAndNotAGlyphMore() {
         let accent = Bitmap.RGBA(255, 64, 0)
@@ -466,7 +466,7 @@ struct NameplateTests {
     /// **Every plate is the tallest plate, because every plate is one row.**
     /// `maximumNameplateHeight` is what `RoomLayout` separates the seat rows by
     /// and what the camera's content band is measured from, so it has to be the
-    /// bound of the plate that can actually happen — and there is now only one
+    /// bound of the plate that can actually happen, and there is now only one
     /// shape a plate can be.
     @Test func theTallestPlateIsTheOnlyShapeAPlateHas() {
         let accent = Bitmap.RGBA(255, 136, 77)
@@ -505,7 +505,7 @@ struct NameplateTests {
     /// **The maintainer's own two examples.** They are the specification for
     /// this feature in the form it was given, so they are pinned in that form.
     /// `MOVE BADG…` rather than the `move badge` that was asked for is the one
-    /// glyph the honesty mark costs — `beside the head` was dropped and the
+    /// glyph the honesty mark costs: `beside the head` was dropped and the
     /// plate has to say so.
     @Test func theMaintainersExamplesShortenToTheirVerbAndObject() {
         #expect(SceneDirector.taskLine("Move the badge beside the head") == "MOVE BADG…")
@@ -550,7 +550,7 @@ struct NameplateTests {
     /// **Nothing is invented when there is nothing to shorten.** A description
     /// with no drawable word gets no task row rather than a placeholder, and a
     /// description that is *all* function words is shown as it is rather than
-    /// erased — dropping every word would leave a plate asserting the agent has
+    /// erased: dropping every word would leave a plate asserting the agent has
     /// a task and refusing to say what. [I1]
     @Test func aTaskLineIsNeverInventedAndNeverBlank() {
         #expect(SceneDirector.taskLine(nil) == nil)
@@ -562,7 +562,7 @@ struct NameplateTests {
     }
 
     /// The shortening only ever contains characters the description contained,
-    /// in the order it contained them — plus the mark. No abbreviation table, no
+    /// in the order it contained them, plus the mark. No abbreviation table, no
     /// synonym, no paraphrase. This is the mechanical form of I1 for this line.
     @Test func everyGlyphOfATaskLineCameFromTheDescription() {
         for description in ["Touch file s1", "Read delta/epsilon, sleep, reread alpha",

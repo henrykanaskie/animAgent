@@ -3,14 +3,14 @@ import Testing
 
 @testable import SpriteRoomCore
 
-/// Decoding is the contract's first line of defence. An unrecognised — or
-/// unusable — `hook_event_name` becomes `.unhandled` and is counted. It never
+/// Decoding is the contract's first line of defence. An unrecognised (or
+/// unusable) `hook_event_name` becomes `.unhandled` and is counted. It never
 /// throws, because the hook surface grows and a new event must not crash the
 /// app.
 @Suite struct HookEventDecodingTests {
 
     /// "Every fixture" is all eighteen captures, not the eight the ingest layer
-    /// is signed off against — a payload that fails to decode is a fact about
+    /// is signed off against: a payload that fails to decode is a fact about
     /// the hook surface whichever file it was captured in.
     @Test func everyRealPayloadInEveryFixtureDecodes() throws {
         for name in Fixtures.all {

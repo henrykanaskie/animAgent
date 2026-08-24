@@ -2,7 +2,7 @@ import Foundation
 import SpriteKit
 import SpriteRoomCore
 
-/// The room. Applies `SpriteIntent`s to nodes and nothing else — every policy
+/// The room. Applies `SpriteIntent`s to nodes and nothing else: every policy
 /// decision was already made by `SceneDirector`, and nothing here ever calls
 /// back upstream.
 @MainActor
@@ -22,7 +22,7 @@ public final class RoomScene: SKScene {
     /// so the camera frames a character's seat from the moment it starts
     /// walking in rather than snapping open when it arrives.
     private var seatOf: [AgentRef: Int] = [:]
-    /// The last body state `setBody` handed each character — the director's own
+    /// The last body state `setBody` handed each character: the director's own
     /// word on what the data says it is doing.
     ///
     /// Only the report beat reads it, and only to hand the body back at the end
@@ -43,7 +43,7 @@ public final class RoomScene: SKScene {
     ///
     /// The *character* rather than the agent, because a leaver is taken out of
     /// `characters` at the top of its exit and is still walking the row for
-    /// several seconds after that — a report and a `SessionEnd` in one frame is
+    /// several seconds after that: a report and a `SessionEnd` in one frame is
     /// exactly the case `.report` exists for.
     private var deliveryClaimant: [Int: (character: Character, seat: Int)] = [:]
     /// One id per beat, never reused. See `DeliveryFloor` for why the seat is
@@ -72,13 +72,13 @@ public final class RoomScene: SKScene {
         let store = TextureStore(manifest: manifest, themeID: themeID)
         self.store = store
         // **The plan is the theme's, so it is resolved here and nowhere else.**
-        // A caller hands in the route geometry — the seat pitch, the capacity,
-        // the tile — and the manifest hands in what that geometry is drawn on.
+        // A caller hands in the route geometry: the seat pitch, the capacity,
+        // the tile, and the manifest hands in what that geometry is drawn on.
         // Doing it in this order is what keeps a theme id out of every call site
         // and out of `RoomLayout`, which has no access to a manifest and never
         // reads a PNG. [ADR-007 §3, ADR-002 §8 item 5]
         self.layout = layout.adopting(plan: store.room.plan)
-        // The clearance is the plate's, measured, not a constant — see
+        // The clearance is the plate's, measured, not a constant: see
         // `RoomLayout.deliveryClearance(plateWidth:plateHeight:tile:)`.
         self.deliveryFloor = DeliveryFloor(
             clearance: RoomLayout.deliveryClearance(
@@ -106,7 +106,7 @@ public final class RoomScene: SKScene {
     public func character(for agent: AgentRef) -> Character? { characters[agent] }
 
     /// Every character node currently drawn, including ones part-way through
-    /// an exit walk. Tests that check the *picture* need the leavers too —
+    /// an exit walk. Tests that check the *picture* need the leavers too,
     /// the report walk is exactly when two characters share the frame.
     public var charactersOnScreen: [Character] { animated }
 
@@ -131,23 +131,23 @@ public final class RoomScene: SKScene {
     /// seat, a standing object on the back wall, and a repeated accent along the
     /// back wall and the walkway. They are spelled `desk`, `chair`, `board` and
     /// `plant` because those are the Office room's words and the Office room is
-    /// the manifest's default theme — so those words became the interface. A
+    /// the manifest's default theme, so those words became the interface. A
     /// theme filling `plant` with a stage curtain or a console terminal is the
     /// slot doing its job, not a mislabelling.
     ///
     /// They are constants rather than literals at four call sites so that the
-    /// vocabulary is in one place when someone renames it — which
+    /// vocabulary is in one place when someone renames it, which
     /// `04-ART-DIRECTION.md` says is the right change and is not this one.
     /// A role name is not a filename and not a theme name: it is the key the
     /// manifest and the scene agree on, exactly as `badges.map`'s keys are.
     nonisolated static let surfaceRole = "desk"
     /// The side-view chair. **A seat's chair is now the facing's, not this
-    /// constant's** — `RoomLayout.SeatFacing.seatRole` answers it, and this is
+    /// constant's**: `RoomLayout.SeatFacing.seatRole` answers it, and this is
     /// what that returns for a side-on seat. Kept as the name of the slot for
     /// the same reason the other three are constants. [ADR-008]
     nonisolated static let seatRole = "chair"
-    /// The back view of the same chair. **No seat draws it** — see
-    /// `RoomLayout.SeatFacing.seatRole`, which measures why — and the name is
+    /// The back view of the same chair. **No seat draws it**: see
+    /// `RoomLayout.SeatFacing.seatRole`, which measures why, and the name is
     /// kept because `seatMetrics` still reads the role's own `content_box`: the
     /// height that does not fit is what the refusal is derived from, so it has to
     /// come from the manifest rather than from a number written down here.
@@ -161,7 +161,7 @@ public final class RoomScene: SKScene {
     /// has no pod, and its seats are drawn exactly as they were before this role
     /// existed. Five of the six shipped themes are in that case.
     nonisolated static let monitorRole = "monitor"
-    /// **The orientation-neutral object on a camera-facing pod's desktop** — a
+    /// **The orientation-neutral object on a camera-facing pod's desktop**: a
     /// paper stack, which reads the same from either side where a screen does
     /// not. Theme furniture: it says nothing about any agent [I1], and it is not
     /// ADR-006's work-kind slot, which a camera-facing seat still does not carry.
@@ -177,7 +177,7 @@ public final class RoomScene: SKScene {
     ///
     /// Per **desk** rather than per theme, because a station may bind its own
     /// desk and an object standing on that desk has to be placed at *its*
-    /// surface — the same reason `stationDesks` exists.
+    /// surface: the same reason `stationDesks` exists.
     func seatMetrics(desk: Manifest.PropRole? = nil) -> RoomLayout.SeatMetrics {
         let desk = desk ?? store.room.prop(Self.surfaceRole)
         let monitor = store.room.prop(Self.monitorRole)
@@ -199,7 +199,7 @@ public final class RoomScene: SKScene {
     /// A pure function of the layout, and the only copy of this arithmetic: the
     /// overflow plate's clearance is asserted against *these* points rather than
     /// against a transcription of them, and a transcription checked against a
-    /// transcription is not a check — `scripts/preview-theme.py` learned that at
+    /// transcription is not a check: `scripts/preview-theme.py` learned that at
     /// M6e over a foreground row that no longer existed.
     nonisolated static func decorationPlacements(layout: RoomLayout)
     -> [(role: String, point: ScenePoint)] {
@@ -212,7 +212,7 @@ public final class RoomScene: SKScene {
     }
 
     /// **The plan's hand-placed dressing, resolved against the theme's own
-    /// scenery list**, in declaration order — which is draw order.
+    /// scenery list**, in declaration order, which is draw order.
     ///
     /// One function so that the three readers agree by construction rather than
     /// by transcription: `buildRoom` draws it, `decorationTopY` measures it for
@@ -234,7 +234,7 @@ public final class RoomScene: SKScene {
     /// this is that rule made mechanical rather than argued: a test replays
     /// every fixture and asserts this never leaves 1, and that no prop node was
     /// replaced by another with the same picture. A theme change is a new scene
-    /// — §6 rule 4 — so it does not increment this one, it starts another.
+    /// (§6 rule 4) so it does not increment this one, it starts another.
     public private(set) var roomBuildCount = 0
 
     private func buildRoom() {
@@ -272,12 +272,12 @@ public final class RoomScene: SKScene {
         //
         // - *By seat index* meant by **side**. Seats fill outward in pairs, so
         //   even seats are the entire left half of the room and odd seats the
-        //   entire right half — and a role chosen on `seat % 2` put all four
+        //   entire right half, and a role chosen on `seat % 2` put all four
         //   backdrops on the left and all three accents on the right. The room
         //   read as two different rooms stitched at the centre line. Sorting the
         //   positions and alternating along **x** gives the same four and three
-        //   — so the motion budget is unchanged, which is not an accident but
-        //   the constraint this placement was designed against [ADR-002 §14b] —
+        //, so the motion budget is unchanged, which is not an accident but
+        //   the constraint this placement was designed against [ADR-002 §14b],
         //   spread across the whole width.
         // - *One row* is what the maintainer saw as "the wall furniture sits in
         //   one strip". The backdrops now stand **against the wall**, which is
@@ -287,14 +287,14 @@ public final class RoomScene: SKScene {
         //   depth zigzag, so the upstage half of the room has a near edge and a
         //   far edge rather than a single line.
         //
-        // I7's standing instruction — a background detail competes with the
-        // characters at exactly the zoom where they are hardest to read — is
+        // I7's standing instruction: a background detail competes with the
+        // characters at exactly the zoom where they are hardest to read: is
         // still what keeps this thin: two kinds of object, seven of them, both
         // through the same desaturating import pass as the floor, and every one
         // of them upstage of both seat rows.
         // **A hand-placed room places its backdrops and accents too.** They are
-        // the oldest lattice in the file — a board on the wall line at every
-        // even column, a plant a tile behind the back row at every odd one — and
+        // the oldest lattice in the file: a board on the wall line at every
+        // even column, a plant a tile behind the back row at every odd one, and
         // leaving them running under an authored composition would keep two of
         // the four stripes the composition exists to break.
         if store.room.plan.dressing.isEmpty {
@@ -306,7 +306,7 @@ public final class RoomScene: SKScene {
         // **The scenery: everything the four roles above are not.** [M8 Phase 2b]
         //
         // The maintainer looked at the shipped room and asked for the density of
-        // `scripts/compose-scene.py`'s composed scenes — 88 props against this
+        // `scripts/compose-scene.py`'s composed scenes: 88 props against this
         // room's four bound roles and roughly 335 processed singles going
         // unused. This is that, and the whole of the mechanism is: the manifest
         // says *what* and *which depth band*, `RoomLayout.sceneryAnchors(_:)`
@@ -326,15 +326,15 @@ public final class RoomScene: SKScene {
         //   straight up a character's own column or lateral on `deliveryRowY`,
         //   so the columns and that one row are the two things a prop may never
         //   touch. `sceneryColumns` is the gaps between them, and the `wall`
-        //   band is the one exception — it hangs two tiles up the wall face,
+        //   band is the one exception: it hangs two tiles up the wall face,
         //   above the line where a leaver's feet stop.
         // - Nothing is nearer the camera than the seat row, which is the rule
         //   that replaced M5's foreground row and is stated again below.
         //
         // Entries are assigned to anchors in declaration order and repeat to
         // fill the band, so a theme that owns three good props gets a full band
-        // of them rather than four bare anchors. That is the pack's own habit —
-        // `Office_Design_2` repeats one plant in three corners — and it is what
+        // of them rather than four bare anchors. That is the pack's own habit,
+        // `Office_Design_2` repeats one plant in three corners, and it is what
         // keeps a thin theme honest instead of padded with props nobody looked
         // at.
         // **A plan may place its own dressing by hand, and then the bands do not
@@ -342,7 +342,7 @@ public final class RoomScene: SKScene {
         //
         // The bands put every prop on one of four depths and one of eight
         // columns, and the maintainer's word for the result was that the
-        // furniture "sits in one strip" — four strips, in fact, which is what a
+        // furniture "sits in one strip": four strips, in fact, which is what a
         // lattice looks like once it is filled. `compose-scene.py`'s engineering
         // office is the same floor with 45 objects on it and no two of them
         // sharing a row: things cluster, stack a lane three deep, and leave the
@@ -352,7 +352,7 @@ public final class RoomScene: SKScene {
         // It is all-or-nothing per theme rather than additive. A hand-placed
         // room with the bands still running underneath is a room with 20 props
         // on a lattice *and* 45 off it, and the lattice would still read.
-        // **`place(roomProp:)`, not `place(prop:)`** — the first is the room's
+        // **`place(roomProp:)`, not `place(prop:)`**: the first is the room's
         // own placement primitive and it does three things this loop was doing
         // two of: the node lists, and **starting the prop's idle animation**.
         // Going through the raw primitive meant a hand-placed theme could not
@@ -387,7 +387,7 @@ public final class RoomScene: SKScene {
         // geometrically: strictly below the content band, so they fell out of
         // frame at the tightest fitting scale and appeared only as the camera
         // pulled back. That answered I7's "remove the detail that competes with
-        // the characters" without anyone having to exercise taste — at `3x`,
+        // the characters" without anyone having to exercise taste: at `3x`,
         // where characters are biggest and the frame is tightest, the decoration
         // was not on screen at all.
         //
@@ -402,8 +402,8 @@ public final class RoomScene: SKScene {
         //
         //   **Nothing decorative is drawn nearer the camera than the seat row.**
         //
-        // Everything in front of the desks is now choreography — the aisle and
-        // the delivery rows, where arrivals, departures and reports happen — so
+        // Everything in front of the desks is now choreography: the aisle and
+        // the delivery rows, where arrivals, departures and reports happen, so
         // the foreground is not empty floor any more and does not need filling.
         // Nothing the room draws can ever be between the viewer and a character,
         // at any scale and any population. `theRoomDrawsNoDecorationInFrontOfThe
@@ -413,7 +413,7 @@ public final class RoomScene: SKScene {
         // [ADR-008]
         //
         // A side-on seat takes the side-view chair, whose backrest is on the
-        // left, so a person on it faces right — which is the way a side-on
+        // left, so a person on it faces right, which is the way a side-on
         // seated character faces, because the pack drew no front- or back-facing
         // sit. It is drawn a hair behind the body so the character is on the
         // chair rather than in front of it.
@@ -438,7 +438,7 @@ public final class RoomScene: SKScene {
                 SeatFurniture(node: node, path: path))
         }
 
-        // A desk at every seat, occupied or not — an office has empty desks,
+        // A desk at every seat, occupied or not: an office has empty desks,
         // and drawing them only when someone arrives would make the room
         // rearrange itself as agents come and go.
         //
@@ -453,7 +453,7 @@ public final class RoomScene: SKScene {
         // band far above this, so nothing a desk does can hide either.
         //
         // Aisle characters sit a whole row nearer the camera, so a character
-        // walking past is always in front of the desks — which is why the
+        // walking past is always in front of the desks, which is why the
         // walkway exists.
         // **The desk's depth is measured, not fixed.** See `surfaceDepthBias`:
         // a desk taller than the shortest head goes behind the body instead of
@@ -461,8 +461,8 @@ public final class RoomScene: SKScene {
         // otherwise cover every face in the room.
         //
         // **All of the paragraph above is the side-on case.** At a turned seat
-        // the desk is not on the character's row at all — it stands downstage of
-        // a camera-facing occupant and upstage of an away-facing one — so
+        // the desk is not on the character's row at all: it stands downstage of
+        // a camera-facing occupant and upstage of an away-facing one, so
         // `rowDepth` alone sorts it correctly and the bias is zero. The tie
         // these constants break exists only where a desk and its occupant share
         // a row. [ADR-008]
@@ -504,7 +504,7 @@ public final class RoomScene: SKScene {
         // workstation rather than a bench.** [ADR-009]
         //
         // A screen rig at every away-facing seat and a paper stack at every
-        // camera-facing one — the split `scripts/compose-scene.py`'s `desk_pod`
+        // camera-facing one: the split `scripts/compose-scene.py`'s `desk_pod`
         // makes, for that file's reason: there is no rear view of a monitor
         // anywhere in the 12,279-prop catalogue, so a screen facing the camera is
         // being looked at from below by the person sitting behind it.
@@ -526,8 +526,8 @@ public final class RoomScene: SKScene {
     }
 
     /// **One piece of a pod's desktop**: which role it came from, the resolved
-    /// prop — which carries both the file this seat draws and the ink box it is
-    /// placed against — and where it stands.
+    /// prop, which carries both the file this seat draws and the ink box it is
+    /// placed against, and where it stands.
     struct PodPiece {
         let role: String
         let prop: Manifest.PropRole
@@ -540,7 +540,7 @@ public final class RoomScene: SKScene {
     /// [ADR-009]
     ///
     /// One list, read by `buildRoom` for the empty desk and by `placeStation` for
-    /// an occupied one, so the two cannot draw different desktops — the same
+    /// an occupied one, so the two cannot draw different desktops: the same
     /// reason `decorationPlacements` is a function rather than two loops.
     ///
     /// ## Which picture, and what may choose it
@@ -549,7 +549,7 @@ public final class RoomScene: SKScene {
     /// entry `(slot.rawValue + seat) % count`. Not the agent, not the tool, not
     /// the open-call count, not anything hashed out of a payload. A seat is fixed
     /// for the life of a scene, so this is evaluated at room-build time and never
-    /// again — the room is still built once, still never rebuilt, and a prop that
+    /// again: the room is still built once, still never rebuilt, and a prop that
     /// changed because an agent did something would be exactly the fiction
     /// ADR-002 §6 rule 1 and I1 forbid. The rotation is by slot as well as by
     /// seat because a camera-facing pod carries **all four** objects at once;
@@ -560,8 +560,8 @@ public final class RoomScene: SKScene {
     ///
     /// `content_box` is declared per role, and the office `desk_kit` stock is
     /// four singles cut from four source sheets at four unrelated offsets in the
-    /// 64×96 canvas. So a variant carries its own **measured** box — see
-    /// `TextureStore.inkBox(path:)` — and that box decides the lift, which is
+    /// 64×96 canvas. So a variant carries its own **measured** box: see
+    /// `TextureStore.inkBox(path:)`, and that box decides the lift, which is
     /// what makes "it cannot cover a face" true of each object at its own ink
     /// height rather than of the one object that used to stand here.
     ///
@@ -569,13 +569,13 @@ public final class RoomScene: SKScene {
     ///
     /// **`lift + deskObjectInFrontStep × (depth rank + 1)`, and the lift has to
     /// be in it.** `place` sorts on the point it is given, and a prop lifted onto
-    /// a desktop is `lift` px *above* the desk's floor point — which sorts it
+    /// a desktop is `lift` px *above* the desk's floor point, which sorts it
     /// `lift` px **behind** the desk, so the desk paints over everything below
     /// its own back edge and what survives is a screen apparently hovering with
     /// no base. That is `compose-scene.py`'s `on_desk` docstring, which records
     /// the symptom being on screen for two renders before anyone read it
     /// correctly. Adding the lift back puts the prop on its desk's own row and
-    /// the step puts it one notch in front — the same construction the ADR-006
+    /// the step puts it one notch in front: the same construction the ADR-006
     /// object already uses.
     ///
     /// The **rank** is what the second row needs: adding the lift back collapses
@@ -586,13 +586,13 @@ public final class RoomScene: SKScene {
     func podFurniture(seat: Int, metrics: RoomLayout.SeatMetrics) -> [PodPiece] {
         var pieces: [PodPiece] = []
         if let rig = store.room.prop(Self.monitorRole) {
-            // The rig's lift is the pod's own — a screen is *meant* to clear the
+            // The rig's lift is the pod's own: a screen is *meant* to clear the
             // desk's back edge, by `monitorScreenClearance`, and it stands at a
             // facing with no face in front of it to cover.
             let lift = layout.deskTopLift(
                 surfaceHeightAboveFloor: metrics.deskInkHeight, metrics: metrics)
             // **Both slots**, because the `monitor` role carries its own desk
-            // surface and one of them covers half a slab — see
+            // surface and one of them covers half a slab: see
             // `RoomLayout.monitorPosition(_:slot:metrics:)` for the picture that
             // produced and for what ADR-006 keeps. The two never overlap: 32 px of
             // ink each on a 64 px slab, so the tie their equal bias leaves is
@@ -600,7 +600,7 @@ public final class RoomScene: SKScene {
             for slot in RoomLayout.PodRigSlot.allCases {
                 guard let point = layout.monitorPosition(
                     seat, slot: slot, metrics: metrics) else { continue }
-                // **A different picture in each slot, keyed by slot and seat** —
+                // **A different picture in each slot, keyed by slot and seat**,
                 // the same construction the kit uses, and `desk_pod`'s own
                 // `LIT_RIGS[(3v)%4]` beside `LIT_RIGS[(3v+1)%4]`. Two identical
                 // rigs side by side read as one sprite tiled, which is the thing
@@ -641,15 +641,15 @@ public final class RoomScene: SKScene {
     // MARK: The floor plan [ADR-007]
 
     /// **Outside the room.** The scene's background and, under a plan, the field
-    /// past its edge — one constant, so the two can never disagree and a plan's
+    /// past its edge: one constant, so the two can never disagree and a plan's
     /// edge is always an edge against the same tone.
     nonisolated static let voidColour = SKColor(red: 0.14, green: 0.13, blue: 0.17, alpha: 1)
 
     /// Every node the plan painted, in draw order. Read-only, and it exists for
     /// the same reason `propArtForTesting` does: node identity says a tile was
     /// *placed* and says nothing about which picture, and the failure this has
-    /// to catch — a plan that decoded to nothing and fell back to one flat floor
-    /// — produces a perfectly correct set of nodes.
+    /// to catch: a plan that decoded to nothing and fell back to one flat floor
+    ///: produces a perfectly correct set of nodes.
     private var planNodes: [(node: SKSpriteNode, what: String)] = []
 
     var planArtForTesting: [String] { planNodes.map(\.what) }
@@ -660,7 +660,7 @@ public final class RoomScene: SKScene {
     /// The order is `scripts/compose-scene.py`'s `draw_plan`, step for step, and
     /// the order is the whole of the correctness:
     ///
-    /// 1. **Floors first, over each space's whole rect** — including the two
+    /// 1. **Floors first, over each space's whole rect**: including the two
     ///    rows its wall band will cover. So a doorway, which is simply a column
     ///    the band skips, already has floor under it and needs nothing drawn in
     ///    it. An earlier version of the reference script patched the gap with the
@@ -670,7 +670,7 @@ public final class RoomScene: SKScene {
     ///    Two tiles, because that is what the pack draws: 12 px of floor-plan
     ///    line and 20 px of face in the cap, 30 px more face and a 2 px baseboard
     ///    in the body. Everything above the topmost band is left unpainted, and
-    ///    what shows there is the scene's background — the *outside* of the plan,
+    ///    what shows there is the scene's background: the *outside* of the plan,
     ///    which is what makes the room read as a building seen from above rather
     ///    than as a stage with an infinite backcloth. That single change gives
     ///    the room a top edge, which it has never had.
@@ -684,7 +684,7 @@ public final class RoomScene: SKScene {
         let tile = layout.tile
 
         // **The outside, drawn rather than left to whatever is behind the
-        // scene.** A plan has an edge — that is most of what makes it a plan —
+        // scene.** A plan has an edge: that is most of what makes it a plan,
         // and the pixels past that edge have to be a deliberate colour rather
         // than the compositor's default, which is transparent black offscreen
         // and the desktop behind a non-opaque panel. It is the scene's own
@@ -788,7 +788,7 @@ public final class RoomScene: SKScene {
     // MARK: Stations [ADR-002 §4, §8 items 4 and 6]
 
     /// The chair sits a hair behind the body; the desk a half-row in front of
-    /// it. Named once because the station path has to reproduce both exactly —
+    /// it. Named once because the station path has to reproduce both exactly,
     /// a station whose desk sorted differently from the theme's desk would
     /// change whether the near edge crosses the body, which is the one cue at
     /// 32 px that a character is sitting *at* a desk rather than beside one.
@@ -799,7 +799,7 @@ public final class RoomScene: SKScene {
     /// one is whether the desk's near edge crosses it.
     nonisolated static let surfaceInFrontBias: CGFloat = 0.5
 
-    /// A desk taller than the head line is drawn **behind** it instead — behind
+    /// A desk taller than the head line is drawn **behind** it instead: behind
     /// the chair, too, so the three still sort in one consistent order.
     ///
     /// **This is the occlusion defect's fix and it is not a preference.** The
@@ -814,21 +814,21 @@ public final class RoomScene: SKScene {
     ///
     /// **The paragraph above was corrected once and is now corrected again, and
     /// the second correction is the interesting one.** `1c0eeb3` re-cut both
-    /// desks — `library` to **32×44** and `mission_control` to **40×36** — and
+    /// desks (`library` to **32×44** and `mission_control` to **40×36**) and
     /// the note that stood here concluded that no desk any shipped theme binds
     /// took this branch, so the rule was a standing guard rather than a live one.
     /// That conclusion was arithmetically correct *about the rule as written* and
     /// wrong about the room: the maintainer's `mission_control` desk was drawn in
     /// front of the body with its top edge at eye level, across the nose, the
     /// mouth and the jaw, which is the defect the paragraph above says this
-    /// constant exists to prevent. The branch is **live** — `library` and
-    /// `mission_control` both take it now — and what changed is not the art but
+    /// constant exists to prevent. The branch is **live**: `library` and
+    /// `mission_control` both take it now, and what changed is not the art but
     /// the number the rule compares against. See `seatedHeadClearance(nearEdgeX:)`.
     nonisolated static let surfaceBehindBias: CGFloat = -0.5
 
     /// Which of the two a desk of this height gets. `headClearance` is how tall a
     /// surface standing at this desk's own near edge may be before it covers a
-    /// head pixel — `seatedHeadClearance(nearEdgeX:)`, which measures it.
+    /// head pixel: `seatedHeadClearance(nearEdgeX:)`, which measures it.
     ///
     /// **This function never changed and never had to.** What was passed to it
     /// did: for six milestones `headClearance` was `canvas.height − head_top_px`,
@@ -861,7 +861,7 @@ public final class RoomScene: SKScene {
     /// near-edge cue in four themes that never had the defect.
     ///
     /// Measured off the sit frames themselves, because nothing in the manifest
-    /// says where a head ends. `nil` — no cast, or art that will not load — is
+    /// says where a head ends. `nil` (no cast, or art that will not load) is
     /// answered `0`, which sends every surface behind: a clearance we cannot
     /// measure is not a clearance we may assume.
     func seatedHeadClearance(nearEdgeX: Double) -> Int {
@@ -884,13 +884,13 @@ public final class RoomScene: SKScene {
     /// **One facing, and it is the side-on seat's own.** The two sit facings are
     /// pixel-exact mirrors, so measuring both would put the hair's widest rows at
     /// *both* edges of the canvas and hand every desk in the room the clearance
-    /// of a character sitting the wrong way round — which cost `office` its
+    /// of a character sitting the wrong way round, which cost `office` its
     /// near-edge cue the first time this was written.
     ///
     /// It asked `RoomLayout.seatedFacing` while that was one constant for the
     /// whole room. A seat declares its own facing now [ADR-008], and this
-    /// measurement is about the sit row and about nothing else — the whole
-    /// near-edge cue is the side-on arrangement's — so it names
+    /// measurement is about the sit row and about nothing else: the whole
+    /// near-edge cue is the side-on arrangement's, so it names
     /// `SeatFacing.sideOn` rather than asking a seat that may have turned.
     nonisolated static func seatedFrames(manifest: Manifest, facing: Facing) -> [Bitmap] {
         var frames: [Bitmap] = []
@@ -935,14 +935,14 @@ public final class RoomScene: SKScene {
     /// come and go. When a character with a station sits down, its seat's pair
     /// is hidden and the station's own furniture is drawn in their place; when
     /// it leaves, they come back. The nodes are never destroyed, which is what
-    /// keeps `noPropNodeIsEverRebuiltAcrossAnyFixtureReplay` — §6 rule 1 made
-    /// mechanical — true through every arrival and departure in every fixture.
+    /// keeps `noPropNodeIsEverRebuiltAcrossAnyFixtureReplay`: §6 rule 1 made
+    /// mechanical: true through every arrival and departure in every fixture.
     private var emptySeatFurniture: [Int: [SeatFurniture]] = [:]
 
     /// One piece of furniture at a seat, with the manifest path behind it.
     ///
     /// The path is carried rather than recoverable, because node identity says a
-    /// desk was *placed* and says nothing about which picture — and "a desk was
+    /// desk was *placed* and says nothing about which picture, and "a desk was
     /// placed" was true for three months while every desk in the room was the
     /// same one.
     private struct SeatFurniture {
@@ -961,7 +961,7 @@ public final class RoomScene: SKScene {
     ///
     /// This exists because the assertion that matters is about *pixels*, and the
     /// failure it has to catch produced perfectly correct nodes: six stations in
-    /// six themes, every one placed, every one drawn — and the same picture at
+    /// six themes, every one placed, every one drawn, and the same picture at
     /// every seat, because the picture came from `props.roles` and the station
     /// id reached nothing. Positions and counts cannot see that. A path and a
     /// placement can.
@@ -1025,7 +1025,7 @@ public final class RoomScene: SKScene {
         }
         // **The chair is the seat's, not the station's, wherever the seat has
         // turned.** [ADR-008] A station's chair falls back to the theme's `chair`
-        // role — every station in the shipped manifest declares none, and the
+        // role: every station in the shipped manifest declares none, and the
         // manifest's own note says why: there is one side-view chair in either
         // pack, so a station cannot be themed art anyway. A side view under a
         // back-facing occupant is a chair pointing 90° away from the person in
@@ -1069,7 +1069,7 @@ public final class RoomScene: SKScene {
     /// same reason: `propNodes` is the *room's* furniture, the set §6 rule 1
     /// promises is never rebuilt across a whole fixture replay, and how many
     /// copies of it exist is decided at build time. This is per-character
-    /// furniture — it exists because an agent does — so it is created and retired
+    /// furniture (it exists because an agent does) so it is created and retired
     /// with the character, alongside `stationFurniture`. What rule 1's spirit
     /// asks of it is checked by its own test
     /// (`DeskObjectSceneTests.noDeskObjectNodeIsEverRebuiltAcrossAnyFixtureReplay`):
@@ -1077,8 +1077,8 @@ public final class RoomScene: SKScene {
     private var deskObjectNodes: [AgentRef: SKSpriteNode] = [:]
 
     /// The desk-top objects currently on screen, flattened the same way
-    /// `furnitureForTesting(seat:)` flattens a station's. Hidden nodes — a
-    /// character whose desk is still bare — are omitted, so this answers "what is
+    /// `furnitureForTesting(seat:)` flattens a station's. Hidden nodes: a
+    /// character whose desk is still bare: are omitted, so this answers "what is
     /// on the desks" rather than "what nodes exist".
     public func deskObjectsForTesting() -> [AgentRef: DrawnFurniture] {
         var out: [AgentRef: DrawnFurniture] = [:]
@@ -1094,7 +1094,7 @@ public final class RoomScene: SKScene {
     }
 
     /// The manifest path behind each drawn desk object. **Uniformly `""` since
-    /// all four kinds became authored** — it was `""` for `running` alone while
+    /// all four kinds became authored**: it was `""` for `running` alone while
     /// the other three were pack bindings. Kept because the role arm of
     /// `deskObjectArt` still fills it if a kind ever names a role again. Node
     /// identity says an object was placed; it says nothing about which picture.
@@ -1103,8 +1103,8 @@ public final class RoomScene: SKScene {
     /// **What kind each character's desk object is drawing**, so that a screen
     /// change can redraw it without the director restating the kind.
     ///
-    /// The two facts arrive on separate intents and in either order — a kind is
-    /// adopted when the votes say so and the screen changes at a turn boundary —
+    /// The two facts arrive on separate intents and in either order: a kind is
+    /// adopted when the votes say so and the screen changes at a turn boundary,
     /// so each has to be able to land without the other being present. `nil`
     /// here is the bare desk, and a screen change on a bare desk is a stored
     /// flag and no drawing at all.
@@ -1129,7 +1129,7 @@ public final class RoomScene: SKScene {
     /// in seat-relative scene pixels. [ADR-006 §2c]
     ///
     /// Half the character canvas, which is the first column strictly outside a
-    /// seated character's own sprite — and `SeatedHead.clearance(nearEdgeX:)` is
+    /// seated character's own sprite, and `SeatedHead.clearance(nearEdgeX:)` is
     /// unbounded from exactly there, measured against every seated frame the pack
     /// ships. So an object standing at this edge **cannot cover a head pixel at
     /// any height whatsoever**, which is why nothing in this file compares an
@@ -1149,8 +1149,8 @@ public final class RoomScene: SKScene {
     /// (`surfaceInFrontBias`) keeps its object in front of it, and one drawn
     /// behind (`surfaceBehindBias`, which `library` and `mission_control` both
     /// take) keeps its object in front of *it* and still behind the body. Nothing
-    /// about the body matters visually here — the object is outside the
-    /// character's own canvas by construction — but the two have to sort the same
+    /// about the body matters visually here: the object is outside the
+    /// character's own canvas by construction, but the two have to sort the same
     /// way every frame rather than by dictionary order.
     nonisolated static let deskObjectInFrontStep: CGFloat = 0.25
 
@@ -1158,7 +1158,7 @@ public final class RoomScene: SKScene {
     ///
     /// Called from the spawn arm beside `placeStation`, so every seated character
     /// has exactly one and it exists before any `setDeskObject` can arrive. It
-    /// carries no texture until a kind is adopted — a character whose work the
+    /// carries no texture until a kind is adopted: a character whose work the
     /// room cannot name keeps the plain desk the room has always drawn, and that
     /// is the commonest case rather than an error path. [I1]
     private func placeDeskObjectNode(for agent: AgentRef) {
@@ -1190,7 +1190,7 @@ public final class RoomScene: SKScene {
               // only slot in the room that answers a real fact with silence.
               // [ADR-008 §5, `RoomLayout.SeatFacing.showsDeskTopObject`] The
               // desk is between the occupant and the viewer, so an object on it
-              // faces upstage — and there is no rear view of a screen anywhere
+              // faces upstage, and there is no rear view of a screen anywhere
               // in 12,279 catalogue props, so a lit monitor there draws somebody
               // staring at the back of their own screen. The desk is also 32 px
               // wide with the body occupying all of it, so no column on it is
@@ -1204,7 +1204,7 @@ public final class RoomScene: SKScene {
         // The desk this seat actually draws, which is a station's own when it has
         // one and the theme's `desk` role otherwise. Stations fall back to that
         // role when they declare no desk, and none in the shipped manifest does,
-        // so this resolves to the same object either way today — asked properly
+        // so this resolves to the same object either way today: asked properly
         // anyway, because a station that ever binds its own desk would otherwise
         // put every object on it at the wrong height.
         let desk = stationDesks[agent] ?? store.room.prop(Self.surfaceRole)
@@ -1223,11 +1223,11 @@ public final class RoomScene: SKScene {
         // is the first column strictly outside the sprite, so the object cannot
         // cover a head pixel at any height [ADR-006 §2c]. That holds unchanged
         // at an away-facing seat because the desk moved in *depth* and not in x
-        // — see `RoomLayout.deskPosition(_:metrics:)` for why it was kept there.
+        //: see `RoomLayout.deskPosition(_:metrics:)` for why it was kept there.
         // A camera-facing seat never reaches this line.
         let nearEdge = layout.seatPosition(seat).x
             + Self.deskObjectNearEdgeX(manifest: store.manifest)
-        // **On a pod it stands in the right-hand rig slot instead** — on that
+        // **On a pod it stands in the right-hand rig slot instead**: on that
         // rig's own desktop, one depth step in front of it. [ADR-009] Both slots
         // carry a rig as theme furniture, because the `monitor` role is a whole
         // workstation and one of them covers half the slab
@@ -1238,7 +1238,7 @@ public final class RoomScene: SKScene {
         // **The near-edge rule is not weakened, it is inapplicable here.** ADR-006
         // §2c pushes the object clear of the body so it cannot cover a head pixel
         // at any height. Only a camera-facing seat can be covered that way, and a
-        // camera-facing seat draws no object at all — at an away-facing seat the
+        // camera-facing seat draws no object at all: at an away-facing seat the
         // desk and everything on it is genuinely *upstage* of the occupant, so
         // `rowDepth` draws the body over the object and the risk the rule exists
         // to close cannot occur at any x. What the slot costs instead is a few
@@ -1275,7 +1275,7 @@ public final class RoomScene: SKScene {
     /// at the theme desk's.
     ///
     /// `nil` for a character whose station named nothing, which keeps the
-    /// theme-wide pair — and the fallback in `showDeskObject` asks the theme for
+    /// theme-wide pair, and the fallback in `showDeskObject` asks the theme for
     /// the same role that pair was drawn from.
     private var stationDesks: [AgentRef: Manifest.PropRole] = [:]
 
@@ -1285,7 +1285,7 @@ public final class RoomScene: SKScene {
     /// **All four are authored, and the role arm below is currently
     /// unreachable.** `WorkKind.propRole` returns `nil` for every kind, so every
     /// call takes the `guard` branch and draws `DeskWorkArt` or, for `running`,
-    /// `DeskMonitorArt` — the way the badges, the nameplate and the held objects
+    /// `DeskMonitorArt`: the way the badges, the nameplate and the held objects
     /// are drawn.
     ///
     /// It was three-from-the-pack and one authored until the three pack singles
@@ -1315,8 +1315,8 @@ public final class RoomScene: SKScene {
                 bitmap: bitmap, key: kind.textureKey(screen: screen)) else {
                 return nil
             }
-            // The authored bitmap *is* its own content box — ink reaches every
-            // edge — so the canvas needs no anchor arithmetic.
+            // The authored bitmap *is* its own content box: ink reaches every
+            // edge, so the canvas needs no anchor arithmetic.
             return (texture, CGPoint(x: 0.5, y: 0),
                     CGSize(width: bitmap.width, height: bitmap.height),
                     Double(bitmap.width), "")
@@ -1345,7 +1345,7 @@ public final class RoomScene: SKScene {
     /// Called when the node is actually retired rather than when the exit intent
     /// arrives, so a character walking out is still walking away from its own
     /// desk for the whole of the walk. The seat may already have been reclaimed
-    /// by then — a seat is free the instant its occupant starts leaving — so the
+    /// by then (a seat is free the instant its occupant starts leaving) so the
     /// empty pair is only restored if nobody else has since drawn a station on
     /// it.
     private func retireStation(for agent: AgentRef) {
@@ -1365,9 +1365,9 @@ public final class RoomScene: SKScene {
     /// The manifest path behind each of those nodes, in the same order.
     ///
     /// Node identity says a prop was *placed*; it says nothing about which
-    /// picture. Two themes place the same number of props at the same points —
+    /// picture. Two themes place the same number of props at the same points,
     /// that is the layout being theme-independent, which is a required property
-    /// — so a test that compares only positions and counts cannot tell a themed
+    ///, so a test that compares only positions and counts cannot tell a themed
     /// room from a room that ignored the theme id. This is what it compares
     /// instead, and it is the manifest's own string rather than a texture, so
     /// two scenes with two `TextureStore`s can be compared at all.
@@ -1382,14 +1382,14 @@ public final class RoomScene: SKScene {
 
     var sceneryNodesForTesting: [SKSpriteNode] { sceneryNodes }
 
-    /// **The seat furniture subset of `propNodes`** — every desk and every chair
+    /// **The seat furniture subset of `propNodes`**: every desk and every chair
     /// the room draws at a seat, occupied or not. [ADR-008]
     ///
     /// It exists for the same reason `sceneryNodesForTesting` does, and it
     /// became necessary for a reason worth writing down: the two decoration
     /// tests used to separate seat furniture from decoration **by position**,
     /// filtering out anything standing on a seat row. That was exact while every
-    /// desk and chair shared its occupant's row, and ADR-008 moves them off it —
+    /// desk and chair shared its occupant's row, and ADR-008 moves them off it,
     /// a camera-facing desk stands downstage of the seat and an away-facing
     /// chair further downstage still. Identity is what the exclusion always
     /// meant; the position filter was a proxy that happened to be equivalent,
@@ -1403,7 +1403,7 @@ public final class RoomScene: SKScene {
     /// The props that idle on their own loop. [ADR-002 §14b]
     ///
     /// One per placed node, so four copies of an animated `board` swing
-    /// together — they are handed the same clock, so they are in phase by
+    /// together: they are handed the same clock, so they are in phase by
     /// construction rather than by a shared index anybody has to maintain.
     ///
     /// **Nothing outside `advance(to:)` may touch this.** See `PropAnimation`
@@ -1426,7 +1426,7 @@ public final class RoomScene: SKScene {
         return place(roomProp: prop, at: point, depthBias: depthBias)
     }
 
-    /// The same, for a prop the caller has already resolved — a role drawn with
+    /// The same, for a prop the caller has already resolved: a role drawn with
     /// one of its `variants`, which is a picture the role name alone no longer
     /// identifies. Everything else is identical, the registration in `propNodes`
     /// included, because a variant is the room's own furniture exactly as entry 0
@@ -1439,12 +1439,12 @@ public final class RoomScene: SKScene {
         propPaths.append(prop.file)
 
         // A prop that idles. `prop.file` is frame 0 and is already on the node,
-        // so a manifest without this key — or with art that will not load —
+        // so a manifest without this key, or with art that will not load,
         // draws exactly the still prop it always did.
         //
         // **Only room props idle, and stations deliberately do not.** The motion
         // budget is I7 on the time axis and it is a budget on moving pixels per
-        // second *summed over every copy the room draws* — which the room knows
+        // second *summed over every copy the room draws*, which the room knows
         // at build time and cannot know for a station, because how many copies
         // of a station exist is how many agents of that type turned up. A budget
         // that cannot be computed is not a budget. [ADR-002 §14b]
@@ -1506,7 +1506,7 @@ public final class RoomScene: SKScene {
             seatOf[agent] = seat
             // **The station reaches the room here and only here.** It was
             // resolved at spawn, it rode in on the spawn intent, and it is drawn
-            // once — there is no code path that could redraw it, which is §6
+            // once: there is no code path that could redraw it, which is §6
             // rule 2 enforced by there being nothing to enforce.
             placeStation(station, for: agent, at: seat)
             // **Beside the station and after it**, because the object stands on
@@ -1516,7 +1516,7 @@ public final class RoomScene: SKScene {
             placeDeskObjectNode(for: agent)
             // **A turned seat's posture channel is silent, so its dim carries
             // the turn.** [ADR-008 §6] Told once, here, from the seat's own
-            // facing — a side-on seat is told nothing changed and keeps the
+            // facing: a side-on seat is told nothing changed and keeps the
             // picture this app has always drawn.
             character.setDimsOutOfTurn(!layout.seatFacing(seat).showsPosture)
             character.setInTurn((deskScreens[agent] ?? .lit) == .lit)
@@ -1525,14 +1525,14 @@ public final class RoomScene: SKScene {
             // one seat pitch sideways along the aisle, which is the one row
             // every character steps through, and it started on the *next ring's
             // own station*. A seat vacated and refilled while that neighbour was
-            // mid-report put the newcomer on top of it — measured at −25.6 px,
+            // mid-report put the newcomer on top of it: measured at −25.6 px,
             // an overlap and not a near miss. Entering up the column is the exit
             // reversed, so it is closed by the same construction and needs no
             // argument of its own.
             character.enter(along: layout.entranceRoute(forSeat: seat))
 
         case let .setNameplate(agent, nameplate):
-            // A plate that learned something after its character was drawn —
+            // A plate that learned something after its character was drawn,
             // almost always the task, which arrives one event behind the
             // `SubagentStart`. Redrawing the texture is the whole of it: the
             // node is anchored at its top edge, so a plate that gained a row
@@ -1549,7 +1549,7 @@ public final class RoomScene: SKScene {
         case let .setDeskObject(agent, kind):
             // **Furniture, not a character channel.** It has no body state, no
             // pose and no ambient loop, and it moves 0 px/s in every frame of its
-            // life — which is why ADR-006 needs no carve-out from I2 and proposes
+            // life, which is why ADR-006 needs no carve-out from I2 and proposes
             // none. Nothing about the character it belongs to changes here.
             showDeskObject(kind, for: agent)
 
@@ -1568,8 +1568,8 @@ public final class RoomScene: SKScene {
             // **And the same fact reaches the body at a turned seat.** The
             // screen intent *is* `isInTurn && !isDormant` [ADR-006 §12], which
             // is exactly what the dim is about, so no new intent and no second
-            // channel is needed to carry it. A side-on character ignores it —
-            // its posture already says this — and `Character.setInTurn` is
+            // channel is needed to carry it. A side-on character ignores it,
+            // its posture already says this, and `Character.setInTurn` is
             // idempotent, so a repeat draws nothing. [ADR-008 §6]
             characters[agent]?.setInTurn(screen == .lit)
 
@@ -1583,7 +1583,7 @@ public final class RoomScene: SKScene {
             guard let character = characters[agent], let seat = seatOf[agent],
                   // Nobody walks over to themselves. The anchor resolves to the
                   // reporter's own seat only for the main agent, which has no
-                  // `SubagentStop` and so never reports — this is the guard that
+                  // `SubagentStop` and so never reports: this is the guard that
                   // says so rather than a comment claiming it. [I1]
                   seat != anchorSeat else { break }
             // Stand up, step down the reporter's **own column** to the delivery
@@ -1593,15 +1593,15 @@ public final class RoomScene: SKScene {
             // **The transit used to be the room's one unguarded window**, and
             // then its most expensive fixture. A reporter walking the *aisle* to
             // its anchor passed every station in between, and a station is a
-            // pitch from the next while the widest plate is 63 — so it was
+            // pitch from the next while the widest plate is 63, so it was
             // within a plate width of *some* station for most of the walk. M6f
             // deleted the leg rather than pay the three rows that fixed it, and
             // the maintainer saw what that left: an envelope handed to nobody.
             //
             // What holds it now is one row nothing else in the room can be on,
             // and a claim on a stretch of that row that no second reporter may
-            // overlap. A reporter refused the row plays the in-place beat — the
-            // one M6f left behind — rather than waiting for anything.
+            // overlap. A reporter refused the row plays the in-place beat: the
+            // one M6f left behind, rather than waiting for anything.
             // `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)` carries the
             // proof, `theRoomsOneLateralCorridorMeetsNoOtherRoute` the arithmetic.
             let side = layout.deliverySide(anchorSeat: anchorSeat, reporterSeat: seat)
@@ -1612,7 +1612,7 @@ public final class RoomScene: SKScene {
                 home: layout.homeRoute(forSeat: seat, fromY: route.deliversAtY),
                 // **Sit back down facing the desk.** The beat turns the
                 // character towards its anchor, and the walk home is now purely
-                // vertical, so nothing turns it back — `Character` ends a script
+                // vertical, so nothing turns it back: `Character` ends a script
                 // on `currentFacing.seated`, and a reporter to the left of its
                 // anchor would take its chair with its back to its own desk.
                 // The old lateral leg home did this by accident, for whichever
@@ -1637,7 +1637,7 @@ public final class RoomScene: SKScene {
             // that reaches the frame edge passes through every column outside
             // it, and a column is where every other character steps between the
             // desk row, the aisle and its delivery row. The whole cast can leave
-            // in one frame — `SessionEnd` does exactly that — and seven leavers
+            // in one frame (`SessionEnd` does exactly that) and seven leavers
             // going straight back stay a seat pitch apart the entire way, which
             // is a stronger statement than the convoy argument this replaces
             // and needs no argument about relative speeds at all.
@@ -1675,11 +1675,11 @@ public final class RoomScene: SKScene {
                 }
             case .report, .walkOff:
                 // No seat, or a self-report: nothing to walk to, so it just
-                // leaves. A character caught **on the walkway** — mid-report
-                // when the session ended — comes back up to its chair first, so
+                // leaves. A character caught **on the walkway**: mid-report
+                // when the session ended: comes back up to its chair first, so
                 // its exit is the one continuous ascent of its own column that
                 // every other exit is. A leaver already *in* its chair gets no
-                // leg at all — `homeRoute` reads `fromY` for exactly that, and
+                // leg at all: `homeRoute` reads `fromY` for exactly that, and
                 // the 0.2 s a zero-length walk costs is 14 px of the gap a
                 // refill climbing the same column is relying on.
                 character.departOffScreen(
@@ -1711,7 +1711,7 @@ public final class RoomScene: SKScene {
     /// **Not a prop.** It is deliberately outside `propNodes`, so §6 rule 1's
     /// "zero prop-node rebuilds across an entire fixture replay" still means
     /// what it says: the room's furniture never changes, and this is not
-    /// furniture — it is the room's caption on its own population, and it
+    /// furniture: it is the room's caption on its own population, and it
     /// changes exactly when that population crosses the seat count.
     private var overflowNode: SKSpriteNode?
     private var overflowCount = 0
@@ -1765,7 +1765,7 @@ public final class RoomScene: SKScene {
 
     /// Puts the plate on its point, clamped into the camera's frame.
     ///
-    /// The point — `RoomLayout.overflowPlatePosition` — is clear of every
+    /// The point (`RoomLayout.overflowPlatePosition`) is clear of every
     /// theme's props and inside the 720×400 panel by construction, so on the
     /// panel this app actually ships the clamp does nothing. It is here because
     /// a caption that is off screen is the same silence it exists to break, and
@@ -1794,8 +1794,8 @@ public final class RoomScene: SKScene {
     /// be standing on when it delivers, which is what `homeRoute` needs to know
     /// whether the way back has a lateral leg in it.
     ///
-    /// The claim is on `RoomLayout.deliveryCorridor(anchorSeat:reporterSeat:)` —
-    /// every x the beat occupies, out and back — so a granted claim is a
+    /// The claim is on `RoomLayout.deliveryCorridor(anchorSeat:reporterSeat:)`,
+    /// every x the beat occupies, out and back, so a granted claim is a
     /// statement about where this character is at every instant it is on the
     /// row. Nothing here can make a report wait: the else-branch is a beat, not
     /// a retry. [I4]
@@ -1804,8 +1804,8 @@ public final class RoomScene: SKScene {
         let corridor = layout.deliveryCorridor(anchorSeat: anchorSeat, reporterSeat: seat)
         let out = layout.deliveryRoute(anchorSeat: anchorSeat, reporterSeat: seat)
         // Twice the beat it is timing. The deadline is the reaper of last resort
-        // — the normal release is the beat finishing, and the frame loop drops a
-        // claim whose character has stopped walking — so it can afford to be
+        //: the normal release is the beat finishing, and the frame loop drops a
+        // claim whose character has stopped walking, so it can afford to be
         // generous, and being generous is what stops it firing on a slow frame
         // and handing a live corridor to a second reporter.
         let budget = 2 * (beatSeconds(out: out, seat: seat) + deliverBeatSeconds)
@@ -1861,7 +1861,7 @@ public final class RoomScene: SKScene {
     }
 
     /// Gives back every stretch of the delivery row whose character has stopped
-    /// walking — the condition itself rather than a proxy for it — and then
+    /// walking (the condition itself rather than a proxy for it) and then
     /// anything held past its budget.
     ///
     /// A character that has finished its script is standing still, and a claim
@@ -1877,7 +1877,7 @@ public final class RoomScene: SKScene {
     }
 
     /// The seats of the characters currently holding a stretch of the delivery
-    /// row. Read-only, for the tests that check the claim is given back —
+    /// row. Read-only, for the tests that check the claim is given back,
     /// nothing in the scene reads it and no picture depends on it.
     var deliveryRowHoldersForTesting: [Int] {
         deliveryFloor.occupiedIDs.compactMap { deliveryClaimant[$0]?.seat }.sorted()
@@ -1892,7 +1892,7 @@ public final class RoomScene: SKScene {
     // MARK: Clock
 
     /// SpriteKit calls this from the view's render loop. The offscreen harness
-    /// calls `advance(to:)` directly with a simulated clock — one animation
+    /// calls `advance(to:)` directly with a simulated clock: one animation
     /// engine, two drivers, identical output.
     public override func update(_ currentTime: TimeInterval) {
         advance(to: currentTime)
@@ -1906,7 +1906,7 @@ public final class RoomScene: SKScene {
         // **The only place a prop's picture is ever changed after the room is
         // built, and it is handed the clock and nothing else.** [ADR-002 §14b]
         // `apply(_:)` is where every consequence of a delta reaches this scene,
-        // and it does not appear in this loop's call graph — a prop cannot learn
+        // and it does not appear in this loop's call graph: a prop cannot learn
         // that an agent is busy, because there is no path by which it could.
         for prop in propAnimations { prop.advance(to: time) }
     }
@@ -1930,7 +1930,7 @@ public final class RoomScene: SKScene {
         let headTop = manifest.characters.variants.values.map(\.headTopPx).min() ?? 0
         // **Asked of `Character`, not recomputed here.** It used to be
         // `canvasHeight − headTop + 1` *plus the badge canvas*, which was the
-        // slot's arithmetic copied into the camera — true only while the slot
+        // slot's arithmetic copied into the camera: true only while the slot
         // hung above the head. The slot is beside the head now and its top edge
         // is where its bottom edge was, so the copy would have gone on reserving
         // 34 px of empty air over every character and the band would never have
@@ -1955,8 +1955,8 @@ public final class RoomScene: SKScene {
     /// manifest's content boxes rather than assumed: every decoration point plus
     /// the height of the prop that stands on it.
     ///
-    /// It is theme-dependent by construction and the spread is large — the
-    /// `office` chart board tops out at 270 and `broadcast`'s softbox at 304 —
+    /// It is theme-dependent by construction and the spread is large: the
+    /// `office` chart board tops out at 270 and `broadcast`'s softbox at 304,
     /// which is exactly why it is measured here instead of written down. The
     /// floor is `wallBaseY`, so a manifest that binds no backdrop at all still
     /// gets the wall line rather than a nonsense number.
@@ -1974,7 +1974,7 @@ public final class RoomScene: SKScene {
         // hand-placed room draws no decoration lattice, and a camera that
         // measured one would be aiming at props that are not there.
         //
-        // It costs nothing *today* — the shipped composition stands its boards
+        // It costs nothing *today*: the shipped composition stands its boards
         // on `wallBaseY`, which is exactly where the lattice stood them, so the
         // maximum is identical either way. It would start lying the moment a
         // composition moved a board off that line, which is precisely the kind
@@ -1989,7 +1989,7 @@ public final class RoomScene: SKScene {
         // **The scenery counts, and the `wall` band is usually what decides it.**
         // A picture two tiles up the wall face is the highest thing the room
         // draws in five of six themes, and a camera that measured only the
-        // backdrops would aim below it and crop it — which is the exact defect
+        // backdrops would aim below it and crop it, which is the exact defect
         // this accessor was written against, one band further up. It costs a
         // little of the dead floor under the room and nothing else: the aim is
         // clamped by the slack the scale left, and at `2x` and `3x` that clamp
@@ -2014,7 +2014,7 @@ public final class RoomScene: SKScene {
     /// The band has to *fit*, and once it does the only question left is where
     /// to spend what the scale did not use. It is spent by **centring the strip
     /// the room actually draws**: from the lowest pixel any character can put on
-    /// screen — `band.bottom`, the underside of a walkway character's plate — to
+    /// screen (`band.bottom`, the underside of a walkway character's plate) to
     /// the top of the tallest backdrop standing on the wall line,
     /// `decorationTopY`. The result is then clamped by the slack the scale
     /// really left, which is zero at the tightest fitting scale, so the aim can
@@ -2023,13 +2023,13 @@ public final class RoomScene: SKScene {
     /// steps out of a chair.
     ///
     /// **The top term is new and it is the whole of this fix.** The aim used to
-    /// be the midpoint of the seated plate and `band.top` — the top of the
+    /// be the midpoint of the seated plate and `band.top`: the top of the
     /// *badge slot*, which is not the top of anything the room draws: `office`'s
     /// chart board stands 91 px above it and `broadcast`'s softbox 125 px. So
     /// the camera aimed at a line with nothing on it, and every pixel of surplus
     /// it declined to spend upward went underneath the room instead. On the
     /// shipped 720×400 panel at `1x` that was **131 px of bare floor below the
-    /// lowest nameplate — a third of the frame** — of which 90 px was not even
+    /// lowest nameplate (a third of the frame**) of which 90 px was not even
     /// floor the room owns, but `drawnRows` overscan: tiles painted solely so
     /// that no void shows. A frame whose bottom quarter is overscan is the tell
     /// that its aim point is wrong.
@@ -2064,7 +2064,7 @@ public final class RoomScene: SKScene {
     /// surplus; it cannot remove it, and the residual is ~66 px of wall above
     /// the boards and ~97 px of floor below the seated plates. Only a shorter
     /// panel or a taller room removes it, and `notes.md` records why neither was
-    /// done here — chiefly that the panel's floor is twice the content band, so
+    /// done here: chiefly that the panel's floor is twice the content band, so
     /// the whole 44 px it could give back buys 22 px of foreground.
     func cameraY(band: (bottom: Double, top: Double), sceneHeight: Double) -> Double {
         let half = sceneHeight / 2
@@ -2092,7 +2092,7 @@ public final class RoomScene: SKScene {
 
         // `.fill` maps `size` onto the whole viewport. Setting `size` to the
         // viewport divided by an integer therefore magnifies by exactly that
-        // integer on both axes — no fractional resampling anywhere. [I6]
+        // integer on both axes: no fractional resampling anywhere. [I6]
         let sceneSize = CGSize(
             width: max(1, Double(viewport.width) / Double(scale)),
             height: max(1, Double(viewport.height) / Double(scale)))
@@ -2124,11 +2124,11 @@ public final class RoomScene: SKScene {
 /// whether a desk covers a face had to be either invented or measured, and this
 /// measures it. The sit frames are on disk, the scene already opens them to make
 /// textures, and reading their alpha is the same kind of act as reading a prop's
-/// `content_box` — a placement decided by the art rather than by a constant.
+/// `content_box`: a placement decided by the art rather than by a constant.
 ///
 /// **It answers a profile, not a number.** A surface standing at a seat covers
 /// everything from the floor up to its own height, but only from its near edge
-/// rightward — and a seated head is not a rectangle. The hair is the widest part
+/// rightward, and a seated head is not a rectangle. The hair is the widest part
 /// of the sprite and reaches `+13` to `+15` from the seat; the chin is the
 /// narrowest and reaches `+9`. So "how tall may a surface be" has a different
 /// answer at every x, and collapsing it to one number costs four themes their
@@ -2144,13 +2144,13 @@ public struct SeatedHead: Sendable, Hashable {
     /// How many head pixels were found, for the same reason.
     public let headPixelCount: Int
 
-    /// `suffixClearance[c]` — the tallest a surface whose near edge falls at or
+    /// `suffixClearance[c]`: the tallest a surface whose near edge falls at or
     /// left of canvas column `c` may be without covering a head pixel. Suffix-
     /// minimised, so it is monotone: standing further right can only ever be
     /// safer.
     private let suffixClearance: [Int]
 
-    /// `nil` when there is nothing to measure — an empty cast, or art that will
+    /// `nil` when there is nothing to measure: an empty cast, or art that will
     /// not load. The caller answers that with the conservative branch rather than
     /// with a guess.
     public init?(frames: [Bitmap]) {
@@ -2205,10 +2205,10 @@ public struct SeatedHead: Sendable, Hashable {
     /// the narrowest run below the widest row, and everything above it is head.
     ///
     /// Measured on the shipped cast this lands at rows **46, 48, 46, 46, 46, 48**
-    /// for variants 06, 07, 09, 10, 17 and 19 — chin height 16–18 px above the
+    /// for variants 06, 07, 09, 10, 17 and 19: chin height 16–18 px above the
     /// feet. Two independent checks agree with it: drawn over the sprites the
-    /// line sits on the jaw, and every one of the twelve shipped costumes — an
-    /// outfit, which clothes a torso and not a head — begins at row 46, 47 or 48.
+    /// line sits on the jaw, and every one of the twelve shipped costumes: an
+    /// outfit, which clothes a torso and not a head: begins at row 46, 47 or 48.
     ///
     /// `nil` for a blank frame. A frame whose widest row is its last is answered
     /// with "all head", which is the conservative reading of art this cannot

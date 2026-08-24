@@ -4,8 +4,8 @@
     python3 tools/observe/observe.py --out <run-dir>
 
 One command. It drives a real multi-agent Claude Code session, captures every
-hook payload it emits, then renders the room that session would have produced —
-a frame every couple of seconds at the real panel size — and writes what was
+hook payload it emits, then renders the room that session would have produced,
+a frame every couple of seconds at the real panel size, and writes what was
 *actually* true beside each frame.
 
 **Why the ground truth has to be there.** `docs/01-PRD.md` S5 is "a cold
@@ -14,7 +14,7 @@ running and whether any are idle." That is not a claim about a picture. It is a
 claim about a picture *agreeing with reality*, and a screenshot on its own
 cannot be right or wrong about anything. So every frame is written with a
 sidecar saying how many agents existed at that instant, what their types were,
-which held open calls and which were dormant — read out of the delta stream, not
+which held open calls and which were dormant: read out of the delta stream, not
 out of the picture. The judgement about whether the picture communicates it is a
 human's; this only makes it answerable.
 
@@ -88,7 +88,7 @@ ENV_CLEAR = [
 
 # Two agent types that do not exist as built-ins, defined in the sandbox so the
 # session has more than one kind of worker in it. The *payloads* are still real
-# — this decides what the session does, not what the capture says about it.
+#: this decides what the session does, not what the capture says about it.
 #
 # Neither declares a `tools:` line, so both inherit everything, including the
 # sandbox's MCP tool. A restricted list is what stopped the first attempt at a
@@ -114,14 +114,14 @@ Reply with one short line when you are done.
 
 # ------------------------------------------------------------- the workload
 #
-# Five subagents, four distinct `agent_type`s, one type used twice — the case
+# Five subagents, four distinct `agent_type`s, one type used twice: the case
 # that breaks anything keyed on the type rather than on `agent_id`. Plus the
 # main thread, which is six characters: S4's population.
 #
 # **Different agents on different badge classes, because the first baseline had
 # them all on one.** That run held 235 tool-frames and every one was `Bash`, so
-# every badge in it was the terminal glyph and the badge table — seven glyphs,
-# four of them hand-authored — was never exercised. Worse, a room full of
+# every badge in it was the terminal glyph and the badge table: seven glyphs,
+# four of them hand-authored: was never exercised. Worse, a room full of
 # identical bubbles is easy to misread as the product failing when it was the
 # workload that was uniform. The mapping under test is in
 # `docs/03-EVENT-MODEL.md` and `Sources/SpriteRoomScene/ToolBadge.swift`.
@@ -138,7 +138,7 @@ Reply with one short line when you are done.
 #     Grep/Glob/Read          0.01-0.4 s        magnifier
 #     Agent / SendMessage     ~0.016 s          checklist
 #
-# So three classes can be *held* — terminal, plug, globe — and the rest can only
+# So three classes can be *held* (terminal, plug, globe) and the rest can only
 # be made frequent. The design puts a held class on three characters for the
 # whole window and the frequent ones on the others, which is what makes a frame
 # with several distinct classes on screen at once possible at all.
@@ -152,7 +152,7 @@ Reply with one short line when you are done.
 def wait_command(seconds):
     """**A Python `time.sleep`, not `sleep(1)`.** A rehearsal found Claude Code
     refuses a bare foreground `sleep`, and agents route round it by
-    backgrounding the shell — which closes the `Bash` call immediately and
+    backgrounding the shell, which closes the `Bash` call immediately and
     leaves every character idle within a second. That capture was real and
     useless."""
     return 'python3 -c "import time; time.sleep(%d)"' % seconds
@@ -248,7 +248,7 @@ def pin_app(out, source):
                     os.path.join(REPO, ".build/debug/spriteroom-replay"))
         for b in binaries:
             if not os.path.exists(b):
-                raise RuntimeError("no %s — run `swift build` first" % b)
+                raise RuntimeError("no %s: run `swift build` first" % b)
         head = subprocess.run(["git", "-C", REPO, "rev-parse", "HEAD"],
                               capture_output=True, text=True).stdout.strip()
         return binaries, {"source": "working tree .build", "head": head,
@@ -353,7 +353,7 @@ class Sandbox:
 
         # One file for `Edit`, with ten anchors in it. Big enough that rewriting
         # it costs a measurable fraction of a second, small enough that the
-        # PostToolUse payload does not blow the hook's 2 s timeout — a 492 MB
+        # PostToolUse payload does not blow the hook's 2 s timeout: a 492 MB
         # file did exactly that in the probe and the call closed on
         # `PostToolBatch` instead.
         line = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu\n"
@@ -455,7 +455,7 @@ def drive(out, sandbox, claude, dwell):
             {"sleep": 2},
             {"key": "enter"},
             # If anything is still in flight, `/exit` raises a confirmation
-            # ("Background work is running — 1. Exit anyway"). The rehearsal left
+            # ("Background work is running: 1. Exit anyway"). The rehearsal left
             # it unanswered and the session never emitted `SessionEnd`, so the
             # capture ended with calls open that nothing ever closed. A second
             # `enter` takes the default. With no dialog it submits an empty
@@ -489,7 +489,7 @@ def classify_exit(out, capture, rc):
 
     `ptydrive.py` writes the confirm keystroke unconditionally, and when nothing
     was left in flight the TUI has already gone by then, so the write lands on a
-    closed pty and the rig reports `rc=5`. That is the *good* path — the session
+    closed pty and the rig reports `rc=5`. That is the *good* path: the session
     exited on the first `enter` and `SessionEnd` is in the capture. The rig is
     M0c's and is left alone; the classification happens here instead of
     pretending the return code said something it did not."""
@@ -505,7 +505,7 @@ def classify_exit(out, capture, rc):
     if rc == 5 and "Input/output error" in text and ended:
         return "clean; the pty closed before the confirm keystroke (rc=5 is that write)"
     if rc == 3:
-        return "a step timed out — see ptydrive.log"
+        return "a step timed out: see ptydrive.log"
     if rc == 4:
         return "the driver hit its own hard timeout"
     return "rc=%d, SessionEnd %s" % (rc, "captured" if ended else "missing")
@@ -518,7 +518,7 @@ def capture_is_quiet(path, seconds=6):
     time.sleep(seconds)
     after = os.path.getsize(path) if os.path.exists(path) else 0
     if after != before:
-        log("WARNING: the capture grew by %d bytes after the session ended — "
+        log("WARNING: the capture grew by %d bytes after the session ended: "
             "something is still running" % (after - before))
         return False
     return True
@@ -556,8 +556,8 @@ def main():
     sandbox = args.sandbox or os.path.join(os.path.dirname(os.path.dirname(out)), "m0-capture")
 
     (spriteroom, replay), app_info = pin_app(out, args.app_from)
-    # `--frames-only` re-analyses a run that already happened. Its metadata —
-    # the port, how the session exited, whether the port came back — is evidence
+    # `--frames-only` re-analyses a run that already happened. Its metadata,
+    # the port, how the session exited, whether the port came back: is evidence
     # about that run and must survive a re-render, so this merges rather than
     # starts a new file.
     run_json = os.path.join(out, "run.json")
@@ -576,7 +576,7 @@ def main():
         if os.path.exists(capture):
             os.remove(capture)
         if not os.path.isdir(sandbox):
-            raise SystemExit("no sandbox at %s — pass --sandbox" % sandbox)
+            raise SystemExit("no sandbox at %s: pass --sandbox" % sandbox)
         version = subprocess.run([args.claude, "--version"], capture_output=True,
                                  text=True).stdout.strip()
         port = free_port()

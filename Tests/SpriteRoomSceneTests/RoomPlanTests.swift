@@ -7,14 +7,14 @@ import SpriteRoomCore
 ///
 /// Most of this suite is **ungated**, deliberately. A plan is geometry and the
 /// manifest that declares it is tracked, so a fresh clone with no art on disk
-/// can still answer "does the shipped plan wall somebody in" — and that is the
+/// can still answer "does the shipped plan wall somebody in", and that is the
 /// question whose wrong answer is a character walking through a wall, which no
 /// still frame shows and no palette lint can see.
 ///
 /// **The plan's hand-placed dressing is checked here for the same reason.** The
-/// band lattice earned its route safety structurally — `sceneryColumns` *is*
+/// band lattice earned its route safety structurally (`sceneryColumns` *is*
 /// the gaps between the seat columns, so a banded prop could not be in a
-/// corridor however badly it was authored — and a hand-placed prop can be
+/// corridor however badly it was authored) and a hand-placed prop can be
 /// anywhere, so the three clauses have to be asserted instead.
 /// `RoomPlan.dressingViolations(in:resolve:)` is those clauses as a function,
 /// this suite runs it over the shipped composition, and the three tests under
@@ -27,7 +27,7 @@ struct RoomPlanTests {
     /// It resolved "the alphabetically-first theme with a non-empty plan",
     /// which named `office` for exactly as long as `office` was the only theme
     /// with a plan. The moment a second one had one, the helper silently
-    /// pointed somewhere else — and because `orderedIDs` is `keys.sorted()`,
+    /// pointed somewhere else, and because `orderedIDs` is `keys.sorted()`,
     /// **four of the five themes that wanted a plan could not have one**:
     /// `briefing`, `broadcast`, `library` and `mission_control` all sort before
     /// `office`, so giving any of them a single-band plan redirected every test
@@ -36,9 +36,9 @@ struct RoomPlanTests {
     /// looking at. That is the second time a proxy in this suite has decided
     /// the art; the first was a pinned `board`/`plant` count.
     ///
-    /// Resolving by **most spaces** says what the callers below actually mean —
-    /// they want the multi-room plan, the one with doorways and partitions and
-    /// more than one finish — and it keeps meaning it however many themes gain
+    /// Resolving by **most spaces** says what the callers below actually mean
+    /// (they want the multi-room plan, the one with doorways and partitions and
+    /// more than one finish) and it keeps meaning it however many themes gain
     /// a plain wall band. It is also stable: `spaces.count` is a property of
     /// the plan rather than of where its theme lands in an alphabet.
     static func richestPlan() throws -> RoomPlan {
@@ -69,8 +69,8 @@ struct RoomPlanTests {
     ///
     /// `Manifest.PropRole` keeps a path and a measured box and nothing else:
     /// nothing the app *draws* reads a `what`, so the typed view does not carry
-    /// one. `dressingViolations` does read it — a placement's `what` is the
-    /// tripwire for somebody reordering the scenery list underneath it — so the
+    /// one. `dressingViolations` does read it (a placement's `what` is the
+    /// tripwire for somebody reordering the scenery list underneath it) so the
     /// check needs the strings, and it reads them out of `assets/manifest.json`
     /// rather than writing them down here. A transcription in the test would
     /// move with the list it exists to catch moving.
@@ -104,7 +104,7 @@ struct RoomPlanTests {
 
     /// What `dressingViolations` asks of a theme, answered from the theme's own
     /// declarations: **the measured content box** for the size, and the
-    /// manifest's own `what` for the name. Not a number in this file — the
+    /// manifest's own `what` for the name. Not a number in this file: the
     /// clause under test is about the manifest's contents, so the manifest is
     /// what the test reads.
     static func resolver(
@@ -142,7 +142,7 @@ struct RoomPlanTests {
     /// The check is not vacuous: a plan that walls a seat column **is** caught.
     ///
     /// Written because the shipped plan puts its only band at the wall line,
-    /// where the exit already ends, so `routeViolations` returns empty for it —
+    /// where the exit already ends, so `routeViolations` returns empty for it,
     /// and a check that returns empty for everything is indistinguishable from
     /// one that returns empty because it works.
     @Test func aBandAcrossASeatColumnIsCaught() throws {
@@ -150,13 +150,13 @@ struct RoomPlanTests {
         let surface = RoomPlan.Surface(
             id: "s", floor: "f", cap: "c", body: "b",
             lineEdge: Bitmap.RGBA(0, 0, 0), lineFill: Bitmap.RGBA(255, 255, 255))
-        // A band at rows 3 and 4 — y 96 to 160, between the front seat row and
+        // A band at rows 3 and 4: y 96 to 160, between the front seat row and
         // the wall line, straight across every column.
         let walled = RoomPlan(
             spaces: [RoomPlan.Space(name: "bad", surface: "s", x: 0, y: 0, w: 25, h: 5)],
             surfaces: ["s": surface])
         let violations = walled.routeViolations(in: layout)
-        // One complaint per seat per band row — a band is a cap and a body, and
+        // One complaint per seat per band row: a band is a cap and a body, and
         // both of them are in the way.
         #expect(violations.count == layout.seatCapacity * RoomPlan.wallRowsFromTop,
                 Comment(rawValue:
@@ -235,7 +235,7 @@ struct RoomPlanTests {
         for item in dressing {
             let entry = resolve(item.piece)
             #expect(entry != nil, Comment(rawValue:
-                "\(theme.id) places \(item.piece) — '\(item.what)' — which resolves to no art"))
+                "\(theme.id) places \(item.piece) ('\(item.what)') which resolves to no art"))
             #expect(entry.map { !$0.what.isEmpty } ?? false, Comment(rawValue:
                 "\(theme.id)'s \(item.piece) has no `what` in the manifest, so the clause that"
                 + " catches a reordered scenery list has nothing to compare"))
@@ -273,8 +273,8 @@ struct RoomPlanTests {
     /// One placement that breaks nothing, so that every violation the tests
     /// below report is the one they added.
     ///
-    /// It stands on a **scenery column** — the gaps between the seat columns,
-    /// which is where the lattice put everything — at a depth low enough for the
+    /// It stands on a **scenery column** (the gaps between the seat columns,
+    /// which is where the lattice put everything) at a depth low enough for the
     /// corridor clause to actually run over it. A control that trivially skipped
     /// the clause under test would not be a control.
     static func cleanDressing(_ layout: RoomLayout, column: Double) -> RoomPlan.Dressing {
@@ -287,7 +287,7 @@ struct RoomPlanTests {
         RoomPlan(spaces: [], surfaces: [:], partitions: [], dressing: dressing)
     }
 
-    /// **A placement in somebody's way is caught** — the two route clauses, each
+    /// **A placement in somebody's way is caught**: the two route clauses, each
     /// aimed at on its own.
     ///
     /// A seat's column is a corridor from the delivery row to the wall line:
@@ -334,7 +334,7 @@ struct RoomPlanTests {
     /// The first is the silence `RoomScene.dressingPlacements` produces on its
     /// own: a piece that resolves to nothing is skipped, so a room missing a
     /// prop looks exactly like a room that was never asked for one. The second
-    /// is the failure that has no symptom at all — reorder the scenery list and
+    /// is the failure that has no symptom at all: reorder the scenery list and
     /// every placement still resolves, still draws and still stands somewhere
     /// plausible, with the wrong object in it. `what` is what makes that loud.
     @Test func aDressingPlacementTheThemeCannotDrawIsCaught() throws {
@@ -370,7 +370,7 @@ struct RoomPlanTests {
     ///
     /// `compose-scene.py`'s `report_hidden` as a rule rather than as a printout:
     /// a prop whose box is wholly inside the box of a nearer one is drawn,
-    /// depth-sorted behind it, and completely covered — which costs a texture
+    /// depth-sorted behind it, and completely covered, which costs a texture
     /// and a node and shows nothing. Nearer the camera is drawn later, so the
     /// one that disappears is the one with the *higher* y of the pair.
     @Test func aDressingPlacementBuriedByANearerOneIsCaught() throws {
@@ -409,7 +409,7 @@ struct RoomPlanTests {
     /// a 26 px cabinet leaned on a 26 px cabinet one pixel across draws as one
     /// cabinet with a sliver of another behind it and reported nothing. That
     /// shipped in a draft of the office composition and was found by cropping a
-    /// render at 5x — the work this check exists to save.
+    /// render at 5x: the work this check exists to save.
     ///
     /// Both arms matter. Catching the stack is worthless if it also refuses the
     /// pile the composition is *for*: a small prop on a large one, which is how
@@ -471,7 +471,7 @@ struct RoomPlanTests {
         #expect(planned.decorationColumns.map(\.x) == open.decorationColumns.map(\.x))
     }
 
-    // MARK: What the plan does move — the four scenery bands
+    // MARK: What the plan does move - the four scenery bands
 
     /// The open floor's anchors are pinned, so "five of the six themes are
     /// untouched by this work" is a measurement rather than an intention.
@@ -507,7 +507,7 @@ struct RoomPlanTests {
         #expect(layout.sceneryAnchors(.midFloor) == open.sceneryAnchors(.midFloor))
     }
 
-    /// **Nothing hangs in a doorway** — `06-SET-BUILDING.md` R1, and not a
+    /// **Nothing hangs in a doorway** (`06-SET-BUILDING.md` R1), and not a
     /// hypothetical: the doorways are on seat columns and the wall band uses
     /// seat columns.
     @Test func nothingHangsInADoorway() throws {
@@ -520,13 +520,13 @@ struct RoomPlanTests {
         }
     }
 
-    /// **Nothing stands on a partition** — R2 and R3, measured against the
+    /// **Nothing stands on a partition** (R2 and R3), measured against the
     /// widest prop each band admits rather than against the props that happen to
     /// be declared today.
     /// **The plan and the art come from the same theme.** This paired
     /// `richestPlan()` with `handPlacedTheme().room`, which named one theme
     /// while there was one hand-placed theme and two the moment a second gained
-    /// dressing — office's placements were then measured against another
+    /// dressing: office's placements were then measured against another
     /// theme's content boxes, and a clearance office had always had failed
     /// against art it does not draw. Every theme that declares partitions is
     /// checked here, each against its own room.
@@ -547,7 +547,7 @@ struct RoomPlanTests {
         let half = Double(RoomPlan.partitionPx) / 2
         // **Whatever this plan actually draws**, which since the office was
         // hand-placed is not the bands. Walking `sceneryAnchors` here asserted a
-        // clearance for props the room does not put anywhere — vacuously true
+        // clearance for props the room does not put anywhere: vacuously true
         // while the two interior partitions stood clear of the lattice, and
         // then loudly false the moment an outer wall landed on a band column
         // that nothing stands in. A test that fails about absent props is worse
@@ -564,7 +564,7 @@ struct RoomPlanTests {
                 let gap = abs(point.x - Double(partition.x * layout.tile))
                 #expect(gap >= reach + half, Comment(rawValue:
                     "\(id): '\(placement.what)' at x=\(Int(point.x)) reaches the partition "
-                    + "at x=\(partition.x * layout.tile) — \(Int(gap)) px apart, needs "
+                    + "at x=\(partition.x * layout.tile), \(Int(gap)) px apart, needs "
                     + "\(Int(reach + half))"))
             }
         }
@@ -580,7 +580,7 @@ struct RoomPlanTests {
     /// **The second arm is the building's outer wall and nothing else.** [ADR-013]
     /// That argument is about the gaps *between* seats; beyond the outermost
     /// seat column there are no gaps and no routes, so a wall there may run the
-    /// full depth of the floor — and it has to, or it is a wall with a gap in it
+    /// full depth of the floor, and it has to, or it is a wall with a gap in it
     /// where the camera is looking. Written as a disjunction rather than
     /// loosened to "upstage or at the edge", so an interior partition that
     /// wandered downstage still fails on the first arm.
@@ -601,8 +601,8 @@ struct RoomPlanTests {
                 + "wall line at \(Int(layout.wallBaseY)), inside the travelled span"))
         }
         #expect(outside == 2, Comment(rawValue:
-            "the plan should carry exactly two walls outside every route — its own "
-            + "left and right edges — and carries \(outside)"))
+            "the plan should carry exactly two walls outside every route (its own "
+            + "left and right edges) and carries \(outside)"))
     }
 
     /// The plan is a plan: more than one room, more than one finish, and rooms
@@ -635,7 +635,7 @@ struct RoomPlanSceneTests {
 
     /// **The room is drawn from the plan, not from one floor tile and one wall
     /// tile.** Paths rather than node counts, because the failure this has to
-    /// catch — a plan that decoded to nothing and fell back to the open floor —
+    /// catch (a plan that decoded to nothing and fell back to the open floor)
     /// produces a perfectly plausible set of nodes.
     @Test(.enabled(if: SceneArt.isAvailable))
     func thePlannedRoomDrawsSeveralFinishesAndMoreThanOneWallBand() throws {
@@ -659,8 +659,8 @@ struct RoomPlanSceneTests {
         #expect(art.contains("shadow"), "the wall band casts no contact shadow")
     }
 
-    /// **The camera keeps the plan's top edge in frame.** That edge — 12 px of
-    /// white floor-plan line with the surround above it — is the single thing
+    /// **The camera keeps the plan's top edge in frame.** That edge (12 px of
+    /// white floor-plan line with the surround above it) is the single thing
     /// that makes the picture read as a building rather than as a stage with an
     /// infinite backcloth, and a frame that crops it undoes the whole change.
     @Test(.enabled(if: SceneArt.isAvailable))

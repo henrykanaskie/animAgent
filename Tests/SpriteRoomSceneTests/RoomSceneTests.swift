@@ -6,8 +6,8 @@ import SpriteRoomCore
 
 /// The SpriteKit half. These run on the main actor because SpriteKit nodes do.
 ///
-/// Mixed suite. The tests that need real pixels — anything that loads a texture,
-/// plays an animation or places a prop — are gated on `SceneArt`, because
+/// Mixed suite. The tests that need real pixels (anything that loads a texture,
+/// plays an animation or places a prop) are gated on `SceneArt`, because
 /// `assets/` is not in the repository; see `SceneFixtures.swift`. The layout,
 /// camera and depth-ordering tests derive everything from the tracked
 /// manifest and `RoomLayout`, so they run on any checkout and are not gated.
@@ -33,7 +33,7 @@ struct RoomSceneTests {
     /// **`.nearest` on every texture, no mipmaps.** A single texture created
     /// without it looks wrong in a way that is very hard to trace later, so
     /// this checks the room, the characters, the badges and the generated
-    /// bitmaps — every path a texture can be born through.
+    /// bitmaps: every path a texture can be born through.
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyTextureIsNearestFilteredWithNoMipmaps() throws {
         let store = try Self.store()
@@ -67,7 +67,7 @@ struct RoomSceneTests {
         }
     }
 
-    // MARK: Criterion 2 — all six body states play
+    // MARK: Criterion 2 - all six body states play
 
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyVariantHasPlayableFramesForAllSixStates() throws {
@@ -148,7 +148,7 @@ struct RoomSceneTests {
     /// **The same clock over an idle character puts one texture on screen.**
     ///
     /// The unit-level statement is `AmbientMotionTests.anIdleBodyHoldsOneFrame`;
-    /// this is the same claim made where it is actually observable — through the
+    /// this is the same claim made where it is actually observable, through the
     /// texture the node is wearing, over 200 frames of the room's own clock. The
     /// defect it pins was measured in pixels, so it deserves an assertion nearer
     /// the pixels than the sequence array.
@@ -186,7 +186,7 @@ struct RoomSceneTests {
                 "the walk-in does not start on the walkway")
 
         // Every frame of it is inside seat 3's column and every step of it is
-        // upstage — the two properties the lattice rests on, checked over the
+        // upstage: the two properties the lattice rests on, checked over the
         // walk rather than at its ends.
         var previous = Double(character.position.y)
         var strayed = 0
@@ -229,7 +229,7 @@ struct RoomSceneTests {
     /// back**. All of it has to actually play, in that order, and it has to end
     /// with the character in the chair it started in.
     ///
-    /// This is the whole beat now. It used to be the front half of an exit — the
+    /// This is the whole beat now. It used to be the front half of an exit: the
     /// walk-off was carried by the `agentDeparted` that `SubagentStop` emitted
     /// behind `reportDelivered`. A subagent that stops goes dormant in its seat,
     /// so nothing follows the report and the round trip is the entire
@@ -408,13 +408,13 @@ struct RoomSceneTests {
     @Test func theDeliveryPointIsBesideTheAnchorOnTheDeliveryRow() {
         let layout = RoomLayout()
         // The convenience point is seat 2 reporting to seat 0, and seat 2 is
-        // left of centre — so it stands left of the anchor and turns right to
+        // left of centre, so it stands left of the anchor and turns right to
         // face it.
         #expect(layout.deliveryPosition.x < layout.seatPosition(0).x)
         #expect(layout.deliveryFacing == .right)
         #expect(layout.deliveryPosition.x == layout.seatPosition(0).x - layout.deliveryGap,
                 "the reporter did not reach its anchor")
-        // On the delivery row — the one row in the room a character travels
+        // On the delivery row: the one row in the room a character travels
         // *along*, and the one row nothing else in the room ever touches.
         #expect(layout.deliveryPosition.y == layout.deliveryRowY)
         #expect(layout.deliveryRowY < layout.aisleY)
@@ -436,15 +436,15 @@ struct RoomSceneTests {
     /// `aReporterApproachesItsAnchorFromItsOwnSide…`; M6f rewrote it as
     /// `aReporterDeliversInItsOwnColumn…` when the walk was deleted; the walk is
     /// back, one shared row instead of three, so the original claim is the claim
-    /// again. What was never in doubt is the half [I1] cares about — it turns to
+    /// again. What was never in doubt is the half [I1] cares about: it turns to
     /// face the person it is reporting to, because delivering with your back
     /// turned would be a small lie about a real event.
     @Test func aReporterStopsShortOfItsAnchorOnItsOwnSideAndTurnsToFaceIt() {
         let layout = RoomLayout()
         for anchor in 0..<layout.seatCapacity {
             let anchorX = layout.seatPosition(anchor).x
-            // Seat 0 is the anchor, never a reporter — the main agent has no
-            // `SubagentStop` — and `RoomScene` guards that self-report rather
+            // Seat 0 is the anchor, never a reporter (the main agent has no
+            // `SubagentStop`) and `RoomScene` guards that self-report rather
             // than leaving it to arithmetic.
             for reporter in 1..<layout.seatCapacity where reporter != anchor {
                 let side = layout.deliverySide(anchorSeat: anchor, reporterSeat: reporter)
@@ -464,8 +464,8 @@ struct RoomSceneTests {
     ///
     /// M6f's version of this asserted the first clause of *every* route with no
     /// exception, which it could because it had deleted the one route that
-    /// crosses columns. The exception is back — see
-    /// `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)` — and it is stated
+    /// crosses columns. The exception is back (see
+    /// `RoomLayout.deliveryPosition(anchorSeat:reporterSeat:)`) and it is stated
     /// here as an exception with a boundary rather than dropped: a report's
     /// waypoints are on its own column *until* it is on `deliveryRowY`, and the
     /// only waypoint that is not is on that row. `ReportDeliveryTests
@@ -503,7 +503,7 @@ struct RoomSceneTests {
     ///
     /// There used to be a four-second ceiling on a single walk, which meant a
     /// longer walk ran faster. Two characters leaving in the same direction then
-    /// converge — the one with further to go is the one that was sped up — and
+    /// converge (the one with further to go is the one that was sped up) and
     /// `SessionEnd` sends the whole cast out at once, so that is not a corner.
     @Test func aWalkTakesTimeInProportionToItsLengthAtEveryLength() {
         func seconds(_ distance: Double) -> TimeInterval {
@@ -524,7 +524,7 @@ struct RoomSceneTests {
     /// **Every seat faces a direction the pack actually drew, in the row that
     /// draws it.** [ADR-008]
     ///
-    /// It used to read `#expect(layout.seatedFacing.isSideView)` — one facing
+    /// It used to read `#expect(layout.seatedFacing.isSideView)`: one facing
     /// for the whole room, and the property being checked was that a seated
     /// character never asks for a sit frame that does not exist, because both
     /// sit rows are side art in all four blocks [M0]. **That property has not
@@ -532,8 +532,8 @@ struct RoomSceneTests {
     /// turned seat does not ask for a sit frame at all: it draws the standing
     /// `idle` row, which the manifest declares in all four directions at six
     /// frames each, and lets the seat's own occluder do the sitting. So the
-    /// assertion is on `BodyState.artState(facing:)` — the function that makes
-    /// the choice — rather than on a constant that no longer exists.
+    /// assertion is on `BodyState.artState(facing:)` (the function that makes
+    /// the choice) rather than on a constant that no longer exists.
     @Test func everySeatedCharacterFacesADirectionThePackDrew() throws {
         let layout = RoomLayout()
         let manifest = try SceneFixtures.manifest()
@@ -566,13 +566,13 @@ struct RoomSceneTests {
     /// not. [M8, `RoomLayout.SeatFacing.seatRole`]
     ///
     /// The maintainer, on the shipped room: *"the chairs that are facing forward,
-    /// and they look weird."* The sprite is right — 101 is genuinely the pack's
-    /// back view — and a vacant away-facing pod renders correctly with it. What
+    /// and they look weird."* The sprite is right, 101 is genuinely the pack's
+    /// back view, and a vacant away-facing pod renders correctly with it. What
     /// does not fit is the chair between the two things an occupied seat draws in
     /// the same 32 px column, and the two bounds are both already in the codebase:
     ///
     /// - the head band of a turned body is everything above `ink_top_px`, so
-    ///   furniture may reach no higher than **feet + `ink_top_px`** —
+    ///   furniture may reach no higher than **feet + `ink_top_px`**:
     ///   `SeatedHeadOcclusionTests.nothingTheRoomDrawsInFrontOfASeatedBodyCovers
     ///   ItsHead` is that as a shipped invariant;
     /// - a plate hangs `maximumNameplateHeight + 2` below the feet, so a chair
@@ -580,8 +580,8 @@ struct RoomSceneTests {
     ///
     /// **This is written as a biconditional on purpose.** It is not "there is no
     /// chair"; it is "there is a chair if and only if the art allows one". A
-    /// manifest that ever binds a back view inside the window — the same manifest
-    /// swap the art direction promises is all final art costs — fails this test
+    /// manifest that ever binds a back view inside the window (the same manifest
+    /// swap the art direction promises is all final art costs) fails this test
     /// until the seat draws it again, and a manifest that keeps this one fails it
     /// the moment somebody puts the chair back.
     @Test func aTurnedSeatTakesAChairOnlyIfOneFitsUnderItsOwnNameplate() throws {
@@ -605,7 +605,7 @@ struct RoomSceneTests {
             let fits = height <= window
             #expect(!fits, Comment(rawValue:
                 "\(theme ?? "room") binds a \(height)px back view, which fits the"
-                + " \(window)px window — so `SeatFacing.awayFromCamera.seatRole` should"
+                + " \(window)px window, so `SeatFacing.awayFromCamera.seatRole` should"
                 + " be drawing it again and the measurement in its doc comment is stale"))
             #expect(RoomLayout.SeatFacing.awayFromCamera.seatRole == nil, Comment(rawValue:
                 "\(theme ?? "room")'s \(height)px back view is \(height - window)px too"
@@ -658,7 +658,7 @@ struct RoomSceneTests {
     /// Note what this does *not* forbid. The main agent's `Agent` calls open
     /// and close ~16 ms apart, so its badge really does appear for about one
     /// frame, three times. That is the data being honest about an
-    /// asynchronously-launched subagent, not flicker — and suppressing it would
+    /// asynchronously-launched subagent, not flicker, and suppressing it would
     /// mean a minimum-duration hack, which is exactly what [I2/I3] rules out.
     /// **Measured on the pixels, and on the fixture's own clock.** Two things
     /// changed with ADR-003 and both are the beat being taken seriously rather
@@ -666,19 +666,19 @@ struct RoomSceneTests {
     ///
     /// The comparison is on `BadgeSelection.drawn`, because the close that
     /// empties an agent's set now moves `count` from 1 to 0 while the glyph
-    /// stays put — a change in the value and none in the picture, since the `×N`
+    /// stays put: a change in the value and none in the picture, since the `×N`
     /// is drawn only above one. A test named for flicker has to count what an
     /// eye could catch.
     ///
-    /// The beat does not leave that count alone — see the same assertion in
-    /// `SceneDirectorTests` for the measurement — but it only ever raises it for
+    /// The beat does not leave that count alone (see the same assertion in
+    /// `SceneDirectorTests` for the measurement) but it only ever raises it for
     /// a call whose open and close landed inside one frame and which therefore
     /// drew *nothing* before. Such a call still changes the open-call set twice,
     /// so the bound holds, and the bound is what this test is for.
     ///
     /// And the replay steps fixture time at 1/60 rather than one batch per
     /// frame, because a beat that ends 500 ms after a close cannot be observed
-    /// on a clock that only advances when an event arrives — a compressed replay
+    /// on a clock that only advances when an event arrives, a compressed replay
     /// would show every beat still up at the end of the run and would prove
     /// nothing about the transition this test exists to bound.
     @Test func noCharacterOnScreenChangesBadgeMoreOftenThanItsCallSet() async throws {
@@ -743,7 +743,7 @@ struct RoomSceneTests {
     ///
     /// This exists because criterion 5 was passing on assertion. The aisle was
     /// introduced so that a reporting subagent's plate would not land on the
-    /// anchor's — and it did stop the plates intersecting, but nothing checked
+    /// anchor's, and it did stop the plates intersecting, but nothing checked
     /// it, so nothing noticed that the *body* had moved onto the anchor's plate
     /// instead. A room whose cast is not separable by silhouette cannot afford
     /// an unreadable nameplate, least of all during the report beat.
@@ -783,7 +783,7 @@ struct RoomSceneTests {
         #expect(checkedPairs > 0)
     }
 
-    /// The same assertion over `four-subagents` — the capture the whole dormancy
+    /// The same assertion over `four-subagents`, the capture the whole dormancy
     /// change came from. Five characters, two agents that stop and are resumed
     /// and stop again, and two reports in flight at once, which is what makes
     /// the delivery rows earn their keep.
@@ -823,13 +823,13 @@ struct RoomSceneTests {
     }
 
     /// **The whole cast leaving in one frame.** `SessionEnd` departs every agent
-    /// in the session together — four `agentDeparted` in one batch — and the
+    /// in the session together (four `agentDeparted` in one batch) and the
     /// exit routing had only ever been exercised against staggered departures.
     ///
     /// Two rules hold it, and both are checked here rather than argued: every
     /// leaver goes out through its own desk's aisle station, so the convoy sets
     /// off spaced by the seat pitch; and every walk runs at the same speed, so a
-    /// convoy that starts spaced stays spaced. Widest plates throughout —
+    /// convoy that starts spaced stays spaced. Widest plates throughout:
     /// `general-purpose` is the type that draws the full 65 px.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theWholeCastCanLeaveInOneFrame() throws {
@@ -878,7 +878,7 @@ struct RoomSceneTests {
     ///
     /// **The lateral part is measured rather than excused.** The test counts the
     /// frames the leaver is off its column and requires every one of them to be
-    /// on the delivery row — a leaver that got its lateral leg anywhere else
+    /// on the delivery row: a leaver that got its lateral leg anywhere else
     /// would be crossing a row somebody could be standing on.
     @Test(.enabled(if: SceneArt.isAvailable))
     func aLeaverCaughtMidReportComesHomeUpItsOwnColumnAndLeavesUpstage() throws {
@@ -935,7 +935,7 @@ struct RoomSceneTests {
         #expect(offColumn > 0, "the leaver was never off its column; the walk did not happen")
         #expect(offColumnAndOffTheRow == 0, Comment(rawValue:
             "the leaver was off its own column on \(offColumnAndOffTheRow) frames that"
-            + " were not on the delivery row — a diagonal, across rows other"
+            + " were not on the delivery row: a diagonal, across rows other"
             + " characters stand on"))
         // Seat 3 is a **camera-facing** seat, so it stands nothing behind its
         // occupant and its exit is the full walk to the wall line it always was,
@@ -955,8 +955,8 @@ struct RoomSceneTests {
     /// checked; it became `…AtTheStationsAndNotBetweenThem` and five blocks of
     /// lattice arithmetic, because a report was a walk *to the anchor* and a
     /// lateral corridor across the room needs a great deal of proving. Blocks 3
-    /// and 4 of that version — a delivery row carries one ring, and a reporter's
-    /// column clears every other ring's corridor — existed only to keep that one
+    /// and 4 of that version (a delivery row carries one ring, and a reporter's
+    /// column clears every other ring's corridor) existed only to keep that one
     /// lateral leg out of everyone's way, and they cost 96 px of floor to state.
     ///
     /// **The leg is gone, so the argument is one sentence.**
@@ -968,7 +968,7 @@ struct RoomSceneTests {
     /// Two plates meet only if they share a horizontal strip **and** come within
     /// a plate width in x. Nothing can change a character's x, so the second
     /// condition is decided once, by `seatColumn`, for every pairing at every
-    /// instant — and it is decided by a seat pitch against a plate width. The
+    /// instant, and it is decided by a seat pitch against a plate width. The
     /// strip half is kept for the rows, and for the two crossings the second seat
     /// row adds, because those are real and still need the same number.
     ///
@@ -981,7 +981,7 @@ struct RoomSceneTests {
     /// two reporters off each other there is `DeliveryFloor`, and
     /// `ReportDeliveryTests.twoGrantedCorridorsAreAlwaysAPlateApart` is where that
     /// is proved. Everything below is about every *other* pairing in the room,
-    /// which is every pairing that does not involve a granted delivery corridor —
+    /// which is every pairing that does not involve a granted delivery corridor,
     /// and block 4, which used to be about two reporters on the walkway, still is:
     /// the walkway is where a refused reporter delivers.
     @Test func theRoomHasNoLateralMovementLeftToSeparate() {
@@ -991,7 +991,7 @@ struct RoomSceneTests {
         let pitch = layout.seatPosition(1).x - layout.seatPosition(0).x
 
         // 1. Columns are further apart than a plate is wide, and neighbouring
-        //    columns are the closest two characters can ever be in x — because
+        //    columns are the closest two characters can ever be in x, because
         //    a character's x *is* its column's, always.
         #expect(pitch >= widest, "two characters at neighbouring stations overlap")
         var columnGaps: [Double] = []
@@ -1006,7 +1006,7 @@ struct RoomSceneTests {
         //    different rows cannot share a horizontal strip at any x. There are
         //    exactly four rows: the two seat rows, the walkway, and the delivery
         //    row. It was six (one delivery row per ring), then three, and it is
-        //    four — one shared delivery row is what buys the walk back.
+        //    four: one shared delivery row is what buys the walk back.
         //
         //    Asked of `RoomLayout.standingRows` rather than assembled here, so a
         //    row added to the room is a row this block sees.
@@ -1064,21 +1064,21 @@ struct RoomSceneTests {
     ///
     /// The pitch is 96 px for one reason: two characters whose plates overlap
     /// are two characters the room cannot tell apart, and the widest plate the
-    /// font can produce is 71 px. It is not a comfort number — bodies are 32 px
+    /// font can produce is 71 px. It is not a comfort number: bodies are 32 px
     /// of canvas over about 18 px of ink, and a desk's content box is 32 px, so
     /// nothing else in the room needs anything like it.
     ///
     /// So when the plate narrows the pitch should narrow with it, and
     /// `RoomLayout.minimumSeatSpacingTiles(plateWidth:plateHeight:tile:)` is
     /// that relation written down. This test asserts the shipped pitch *is* what
-    /// the formula gives for the shipped plate — **it fails in both directions**.
+    /// the formula gives for the shipped plate: **it fails in both directions**.
     /// Too wide and the room is spending width it does not need; too narrow and
     /// two plates can touch.
     ///
     /// It is deliberately not wired to `RoomLayout.init`. A pitch that followed
     /// the plate automatically would also move every desk, station prop and
     /// decoration column, and those clearances are argued from content boxes in
-    /// the manifest rather than from `RoomLayout` — so whoever narrows the plate
+    /// the manifest rather than from `RoomLayout`, so whoever narrows the plate
     /// has to re-derive them, and this failing is how they find out.
     @Test func theSeatPitchIsTheNarrowestTheseNameplatesAllow() {
         let layout = RoomLayout()
@@ -1091,11 +1091,11 @@ struct RoomSceneTests {
             + " \(wanted)-tile pitch (\(wanted * layout.tile) px) and the room"
             + " ships \(layout.seatSpacingTiles) (\(layout.seatSpacingTiles * layout.tile) px)."
             + " Narrowing it also moves every desk, station prop and decoration"
-            + " column — re-derive those before changing the constant."))
+            + " column; re-derive those before changing the constant."))
 
         // The formula itself, at the widths worth knowing. The threshold is
         // `width + tile − height ≤ 64`, so it moves with the plate's *height*
-        // too — 58 px bought the 2-tile pitch at a 26 px plate and 53 px buys it
+        // too, 58 px bought the 2-tile pitch at a 26 px plate and 53 px buys it
         // at 21.
         #expect(RoomLayout.minimumSeatSpacingTiles(
             plateWidth: 71, plateHeight: 26, tile: 32) == 3)
@@ -1117,13 +1117,13 @@ struct RoomSceneTests {
     /// The picture this exists for is the one the maintainer complained about:
     /// every character on a single line across the middle of the panel, with
     /// flat wall above and bare floor below. What makes the fold safe is that it
-    /// is a function of the ring and therefore leaves `seatColumn` alone —
+    /// is a function of the ring and therefore leaves `seatColumn` alone:
     /// asserted here as *both* halves, because "the seats moved" and "nothing
     /// else moved" are different claims and only the pair is the fix.
     @Test func theSeatsAlternateDepthAlongXWithoutMovingAnyColumn() {
         let layout = RoomLayout()
 
-        // Both rows are actually used, and by the seats that fill first — a
+        // Both rows are actually used, and by the seats that fill first: a
         // second row nobody reaches until the seventh agent is not composition.
         #expect(layout.seatRows.count == 2)
         #expect(layout.seatPosition(0).y == layout.baselineY, "the anchor is downstage")
@@ -1158,14 +1158,14 @@ struct RoomSceneTests {
         // read as depth rather than as two characters standing on one another.
         #expect(layout.backSeatRowY - layout.baselineY
                 == Double(layout.tile * layout.seatRowDepthTiles))
-        // The back row still has floor behind it — two tiles of it, which is what
+        // The back row still has floor behind it: two tiles of it, which is what
         // the room's *shape* leaves and what this test is about.
         //
         // **It is not what the back row's occupants get to walk on**, and that
         // sentence used to be here as an assertion: `upstageExit(forSeat: 1)`
         // was two whole tiles upstage of seat 1. It stopped being true when
         // ADR-008 stood that seat's desk 8 px behind it and ADR-009 put two
-        // screen rigs on the desk, and nothing failed — the exit kept walking to
+        // screen rigs on the desk, and nothing failed; the exit kept walking to
         // `wallBaseY` and the leaver rose through its own workstation, which is
         // the defect `RouteFurnitureTests` exists to catch. The two tiles are
         // still there; they are furniture now, so what stands on them is asked
@@ -1185,7 +1185,7 @@ struct RoomSceneTests {
     ///
     /// **There is a claim again and it is not that claim.** `DeliveryFloor`
     /// hands out a *stretch of one row*, refuses anything that would come within
-    /// a plate of a live one, and a reporter it refuses does not queue — it
+        // a plate of a live one, and a reporter it refuses does not queue: it
     /// delivers in its own column on the walkway, in the same frame. So the pair
     /// under test here is the pair the old bookkeeping got wrong, seats 1 and 3,
     /// both right of the anchor and therefore both wanting the same stretch: one
@@ -1238,7 +1238,7 @@ struct RoomSceneTests {
         step(4)
         scene.apply(director.apply([.reportDelivered(agent: cast[1])]))
         // Fire the second the instant the first is actually delivering, so both
-        // are out of their chairs together — the window the old bookkeeping got
+        // are out of their chairs together: the window the old bookkeeping got
         // wrong, and the one the delivery row exists to close. Stepped to the
         // event rather than waited out, so the overlap is real rather than hoped
         // for.
@@ -1296,7 +1296,7 @@ struct RoomSceneTests {
     }
 
     /// A desk stands on the same row as the character sitting at it, so the tie
-    /// has to be broken on purpose. It is broken towards the desk — and the
+    /// has to be broken on purpose. It is broken towards the desk, and the
     /// nameplate still outranks both.
     /// **However a seat is turned, its desk draws in front of its occupant and
     /// behind anyone walking past, and the nameplate outranks all of it.**
@@ -1305,7 +1305,7 @@ struct RoomSceneTests {
     /// desk and its occupant stand on one row, so `rowDepth` alone leaves the
     /// order to chance and `surfaceInFrontBias` breaks it on purpose. ADR-008
     /// turns three of the seven seats, and at a turned seat there is no tie to
-    /// break — a camera-facing desk is genuinely downstage of the body, so the
+    /// break: a camera-facing desk is genuinely downstage of the body, so the
     /// row does the work and the bias is zero. Both cases are asserted, because
     /// the property the room needs ("the desk crosses the body it belongs to")
     /// is the same one and only the mechanism differs.
@@ -1353,7 +1353,7 @@ struct RoomSceneTests {
 
         // **Every variant on every seat row.** Measured from `baselineY` alone
         // this passed with the back row's badges a full two tiles above the top
-        // of the frame — the band's ceiling has to be the furthest-upstage row
+        // of the frame: the band's ceiling has to be the furthest-upstage row
         // anyone sits on, not the nearest.
         for id in manifest.characters.orderedVariantIDs {
             let variant = manifest.characters.variant(id)!
@@ -1369,11 +1369,11 @@ struct RoomSceneTests {
         // at the wide default, and a band derived from `MAIN` alone would have
         // cropped every subagent's type line.
         let plateHeight = Double(SceneBitmaps.maximumNameplateHeight)
-        // The lowest plate belongs to a character on the **delivery row** — the
+        // The lowest plate belongs to a character on the **delivery row**: the
         // nearest the camera any character can stand, and where a reporter is
         // when it hands its report over.
         #expect(layout.deliveryRowY - 2 - plateHeight >= band.bottom)
-        // Every row the choreography can stand a character on is inside it —
+        // Every row the choreography can stand a character on is inside it:
         // asked of `standingRows`, so a row added to the room is a row this
         // checks rather than a row it forgets.
         for row in layout.standingRows {
@@ -1405,7 +1405,7 @@ struct RoomSceneTests {
     /// One agent gets the **wide** view, not a close-up of one desk.
     ///
     /// This test used to assert `3x`, from M5's finding that the top rung was
-    /// unreachable in the product's own panel — the nominal room box is 192 px
+    /// unreachable in the product's own panel: the nominal room box is 192 px
     /// and 192 × 3 does not fit in 400. That finding was real and the framing
     /// fix it produced stays: the scene frames the manifest-derived content
     /// band, not the nominal box, which is what made the ladder reachable at
@@ -1414,14 +1414,14 @@ struct RoomSceneTests {
     /// What changed is the preference on top of it, and it has now changed
     /// twice. It first went to `1x` at every population, because the maintainer
     /// asked for the room to be bigger from the start. It is `2x` for a small
-    /// room again as of M6f — not by reversing that decision, but because the
+    /// room again as of M6f, not by reversing that decision, but because the
     /// reason it was cheap has gone: the content band was 300 px against the
     /// 200 a `2x` view of this panel gives, so nothing closer fitted anyway.
     /// M6f spent 96 px of delivery rows and 34 px of badge slot and brought it
     /// to 170.
     ///
     /// The original complaint still holds where it was aimed. `2x` at one agent
-    /// frames 360×200 of room — a place with somebody in it, not a close-up of
+    /// frames 360×200 of room, a place with somebody in it, not a close-up of
     /// one desk, which is what `3x` gave and what was objected to. The ladder
     /// is untouched and still integer [I6].
     @Test func oneAgentIsDrawnCloseButStillInsideARoom() throws {
@@ -1460,7 +1460,7 @@ struct RoomSceneTests {
     /// when the floor went from four rows to seven: the overscan was written
     /// `rows + 8`, which is a *margin that grows with the room*, and a taller
     /// room pushed the painted field past the top of the 1600×900 viewport
-    /// `scripts/preview-theme.py --verify` registers its picture in — failing
+    /// `scripts/preview-theme.py --verify` registers its picture in, failing
     /// the whole scene-agreement check with nothing wrong with the room. A fixed
     /// overscan fixes that and needs a check at the other end, which is this:
     /// enough tiles are still painted to fill the panel at every rung.
@@ -1498,7 +1498,7 @@ struct RoomSceneTests {
         }
     }
 
-    /// Once there is slack, the frame is biased upwards — towards the wall the
+    /// Once there is slack, the frame is biased upwards, towards the wall the
     /// backdrops stand against, rather than down into floor nobody stands on.
     @Test func spareVerticalRoomGoesToTheWallRatherThanTheForeground() throws {
         let manifest = try SceneFixtures.manifest()
@@ -1511,12 +1511,12 @@ struct RoomSceneTests {
 
     /// **The camera aims at something the room draws.** [`RoomScene.cameraY`]
     ///
-    /// The aim used to be the midpoint of the seated plate and `band.top` — the
+    /// The aim used to be the midpoint of the seated plate and `band.top`: the
     /// top of the *badge slot*, which is not the top of anything: `office`'s
     /// board stands 91 px above it and `broadcast`'s softbox 125. So the surplus
     /// the camera declined to spend upward went underneath the room instead, and
     /// at `1x` on the shipped panel that was 131 px of bare floor below the
-    /// lowest nameplate — a third of the frame, most of it `drawnRows` overscan.
+    /// lowest nameplate: a third of the frame, most of it `drawnRows` overscan.
     ///
     /// This is the assertion that would have caught it, and it is written over
     /// **every theme** because the old aim was a constant while the backdrops
@@ -1530,7 +1530,7 @@ struct RoomSceneTests {
             let name = theme ?? "manifest.room"
             let band = scene.contentBand
             let decorationTop = scene.decorationTopY
-            // The wall line is the floor of the measurement — a theme that binds
+            // The wall line is the floor of the measurement: a theme that binds
             // no backdrop still gets a real number rather than nonsense.
             #expect(decorationTop >= scene.layout.wallBaseY, Comment(rawValue:
                 "\(name): decorationTopY fell below the wall line"))
@@ -1545,14 +1545,14 @@ struct RoomSceneTests {
                 "\(name): the backdrop reaches \(decorationTop) and the frame stops"
                 + " at \(frame.top)"))
             // ...and the surplus is *split*, not dumped under the room. Half of
-            // it, to the pixel, because the aim is the drawn strip's midpoint —
+            // it, to the pixel, because the aim is the drawn strip's midpoint,
             // written as the comparison rather than the equality so a future aim
             // that biases deliberately still passes if it stays honest.
             let above = frame.top - decorationTop
             let below = band.bottom - frame.bottom
             #expect(below <= above + 1, Comment(rawValue:
                 "\(name): \(below)px of frame below the lowest plate against"
-                + " \(above)px above the tallest backdrop — the slack is going"
+            + " \(above)px above the tallest backdrop: the slack is going"
                 + " under the room again"))
             // The band still fits, which is the thing the aim may never cost.
             #expect(frame.bottom <= band.bottom + 1e-9)
@@ -1569,7 +1569,7 @@ struct RoomSceneTests {
     /// below any aim the preference can produce, so the clamp is what returns.
     /// Pinned as an equality against `highest` rather than as "the picture did
     /// not change", because the latter is only checkable by rendering and this
-    /// is checkable by arithmetic — and because if the band ever shrinks far
+    /// is checkable by arithmetic, and because if the band ever shrinks far
     /// enough for the aim to become reachable at `2x`, this fails and says so
     /// instead of quietly moving the close view.
     @Test func theCloseViewIsUnmovedByWhereTheCameraPrefersToAim() throws {
@@ -1580,7 +1580,7 @@ struct RoomSceneTests {
             let height = 400.0 / 2      // `2x` of the shipped panel
             let y = scene.cameraY(band: band, sceneHeight: height)
             #expect(y == band.bottom + height / 2, Comment(rawValue:
-                "\(theme ?? "manifest.room"): 2x is no longer clamp-decided — the"
+                "\(theme ?? "manifest.room"): 2x is no longer clamp-decided, the"
                 + " band is \(band.top - band.bottom) px against \(height) px of"
                 + " frame, and the aim has become reachable"))
         }
@@ -1589,7 +1589,7 @@ struct RoomSceneTests {
     // MARK: Props [M5]
 
     /// The room draws real furniture only where the manifest names it. Anything
-    /// unnamed stays a placeholder — the pack ships 339 singles by index and
+    /// unnamed stays a placeholder: the pack ships 339 singles by index and
     /// picking a desk-shaped one would be a guess. [I1]
     @Test(.enabled(if: SceneArt.isAvailable))
     func everyPropRoleTheSceneDrawsIsOneTheManifestNames() throws {
@@ -1610,27 +1610,27 @@ struct RoomSceneTests {
     /// content band, so it fell out of frame at the tightest fitting scale and
     /// only appeared as the camera pulled back. That was I7's "remove the detail
     /// that competes with the characters" answered by geometry rather than by
-    /// taste — and the wide camera retired it, because `1x` became the only
+    /// taste, and the wide camera retired it, because `1x` became the only
     /// scale a normal room uses and "out of frame at the tightest scale" stopped
     /// meaning anything. The row was permanently on screen: seven identical
     /// plants under every glance.
     ///
     /// The rule that replaced it is about depth rather than about zoom, so no
     /// camera policy can retire it: **no prop is drawn in front of the seat
-    /// row.** Everything nearer the camera than the desks is choreography — the
-    /// aisle and the delivery rows — so the foreground is occupied by the thing
+    /// row.** Everything nearer the camera than the desks is choreography (the
+    /// aisle and the delivery rows), so the foreground is occupied by the thing
     /// the user is supposed to be looking at, and there is nothing left to
     /// compete with it.
     ///
     /// **ADR-008 narrows this to *decoration*, and the narrowing is the whole of
     /// what it takes from the rule.** A seat's own desk and chair now stand
-    /// downstage of their occupant — that is what makes a standing figure read
+    /// downstage of their occupant: that is what makes a standing figure read
     /// as a seated one, and it is the only reason a camera-facing seat exists at
     /// all. What the rule protects is that **nothing the room decorates itself
     /// with** comes between the viewer and a character, and that is untouched:
     /// no scenery, no backdrop, no accent, no station prop moved a pixel. The
     /// seat furniture is excluded by identity rather than by position, and it is
-    /// held to its own bound instead — it may come downstage of its own row, and
+    /// held to its own bound instead: it may come downstage of its own row, and
     /// it may not reach `aisleY`, the row every character in the room walks
     /// across. A chair on the walkway would be furniture standing in a route,
     /// which is the thing `RoomPlan.routeViolations` exists to refuse.
@@ -1667,19 +1667,19 @@ struct RoomSceneTests {
     /// **The decoration is spread across the room, and stands at two depths on
     /// the lattice or at many when it is placed by hand.**
     ///
-    /// The room's two decorative roles — a `board` against the wall and a
-    /// `plant` a tile behind the back seat row — reach the floor by one of two
+    /// The room's two decorative roles (a `board` against the wall and a
+    /// `plant` a tile behind the back seat row) reach the floor by one of two
     /// mechanisms now, and this test has an arm for each. The reason for two
     /// arms rather than one loose assertion is that the *count* is the thing
     /// being pinned, and the two mechanisms pin different ones.
     ///
-    /// ## The lattice arm — five themes
+    /// ## The lattice arm - five themes
     ///
     /// Both halves of it are corrections to a real picture, and neither is
     /// visible in a manifest:
     ///
     /// - The role used to be picked on `seat % 2`, and seats fill *outward in
-    ///   pairs* — so `seat % 2` is not "alternating", it is **which side of the
+    ///   pairs*, so `seat % 2` is not "alternating", it is **which side of the
     ///   room**. Every backdrop stood in the left half and every accent in the
     ///   right, and the shipped panel read as two rooms stitched at the centre.
     /// - One row of decoration a tile behind the seats left the whole band of
@@ -1691,20 +1691,20 @@ struct RoomSceneTests {
     ///
     /// **`scenery` is excluded, and only `scenery`.** M8 Phase 2b added a second,
     /// larger band of furniture upstage of these two, and it is priced by
-    /// `SceneryContractTests` rather than here — the motion budget's own
+    /// `SceneryContractTests` rather than here: the motion budget's own
     /// question, *how many copies of the role that carries the animation does
     /// the room draw*, is still exactly the count below. Excluding it by
     /// identity (`sceneryNodesForTesting`) rather than by position is deliberate:
     /// a position filter would silently start counting a scenery band that moved
     /// onto one of these rows.
     ///
-    /// ## The hand-placed arm — the theme whose plan carries `dressing`
+    /// ## The hand-placed arm - the theme whose plan carries `dressing`
     ///
     /// A plan that places its own dressing places its boards and plants too,
     /// and the lattice does not run for it **at all**: leaving it running under
     /// an authored composition would keep two of the four stripes the
     /// composition exists to break. So the pinned count for that theme is
-    /// **zero** decorative props outside `sceneryNodesForTesting` — every copy
+    /// **zero** decorative props outside `sceneryNodesForTesting`: every copy
     /// of both roles is a hand placement now, and it arrives through the same
     /// list as the printers and the bins.
     ///
@@ -1714,7 +1714,7 @@ struct RoomSceneTests {
     ///   exactly two rows, which is the stripe this composition was authored to
     ///   break, so asserting two here would be asserting the defect.
     /// - *Nothing in front of the back seat row* becomes **nothing in front of
-    ///   the front seat row** — clause 1 of `RoomPlan.dressingViolations`, which
+    ///   the front seat row**: clause 1 of `RoomPlan.dressingViolations`, which
     ///   is the rule that actually binds a hand-placed prop. A plant standing in
     ///   the lane between two stations is 28 px downstage of the back row and
     ///   that is the point of it; a prop downstage of `baselineY` would be drawn
@@ -1780,12 +1780,12 @@ struct RoomSceneTests {
             let name = theme ?? "room"
             #expect(decoration.isEmpty, Comment(rawValue:
                 "\(name) places its dressing by hand and still drew \(decoration.count)"
-                + " decorative props off the board/plant lattice — the two mechanisms are"
+                + " decorative props off the board/plant lattice: the two mechanisms are"
                 + " all-or-nothing per theme, and both of them ran"))
 
             // The two roles as the plan places them. Read off the plan rather
             // than off the nodes, because *which role* a node draws is not
-            // something a node knows — and then checked against the nodes, so
+            // something a node knows, and then checked against the nodes, so
             // the arm cannot pass on a placement nobody drew.
             let placed = scene.store.room.plan.dressing.compactMap { item -> (String, Int, Int)? in
                 guard case let .role(role) = item.piece,
@@ -1796,7 +1796,7 @@ struct RoomSceneTests {
             // **How many is the composition's business; that there are some,
             // of both, is this test's.**
             //
-            // This pinned `== 8` — office's own 3 boards and 5 plants — and the
+            // This pinned `== 8` (office's own 3 boards and 5 plants) and the
             // number then propagated: when five more themes were composed, each
             // was shaped to place exactly 8 so this would pass. That is the test
             // deciding the art, and the number it was deciding by describes one
@@ -1813,7 +1813,7 @@ struct RoomSceneTests {
                 + " depth and spread checks below run over nothing"))
             let roles = Set(placed.map(\.0))
             #expect(roles.count == 2, Comment(rawValue:
-                "\(name) hand-places only \(roles.sorted()) — the room needs both the"
+                "\(name) hand-places only \(roles.sorted()): the room needs both the"
                 + " backdrop standing on the wall line and the accent on the floor, which is"
                 + " what the two depths below are measured across"))
             let drawn = Set(scene.sceneryNodesForTesting
@@ -1825,7 +1825,7 @@ struct RoomSceneTests {
 
             let depths = Set(placed.map { Double($0.2) })
             #expect(depths.count > 2, Comment(rawValue:
-                "\(name) stands its hand-placed decoration on \(depths.count) depths —"
+                "\(name) stands its hand-placed decoration on \(depths.count) depths:"
                 + " the lattice's own answer was 2, and breaking that stripe is what the"
                 + " hand placement is for"))
             #expect(depths.contains(layout.wallBaseY),
@@ -1854,7 +1854,7 @@ struct RoomSceneTests {
 
     /// A prop is placed by putting its measured content box's bottom-centre on
     /// the target point. Checked against the desk, whose art sits 8 px above the
-    /// bottom of its canvas — a naive bottom-anchor would bury it in the floor.
+    /// bottom of its canvas: a naive bottom-anchor would bury it in the floor.
     @Test func aPropIsAnchoredOnItsContentBoxNotOnItsCanvas() throws {
         let manifest = try SceneFixtures.manifest()
         let desk = try #require(manifest.room.prop("desk"))
@@ -1883,7 +1883,7 @@ struct RoomSceneTests {
     /// **A departure fades as it walks upstage, and only a departure fades.**
     ///
     /// The exit used to end off the side of the frame, where the frame edge did
-    /// the hiding. There is no edge behind the desks — only a flat wall — so a
+    /// the hiding. There is no edge behind the desks (only a flat wall), so a
     /// character walking away has nothing to disappear behind, and would either
     /// slide up the wall in full view or blink out at an invisible line. It
     /// fades over the last leg instead. Nothing else in the room ever changes a
@@ -1897,7 +1897,7 @@ struct RoomSceneTests {
         character.advance(to: 0)
         character.position = CGPoint(x: layout.seatPosition(1).x, y: layout.baselineY)
 
-        // The report round trip is not an exit and must not fade — the character
+        // The report round trip is not an exit and must not fade: the character
         // comes home and sits down.
         character.reportAndReturn(
             out: layout.deliveryRoute(anchorSeat: 0, reporterSeat: 1), facing: .left,
@@ -1908,8 +1908,8 @@ struct RoomSceneTests {
         var finished = false
         // Seat 1 is away-facing, so its exit is the 7 px its own desk leaves it
         // and the fade runs over `Character.duration`'s 0.2 s floor. The fade is
-        // still a fade — this test samples every frame and still finds it
-        // half-way — which is the property that matters and the reason the
+        // still a fade (this test samples every frame and still finds it
+        // half-way) which is the property that matters and the reason the
         // shorter exit was affordable. [`RoomLayout.upstageClearance`]
         let exit = layout.upstageExit(
             forSeat: 1, metrics: SceneFixtures.seatMetrics(store.manifest, theme: "office"))
@@ -1945,8 +1945,8 @@ struct RoomSceneTests {
     ///
     /// The fixtures pass, and passing was partly luck: `three-subagents` cleared
     /// by 20 px in x and got there by timing rather than by geometry. So the
-    /// pairings are enumerated instead of waited for. Six agents — S4's
-    /// population — and one beat fired against another at every tenth of a
+    /// pairings are enumerated instead of waited for. Six agents (S4's
+    /// population) and one beat fired against another at every tenth of a
     /// second of relative offset, through the window where they overlap.
     ///
     /// The pairs that matter and why:
@@ -1955,7 +1955,7 @@ struct RoomSceneTests {
     ///   where lowest-free claiming put the farther reporter through the nearer
     ///   one's station;
     /// - a report against a departure, which is a leaver crossing the room
-    ///   against a reporter crossing it the other way — the case no seat pitch
+    ///   against a reporter crossing it the other way: the case no seat pitch
     ///   can fix, because two characters walking one line in opposite directions
     ///   meet at zero separation whatever the pitch;
     /// - a report against an arrival, which is the same thing with the arrival
@@ -1966,11 +1966,11 @@ struct RoomSceneTests {
     ///
     /// **The refill pairing was here and was aimed at the wrong seat, and that
     /// is worth recording rather than quietly fixing.** It vacated seat 1 and
-    /// reported from seat 5 — two rings apart, so the arrival's corridor and the
+    /// reported from seat 5, two rings apart, so the arrival's corridor and the
     /// reporter's station were never the same place, and the sweep cleared at
     /// the lattice's own 6 px margin while an overlap of **−25.6 px** sat one
     /// ring away. The corridor of an arrival at seat *n* ended on seat *n+2*'s
-    /// station — the next ring out on the same side — and nothing here fired
+    /// station (the next ring out on the same side) and nothing here fired
     /// those two against each other. The three pairings below are that case, at
     /// every same-side adjacent-ring pair the room has, plus the handover that
     /// puts two characters in one column at once. A sweep that enumerates
@@ -2008,7 +2008,7 @@ struct RoomSceneTests {
             // The three same-side adjacent-ring refills. Seats 1/3/5 sit at one,
             // two and three pitches right of centre and 2/4 at one and two left,
             // so these are every pair whose columns are one pitch apart on one
-            // side — which is exactly the reach the old aisle walk-in had.
+        // side, which is exactly the reach the old aisle walk-in had.
             ("a seat vacated and refilled under the next ring out reporting (1 under 3)",
              .init(first: [.agentDeparted(agent: cast[1]), .reportDelivered(agent: cast[3])],
                    second: [appear(newcomer)])),
@@ -2098,12 +2098,12 @@ struct RoomSceneTests {
             }
         }
         #expect(worst > 0, Comment(rawValue:
-            "plates came within \(worst) px — \(worstLabel)"))
+            "plates came within \(worst) px, \(worstLabel)"))
         // The lattice's own margin: rows are a tile apart and plates 26 px tall,
         // so anything on two different rows clears by 6 px. Anything less means
         // two characters found their way onto one row.
         #expect(worst >= 6, Comment(rawValue:
-            "only \(worst) px of clearance — \(worstLabel)"))
+            "only \(worst) px of clearance, \(worstLabel)"))
     }
 
     // MARK: The overflow plate [I1, S5]
@@ -2125,8 +2125,8 @@ struct RoomSceneTests {
     /// **Nothing else stands where the plate stands, in any theme.**
     ///
     /// The point is `RoomLayout.overflowPlatePosition` and the props are read
-    /// from `RoomScene.decorationPlacements` — the same function the room
-    /// builds from, not a copy of it — so a theme with a taller accent or a
+    /// from `RoomScene.decorationPlacements` (the same function the room
+    /// builds from, not a copy of it) so a theme with a taller accent or a
     /// change to the alternation fails here rather than quietly putting the
     /// room's only caption behind a bookcase.
     @Test func theOverflowPlateStandsWhereNoThemePutsAProp() throws {
@@ -2160,7 +2160,7 @@ struct RoomSceneTests {
 
     /// **The caption is on screen, or it is silence.** The panel is 720×400 and
     /// the plate only ever appears with every seat taken, so the frame is fixed
-    /// when it matters — but `--render` and `--window` take a size, so the
+    /// when it matters, but `--render` and `--window` take a size, so the
     /// clamp is checked over a sweep rather than at the one size that ships.
     @Test func theOverflowPlateIsInsideTheFrameAtEverySizeTheAppCanBeGiven() throws {
         let manifest = try SceneFixtures.manifest()
@@ -2186,7 +2186,7 @@ struct RoomSceneTests {
     }
 
     /// It says the number it was given, it stops saying anything at zero, and it
-    /// is not a prop — §6 rule 1's "zero prop-node rebuilds" must stay a
+    /// is not a prop: §6 rule 1's "zero prop-node rebuilds" must stay a
     /// statement about the room's furniture.
     @Test func theOverflowPlateAppearsOnlyWhenThereIsSomethingToSay() throws {
         let manifest = try SceneFixtures.manifest()
@@ -2202,7 +2202,7 @@ struct RoomSceneTests {
         scene.apply([.setOverflow(12)])
         let twelve = try #require(scene.overflowPlateBoxForTesting())
         // **The plate widens with the count again**, because the count and
-        // `MORE` share one line now — `+3 MORE` against `+12 MORE`. It stopped
+        // `MORE` share one line now: `+3 MORE` against `+12 MORE`. It stopped
         // doing so while they were two rows and `MORE` set the width; that note
         // is what this replaces. The number is still checked directly, since a
         // width is only a proxy for it.

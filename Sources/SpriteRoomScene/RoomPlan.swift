@@ -7,8 +7,8 @@ import Foundation
 /// stand on is made of and where its walls are. The two are deliberately
 /// separate types because they answer to different authorities: every number in
 /// `RoomLayout` is derived from a nameplate, a body or a route and may not be
-/// authored, and every number in here **is** authored — by somebody who looked
-/// at `scripts/compose-scene.py`'s renders — and may not move a route.
+/// authored, and every number in here **is** authored: by somebody who looked
+/// at `scripts/compose-scene.py`'s renders, and may not move a route.
 ///
 /// ## What a plan may not do
 ///
@@ -21,7 +21,7 @@ import Foundation
 /// - the delivery row keeps a clear lateral corridor across the whole width;
 /// - nothing is drawn nearer the camera than the seat row **inside the span the
 ///   cast travels**. Beyond the outermost seat column there are no routes at
-///   all, and that is where the building's own outer wall stands — it has to run
+///   all, and that is where the building's own outer wall stands: it has to run
 ///   the full depth of the floor or it is a wall with a gap in it where the
 ///   camera is looking. [ADR-013]
 ///
@@ -34,7 +34,7 @@ import Foundation
 /// Because the alternative is a theme name in `Sources/`, which ADR-002 §8
 /// item 5 forbids and a test asserts the absence of. The plan arrives through
 /// `Manifest.Room.plan` like every other piece of art in this project, so a
-/// second plan — or a redrawn first one — is a manifest swap with no code in it.
+/// second plan (or a redrawn first one) is a manifest swap with no code in it.
 ///
 /// ## The vocabulary, measured off the pack's own rooms
 ///
@@ -46,7 +46,7 @@ import Foundation
 ///   floor-plan line over 20 px of face and a *body* tile carrying 30 px more
 ///   face over a 2 px baseboard;
 /// - a **doorway** is a gap cut clean through the band, with the floor showing
-///   through — nothing is drawn in it;
+///   through: nothing is drawn in it;
 /// - a **partition** is a 14 px floor-plan line, 2 px dark / 10 px light / 2 px
 ///   dark, drawn flat.
 ///
@@ -60,7 +60,7 @@ public struct RoomPlan: Sendable, Hashable {
 
     /// How many tile rows of a space's rect its north wall eats. Two, because
     /// the pack draws a cap and a body and nothing else. **A space's rect is not
-    /// its floor** — the mistake `06-SET-BUILDING.md` §2 calls "the consequence
+    /// its floor**: the mistake `06-SET-BUILDING.md` §2 calls "the consequence
     /// people get wrong".
     public static let wallRowsFromTop = 2
 
@@ -79,7 +79,7 @@ public struct RoomPlan: Sendable, Hashable {
     /// `lineEdge` and `lineFill` are the two colours of the floor-plan line,
     /// **measured from `cap` by `scripts/build-manifest.py`** rather than typed
     /// in here. The pack ships no free-standing line tile that survives the
-    /// import pass — every plain run, every T and every jamb is a 12 or 14 px
+    /// import pass: every plain run, every T and every jamb is a 12 or 14 px
     /// stripe on an otherwise transparent tile, and `process-assets.py` drops
     /// anything under 60% opaque because a mostly-transparent tile laid as floor
     /// would show the void. So the partitions are drawn from the cap tile's own
@@ -116,7 +116,7 @@ public struct RoomPlan: Sendable, Hashable {
         public let surface: String
         public let x: Int, y: Int, w: Int, h: Int
         /// Absolute tile columns where the north band is cut through. A doorway
-        /// shows this space's own floor — step 1 lays it across the whole rect —
+        /// shows this space's own floor: step 1 lays it across the whole rect,
         /// so nothing is drawn in the gap. [06-SET-BUILDING §2]
         public let doorways: [Int]
         /// Whether this space draws a north wall at all. A space with no band is
@@ -164,7 +164,7 @@ public struct RoomPlan: Sendable, Hashable {
     /// **One piece of the room's dressing, placed by hand.**
     ///
     /// The band system this stands beside gives every prop one of four depths
-    /// and one of eight columns, which is 32 slots on a perfect lattice — and a
+    /// and one of eight columns, which is 32 slots on a perfect lattice, and a
     /// lattice is what the room *looked* like: four horizontal stripes of
     /// objects across a floor that had nothing else on it. `compose-scene.py`'s
     /// engineering office puts 45 objects on a floor of the same size and none
@@ -172,22 +172,22 @@ public struct RoomPlan: Sendable, Hashable {
     /// that reads as a room rather than as a shelf.
     ///
     /// So a placement carries **its own x and y**. `scenery` indexes the
-    /// theme's own ordered scenery list — the same list and the same order the
-    /// bands walk — and `what` echoes that entry's description so a reorder of
+    /// theme's own ordered scenery list: the same list and the same order the
+    /// bands walk, and `what` echoes that entry's description so a reorder of
     /// the list shows up as a named mismatch in `dressingViolations` instead of
     /// as the wrong object quietly standing in the right place.
     ///
     /// `x` is the centre of the prop's content box and `y` its bottom, in room
-    /// pixels, y-up, on `RoomLayout`'s grid — the same convention every other
+    /// pixels, y-up, on `RoomLayout`'s grid: the same convention every other
     /// point in the scene uses, so `Character.Layer.rowDepth` sorts a hand-placed
     /// prop against the cast with no special case.
     ///
     /// **It buys no new licence.** The three route clauses the band system
     /// satisfied by construction, a hand-placed prop has to satisfy by
     /// assertion, and `dressingViolations(in:boxes:)` is that assertion.
-    /// **Which object a placement draws.** A named prop role — the same four the
+    /// **Which object a placement draws.** A named prop role: the same four the
     /// theme already binds for a seat, of which `board` and `plant` are the two
-    /// the decoration system used to stand on its own lattice — or an index into
+    /// the decoration system used to stand on its own lattice, or an index into
     /// the theme's ordered scenery list. A hand-placed room places *all* of its
     /// dressing, so it needs to reach both pools.
     public enum Piece: Sendable, Hashable {
@@ -226,7 +226,7 @@ public struct RoomPlan: Sendable, Hashable {
     }
 
     /// **No plan: the open floor this app drew for eight milestones.** Five of
-    /// the six themes still take it, and it is not a degraded state — a theme
+    /// the six themes still take it, and it is not a degraded state: a theme
     /// whose builder sheet has one floor tile and one wall tile cannot be drawn
     /// as a plan and should not pretend to be. [ADR-007 §6]
     public static let open = RoomPlan(spaces: [], surfaces: [:])
@@ -243,7 +243,7 @@ public struct RoomPlan: Sendable, Hashable {
     }
 
     /// The space a tile belongs to, or `nil` for a tile the plan does not cover.
-    /// First match wins, so a plan whose spaces overlap draws the earlier one —
+    /// First match wins, so a plan whose spaces overlap draws the earlier one,
     /// which `overlappingSpaces` reports rather than leaving to chance.
     public func space(atTileX x: Int, tileY y: Int) -> Space? {
         spaces.first { $0.columns.contains(x) && (($0.y)..<($0.y + $0.h)).contains(y) }
@@ -265,15 +265,15 @@ public struct RoomPlan: Sendable, Hashable {
     ///
     /// It is written as a check rather than as a comment because the three
     /// clauses are the whole reason the plan is authored around the lattice
-    /// instead of the other way round, and because the failure it prevents —
-    /// a character walking through a wall — is invisible in a still.
+    /// instead of the other way round, and because the failure it prevents,
+    /// a character walking through a wall: is invisible in a still.
     ///
     /// The three clauses, each with the route it protects:
     ///
     /// 1. **A seat column is clear of solid wall from the delivery row to the
     ///    wall line.** `entranceRoute`, `homeRoute` and `upstageExit` are all
     ///    vertical inside one column. A north band across a seat column is
-    ///    admissible **only** where it is cut by a doorway — which is what the
+    ///    admissible **only** where it is cut by a doorway, which is what the
     ///    doorways in the shipped plan are for and why they sit exactly on seat
     ///    columns.
     /// 2. **The delivery row is clear across the whole width.** It is the one
@@ -282,8 +282,8 @@ public struct RoomPlan: Sendable, Hashable {
     ///    upstage of the seat rows.
     /// 3. **Nothing is drawn nearer the camera than the front seat row.** The
     ///    rule that replaced M5's foreground row. A plan may extend its floor
-    ///    downstage as far as it likes — floor is not a thing drawn *in front
-    ///    of* anybody — but a band or a partition there would be.
+    ///    downstage as far as it likes: floor is not a thing drawn *in front
+    ///    of* anybody, but a band or a partition there would be.
     public func routeViolations(in layout: RoomLayout) -> [String] {
         var out: [String] = []
         let tile = layout.tile
@@ -323,7 +323,7 @@ public struct RoomPlan: Sendable, Hashable {
             //
             // It used to be positional: any partition reaching downstage of the
             // front seat row was rejected, full stop. That is right for every
-            // partition the plan had, and wrong for the one it needs — the
+            // partition the plan had, and wrong for the one it needs: the
             // building's own outer wall, which has to run the full depth of the
             // floor or it is a wall with a gap where the camera is looking.
             //
@@ -338,7 +338,7 @@ public struct RoomPlan: Sendable, Hashable {
             // that case and it is what refuted the first rule.
             //
             // So the test is whether the line falls outside the whole lateral
-            // reach of the cast — beyond the outermost seat column plus half a
+            // reach of the cast: beyond the outermost seat column plus half a
             // body, where no route of any kind goes. The plan's edges do; the
             // interior partitions between the back rooms do not, and they are
             // upstage of the seat row anyway, so nothing that passed before
@@ -388,7 +388,7 @@ public struct RoomPlan: Sendable, Hashable {
     /// The band system earned its route safety structurally: `sceneryColumns` is
     /// *defined* as the gaps between the seat columns, so a banded prop could
     /// not be in a corridor however badly it was authored. A hand-placed prop
-    /// can be anywhere, so the same three clauses are checked here instead —
+    /// can be anywhere, so the same three clauses are checked here instead,
     /// `RoomPlanTests` runs this over the shipped plan for the same reason it
     /// runs `routeViolations`, and a placement that fails is a bug in the
     /// placement rather than a licence to move a route.
@@ -400,8 +400,8 @@ public struct RoomPlan: Sendable, Hashable {
     /// 2. **Nothing in a seat's column.** Every seat's column is a corridor from
     ///    the delivery row to the wall line, walked by `entranceRoute`,
     ///    `homeRoute` and `upstageExit`. A prop clears it when its box clears one
-    ///    tile centred on the seat. Wall props — anything whose base stands at or
-    ///    above `wallBaseY` — are exempt, because a leaver's feet stop at that
+    ///    tile centred on the seat. Wall props: anything whose base stands at or
+    ///    above `wallBaseY`: are exempt, because a leaver's feet stop at that
     ///    line and it passes under them; that is the same exemption the `wall`
     ///    band has always had.
     /// 3. **Nothing is drawn on top of something it hides.** A placement whose
@@ -411,7 +411,7 @@ public struct RoomPlan: Sendable, Hashable {
     ///
     /// And two that are about the manifest rather than the room: an index past
     /// the end of the scenery list, and a `what` that no longer matches the entry
-    /// it indexes — the tripwire for somebody reordering the list under a
+    /// it indexes: the tripwire for somebody reordering the list under a
     /// placement.
     public func dressingViolations(
         in layout: RoomLayout,
@@ -432,7 +432,7 @@ public struct RoomPlan: Sendable, Hashable {
             if !item.what.isEmpty, !entry.what.hasPrefix(item.what) {
                 out.append(
                     "\(label) names \(item.piece), which is "
-                    + "'\(entry.what)' — the list moved under the placement")
+                    + "'\(entry.what)': the list moved under the placement")
             }
             let halfWidth = Double(entry.width) / 2
             let x = Double(item.x), y = Double(item.y)
@@ -461,21 +461,21 @@ public struct RoomPlan: Sendable, Hashable {
         // paints over what is decided by `Character.Layer.rowDepth(y)` and not
         // by declaration order, so a burying prop declared *earlier* buries
         // just as completely. The first draft of this loop scanned
-        // `boxes[(i + 1)...]` and would have missed exactly half the cases —
+        // `boxes[(i + 1)...]` and would have missed exactly half the cases,
         // and silently, because a hidden prop looks like a prop nobody placed.
         //
         // **And "hidden" is a fraction, not containment.** This asked whether
         // one box was *wholly* inside another, which a single pixel of offset
         // defeats: a 26 px cabinet leaned on a 26 px cabinet one pixel to the
         // left is 99% covered, draws as one cabinet with a sliver of another
-        // behind it, and passed. That is not a hypothetical — it shipped in a
+        // behind it, and passed. That is not a hypothetical: it shipped in a
         // draft of the office composition and had to be found by cropping a
         // render at 5x, which is exactly the work a check exists to save.
         //
         // 90% is the threshold because it is the coverage at which the prop
         // behind stops reading as a second object. A deliberate pile is well
         // under it: the shipped tower-on-printer covers 36% of the printer, and
-        // the pile the room wants — a small thing on a large one — cannot
+        // the pile the room wants (a small thing on a large one) cannot
         // approach 90% by construction. What it catches is two props of the
         // same size stacked, which is the failure it was written for.
         for one in boxes {

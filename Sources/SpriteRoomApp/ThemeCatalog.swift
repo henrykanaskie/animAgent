@@ -5,8 +5,8 @@ import SpriteRoomScene
 ///
 /// This is `docs/ADR-002-themed-rooms.md` §7's contract narrowed to the two
 /// things the menu bar has any business knowing: what may be listed, and what
-/// the derived default may be drawn from. The bindings themselves — floors,
-/// walls, stations, backdrops, poses — are the scene's, and nothing here has an
+/// the derived default may be drawn from. The bindings themselves (floors,
+/// walls, stations, backdrops, poses) are the scene's, and nothing here has an
 /// opinion about them.
 ///
 /// It is **not** a theming engine. `CLAUDE.md`: "No speculative generality. No
@@ -19,7 +19,7 @@ struct ThemeCatalog: Sendable, Equatable {
 
     struct Theme: Sendable, Equatable {
         /// The manifest key. This, never the title, is what is stored and
-        /// compared — a title is prose and may be reworded.
+        /// compared: a title is prose and may be reworded.
         let id: String
         /// What the user reads in the menu.
         let title: String
@@ -45,7 +45,7 @@ struct ThemeCatalog: Sendable, Equatable {
     /// the manifest says, and it is a menu, so that is the right way round.
     let themes: [Theme]
 
-    /// `defaultThemeId` — the last line of §3c and the floor under every other
+    /// `defaultThemeId`: the last line of §3c and the floor under every other
     /// answer. `nil` when the manifest declares no themes at all, which is not
     /// a corner: it is a checkout with no art, and it is every user who has not
     /// run the import scripts.
@@ -80,18 +80,18 @@ struct ThemeCatalog: Sendable, Equatable {
     /// ```
     ///
     /// **`derive` is a seam, not a parameter.** It is
-    /// `ThemeSelector.rendezvous(key:over:)` — §8 item 2 — which lives in
+    /// `ThemeSelector.rendezvous(key:over:)` (§8 item 2) which lives in
     /// `SpriteRoomScene` because it needs `fnv1a64`, and that hash is pinned by
     /// a test vector there. Reimplementing it on this side of the module
     /// boundary would leave the pinned vector guarding half the mapping, which
     /// is the exact refactor risk §11 item 7 names. So it is handed in, and the
-    /// two lines this function *can* answer without a hash — a stored choice
-    /// that still exists, and the floor — are answered here.
+    /// two lines this function *can* answer without a hash (a stored choice
+    /// that still exists, and the floor) are answered here.
     ///
     /// When `ThemeSelector.theme(for:stored:manifest:)` lands, this becomes a
     /// call to it and the three lines live in exactly one place.
     ///
-    /// Returns `nil` only when the manifest declared nothing at all — there is
+    /// Returns `nil` only when the manifest declared nothing at all: there is
     /// then no theme id to name, and the room is the one it has always been.
     func themeID(
         for cwd: String,
@@ -132,8 +132,8 @@ extension ThemeCatalog {
     ///
     /// `Manifest.themes` exists now, so this is that adapter and nothing else
     /// in `SpriteRoomApp` changed. It returns `.empty` for a manifest that
-    /// declares no themes — a checkout with no art, or one whose owner has not
-    /// run the import scripts — which is why the menu's empty case is a real
+    /// declares no themes (a checkout with no art, or one whose owner has not
+    /// run the import scripts), which is why the menu's empty case is a real
     /// path and not a stub.
     static func declared(in manifest: Manifest) -> ThemeCatalog {
         ThemeCatalog(

@@ -6,7 +6,7 @@ import Testing
 /// scene started assuming something the manifest does not promise.
 ///
 /// `assets/manifest.json` is tracked, so most of these run anywhere. The three
-/// that go on to open the files the manifest names are gated on `SceneArt` —
+/// that go on to open the files the manifest names are gated on `SceneArt`:
 /// see `SceneFixtures.swift` for why the art may legitimately be absent.
 struct ManifestTests {
 
@@ -94,7 +94,7 @@ struct ManifestTests {
     }
 
     /// Which badges came from a pack and which we drew ourselves. The scene does
-    /// not care — it reads the manifest either way — but the manifest must keep
+    /// not care (it reads the manifest either way) but the manifest must keep
     /// saying which, so the mix stays reviewable.
     ///
     /// **Tightened at M5b, and the vocabulary changed at M5c.** This used to
@@ -104,7 +104,7 @@ struct ManifestTests {
     ///
     /// The split is a fact about the downloads, not a schedule. `document` and
     /// `checklist` came from Modern User Interface when it was bought.
-    /// `magnifier`, `terminal`, `globe` and `plug` are **`authored`** — no icon
+    /// `magnifier`, `terminal`, `globe` and `plug` are **`authored`**: no icon
     /// for them exists in any pack we own (every 32px cell of all three UI
     /// sheets was rendered and inspected), no further pack will be bought, so
     /// they were drawn rather than left waiting. `placeholder` deliberately
@@ -123,7 +123,7 @@ struct ManifestTests {
     }
 
     /// A badge we drew has to say that we drew it, and why there was nothing to
-    /// source — and the reason has to be the true one.
+    /// source, and the reason has to be the true one.
     ///
     /// This is the M5b test with its subject changed. Before M5b every one of
     /// these carried `blocked_on: the standalone LimeZu "Modern User Interface"
@@ -131,8 +131,8 @@ struct ManifestTests {
     /// with what was searched and found, including the near misses it rejected.
     /// At M5c the answer stopped being "still waiting" altogether: no further
     /// packs will be bought, so the four are authored final art and the entry
-    /// says who drew them. `blocked_on` and `unsourceable` are both banned here
-    /// — the first would send someone to buy a pack that is already on disk, the
+    /// says who drew them. `blocked_on` and `unsourceable` are both banned here:
+    /// the first would send someone to buy a pack that is already on disk, the
     /// second frames finished art as a gap.
     ///
     /// Read out of the raw JSON rather than the decoded `Manifest`: these keys
@@ -172,7 +172,7 @@ struct ManifestTests {
     ///
     /// The frame is recorded in the manifest as a rectangle on Modern Interiors'
     /// UI sheet, and it is the *same* component the `question_mark` badge is cut
-    /// from with nothing inside it — so a composited badge cannot have a
+    /// from with nothing inside it, so a composited badge cannot have a
     /// different silhouette from a badge that was cut whole.
     @Test func everyBadgeSharesOneCanvasAndOneAnchor() throws {
         let manifest = try SceneFixtures.manifest()
@@ -243,7 +243,7 @@ struct ManifestTests {
 
     /// The desk's baseline is at row 87 of its canvas and the plant's at row 75,
     /// in canvases of identical size. A prop placed by a fixed offset would be
-    /// right for one and 12 px into the floor for the other — which is why the
+    /// right for one and 12 px into the floor for the other, which is why the
     /// manifest carries the box and the scene anchors off it.
     @Test func propsAreNotBottomAlignedInTheirCanvasAndSoNeedTheirBox() throws {
         let manifest = try SceneFixtures.manifest()

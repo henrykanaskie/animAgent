@@ -1,6 +1,6 @@
 import AppKit
 
-/// Which `cwd` group the panel shows. A menu bar item — **not** a control
+/// Which `cwd` group the panel shows. A menu bar item, **not** a control
 /// inside the panel.
 ///
 /// The panel is a display surface; the moment it grows a control it also grows
@@ -9,13 +9,13 @@ import AppKit
 /// lets the panel stay `ignoresMouseEvents` and never become key. [I8]
 ///
 /// Note what is *not* in this menu: anything that touches a running agent.
-/// Read-only, always — there is no stop, no pause, no restart.
+/// Read-only, always: there is no stop, no pause, no restart.
 @MainActor
 final class ProjectSelector: NSObject, NSMenuDelegate {
 
     private let statusItem: NSStatusItem
     /// Internal rather than private so the tests can read what the menu
-    /// actually contains — including that nothing in it has a key equivalent.
+    /// actually contains, including that nothing in it has a key equivalent.
     let menu = NSMenu()
     private var entries: [ProjectRegistry.Entry] = []
     private var selected: String?
@@ -33,8 +33,8 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     ///
     /// This is the "removed on request" half of hook installation, and it is
     /// the one place in the app where a menu item writes anything. It does not
-    /// touch a running agent — it changes what the *next* session reports to
-    /// us — so it does not breach the read-only rule.
+    /// touch a running agent (it changes what the *next* session reports to
+    /// us), so it does not breach the read-only rule.
     var hooksInstalled: Bool?
     var onToggleHooks: ((Bool) -> Void)?
 
@@ -42,11 +42,11 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     /// item 9: the submenu lists **every** one of them. The `assignable` flag
     /// governs what the derived default may draw, not what a person may pick.
     var themes: ThemeCatalog = .empty
-    /// The theme the selected project is currently showing — a stored choice or
+    /// The theme the selected project is currently showing: a stored choice or
     /// a derived one, indistinguishable here, because §3c is one function and
     /// the room is always showing whatever it returned.
     var currentThemeID: String?
-    /// The room the app *derives* for the selected project — what **Automatic**
+    /// The room the app *derives* for the selected project: what **Automatic**
     /// gives back. Equal to `currentThemeID` whenever the project has no pick
     /// of its own, which is the ordinary case and is why the two are separate
     /// properties rather than one.
@@ -60,7 +60,7 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     /// agent. It changes what the room is *made of*. The panel stays a pure
     /// display surface and keeps `ignoresMouseEvents`; nothing about I8 moves.
     var onPickTheme: ((String) -> Void)?
-    /// **Automatic** — forget this project's pick and go back to the room the
+    /// **Automatic**: forget this project's pick and go back to the room the
     /// app derives from its `cwd`. The same kind of write as `onPickTheme` and
     /// justified identically; it removes a key rather than adding one.
     var onRevertTheme: (() -> Void)?
@@ -84,7 +84,7 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
         }
         menu.delegate = self
         // Off, so an item that says it is disabled is disabled. AppKit's
-        // automatic enabling decides for itself — it would enable the **Room**
+        // automatic enabling decides for itself: it would enable the **Room**
         // item whenever its submenu had anything clickable in it, which is
         // precisely the case where "no project is selected" has to win.
         menu.autoenablesItems = false
@@ -123,8 +123,8 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             // surface: "has anything finished" is one of the three things the
             // PRD says you want at a glance, and a project that silently
             // vanished would leave the user unable to tell a finished session
-            // from a broken hook. It stops being shown eventually — see
-            // `ProjectRegistry.forgottenAfter` — but not the instant it dies.
+            // from a broken hook. It stops being shown eventually (see
+            // `ProjectRegistry.forgottenAfter`) but not the instant it dies.
             let title: String
             switch entry.liveness {
             case .live:
@@ -139,13 +139,13 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             item.target = self
             item.representedObject = entry.project
             item.toolTip = entry.liveness == .ended
-                ? "\(entry.project) — no session running"
+                ? "\(entry.project): no session running"
                 : entry.project
             item.state = entry.project == selected ? .on : .off
             if entry.liveness == .ended {
                 // Greyed by drawing, not by disabling. Disabling would take
-                // away the ability to switch *to* it — which is the only way
-                // to look at a room and confirm it really is empty — and,
+                // away the ability to switch *to* it (which is the only way
+                // to look at a room and confirm it really is empty) and,
                 // worse, the ability to switch *away* from it, which is what
                 // unpins it and lets it leave.
                 item.attributedTitle = NSAttributedString(
@@ -184,7 +184,7 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
         menu.addItem(quit)
     }
 
-    /// **Room ▸** — which of the manifest's themes dresses the selected
+    /// **Room ▸**: which of the manifest's themes dresses the selected
     /// project. [ADR-002 §8 item 9]
     ///
     /// A theme is a per-project preference, so with no project selected there
@@ -200,7 +200,7 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
     /// **The parent item names the room it is showing**, when there is one to
     /// name. The maintainer's complaint that started this was not "I cannot
     /// change it", it was *"I don't understand how you're deciding what the
-    /// environment should look like"* — and a submenu called "Room" answers
+    /// environment should look like"*, and a submenu called "Room" answers
     /// that only for someone who opens it. The title carries the answer to the
     /// level of the menu they are already looking at, in the same
     /// `name  ·  fact` shape the project rows use.
@@ -225,7 +225,7 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
             return item
         }
         item.toolTip = selected == nil
-            ? "Pick a project first — the room is a per-project choice"
+            ? "Pick a project first: the room is a per-project choice"
             : "What this project's room is made of"
 
         submenu.addItem(automaticItem())
@@ -246,25 +246,25 @@ final class ProjectSelector: NSObject, NSMenuDelegate {
         return item
     }
 
-    /// **Automatic** — the way back out of a pick.
+    /// **Automatic**: the way back out of a pick.
     ///
     /// A preference that can be set and not un-set is a trap: the only other
     /// exit would be hand-editing `themes.json`, which ADR-002 §3d says is not
     /// what that file is for. So the derived room is an item like any other,
-    /// and it *names* the room it would give you — "Automatic" alone would be a
+    /// and it *names* the room it would give you: "Automatic" alone would be a
     /// word the user has to trust, and the whole complaint behind this change
     /// was not being able to tell what the app had decided.
     ///
     /// **No checkmark, deliberately.** The tick in this submenu means "this is
     /// the room you are looking at", and §3c makes a derived room and a chosen
-    /// one indistinguishable in that respect — the derived theme's own row is
+    /// one indistinguishable in that respect: the derived theme's own row is
     /// already ticked when it is in use, and a second tick here would claim
     /// there are two rooms on screen. What this item carries instead is whether
     /// there is anything to undo, and it carries it the way the rest of this
     /// menu does: by being enabled or not, and by saying so in the title.
     ///
     /// It is never hidden. An item that disappears is indistinguishable from a
-    /// feature that broke — the same reason an ended project is marked rather
+    /// feature that broke, the same reason an ended project is marked rather
     /// than deleted and an empty roster says "No sessions yet".
     private func automaticItem() -> NSMenuItem {
         // The room the app derives, by name. `nil` only if the manifest gave us

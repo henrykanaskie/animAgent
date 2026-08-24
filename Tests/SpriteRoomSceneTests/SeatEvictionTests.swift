@@ -8,14 +8,14 @@ import SpriteRoomCore
 /// Seats were freed on `agentDeparted` and on nothing else, and a subagent
 /// departs only at `SessionEnd` or the 30-minute session-idle sweep. So the
 /// seven seats filled with **dormant** subagents over the life of an ordinary
-/// session and stayed that way: a strictly serial ten-subagent run — one worker
-/// at a time — drew the main agent plus six characters all wearing the `Z`, the
+/// session and stayed that way: a strictly serial ten-subagent run (one worker
+/// at a time) drew the main agent plus six characters all wearing the `Z`, the
 /// oldest finished three minutes earlier, over a plate reading `+4`, with the
 /// only agent doing anything at that instant inside that `+4` and off screen.
 ///
 /// This is the suite for the rule that replaced it: when a live agent has no
 /// seat, the longest-dormant character gives one up, walks out, and is carried
-/// by the overflow count instead. Lazily — a quiet room keeps showing its
+/// by the overflow count instead. Lazily: a quiet room keeps showing its
 /// sleepers, which is what `03-EVENT-MODEL.md`'s dormancy decision is for and
 /// what this deliberately does not overturn.
 struct SeatEvictionTests {
@@ -129,7 +129,7 @@ struct SeatEvictionTests {
 
     /// **The evicted agent is still in the room's population and still counted.**
     /// Eviction is a seating decision, not a death: nothing about it says the
-    /// agent ended, and `agentDeparted` — which does say that — has not arrived.
+    /// agent ended, and `agentDeparted` (which does say that) has not arrived.
     /// [I1]
     @Test func anEvictedAgentIsCountedRatherThanForgotten() {
         var (director, refs) = Self.serialSession(workers: 6)
@@ -176,7 +176,7 @@ struct SeatEvictionTests {
     /// Since ADR-005 the distinction is visible on the body as well as in the
     /// seating: an agent between two calls of one turn is *seated and still*,
     /// and only a real turn boundary stands it up. The assertion below reads
-    /// `working` where it used to read `idle` for that reason — these six
+    /// `working` where it used to read `idle` for that reason, these six
     /// characters have started and not stopped.
     @Test func onlyDormancyGivesUpASeatAndMerelyHavingNothingOpenDoesNot() {
         var director = Self.director()
@@ -204,7 +204,7 @@ struct SeatEvictionTests {
     }
 
     /// **The main agent is never evicted.** It holds seat 0, the anchor every
-    /// report walks to. It is never dormant either — `Stop` sets no dormancy —
+    /// report walks to. It is never dormant either (`Stop` sets no dormancy),
     /// and the guard says so rather than relying on that.
     @Test func theAnchorIsNeverEvictedEvenIfItIsMarkedDormant() {
         var (director, _) = Self.serialSession(workers: 6)
@@ -253,7 +253,7 @@ struct SeatEvictionTests {
     }
 
     /// A character that comes back is stated afresh rather than suppressed as
-    /// unchanged — the suppression memory goes out of the room with the seat.
+    /// unchanged: the suppression memory goes out of the room with the seat.
     /// The same property `aPromotedCharacterArrivesShowingTheWorkItWasAlreadyDoing`
     /// asserts for a promotion, for the case that reaches it by eviction.
     @Test func aReseatedCharacterArrivesShowingWhatItIsActuallyDoing() throws {
@@ -309,7 +309,7 @@ struct SeatEvictionTests {
     }
 
     /// Two characters never share a seat, and everyone the room knows about is
-    /// either drawn or counted — over a long run of arrivals, sleeps, revivals
+    /// either drawn or counted, over a long run of arrivals, sleeps, revivals
     /// and departures mixed together.
     @Test func theRoomNeverDoubleBooksASeatOrLosesAnAgent() {
         var director = Self.director()

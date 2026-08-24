@@ -2,7 +2,7 @@
 """Asset import pass. Cuts the three purchased packs into what the scene loads.
 
 Three as of M5b: Modern User Interface was bought, and two more tool badges came
-out of it. Four did not — the pack has no magnifier, no globe, no plug and no
+out of it. Four did not: the pack has no magnifier, no globe, no plug and no
 terminal anywhere in it, which is a fact about the download and not a scheduling
 problem. Those four are authored by scripts/generate-art.py as of M5c, since no
 further packs will be bought. See docs/04-ART-DIRECTION.md.
@@ -15,12 +15,12 @@ and reproducible; nothing here writes back into a pack.
 Three layers, three treatments:
 
   ROOM      Modern Office singles + Room Builder. Value-compressed under I7's
-            band and desaturated under I7's ceiling, baked shadow stripped —
+            band and desaturated under I7's ceiling, baked shadow stripped,
             except `office`'s own props, which ADR-010 restores to the pack's
             own saturation while keeping the same value band. See
             PROP_SAT_SCALE_DEFAULT / PROP_SAT_TARGET_DEFAULT below.
   CHARACTER Modern Interiors premade sheets, sliced into per-frame PNGs.
-            Colour is passed through UNTOUCHED — I7 gives the characters the
+            Colour is passed through UNTOUCHED: I7 gives the characters the
             saturation and the dark values, so processing them would destroy
             the very contrast the lint checks for.
   BADGE     Modern Interiors UI sheet, cut by measured rectangles, plus Modern
@@ -31,7 +31,7 @@ Python 3 stdlib only. No pip, no Pillow.
 
 Idempotent: output is a pure function of input bytes, pnglite's encoder is
 byte-deterministic, and a state file skips unchanged inputs. Two runs leave the
-tree identical — verified by hashing.
+tree identical: verified by hashing.
 """
 
 import argparse
@@ -60,7 +60,7 @@ STATE = os.path.join(OUT, ".import-state.json")
 # `scripts/import-catalogue.py` writes 12,279 byte copies into
 # `processed/catalogue/`, keeps no entry in this script's state file, and is a
 # different pass with a different idempotency argument. So a plain
-# `python3 scripts/process-assets.py` removed every one of them — silently, in
+# `python3 scripts/process-assets.py` removed every one of them: silently, in
 # the `prune()` line of its own summary, and the catalogue only reappears after
 # an 87 s re-import. Naming the roots is what makes "delete outputs whose source
 # no longer produces them" a statement about *this* importer's outputs.
@@ -87,7 +87,7 @@ SAT_SCALE = 0.35
 # Modern Interiors premade characters sits at value 0.314, and I7 demands at
 # least 0.40 of value contrast against the MEAN room value. A room mean of
 # ~0.78 clears that with margin. An earlier band of [0.45, 0.85] produced a
-# room mean of ~0.70 and failed the lint at 0.386 — the fix was to lighten the
+# room mean of ~0.70 and failed the lint at 0.386: the fix was to lighten the
 # room, because I7 says the room is the low-contrast layer, not that the
 # threshold is negotiable.
 VALUE_FLOOR = 0.55
@@ -97,13 +97,13 @@ VALUE_CEIL = 0.92
 # M6b for `mission_control` and deliberately not offered to the wall or the
 # floor tile.
 #
-# What it is for. Every theme that reads at 1x has one dark shape — library's
+# What it is for. Every theme that reads at 1x has one dark shape: library's
 # chalkboard, stage's drum kit. Mission control's dark shape has to be a screen,
 # and the pack's darkest ink is value 0.314, which the standard band lifts to
 # 0.667 whatever the sprite. That is why every screen we tried came out the same
 # pale grey as the desk it stood on: the transform, not the choice of sprite,
 # was flattening them. Lowering the floor for the prop layer expands the range
-# the props are drawn on — the lights barely move, the darks drop — so a screen
+# the props are drawn on (the lights barely move, the darks drop) so a screen
 # face separates from its own bezel and from the wall behind it.
 #
 # Why props only. The wall is the largest continuous area on screen and sits
@@ -130,7 +130,7 @@ PROP_VALUE_FLOOR_DEFAULT = VALUE_FLOOR
 PROP_VALUE_CEIL_DEFAULT = VALUE_CEIL
 
 # A theme may widen the band FOR ITS PROPS ONLY, on the SATURATION axis this
-# time — the same shape of escape hatch `prop_value_floor` opened for value,
+# time: the same shape of escape hatch `prop_value_floor` opened for value,
 # offered for saturation for the first time at ADR-010.
 #
 # I7 has always bundled two separate claims under one sentence: "characters own
@@ -138,14 +138,14 @@ PROP_VALUE_CEIL_DEFAULT = VALUE_CEIL
 # spends the first, for `office` only, because the maintainer's own reference
 # room (`output/01-engineering-office.png`, built by `scripts/compose-scene.py`
 # straight off the pack) runs at the pack's own ~0.28 mean saturation and the
-# shipped room measured 0.077 beside it — a 3.6x gap on an axis nothing asked
+# shipped room measured 0.077 beside it: a 3.6x gap on an axis nothing asked
 # this room to close. Restoring it does not touch VALUE_FLOOR/VALUE_CEIL above,
 # so the room still cannot own the darkest pixel on screen; only how colourful
 # its props may be moves.
 #
 # `1.0` for both means the identity transform: `min(s * 1.0, 1.0) == s`, so an
 # office prop's saturation is whatever the pack file's own pixels measure,
-# unscaled and unclamped — the same bytes `assets/catalogue.json` already
+# unscaled and unclamped: the same bytes `assets/catalogue.json` already
 # verified byte-identical to the download. `scripts/lint-palette.py` is where
 # this stops being a free hand: `office` is checked against a *measured* pack
 # ceiling instead of ROOM_MAX_SAT, and the other five themes keep 0.25 exactly
@@ -158,16 +158,16 @@ PROP_SAT_TARGET_DEFAULT = SAT_TARGET
 # ---------------------------------------------------------------------------
 #
 # Modern Interiors ships 24 "Theme Sorter" single sets, 5330 sprites, named by
-# index only — same as the Office singles, and for the same reason: the .ase
+# index only: same as the Office singles, and for the same reason: the .ase
 # holds unnamed frames with no slices and no tags. So every index below was
 # found by rendering the set with scripts/contact-sheet.py and looking at it,
 # then confirmed at 4x with `contact-sheet.py --pick` before being written here.
 # Nothing in this table entered it any other way.
 #
 # THE FOUR ROLE NAMES ARE PLACEMENT SLOTS, NOT OBJECT NOUNS. The scene places
-# exactly four things — a work surface at each seat, a seat, a standing object
+# exactly four things: a work surface at each seat, a seat, a standing object
 # on the back wall, and a repeated accent along the back wall and the foreground
-# walkway — and it looks them up under the names `desk`, `chair`, `board` and
+# walkway, and it looks them up under the names `desk`, `chair`, `board` and
 # `plant`. Those names are the Office room's vocabulary and they are now the
 # *interface*. A theme fills the `plant` slot with a console terminal or a stage
 # curtain; that is not a mislabelling, it is the slot doing its job. Renaming
@@ -178,8 +178,8 @@ PROP_SAT_TARGET_DEFAULT = SAT_TARGET
 # `chair` is the Office chair in every theme, and that is a finding rather than
 # laziness: the seated pose in the character pack faces right and *only* right,
 # so the chair must be a side view with its backrest on the left. Office single
-# 104 is the only chair verified to be one. Every themed chair located — the
-# director's chairs in set 23, the school chairs in set 5 — is a front or back
+# 104 is the only chair verified to be one. Every themed chair located: the
+# director's chairs in set 23, the school chairs in set 5: is a front or back
 # view and would seat a character facing into its own backrest. [I1]
 #
 # Floor and wall are (row, col) addresses into the Modern Interiors Room Builder
@@ -195,14 +195,14 @@ THEME_SINGLES = os.path.join(
     INTERIORS, "1_Interiors", "%s", "Theme_Sorter_Shadowless_Singles_%s")
 
 # ---------------------------------------------------------------------------
-# `scenery` — the room's dressing, added at M8 Phase 2b
+# `scenery`: the room's dressing, added at M8 Phase 2b
 # ---------------------------------------------------------------------------
 #
 # The four roles above are the slots the scene's *arithmetic* needs. `scenery`
 # is everything else: the printers, cabinets, bins, coolers and wall boards that
 # make a floor read as a place rather than as four props on it. The maintainer
 # looked at the shipped room beside `scripts/compose-scene.py`'s composed scenes
-# — 88 props against this room's four bound roles — and asked for the second.
+# (88 props against this room's four bound roles) and asked for the second.
 #
 # Each entry is `(band, set, index, what)`.
 #
@@ -213,7 +213,7 @@ THEME_SINGLES = os.path.join(
 #   wall        hung two tiles up the wall face, in the seat columns
 #   wall_line   standing where the floor meets the wall
 #   back_floor  one row downstage of that
-#   mid_floor   one row upstage of the back seat row — the nearest scenery goes
+#   mid_floor   one row upstage of the back seat row: the nearest scenery goes
 #
 # It is typed here rather than derived because **it cannot be derived.**
 # `docs/PLACEMENT-BANDS.md` is the measured negative result: `painting_framed`,
@@ -224,7 +224,7 @@ THEME_SINGLES = os.path.join(
 # `kind` comes from: somebody rendered the prop and looked at it.
 #
 # **Ink dimensions were checked before each index was written here**, against
-# `RoomLayout.sceneryInkBound(_:)` — 46x40 on the wall, 56x72 on the wall line,
+# `RoomLayout.sceneryInkBound(_:)`: 46x40 on the wall, 56x72 on the wall line,
 # 56x40 on the two floor rows. A catalogue name is a family of pieces
 # [docs/06-SET-BUILDING.md §4], so the index is the *piece*, and the sizes are
 # what keeps a prop out of a seat column and stops it burying the prop a row
@@ -233,9 +233,9 @@ THEME_SINGLES = os.path.join(
 #
 # **A theme takes props from its own set first and from the Office and Hospital
 # sets where its own has no such object.** Both are neutral modern-interior
-# furniture in the same hand at the same 32x32 grid — the Hospital set is where
+# furniture in the same hand at the same 32x32 grid: the Hospital set is where
 # the only bins, filing cabinets, wall clocks and schedule boards in either pack
-# live — and `compose-scene.py`'s own engineering office mixes them the same
+# live, and `compose-scene.py`'s own engineering office mixes them the same
 # way. Nothing themed is borrowed: no hospital bed ever stands in an office.
 #
 # Props refused after looking at them, so the next pass does not re-propose
@@ -249,7 +249,7 @@ THEME_SINGLES = os.path.join(
 #
 # **Two chairs, because a seat has a facing.** [ADR-008] `chair` is the side
 # view (single 104, 24x46, backrest on the left) and `chair_back` is the same
-# office chair drawn from behind (single 101, 32x46) — the sprite
+# office chair drawn from behind (single 101, 32x46): the sprite
 # `compose-scene.py`'s CHAIR_SUITES["office"]["up"] already pins and the one
 # `Office_Design_2.gif` puts under every desk in its own room. A seat facing
 # away from the camera takes the second; a side-on seat takes the first; a seat
@@ -260,17 +260,17 @@ THEME_SINGLES = os.path.join(
 THEMES = {
     "office": {
         "title": "Open Plan Office",
-        "what": "the room as it shipped through M5 — the Modern Office pack",
+        "what": "the room as it shipped through M5: the Modern Office pack",
         "floor": None,          # office keeps its own Room_Builder_Office tiles
         "wall": None,
         # ADR-010: restore the pack's own saturation on this theme's props only.
-        # `prop_value_floor` is deliberately left unset — the value band stays
+        # `prop_value_floor` is deliberately left unset: the value band stays
         # standard [0.55, 0.92], so the characters keep the darkest pixel on
         # screen exactly as before. Only colour, not darkness, moves.
         "prop_sat_scale": 1.0,
         "prop_sat_target": 1.0,
         # ADR-011: and the value axis too, on this theme's props only. Identity,
-        # exactly as the saturation pair above is identity — the office props are
+        # exactly as the saturation pair above is identity: the office props are
         # the pack's own bytes.
         "prop_value_floor": 0.10,
         "prop_value_ceil": 1.0,
@@ -278,7 +278,7 @@ THEMES = {
             # **The desk is the pod's slab, not the bench.** [ADR-009] Single 34
             # is a 32x24 side-view desk and it is what made a seat read as a
             # bench: one body's width of furniture with nothing on it. 248 is
-            # `desk_corner_l`'s 64x38 straight piece — the one
+            # `desk_corner_l`'s 64x38 straight piece: the one
             # `scripts/compose-scene.py`'s `desk_pod` builds every workstation in
             # `output/01-engineering-office.png` on, selected there BY INK
             # DIMENSIONS because the name is a family of ten modular segments and
@@ -298,7 +298,7 @@ THEMES = {
             #
             # Jail 147 rather than one of the six, because two of the six
             # (149, 152) are drawn switched off and a dark panel at 1x reads as a
-            # broken monitor rather than an idle one — `compose-scene.py`'s
+            # broken monitor rather than an idle one: `compose-scene.py`'s
             # `LIT_RIGS` is the same finding. The Jail set is where the only
             # 32x42 `workstation_composite` in either pack lives; the Office set
             # draws monitors without keyboards.
@@ -316,20 +316,20 @@ THEMES = {
             "board": ("office", 171, "presentation board on a stand, chart on the face"),
             "plant": ("office", 99, "small potted plant, floor standing"),
         },
-        # M8's own reference room — `output/01-engineering-office.png`, built by
-        # `scripts/compose-scene.py` straight off the pack — cycles a POOL for
+        # M8's own reference room: `output/01-engineering-office.png`, built by
+        # `scripts/compose-scene.py` straight off the pack: cycles a POOL for
         # three of these roles instead of binding one variant, which is why the
         # shipped desk pods read as identical where the reference's do not. Each
         # entry here is extra stock for the role above it: `roles[role]` stays
         # `variants[0]`, unpicked, so a reader that has never heard of
         # `role_variants` still gets the file it always got. Nothing below was
-        # written from the reference script's arithmetic — every index was
+        # written from the reference script's arithmetic: every index was
         # rendered with `scripts/contact-sheet.py --pick` and looked at, same as
         # every entry in `roles` above.
         "role_variants": {
             # `compose-scene.py`'s `LIT_RIGS = (0, 1, 3, 4)` picks four of the
             # six 32x42 `workstation_composite` singles in the Jail set (147-152,
-            # in file order) as the *lit* ones — 149 and 152 render a dark
+            # in file order) as the *lit* ones: 149 and 152 render a dark
             # switched-off panel, confirmed by eye alongside the rest of this
             # family (`scripts/contact-sheet.py --pick 18:147,18:148,18:149,
             # 18:150,18:151,18:152`). 147 is already `roles["monitor"]`
@@ -349,30 +349,30 @@ THEMES = {
             ],
             # **No chair_back pool.** `chair_pool()`'s "five colours of two
             # profiles each way" describes the LEFT/RIGHT ink pool of
-            # `chair_office_swivel` — the camera-facing chair, which this app
+            # `chair_office_swivel`: the camera-facing chair, which this app
             # seats nobody in at all (ADR-008: a camera-facing seat gets no
-            # chair, the body covers it entirely) — not the back view. Measured
+            # chair, the body covers it entirely), not the back view. Measured
             # instead of trusted: `chair_office_back` at ink 32x46 has exactly
             # **two** entries in the catalogue, singles 101 (already
             # `roles["chair_back"]`) and 102, and both are the same dark grey.
             # A pool of one extra, same-colour entry buys nothing, so none is
             # bound; see the M8 handoff for the 101-vs-102 legibility call.
             #
-            # `desk_kit` — the reference's `desk_pod()` (camera-facing branch) sets a
-            # camera-facing desk with FOUR objects at once — folder, clipboard,
-            # paper_stack, coffee_cup — not four alternatives to one slot.
+            # `desk_kit`: the reference's `desk_pod()` (camera-facing branch) sets a
+            # camera-facing desk with FOUR objects at once: folder, clipboard,
+            # paper_stack, coffee_cup, not four alternatives to one slot.
             # `roles["desk_kit"]` already binds the fourth, `paper_stack`
             # (office 153, the loose 24x24 sheaf `desk_pod`'s own comment
-            # prefers over the 32x42 "filing tower" — which, measured here,
+            # prefers over the 32x42 "filing tower", which, measured here,
             # turns out not to exist in the current catalogue naming; only one
             # `folder`-named single exists at all, see below). These three are
             # the other objects that same function draws, sourced from whatever
-            # pack the catalogue found them in — `compose-scene.py` mixes packs
+            # pack the catalogue found them in: `compose-scene.py` mixes packs
             # for this kit already, same as `roles["monitor"]` mixes Jail into
             # an office theme.
             "desk_kit": [
                 # Only one `folder`-catalogued single exists anywhere in the
-                # 12,279-prop catalogue: Hospital Singles set 19 #36, 32x24 — a
+                # 12,279-prop catalogue: Hospital Singles set 19 #36, 32x24: a
                 # leaning stack of three manila folder tabs. Measured, not
                 # assumed: there is no 32x42 filing-tower entry under this name
                 # to avoid today, contrary to `desk_pod`'s own comment, which
@@ -396,25 +396,25 @@ THEMES = {
         # it, bins and towers in the gaps.
         "scenery": [
             ("wall", "office", 96, "whiteboard with sticky notes"),
-            ("wall", 19, 266, "blue planning board — the Hospital set's, "
+            ("wall", 19, 266, "blue planning board: the Hospital set's, "
                               "because the Office set has no wall board that is "
                               "not on a floor stand"),
             ("wall", "office", 113, "framed certificate with a medal"),
             ("wall", "office", 161, "small framed picture"),
-            ("wall", 19, 333, "wall clock — neither pack draws one in the "
+            ("wall", 19, 333, "wall clock: neither pack draws one in the "
                               "Office set"),
             ("wall", "office", 97, "cork noticeboard with pinned notes"),
             # Office 157-160, the framed portraits, were here and are refused:
             # the pack draws all four TILTED on the wall, and at 1x a 20x30
             # frame at an angle reads as a stray diagonal rather than a picture.
             ("wall", 19, 248, "framed landscape painting"),
-            # M8 density pass — Hospital 241 ("poster" in `assets/catalogue.json`)
+            # M8 density pass: Hospital 241 ("poster" in `assets/catalogue.json`)
             # and Hospital 50 (also "poster", 16x22 ink in a near-square canvas
-            # — half the ink of 241 and a coloured square at 1x, not a poster)
+            #: half the ink of 241 and a coloured square at 1x, not a poster)
             # were both tried here and dropped, not added. `RoomLayout.
             # sceneryAnchors(.wall)` binds to `layout.seatCapacity` (7) minus
-            # the doorway and backdrop columns it excludes — measured at 7 for
-            # this plan, not 8 — so an eighth entry is never selected by
+            # the doorway and backdrop columns it excludes: measured at 7 for
+            # this plan, not 8, so an eighth entry is never selected by
             # `RoomScene`'s `props[index % props.count]` and would sit in the
             # manifest asserting nothing. `SceneryContractTests` catches a
             # declared prop with no matching art; it does not catch one with
@@ -422,7 +422,7 @@ THEMES = {
             ("wall_line", "office", 173, "water cooler"),
             ("wall_line", "office", 175, "vending machine"),
             ("wall_line", "office", 320, "coffee counter with machine and cups"),
-            # M8 density pass — Hospital 275 ("steel locker bank", already
+            # M8 density pass: Hospital 275 ("steel locker bank", already
             # standing in `mission_control`) was tried as a fourth entry here
             # and dropped for the same reason as the wall's eighth: `wall_line`
             # resolves to 3 anchors under this plan (the even scenery columns,
@@ -440,17 +440,17 @@ THEMES = {
             # Office 154, a 32x30 stack of paper, was here and is refused for
             # the reason 06-SET-BUILDING SS9 already records against `book`: on a
             # floor at 1x it is a white lozenge, not a stack of anything.
-            # M8 density pass — a fifth `mid_floor` entry, against the band's
+            # M8 density pass: a fifth `mid_floor` entry, against the band's
             # own five anchors (column 0 plus the odd columns), so the two
             # waste-bin entries above no longer have to carry three of the
             # five anchors between them.
-            ("mid_floor", 19, 256, "waste bin, mixed rubbish — a third bin "
+            ("mid_floor", 19, 256, "waste bin, mixed rubbish: a third bin "
                                    "art so the band does not read as one bin "
                                    "copy-pasted across the floor"),
         ],
     },
     # REBUILT at M6b. The first version passed the lint and failed the eye: it
-    # read as grey monitors on a grey floor, and its own numbers agreed — the
+    # read as grey monitors on a grey floor, and its own numbers agreed: the
     # darkest theme at mean value 0.753 and the least contrast margin at 0.439.
     # Three things were wrong and all three are fixed here rather than
     # recoloured.
@@ -459,12 +459,12 @@ THEMES = {
     #      58x38 flat screen on a low stand and the old `desk` a 40x48 workbench
     #      with a pale top; at 1x, one tile apart, they merged into a single
     #      slab. `board` is now a 30x64 two-screen surveillance stack on a
-    #      pedestal — tall, narrow, and nothing else in the six themes has that
+    #      pedestal: tall, narrow, and nothing else in the six themes has that
     #      outline.
     #   2. A floor that was not a floor. Address (14,12) measures 0.043 of value
     #      range after the transform, which is a flat field with a rumour of a
     #      pattern in it. (28,8) is a fine square grid that survives the
-    #      transform and tiles seamlessly in both axes — checked, not assumed.
+    #      transform and tiles seamlessly in both axes: checked, not assumed.
     #   3. No dark anchor, and the transform was the reason. See
     #      PROP_VALUE_FLOOR_DEFAULT: props here are drawn on a band floored at
     #      0.46 instead of 0.55.
@@ -473,14 +473,14 @@ THEMES = {
         # these rooms to stop being washed out, and the two knobs are separate:
         # `prop_sat_scale`/`prop_sat_target` move saturation, `prop_value_floor`/
         # `prop_value_ceil` move value. HSV saturation does not touch V, so this
-        # leaves mean value — and therefore `THEME_MIN_VALUE_CONTRAST` — exactly
+        # leaves mean value (and therefore `THEME_MIN_VALUE_CONTRAST`) exactly
         # where it was. This theme keeps the standard 0.40 floor and clears it by
         # the same margin as before.
         #
         # That distinction is the whole finding. A previous pass measured these
         # three at the *full* office package (saturation AND the [0.10, 1.00]
         # value band) and correctly found them mathematically incapable of
-        # clearing 0.35 on any floor/wall pair the sheet offers — but the value
+        # clearing 0.35 on any floor/wall pair the sheet offers, but the value
         # half is what costs contrast, and it was never what "desaturated" meant.
         # `library` is the worked example: saturation only, and its contrast went
         # *up*.
@@ -492,10 +492,10 @@ THEMES = {
         "prop_sat_scale": 0.85,
         "prop_sat_target": 1.0,
         "title": "Mission Control",
-        "what": "a two-tier screen wall over a console row — the closest thing "
+        "what": "a two-tier screen wall over a console row: the closest thing "
                 "to a launch control room that the packs we own can build",
         "floor": (28, 8),       # fine square grid, cool grey, transformed 0.722
-        "wall": (30, 27),       # pale cool grey-blue, 0.909 — the screens need
+        "wall": (30, 27),       # pale cool grey-blue, 0.909: the screens need
                                 # something bright behind them, and this is the
                                 # only theme whose wall is not warm
         # **Measured for the office/briefing pack-value policy at the M8
@@ -504,14 +504,14 @@ THEMES = {
         # mean 0.967), and every floor tile on the sheet was searched for the
         # brightest one available (up to `(3, 5)`, pack mean 0.925, a cream
         # tile with no relation to a control room). Even at that absolute
-        # ceiling — brightest floor AND brightest wall the sheet contains, of
-        # any material — the theme's value contrast tops out at **0.347**
+        # ceiling: brightest floor AND brightest wall the sheet contains, of
+        # any material: the theme's value contrast tops out at **0.347**
         # against the 0.35 floor `office`/`briefing` are held to: a
         # mathematical ceiling with `prop_value_floor` held at 0.10 (the same
         # floor those two use; ADR-011 already argues why raising it further
         # is tuning the art to the threshold rather than measuring it), not a
         # failure of nerve about the search. `library` clears 0.35 on the same
-        # math at this same floor on a re-tile — but does not ship that value
+        # math at this same floor on a re-tile, but does not ship that value
         # package (see `THEMES["library"]`'s own comment for why, unrelated to
         # this theme's own numbers); this theme cannot clear 0.35 by any tile
         # choice on this sheet at all, so it stays on the standard desaturated
@@ -528,13 +528,13 @@ THEMES = {
             #
             # **Narrowed from 127 to 126 at M7e, and they are the same table.**
             # 127 is this object with a boxed unit and a pouch set on it, and the
-            # pouch is what pushed its box to 44px — 2px past the 40px a desk has
+            # pouch is what pushed its box to 44px: 2px past the 40px a desk has
             # before it reaches the next seat's station-prop lane. The two objects
             # were the whole reason to prefer it and they do not survive the
             # medium: rendered at 1x with five agents, 126 and 127 are the same
             # picture, because both objects sit on the half of the top the seated
             # body covers. So the overhang bought nothing and 126 costs nothing.
-            # Everything above about value still holds — 126 is 127's own table,
+            # Everything above about value still holds: 126 is 127's own table,
             # not a different one, so the mid-grey top is unchanged.
             "desk":  (19, 126, "grey equipment table, side view, bare top"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
@@ -549,7 +549,7 @@ THEMES = {
             # Basement 164, the wide flat screen that held `board` through M6,
             # was cut for the reason above: it is the same rectangle as the desk
             # in front of it.
-            "board": (18, 146, "two screens stacked on a pedestal — a surveillance "
+            "board": (18, 146, "two screens stacked on a pedestal: a surveillance "
                                "monitor post; the only floor-standing vertical in "
                                "any theme"),
             "plant": (19, 315, "console bench with two wall screens on brackets above "
@@ -559,7 +559,7 @@ THEMES = {
         },
         # Sets 18 (Jail), 19 (Hospital) and 25 (Shooting Range) are where this
         # theme's own roles come from and they are where its dressing comes from
-        # too — the packs own no control room, so this room has always been
+        # too: the packs own no control room, so this room has always been
         # assembled out of the three sets that draw institutional grey.
         "scenery": [
             ("wall", 18, 133, "wall-mounted security monitor"),
@@ -582,14 +582,14 @@ THEMES = {
         # these rooms to stop being washed out, and the two knobs are separate:
         # `prop_sat_scale`/`prop_sat_target` move saturation, `prop_value_floor`/
         # `prop_value_ceil` move value. HSV saturation does not touch V, so this
-        # leaves mean value — and therefore `THEME_MIN_VALUE_CONTRAST` — exactly
+        # leaves mean value (and therefore `THEME_MIN_VALUE_CONTRAST`) exactly
         # where it was. This theme keeps the standard 0.40 floor and clears it by
         # the same margin as before.
         #
         # That distinction is the whole finding. A previous pass measured these
         # three at the *full* office package (saturation AND the [0.10, 1.00]
         # value band) and correctly found them mathematically incapable of
-        # clearing 0.35 on any floor/wall pair the sheet offers — but the value
+        # clearing 0.35 on any floor/wall pair the sheet offers, but the value
         # half is what costs contrast, and it was never what "desaturated" meant.
         # `library` is the worked example: saturation only, and its contrast went
         # *up*.
@@ -601,17 +601,17 @@ THEMES = {
         "prop_sat_scale": 0.85,
         "prop_sat_target": 1.0,
         "title": "Broadcast Studio",
-        "what": "tripods everywhere — film cameras and softbox lights, a silhouette "
+        "what": "tripods everywhere: film cameras and softbox lights, a silhouette "
                 "no other theme has",
         "floor": (16, 8),       # pale diagonal, 0.788
-        "wall": (2, 5),         # near-white, 0.882 — a bright studio
+        "wall": (2, 5),         # near-white, 0.882: a bright studio
         # **Measured for the office/briefing pack-value policy at the M8
-        # palette-pass task, and NOT moved onto it — the only one of the four
+        # palette-pass task, and NOT moved onto it: the only one of the four
         # candidates that cannot clear 0.35 even ignoring theme identity
         # entirely.** Searched against the absolute brightest floor and wall
         # tiles on the whole Room Builder sheet, `(3, 5)` (pack mean 0.925)
-        # and `(30, 27)` (pack mean 0.967) — neither this theme's own family,
-        # picked purely to find the mathematical ceiling — value contrast
+        # and `(30, 27)` (pack mean 0.967): neither this theme's own family,
+        # picked purely to find the mathematical ceiling: value contrast
         # tops out at **0.339**, under the 0.35 floor `office`/`briefing`/
         # `library` clear. This theme's own roles and scenery (tripods,
         # cameras, a plain office desk) sit lower in value than the other
@@ -644,10 +644,10 @@ THEMES = {
     },
     "library": {
         "title": "Reading Room",
-        "what": "floor-to-ceiling bookcases and a chalkboard — the maintainer's "
+        "what": "floor-to-ceiling bookcases and a chalkboard: the maintainer's "
                 "'classroom', built from the Classroom and Library set",
         # **Given the saturation restoration at the M8 palette-pass task, on
-        # the SATURATION axis only — deliberately NOT the full office/briefing
+        # the SATURATION axis only: deliberately NOT the full office/briefing
         # `prop_value_floor`/`prop_value_ceil` package.** Both were tried.
         #
         # The full package (matching office/briefing's `(0.10, 1.0)` value
@@ -658,13 +658,13 @@ THEMES = {
         # records; `(9, 1)`, a light cream checker tile off the same Room
         # Builder sheet (raw mean 0.907), and `(6, 5)`, the same warm
         # off-white wall as the old `(6, 4)` one column over and a hair
-        # brighter, together measured 0.674 mean / 0.360 contrast — clearing
+        # brighter, together measured 0.674 mean / 0.360 contrast: clearing
         # 0.35 with margin.
         #
         # **It was not shipped, because it breaks something outside this
         # theme's own art.** `Tests/SpriteRoomSceneTests/PropAnimationTests.
         # swift`'s `animatedTheme(_:)` walks `manifest.themes.orderedIDs` and
-        # returns the FIRST theme carrying a playable animated role — which,
+        # returns the FIRST theme carrying a playable animated role, which,
         # alphabetically, is `library`'s own `pendulum_clock` (5 fps), and
         # several of that suite's tests are built against IT, not against
         # "whichever theme happens to animate". The full package's
@@ -672,7 +672,7 @@ THEMES = {
         # (`Importer.animated()` cuts an object "on the target theme's own
         # prop band"), which is a value-axis change with no bearing on
         # whether the theme clears its own contrast floor and was never the
-        # point of moving this theme at all — this theme's baseline contrast
+        # point of moving this theme at all: this theme's baseline contrast
         # was already 0.456 (see `min contrast` in this task's own before/
         # after table), comfortably over even the standard 0.40 floor, so
         # nothing on the value axis needed spending here. Declaring it anyway,
@@ -680,7 +680,7 @@ THEMES = {
         # for its own sake against a real cost measured empirically: with
         # `prop_value_floor` at 0.10, saturation-only was tested against the
         # full package by running the suite, and
-        # `theAnimatedPropIsNeverRebuiltAcrossAFixtureReplay` failed —
+        # `theAnimatedPropIsNeverRebuiltAcrossAFixtureReplay` failed,
         # unrelated to this theme's OWN art, a fixture-timing artefact of a
         # DIFFERENT theme's animated prop pace once `library` stopped being
         # the one the test's alphabetical picker reaches. So: saturation only,
@@ -696,15 +696,15 @@ THEMES = {
         "floor": (9, 1),         # light cream checker tile, pack mean 0.907
         "wall": (6, 5),          # warm off-white, pack mean 0.941
         # **`prop_sat_scale` is 0.90, not identity, and the reason is the same
-        # shape as `briefing`'s 0.75 — see that theme's own comment.** Unlike
+        # shape as `briefing`'s 0.75: see that theme's own comment.** Unlike
         # `briefing`, this theme's OWN roles and scenery are not particularly
         # loud (checked without the clock: 0.326 mean saturation, comfortably
-        # under the cast's 0.334) — what pushes the aggregate over is
+        # under the cast's 0.334): what pushes the aggregate over is
         # `pendulum_clock`, adopted for this theme's `board` role and cut on
         # this SAME `prop_sat_scale` (`Importer.animated()` again: "on the
         # target theme's own prop band"). Its red pendulum face is close to
         # the pack's saturation ceiling, and with it counted the theme
-        # measures 0.344 at identity — over the cast, not under it. 0.90 is
+        # measures 0.344 at identity: over the cast, not under it. 0.90 is
         # the smallest cut that clears it with real margin (0.310, checked
         # against a manifest built with this exact value): keeping the clock
         # (see `ANIMATED_ADOPTED`'s own comment for why it is not withdrawn)
@@ -720,7 +720,7 @@ THEMES = {
             # a second chair into a seat that already draws one, so every library
             # seat had two.
             #
-            # 8 is the same desk-and-open-book without the chair — 32x44, from the
+            # 8 is the same desk-and-open-book without the chair: 32x44, from the
             # same set, same wood, same white book. Three near neighbours were
             # rendered into the room at 1x before this was picked: 7 is 8 with the
             # chair (32x54) and the narrow canvas makes the chair read as standing
@@ -728,7 +728,7 @@ THEMES = {
             # is quieter but stops saying "reading room" at the one object that
             # was saying it; 25 is 26 without the chair and is still 56 wide.
             #
-            # The height matters and 44 is not a coincidence — it is exactly the
+            # The height matters and 44 is not a coincidence: it is exactly the
             # shortest cast variant's head clearance, so this desk is the last one
             # `RoomScene.surfaceDepthBias` still draws in *front* of the body.
             # Checked in the picture rather than in the arithmetic: the desk box
@@ -740,9 +740,9 @@ THEMES = {
             "board": (5, 39, "green chalkboard on splayed legs"),
             "plant": (5, 57, "tall bookcase, full height, packed spines"),
         },
-        # All of set 5. It is the thinnest of the six for dressing — a classroom
+        # All of set 5. It is the thinnest of the six for dressing: a classroom
         # set is mostly desks, chairs and bookcases, and the roles already spend
-        # the bookcase — so three props a band rather than the office's four to
+        # the bookcase, so three props a band rather than the office's four to
         # seven, repeated round each band. `shelf_library` and `map_world` were
         # both wanted and are both 64 px wide, past the 56 a scenery column has.
         "scenery": [
@@ -769,14 +769,14 @@ THEMES = {
         # these rooms to stop being washed out, and the two knobs are separate:
         # `prop_sat_scale`/`prop_sat_target` move saturation, `prop_value_floor`/
         # `prop_value_ceil` move value. HSV saturation does not touch V, so this
-        # leaves mean value — and therefore `THEME_MIN_VALUE_CONTRAST` — exactly
+        # leaves mean value (and therefore `THEME_MIN_VALUE_CONTRAST`) exactly
         # where it was. This theme keeps the standard 0.40 floor and clears it by
         # the same margin as before.
         #
         # That distinction is the whole finding. A previous pass measured these
         # three at the *full* office package (saturation AND the [0.10, 1.00]
         # value band) and correctly found them mathematically incapable of
-        # clearing 0.35 on any floor/wall pair the sheet offers — but the value
+        # clearing 0.35 on any floor/wall pair the sheet offers, but the value
         # half is what costs contrast, and it was never what "desaturated" meant.
         # `library` is the worked example: saturation only, and its contrast went
         # *up*.
@@ -793,27 +793,27 @@ THEMES = {
         "floor": (10, 8),       # herringbone, 0.765
         "wall": (0, 4),         # plain light, 0.863
         # **Measured for the office/briefing pack-value policy at the M8
-        # palette-pass task, and NOT moved onto it — the closest of the four,
+        # palette-pass task, and NOT moved onto it: the closest of the four,
         # and refused on identity rather than on the number.** The sheet's
         # only lighter wood-family floor is `(11, 1)`, a light parquet plank
-        # (pack mean 0.823) rather than the current dark herringbone chevron —
+        # (pack mean 0.823) rather than the current dark herringbone chevron,
         # the sheet carries no lighter shade of the herringbone itself, only
         # this different weave. Paired with the current wall brightened one
         # column over, `(0, 5)` (0.885 raw vs the current `(0, 4)`'s 0.865),
         # contrast reaches 0.341; paired with `(6, 5)`, the plain cream wall
-        # `library` now uses, 0.345 — still short of 0.35, and cream is not
-        # this theme's wall family. Abandoning the floor's own identity too —
+        # `library` now uses, 0.345: still short of 0.35, and cream is not
+        # this theme's wall family. Abandoning the floor's own identity too,
         # swapping in `library`'s light checker tile, matching neither a stage
-        # nor a rehearsal room — reaches 0.351, technically over the line at
+        # nor a rehearsal room: reaches 0.351, technically over the line at
         # the cost of the one material (wood) this theme and `library` would
         # otherwise share no floor with. Per the M8 palette-pass task's own
         # brief: "a lighter tile of the wrong material is a worse answer than
-        # a dark one" — stays on the standard desaturated band.
+        # a dark one": stays on the standard desaturated band.
         "roles": {
             "desk":  ("office", 34, "plain office desk, side view"),
             "chair": ("office", 104, "office chair, side view, backrest to the left"),
             "chair_back": ("office", 101, "office chair, back view - a person on it faces away from the camera"),
-            "board": (6, 37, "drum kit — kick, snare, toms, two cymbals on stands"),
+            "board": (6, 37, "drum kit: kick, snare, toms, two cymbals on stands"),
             "plant": (6, 62, "microphone on a round-base stand"),
         },
         # All of set 6.
@@ -821,8 +821,8 @@ THEMES = {
             ("wall", 6, 108, "framed medal and citation"),
             ("wall", 6, 96, "sports poster"),
             ("wall", 6, 157, "trophy shelf"),
-            # `piano_upright` measures 58 px after the import pass — 2 px
-            # past a scenery column — so the tall guitar stands in for it.
+            # `piano_upright` measures 58 px after the import pass: 2 px
+            # past a scenery column, so the tall guitar stands in for it.
             ("wall_line", 6, 203, "electric guitar on a stand"),
             ("wall_line", 6, 57, "concert harp"),
             ("wall_line", 6, 43, "amplifier stack"),
@@ -836,19 +836,19 @@ THEMES = {
     },
     "briefing": {
         "title": "Briefing Room",
-        "what": "a lectern facing a wall of hanging curtain — reads as a hall "
+        "what": "a lectern facing a wall of hanging curtain: reads as a hall "
                 "rather than a workspace",
         "floor": (14, 8),       # large block tile, 0.769
         "wall": (8, 26),        # blue, 0.859
         # ADR-011 amendment, extended to a second theme. `office`'s props and
         # room tiles moved to the pack's own value and saturation because the
         # standard [0.55, 0.92] band lifts the pack's universal 0.314 outline
-        # ink to 0.667 and dissolves it — a fact about the TRANSFORM, not about
+        # ink to 0.667 and dissolves it: a fact about the TRANSFORM, not about
         # `office` specifically. That argument is not `office`-specific, but the
         # 0.35 contrast floor `office` is measured against IS: it comes from a
         # maintainer-built reference composite this theme does not have. So
         # `briefing` is moved here on the SAME floor `office` uses (0.10,
-        # unchanged from ADR-011 — not re-derived, because both packs share the
+        # unchanged from ADR-011, not re-derived, because both packs share the
         # identical 0.314 outline ink, measured directly: at floor 0.0 the
         # darkest pixel across every briefing role, scenery item, floor and
         # wall tile is exactly 0.314, tied with the cast rather than under it)
@@ -856,14 +856,14 @@ THEMES = {
         # it. It does, with margin: mean 0.686, darkest 0.382 (0.068 clear of
         # the cast's 0.314), contrast 0.372. See scripts/lint-palette.py's
         # THEME_MIN_VALUE_CONTRAST and the M8 palette-pass task notes for the
-        # other three themes measured against this floor and left unmoved —
+        # other three themes measured against this floor and left unmoved,
         # broadcast 0.289, mission_control 0.299, stage 0.308, none of which
         # clears 0.35 on the office floor, and pushing their own floor higher
         # just to clear a number derived from a different theme's reference
         # picture is exactly the "silently widen the table" move this change
         # refuses to make. `library` was originally measured alongside them at
         # 0.322 on ITS OWN old floor/wall, and a re-tile does clear 0.35 the
-        # same way it did here — but `library` does NOT carry this theme's
+        # same way it did here, but `library` does NOT carry this theme's
         # `prop_value_floor`/`prop_value_ceil` pair, only its saturation
         # knobs. See `THEMES["library"]`'s own comment for why: its baseline
         # contrast (0.456, standard band) never needed the value axis moved at
@@ -879,12 +879,12 @@ THEMES = {
         # theme. Measured at the M8 palette-pass task, mean saturation over
         # every role/scenery/floor/wall pixel, HSV, same method as the value
         # figures above: the CAST's own mean is 0.332, and `briefing` at pure
-        # pack identity (scale 1.0) measured **0.411** — louder than the
+        # pack identity (scale 1.0) measured **0.411**: louder than the
         # characters it is a backdrop for, which I7 forbids as plainly on this
         # axis as a room owning the darkest pixel forbids it on the other.
         # `office` was never at risk of this (it measures 0.238 at identity,
-        # comfortably under the cast, because its own set — desks, monitors,
-        # filing cabinets — is not a particularly colourful one); `briefing`'s
+        # comfortably under the cast, because its own set: desks, monitors,
+        # filing cabinets: is not a particularly colourful one); `briefing`'s
         # set is a curtain panel, painted doors and a wooden lectern, and
         # identity there is simply louder than the cast.
         #
@@ -892,16 +892,16 @@ THEMES = {
         # above: the base (every role and scenery item, no floor or wall at
         # all) already measures 0.408 on its own, 81% of the theme's pixel
         # weight, so even a floor and wall driven to literal 0% saturation
-        # only pulls the aggregate to 0.333 — a hair over the cast's 0.332 and
+        # only pulls the aggregate to 0.333: a hair over the cast's 0.332 and
         # not a real fix. So this is a `prop_sat_scale` change, not a re-tile:
-        # 0.75 is not the identity 1.0 and not the old flat desaturated 0.35 —
+        # 0.75 is not the identity 1.0 and not the old flat desaturated 0.35,
         # it keeps 75% of the pack's own colour and lands the theme at 0.310,
         # 0.022 under the cast with a margin `scripts/lint-palette.py`'s own
         # per-theme "room saturation < cast saturation" check now holds this
         # theme to. `prop_sat_target` stays 1.0: nothing scaled by 0.75 comes
         # close to it (the loudest pixel in the theme, the painted door in
         # `scenery`, is 0.897 raw and 0.673 scaled), so it is not doing any
-        # clipping — it is left at 1.0 rather than removed so the two knobs
+        # clipping: it is left at 1.0 rather than removed so the two knobs
         # keep reading as a pair with `office`'s and `library`'s entries.
         "prop_sat_scale": 0.75,
         "prop_sat_target": 1.0,
@@ -915,7 +915,7 @@ THEMES = {
             # its body is pale on a pale wall and all that survives is the
             # screen, which reads as a card floating at chest height. The flip
             # chart keeps a hard-edged white face and a visible tripod.
-            "board": (13, 50, "flip chart — a white pad on a tripod easel"),
+            "board": (13, 50, "flip chart: a white pad on a tripod easel"),
             "plant": (13, 1, "full-height hanging curtain panel"),
         },
         # All of set 13.
@@ -942,17 +942,17 @@ THEMES = {
 #
 # `library`, `stage`, `briefing`, `broadcast` and `mission_control` have no
 # floor plan because `build_plan` in scripts/build-manifest.py has only ever
-# looked at `Room_Builder_Office_32x32.png`, and none of the tiles it wants —
+# looked at `Room_Builder_Office_32x32.png`, and none of the tiles it wants,
 # a cap carrying the pack's 12 px floor-plan line, with a body directly below
-# it — were ever cut for the other five themes. The tiles exist: every theme
+# it: were ever cut for the other five themes. The tiles exist: every theme
 # already indexes `Room_Builder_Walls_32x32.png` (`THEME_WALLS`) for its own
 # single flat `wall` tile, and that same sheet carries 264 cap tiles, 232 of
 # them with a clean, fully-opaque body directly below (checked by reproducing
 # `plan_line_inks` and the import pass's 60%-opacity rule over the whole
-# sheet, once — the same measurement `PLAN_SURFACES` records for the office
+# sheet, once: the same measurement `PLAN_SURFACES` records for the office
 # sheet, on the sheet the themes actually bind).
 #
-# `(row, col)` is the CAP tile's address — `Room_Builder_Walls`, not the
+# `(row, col)` is the CAP tile's address: `Room_Builder_Walls`, not the
 # combined `Room_Builder_32x32.png` PLAN_SURFACES reads for office, which is a
 # different coordinate space and not reusable here. `body` is always the row
 # directly below on the sheet, the same convention office's own picks use.
@@ -963,29 +963,29 @@ THEMES = {
 # looking at it, for a tone and material that suits the theme's *existing*
 # `wall` pick rather than for the closest number.
 #
-# **Good material matches were found for four of the five** — `stage` below,
+# **Good material matches were found for four of the five**: `stage` below,
 # plus `mission_control` `(30, 23)` (same row as its own wall `(30, 27)`,
 # pale cool blue-grey), `broadcast` `(4, 1)` (a plain unpatterned near-white
 # gradient) and `library` `(6, 1)` (a warm cream gradient matching its own
 # `(9, 1)`/`(6, 5)`). **Only `stage` ships.** `Tests/SpriteRoomSceneTests/
 # RoomPlanTests.swift`'s `officePlan()` resolves to "the first theme, in
-# `orderedIDs` — alphabetical — whose plan is not empty", named for what was
+# `orderedIDs` (alphabetical) whose plan is not empty", named for what was
 # once its only possible answer, and `theShippedPlanIsMoreThanOneRoom` then
-# asserts *that* plan carries three or more distinct surfaces — true only of
+# asserts *that* plan carries three or more distinct surfaces: true only of
 # `office`'s own five-room plan. `orderedIDs` is `sets.keys.sorted()`
 # (`Manifest.swift`), so office (`o…`) sorts after `briefing`, `broadcast`,
 # `library` and `mission_control` but before `stage`: giving any of the first
 # four a plan makes `officePlan()` resolve to a single-surface wall band
 # instead of office's own, and the assertion is not a matter of taste to
-# relax — it is the regeneration-safety check its own comment names.  `stage`
+# relax: it is the regeneration-safety check its own comment names.  `stage`
 # (`s…`) sorts after `office`, so it is the one theme this table can hold
 # without moving what that test measures. The other three good picks are
 # recorded above rather than deleted, because they were real, verified
-# matches refused by a constraint external to their own art — not a case of
+# matches refused by a constraint external to their own art, not a case of
 # "no cap suits it" the way `briefing`'s is, below.
 #
 # `office` is absent because it already has a plan, drawn from its own
-# combined sheet — `build_plan` never reaches `THEME_PLAN_WALLS` for it.
+# combined sheet: `build_plan` never reaches `THEME_PLAN_WALLS` for it.
 #
 # **`briefing` has no good match at all**, which is the other kind of
 # plan-less theme this table leaves alone. Its existing wall, `(8, 26)`,
@@ -993,10 +993,10 @@ THEMES = {
 # `value_floor` pair. Nothing on this sheet lands near both numbers at once:
 # the closest hue match, the sheet's flat saturated colour-swatch family
 # (rows 32-36, a flat blue at `(34, 12)`), measures S=0.417 through the same
-# transform — more saturated AND darker than the existing wall, stacking on
+# transform: more saturated AND darker than the existing wall, stacking on
 # top of this theme's own already-saturated floor (S=0.343) against I7's
 # "characters own the saturation" half; the closest this sheet offers on the
-# numbers, `(10, 23)`, still measures S=0.256/V=0.730 — 0.125 darker than the
+# numbers, `(10, 23)`, still measures S=0.256/V=0.730: 0.125 darker than the
 # existing wall, which a picture hung on it at the theme's own composed
 # height would sit against, visibly.
 THEME_PLAN_WALLS = {
@@ -1008,7 +1008,7 @@ THEME_PLAN_WALLS = {
     #   library         (6,1)    S=0.038/V=0.850 vs wall S=0.057/V=0.898
     # They could not ship when they were picked because `RoomPlanTests`
     # resolved "the plan" as the alphabetically-first theme that had one, and
-    # all three sort before `office` — so giving any of them a plain wall band
+    # all three sort before `office`, so giving any of them a plain wall band
     # redirected every plan test onto it. That helper now resolves the plan with
     # the most spaces, which is what those tests always meant, so the art can
     # decide again.
@@ -1018,7 +1018,7 @@ THEME_PLAN_WALLS = {
     # against, and a band that dark under this theme's props reads as a shadow
     # rather than as a wall.
     # **briefing, after looking at it without one.** It was left out because its
-    # best candidate cap measures 0.125 darker in value than its own wall tile —
+    # best candidate cap measures 0.125 darker in value than its own wall tile,
     # a fair test if the wall stays on screen, and it does not: under a plan the
     # theme's flat wall field is never drawn. Cap, body and the back rooms' floor
     # replace it. Rendered plan-less beside the other five, briefing was the only
@@ -1032,20 +1032,20 @@ THEME_PLAN_WALLS = {
 }
 
 # ---------------------------------------------------------------------------
-# Animated objects — added at M6b, adopted into the manifest at M6c
+# Animated objects: added at M6b, adopted into the manifest at M6c
 # ---------------------------------------------------------------------------
 #
 # `3_Animated_objects/` is 310 spritesheets and, unlike every other folder in
 # these packs, **they are named**. There is nothing to render-and-guess here:
 # the file is called `animated_control_room_server_32x32.png`. That is why this
-# table is short and why it carries no "identified_by" apology — the sheet says
+# table is short and why it carries no "identified_by" apology: the sheet says
 # what it is and the frames were still rendered and looked at before anything
 # entered it.
 #
 # Frame width is NOT recoverable from the filename and every sheet is a single
 # row, so it is measured per sheet and written down. Getting it wrong produces a
 # sheet that still tiles into plausible-looking frames, which is the failure
-# mode that would survive review — so it is no longer only written down. **The
+# mode that would survive review, so it is no longer only written down. **The
 # pack ships a GIF of every animated object beside the sheet**, and a GIF
 # carries its own canvas size, its own frame count and its own per-frame delay.
 # `_gif_timing()` reads it, and an object whose sheet does not agree with its
@@ -1062,7 +1062,7 @@ THEME_PLAN_WALLS = {
 # refuses to cut an object whose GIF disagrees.
 #
 # THE SELECTION RULE, which is stricter than "it looks nice". ADR-002 §9 forbids
-# scenery that animates *in response to activity* — that is the room asserting
+# scenery that animates *in response to activity*: that is the room asserting
 # something the data did not say. Everything here idles on its own loop and
 # claims nothing: LEDs blink, a pendulum swings, a screen carries static. None
 # of them starts, stops, or changes with an event, so none of them is in any
@@ -1075,7 +1075,7 @@ THEME_PLAN_WALLS = {
 # transcribed into this comment. It is transcribed nowhere precisely because
 # M6b's transcription was wrong twice: it recorded `pendulum_clock` at 4.6% when
 # the sheet measures 3.0%, and `old_tv` at 10.4% when the sheet measures 27.9%.
-# The second one mattered — 27.9% is a prop that waves, not a prop that is
+# The second one mattered: 27.9% is a prop that waves, not a prop that is
 # alive, and the whole judgement about `old_tv` had been made against a number
 # nothing generated.
 #
@@ -1095,14 +1095,14 @@ ANIMATED = {
     # margin on purpose". Re-measured at M8, straight off the current manifest
     # rather than trusted from the old comment: the baseline is now 0.419 (the
     # theme has grown scenery since M6b, and scenery participates in the same
-    # contrast pass), and adopting this prop takes it to 0.410 — a spend of
+    # contrast pass), and adopting this prop takes it to 0.410: a spend of
     # 0.009, not 0.019, still clearing the 0.40 floor by 0.010. It is also, of
     # everything tried in the M8 sweep, the cheapest possible motion: 437 px/s
     # of the 1461 ceiling (0.30x), because only the LED grid changes between
     # its 3 frames and the rack housing around it does not move at all.
     #
     # It was also tried against `office` in place of `mission_control` (same
-    # sheet, `role: board`) and refused there — not on this margin, but on I7
+    # sheet, `role: board`) and refused there, not on this margin, but on I7
     # saturation: see the note above `ANIMATED_ADOPTED` for why no animated
     # object in this pack can currently be adopted into `office` or `briefing`
     # at all.
@@ -1149,11 +1149,11 @@ ANIMATED = {
         "what": "longcase clock, swinging pendulum",
     },
     # NOT ADOPTED. Two independent reasons, both found by looking at it in the
-    # room. It is a TV meant to stand ON furniture — there is nothing under it
-    # in the art — and the back row is a floor line, so four of them hang at
+    # room. It is a TV meant to stand ON furniture: there is nothing under it
+    # in the art, and the back row is a floor line, so four of them hang at
     # chest height over nothing. And it moves far more than M6b recorded: 364 px
     # of 1156 (31.5%), not 160 of 1544 (10.4%) and not the 364 of 1304 (27.9%)
-    # M6c corrected it to — the numerator was right the second time and the
+    # M6c corrected it to: the numerator was right the second time and the
     # denominator was still typed. Flickering at 10 fps it is the strongest
     # attractor in any room here, and I7 says the eye belongs on the characters.
     #
@@ -1162,7 +1162,7 @@ ANIMATED = {
     # value check with nothing to say about motion. The motion budget added at
     # M6d says something: four copies of this change 13867 px of the panel per
     # second against a ceiling of 1461, which is 9.49x. Adopting it is now a red
-    # build, and that is what was verified — see docs/04-ART-DIRECTION.md.
+    # build, and that is what was verified: see docs/04-ART-DIRECTION.md.
     "old_tv": {
         "sheet": "animated_old_tv_32x32.png",
         "frame": (64, 64),
@@ -1171,15 +1171,15 @@ ANIMATED = {
         "fps": 10,
         "what": "CRT television on rabbit-ear aerials, screen static",
     },
-    # NOT ADOPTED. Reads perfectly well at 1x — a wall monitor the same
+    # NOT ADOPTED. Reads perfectly well at 1x: a wall monitor the same
     # silhouette weight as the presentation board it would replace, standing at
-    # the same height — but it moves too much to afford: 3 copies x 667 px/s =
+    # the same height, but it moves too much to afford: 3 copies x 667 px/s =
     # 2000 px/s against the 1461 ceiling, 1.37x over. The sheet's own content is
     # a scrolling social feed, and a feed scrolls by redrawing most of its own
     # area every step; there is no way to slow that down without changing the
     # pack's own GIF timing, which this importer refuses to do [see
     # `gif_timing()`]. Would also fail the saturation gap below if the motion
-    # number were fixable — RGB(243,179,43) on its own screen reaches 82.3%
+    # number were fixable: RGB(243,179,43) on its own screen reaches 82.3%
     # against office's effective 25% ceiling.
     "control_room_facebook_scrolling": {
         "sheet": "animated_control_room_facebook_scrolling_32x32.png",
@@ -1194,7 +1194,7 @@ ANIMATED = {
     # countertop appliance with no counter under it, bottom-anchored in the prop
     # canvas the way every board is, so it lands at floor height, half-hidden
     # behind the neighbouring plant, and reads as an indistinct grey lump rather
-    # than a coffee machine — see `docs/04-ART-DIRECTION.md`'s note on `old_tv`
+    # than a coffee machine: see `docs/04-ART-DIRECTION.md`'s note on `old_tv`
     # for the same "hangs in the air" failure mode, mirrored here as "sits on
     # nothing". `office` already has a static coffee counter in its own
     # scenery (`("wall_line", "office", 320, ...)`), which is the object this
@@ -1210,7 +1210,7 @@ ANIMATED = {
     # NOT ADOPTED. Same failure as `coffee`, same cause: a small object
     # bottom-anchored in a tall canvas reads as a stray brown-orange blob at
     # floor height, not as a clock. Rendered in the room at 1x before writing
-    # this — `preview-theme.py --animated cuckoo_clock --theme office`.
+    # this: `preview-theme.py --animated cuckoo_clock --theme office`.
     "cuckoo_clock": {
         "sheet": "animated_cuckoo_clock_32x32.png",
         "frame": (32, 64),
@@ -1220,7 +1220,7 @@ ANIMATED = {
         "what": "cuckoo clock, swinging pendulum and popping bird door",
     },
     # NOT ADOPTED, and the one candidate in this sweep that reads well AND
-    # clears the motion budget (915 px/s of 1461, 0.63x) — it is refused purely
+    # clears the motion budget (915 px/s of 1461, 0.63x): it is refused purely
     # on the saturation gap below: RGB(237,147,30), one of the tank's fish,
     # measures 87.3% against office's effective 25% ceiling. If that gap is
     # ever closed, this is the first thing to re-try.
@@ -1232,14 +1232,14 @@ ANIMATED = {
         "fps": 10,
         "what": "fish tank, orange fish swimming",
     },
-    # NOT ADOPTED. Reads fine on its own — a plausible speaker cabinet, cheap
-    # to animate (3 frames, one blinking light) — but wrong for two reasons
+    # NOT ADOPTED. Reads fine on its own: a plausible speaker cabinet, cheap
+    # to animate (3 frames, one blinking light), but wrong for two reasons
     # found by looking at it in the room rather than by a number. First,
     # `stage`'s own scenery already places a static "amplifier stack" single
     # (`("wall_line", 6, 43, ...)`), so a second, animated amplifier at the back
     # wall reads as a mismatched duplicate of furniture already in the room.
     # Second and worse: it replaces EVERY copy of `board`, which in `stage` is
-    # the drum kit — the one object `THEMES["stage"]["what"]` names as the
+    # the drum kit: the one object `THEMES["stage"]["what"]` names as the
     # theme's own distinguishing silhouette ("the only theme whose back wall is
     # not a rectangle"). Trading the theme's signature shape for a repeat of an
     # object already on screen is a net loss even where the budget affords it.
@@ -1253,8 +1253,8 @@ ANIMATED = {
     },
     # NOT ADOPTED. A second, differently-lit wall screen for `mission_control`,
     # tried because `hospital_xrayscreen_*`-style content reads as
-    # "diagnostic" and fits the theme. Reads legibly at 1x — a single flat
-    # monitor, simpler than the two-screen pedestal it would replace — but its
+    # "diagnostic" and fits the theme. Reads legibly at 1x: a single flat
+    # monitor, simpler than the two-screen pedestal it would replace, but its
     # own readout redraws too much of itself each frame: 4 copies x 1120 px/s =
     # 4480 px/s against the 1461 ceiling, 3.07x over. Every screen-content
     # candidate tried in this sweep (`control_room_facebook_scrolling`,
@@ -1264,7 +1264,7 @@ ANIMATED = {
     # copies on a 720px panel) multiplies that past the ceiling before the
     # rate even matters. The one screen-shaped object that clears the budget in
     # this cast, `control_room_server`, does because only its LED grid moves
-    # and the rack housing around it — most of the sprite — does not.
+    # and the rack housing around it (most of the sprite) does not.
     "hospital_screen_color": {
         "sheet": "animated_hospital_screen_color_32x32.png",
         "frame": (64, 64),
@@ -1276,7 +1276,7 @@ ANIMATED = {
     # NOT ADOPTED, for the same reason as `old_tv` and confirming it rather than
     # repeating it on faith: this is the pack's second CRT-television sheet,
     # same 64x64 canvas, same "screen static" content, and it moves almost
-    # exactly as much — 4 copies x 2867 px/s = 11467 px/s against the 1461
+    # exactly as much: 4 copies x 2867 px/s = 11467 px/s against the 1461
     # ceiling, 7.85x over (old_tv itself is 9.49x; the two sheets are close but
     # not identical art). Kept in this table, not folded into `old_tv`'s row,
     # because it is a different file and the next person should not have to
@@ -1292,19 +1292,19 @@ ANIMATED = {
 }
 
 # ---------------------------------------------------------------------------
-# The `office`/`briefing` saturation gap — found at M8, not fixed here
+# The `office`/`briefing` saturation gap: found at M8, not fixed here
 # ---------------------------------------------------------------------------
 #
 # `office` and `briefing` run their PROPS at the pack's own saturation
 # (`prop_sat_scale`/`prop_sat_target` = 1.0, ADR-010/ADR-011) instead of the
 # desaturated standard band every other theme's props use. `scripts/
 # lint-palette.py` knows about that policy and checks those two themes' art
-# against the pack itself instead of the flat 25% ceiling — but only for paths
+# against the pack itself instead of the flat 25% ceiling, but only for paths
 # under `assets/processed/themes/<name>/` and, for `office` alone,
 # `assets/processed/room/` (see that script's `override_prefixes`). An animated
-# role's frames live under `assets/processed/animated/<size>/<id>/` — a
+# role's frames live under `assets/processed/animated/<size>/<id>/`: a
 # DIFFERENT path, because `animated()` writes each object once and every theme
-# that adopts it points at the same files — so they never match either prefix
+# that adopts it points at the same files, so they never match either prefix
 # and are checked at the flat 25% ceiling regardless of which theme they are
 # `for`. That is a real gap in the lint, not a property of these props; fixing
 # it is a change to `scripts/lint-palette.py`'s `override_prefixes`, which is
@@ -1314,7 +1314,7 @@ ANIMATED = {
 # objects in `3_Animated_objects/32x32/` that fits `PROP_CANVAS` and has a
 # uniform GIF delay was scanned for its own worst-pixel HSV saturation. The
 # LOWEST of the whole set is 27.5% (`old_tv`, `old_tv2`, `pentacle`, `spider`,
-# `punching_bag_left`, `grocery_store_checkout_roller`, `butterfly_2`) —
+# `punching_bag_left`, `grocery_store_checkout_roller`, `butterfly_2`),
 # already over the 25% ceiling. **No object in this pack's animated folder can
 # currently be adopted into `office` or `briefing`.** `fishtank_orange` and
 # `control_room_facebook_scrolling` above are the two that would otherwise have
@@ -1322,19 +1322,19 @@ ANIMATED = {
 # problem too); `coffee`, `cuckoo_clock` and the office-targeted trial of
 # `control_room_server` were refused before saturation ever became the
 # question. `office` is why this sweep was started and it ends this task at
-# 0.00 of the motion budget regardless — not because nothing was tried, but
+# 0.00 of the motion budget regardless, not because nothing was tried, but
 # because the one gate this task cannot touch (`scripts/lint-palette.py`) does
 # not yet know where an animated office prop's frames live.
 
 # Which animated object each theme actually adopts. An id here replaces that
 # theme's static binding for the object's `role`; a theme absent from this set
 # keeps the static prop. It is separate from ANIMATED so that art can stay cut
-# and reviewable — `preview-theme.py` can still stand it in the room — without
+# and reviewable (`preview-theme.py` can still stand it in the room) without
 # being in the manifest.
 #
 # **Two ship, as of the M8 office-motion sweep, and both survive the M8
 # palette-pass task's saturation restoration unchanged.** `pendulum_clock`
-# (library) and `control_room_server` (mission_control) — see the M8
+# (library) and `control_room_server` (mission_control): see the M8
 # office-motion sweep's own comment above this constant's earlier revisions
 # for their motion-budget cost, which nothing here touches.
 #
@@ -1343,16 +1343,16 @@ ANIMATED = {
 # is why it is still adopted. The office/briefing-style full package
 # (`prop_value_floor` 0.10 as well as saturation identity) was tried against
 # `library` at the M8 palette-pass task specifically because it clears that
-# theme's own 0.35 contrast test on a re-tile — but `Importer.animated()`
+# theme's own 0.35 contrast test on a re-tile, but `Importer.animated()`
 # cuts every object "on the target theme's own prop band" (that method's own
 # docstring), so the wider band would have applied to `pendulum_clock` too,
 # and running the test suite with it in found
-# `theAnimatedPropIsNeverRebuiltAcrossAFixtureReplay` failing —
+# `theAnimatedPropIsNeverRebuiltAcrossAFixtureReplay` failing,
 # `Tests/SpriteRoomSceneTests/PropAnimationTests.swift`'s `animatedTheme(_:)`
 # finds `library` first (alphabetically, over `mission_control`) whenever it
 # carries an animated role, and several of that suite's own tests are tuned
 # against `pendulum_clock`'s 5 fps specifically, not against "whichever theme
-# happens to animate" — dropping this clock to make room for the value
+# happens to animate": dropping this clock to make room for the value
 # package would have swapped which theme those tests measure and broken a
 # swift test outside this task's own files to satisfy a value-axis threshold
 # `library` never needed clearing (see `THEMES["library"]`'s own comment: its
@@ -1364,7 +1364,7 @@ ANIMATED = {
 # ground: a motion-budget overrun, an I7 saturation ceiling this task could
 # not touch, a prop that reads as furniture floating on nothing, or a prop
 # that deletes its own theme's signature silhouette. `office` and `briefing`
-# ship none — see the note above this constant for why, in full.
+# ship none: see the note above this constant for why, in full.
 #
 # Emptying this set reverts every animated prop in one line and nothing else
 # changes; the art stays cut either way.
@@ -1377,7 +1377,7 @@ ANIMATED_GIF_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "gif")
 # written. That is what keeps a themed room a manifest swap with no code change:
 # the scene reads ONE `room.props.canvas` for all props and anchors each prop by
 # its own measured content_box inside it. The theme sorter singles arrive on
-# tight per-sprite canvases — 32x32, 32x48, 16x96, 64x96 — so without this the
+# tight per-sprite canvases (32x32, 32x48, 16x96, 64x96) so without this the
 # manifest would have to carry a canvas per role and the scene would have to
 # learn to read it. Every prop selected above was measured first and fits.
 #
@@ -1387,7 +1387,7 @@ ANIMATED_GIF_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "gif")
 # It was widened to admit `control_room_screens`, a 128x96 monitor wall. Both
 # states were built and all six themes rendered at 720x400 with characters:
 # **0 differing pixels of 288 000, in every theme.** That is not luck, it is the
-# construction — padding is bottom-CENTRED and placement is by measured
+# construction: padding is bottom-CENTRED and placement is by measured
 # `content_box`, so widening adds 32 px of transparency on each side, every
 # box's `x` gains exactly 32, and the anchor `(box.x + box.w/2) / canvas.w` is
 # invariant. It was checked in pixels anyway, because the last placement bug
@@ -1397,13 +1397,13 @@ ANIMATED_GIF_DIR = os.path.join(INTERIORS, "3_Animated_objects", "%s", "gif")
 # `control_room_screens` has a 120 px content box and the scene draws `board` at
 # four points 96 px apart, so its copies clip each other whatever canvas they
 # arrive on. Carrying a 128 px canvas would then double every themed prop
-# texture for an object no room can draw — generality with no user. Flip this
+# texture for an object no room can draw: generality with no user. Flip this
 # line and ANIMATED_ADOPTED to spend it, the moment a scene rule exists for a
 # prop wider than the back-row pitch.
 PROP_CANVAS = (64, 96)
 
 # ---------------------------------------------------------------------------
-# Character sheet layout — MEASURED, see docs/FINDINGS-M0.md
+# Character sheet layout: MEASURED, see docs/FINDINGS-M0.md
 # ---------------------------------------------------------------------------
 
 # Premade sheets are 1792x1312 at the 32x set: 56 columns of 32px by 20 rows of
@@ -1445,17 +1445,17 @@ CHAR_DIRS = ("right", "up", "left", "down")
 
 # What we actually cut. (pose_row, frames_per_direction, directions_to_export).
 # Poses outside this list exist in the pack but have no event that licenses
-# them [I1] — punch, stab, shoot and the rest are never going in the room.
+# them [I1]: punch, stab, shoot and the rest are never going in the room.
 CHAR_EXPORT = {
     "idle": (1, 6, ("right", "up", "left", "down")),
     "walk": (2, 6, ("right", "up", "left", "down")),
-    # The desk pose. Side views only — the pack ships no front or back sitting
+    # The desk pose. Side views only: the pack ships no front or back sitting
     # pose, which is why the room is laid out side-on. See docs/04.
     "sit": (4, 3, ("right", "left")),
     # Row 5, the SECOND sit row, is deliberately NOT exported. M6b cut it,
     # rendered it in all six rooms and measured it: it is sit-on-the-ground
-    # against sit-on-a-chair — the bare body sheet extends the legs forward in
-    # row 4 and folds them under in row 5 — and the two are pixel-identical
+    # against sit-on-a-chair: the bare body sheet extends the legs forward in
+    # row 4 and folds them under in row 5, and the two are pixel-identical
     # above image row 39, which is everything the desk and chair do not hide.
     # Four seated characters in a 720x400 room differ by **96 pixels of
     # 288000**. A second seated pose that nothing can see is not a second pose.
@@ -1464,7 +1464,7 @@ CHAR_EXPORT = {
     "gift": (10, 10, ("right", "up", "left", "down")),
 }
 
-# The cast. Selected, not drawn — the pack ships 20 premades and the job is
+# The cast. Selected, not drawn: the pack ships 20 premades and the job is
 # picking the subset that survives the 1x silhouette test while satisfying I7.
 # Every one of these carries a colour above 0.55 saturation (01, 02, 03 and 05
 # do not and were excluded), and this is the 6-subset with the largest minimum
@@ -1472,20 +1472,20 @@ CHAR_EXPORT = {
 CHAR_CAST = ("06", "07", "09", "10", "17", "19")
 
 # ---------------------------------------------------------------------------
-# Costumes — the character generator's overlay layers
+# Costumes: the character generator's overlay layers
 # ---------------------------------------------------------------------------
 #
 # `Character_Generator/{Bodies,Eyes,Outfits,Hairstyles,Accessories}/32x32/` are
 # **not** a Windows-only tool. `CHARACTER_GENERATOR.txt` says to stack them in
 # any editor that supports layers; the Windows binary in `THIRD-PARTY TOOLS.txt`
 # is a convenience for doing that, not a dependency. The files are ordinary PNGs
-# on the premade sheet's own geometry — Outfits, Hairstyles, Eyes and 80 of 84
+# on the premade sheet's own geometry: Outfits, Hairstyles, Eyes and 80 of 84
 # Accessories are 1792x1312 exactly, Bodies and the other 4 are 1854x1312, which
 # is the same 56 columns of 32 px by 20 rows of 64 px plus 62 px of trailing
 # pad. Registration is (0, 0) in every case, measured rather than assumed.
 #
 # A costume is therefore an **overlay layer cut exactly the way `characters()`
-# cuts a premade** — same rows, same direction blocks, same frame counts, same
+# cuts a premade**: same rows, same direction blocks, same frame counts, same
 # 32x64 canvas, colour untouched. The scene draws it on a node above the body
 # and steps it on the body's own frame index. Nothing here is composited onto a
 # character: `Manifest.Costume` is a layer stack, and a pre-composited variant
@@ -1495,14 +1495,14 @@ CHAR_CAST = ("06", "07", "09", "10", "17", "19")
 # `Books` finding is exactly what a coverage assumption costs. Alpha-scanning
 # all 132 outfit sheets row by row: every one carries ink on all 20 pose rows
 # except row 3 (`sleep`, a head on a pillow with no body to dress). All four
-# rows this project cuts — `idle` (1), `walk` (2), `sit_a` (4) and `gift` (10) —
+# rows this project cuts: `idle` (1), `walk` (2), `sit_a` (4) and `gift` (10),
 # are covered in **every direction block and every frame**, with one exception
 # in the whole set: all five colourways of `Outfit_31` have no ink on frame 8 of
 # `gift`/down. Outfit 31 is a swimsuit and is not used here. Hairstyles are
 # complete on every cut frame; Eyes and the face-worn Accessories are blank on
 # the `up` block only, which is a back view with no face in it and is the art
 # being right rather than a gap. Frame counts therefore match the body's by
-# construction — which matters, because `TextureStore.costumeFrames` drops a
+# construction, which matters, because `TextureStore.costumeFrames` drops a
 # layer whose count disagrees and it drops it *silently*.
 #
 # **What a costume can and cannot carry.** Measured on the seated frame, on a
@@ -1511,11 +1511,11 @@ CHAR_CAST = ("06", "07", "09", "10", "17", "19")
 #   * An outfit adds **0-16 px of silhouette** out of ~1000. Its ink lands
 #     inside the body's own outline in 26 of the 33 designs. **A costume does
 #     not repair M0's finding** that this cast has no outline separation.
-#   * What it does change is a **contiguous block of ~100-130 px** — the torso
-#     and lap of the seated sprite — from one flat value to another. That is
+#   * What it does change is a **contiguous block of ~100-130 px**: the torso
+#     and lap of the seated sprite: from one flat value to another. That is
 #     the channel: value, and hue inside it.
-#   * The only real silhouette on offer is **worn headwear** — snapback +156 px
-#     on the seated frame, beanie +132, detective hat +128, chef hat +404 —
+#   * The only real silhouette on offer is **worn headwear**: snapback +156 px
+#     on the seated frame, beanie +132, detective hat +128, chef hat +404,
 #     and over half of that vocabulary asserts a role (a policeman's hat, a
 #     balaclava, a chef's hat). `Outfit_30` is the one outfit family with a real
 #     outline, a hood, and it costs the variant its **hair**, which M0 proved is
@@ -1536,7 +1536,7 @@ CHAR_CAST = ("06", "07", "09", "10", "17", "19")
 #     chose**. `agent_type` is real captured data [I1], so dressing a
 #     `test-engineer` in a lab coat repeats the user's own word "test"; it does
 #     not invent a claim. Every entry records what it asserts.
-#   * Everything else is hashed over `COSTUME_ASSIGNABLE` — plain shirts, no
+#   * Everything else is hashed over `COSTUME_ASSIGNABLE`: plain shirts, no
 #     role vocabulary: no coat, no hi-vis, no apron, no uniform. This is the
 #     `question_mark` rule on the character layer. **A hash must never put an
 #     arbitrary agent in a lab coat**, because nothing in an arbitrary string
@@ -1569,13 +1569,13 @@ COSTUME_EXCLUDED = (
 # **No hair layer, deliberately.** The 200 hairstyle sheets register as exactly
 # as the outfits do and were rendered and looked at. Drawing one *replaces* the
 # premade's own hair, and hair is the one channel M0 measured as actually
-# working on this cast — the six selected variants differ in outline by 7.3% to
+# working on this cast: the six selected variants differ in outline by 7.3% to
 # 20.6%, and almost all of that is hair. A costume that overwrote it would spend
 # a proven identity channel to buy an unproven one, and would do it on the layer
 # where `agent_type` and `agent_id` are already fighting for the same pixels.
 
-# Each costume: its layer stack back to front, what it reads as at 1x, and —
-# for a recognised one — exactly what it asserts and which word of the agent's
+# Each costume: its layer stack back to front, what it reads as at 1x, and,
+# for a recognised one: exactly what it asserts and which word of the agent's
 # own name it is translating. `asserts: None` means it claims nothing, which is
 # what makes it legal in the pool.
 COSTUMES = {
@@ -1609,7 +1609,7 @@ COSTUMES = {
         "asserts": "this agent is an engineer. Translating the word `engineer`, "
                    "which is the whole of what `ingest-`, `scene-` and "
                    "`ui-engineer` have in common. **Three types share this one "
-                   "costume on purpose** — same costume means same kind of "
+                   "costume on purpose**: same costume means same kind of "
                    "worker, which is ADR-002 4's ratified reading of four "
                    "identical desks. Manufacturing three costumes for three "
                    "names that differ only in their prefix would be decoration "
@@ -1658,7 +1658,7 @@ COSTUMES = {
 # `agent_type` -> costume id. **Enumerated, never inferred from a prefix or a
 # suffix.** An exact-match table is reviewable and a substring rule is not, and
 # `Manifest` keys `roles` on the exact text the user wrote with no folding and
-# no trimming — the same rule `ThemeSelector` follows for `cwd`.
+# no trimming: the same rule `ThemeSelector` follows for `cwd`.
 #
 # **Keyed first on the agent types a stranger's session actually produces.**
 # `Explore`, `Plan`, `general-purpose`, `claude`, `claude-code-guide` and
@@ -1667,7 +1667,7 @@ COSTUMES = {
 # that forced this: the first version of the table was keyed almost entirely on
 # *this repository's invented subagent names*, so the expressive half of the
 # wardrobe was addressed to an audience of one. Those names are still here, at
-# the end of their costume's group, because they still run here — but they are
+# the end of their costume's group, because they still run here, but they are
 # no longer what the table is for.
 #
 # The middle band is the conventional names a user picks by hand for the same
@@ -1714,7 +1714,7 @@ COSTUME_ROLES = {
 COSTUME_ASSIGNABLE = ("n01", "n02", "n03", "n04", "n05", "n06")
 
 # ---------------------------------------------------------------------------
-# Stations — the workspace one agent sits at [ADR-002 §4, §7, §14c]
+# Stations: the workspace one agent sits at [ADR-002 §4, §7, §14c]
 # ---------------------------------------------------------------------------
 
 # The same two-tier shape as the wardrobe above, and for the same reason: a
@@ -1723,7 +1723,7 @@ COSTUME_ASSIGNABLE = ("n01", "n02", "n03", "n04", "n05", "n06")
 # not, so every member of `STATION_ASSIGNABLE` carries `asserts: False`.
 #
 # `index` is a Modern Office single. The pack ships **no** names for its 339
-# singles — no filenames, no layer or slice names in its .ase, no tags — so a
+# singles (no filenames, no layer or slice names in its .ase, no tags) so a
 # role cannot be read off the disk and each of these was identified by rendering
 # `assets/processed/room/32x32/singles` with `scripts/contact-sheet.py --office`
 # and looking at it at 3x and 6x. The index is recorded so anyone can re-open the
@@ -1732,7 +1732,7 @@ COSTUME_ASSIGNABLE = ("n01", "n02", "n03", "n04", "n05", "n06")
 # a byte of it.
 #
 # `index: None` means the station carries no prop at all. That is `default`'s
-# whole content and it is deliberate — the honest picture of an agent we cannot
+# whole content and it is deliberate: the honest picture of an agent we cannot
 # name is the empty desk every seat already has. [I1]
 #
 # `desk` and `chair` are absent from every entry on purpose. They fall back to
@@ -1844,9 +1844,9 @@ STATION_IDENTIFIED_BY = ("rendered from assets/processed/room/32x32/singles with
                          "6x; the pack ships no names for its singles")
 
 # `agent_type` -> station id. Exact match, never a prefix rule, same as
-# COSTUME_ROLES. Claude Code's own agent types first — those are the ones a
+# COSTUME_ROLES. Claude Code's own agent types first: those are the ones a
 # stranger's session produces, and `Explore` and `general-purpose` are the two
-# non-empty values in `fixtures/` — then this repository's own names.
+# non-empty values in `fixtures/`: then this repository's own names.
 #
 # The empty string is deliberately **absent**: it takes the `default` branch
 # before `roles` is consulted, because an agent we cannot name may not be given
@@ -1868,7 +1868,7 @@ STATION_ROLES = {
 
 # The pool an unrecognised `agent_type` is hashed over. Stated rather than
 # inferred from "the ids that are numbers", because under that convention
-# renaming a station silently changed what the hash was allowed to say —
+# renaming a station silently changed what the hash was allowed to say,
 # ADR-002 §14c. Every member must carry `asserts: False` above;
 # `scripts/build-manifest.py` refuses to write a manifest where one does not.
 STATION_ASSIGNABLE = ("n01", "n02", "n03", "n04")
@@ -1880,7 +1880,7 @@ STATION_ASSIGNABLE = ("n01", "n02", "n03", "n04")
 STATION_PROP_MAX_W = 32
 
 # ---------------------------------------------------------------------------
-# Badge rectangles — MEASURED off UI_32x32.png by connected-component bounds
+# Badge rectangles: MEASURED off UI_32x32.png by connected-component bounds
 # ---------------------------------------------------------------------------
 
 # The UI sheet divides exactly into 18x16 cells of 32px, but the artwork is NOT
@@ -1907,17 +1907,17 @@ BADGE_RECTS = {
     # non-tool state. `attention` is the precedent and this is the second
     # member of that set: it is not keyed by a tool, it is 548 pixels in the
     # pack's own bubble exactly like `attention`, and it claims only what the
-    # model already knows — this agent finished a turn and may come back.
+    # model already knows: this agent finished a turn and may come back.
     "sleep": (356, 20, 24, 28),
 }
 
 # ---------------------------------------------------------------------------
-# Badges composed from two packs — added at M5b, when Modern User Interface
+# Badges composed from two packs: added at M5b, when Modern User Interface
 # was finally bought
 # ---------------------------------------------------------------------------
 
 # The empty speech bubble in Modern Interiors' UI sheet. This is not a bubble
-# that merely *resembles* the question-mark badge's frame — it is the same
+# that merely *resembles* the question-mark badge's frame: it is the same
 # artwork: the connected component at (164,16) is 24x34 and 692 opaque pixels,
 # exactly like the one at (260,16), and differencing the two leaves precisely
 # the "?" glyph and nothing else. So compositing into it cannot change the badge
@@ -1933,7 +1933,7 @@ BADGE_FRAME_RECT = (164, 16, 24, 34)
 BADGE_FRAME_FILE = "_bubble_frame.png"
 
 # Where a glyph may go inside that frame: the light interior, measured off the
-# frame rather than guessed. x 2..21 and y 2..25 in frame-local coordinates —
+# frame rather than guessed. x 2..21 and y 2..25 in frame-local coordinates,
 # the border is a 2px band and the tail hangs below row 27.
 BADGE_FRAME_INTERIOR = (2, 2, 20, 24)
 
@@ -1946,9 +1946,9 @@ MUI_SHEETS = {
 #
 # THE SHEET IS ON A TRUE GRID, unlike Modern Interiors' emote sheet: 1952x1376
 # is exactly 61x43 cells of 32, and every icon used here is wholly inside one
-# cell. What is *not* consistent is the offset within the cell — the two icons
+# cell. What is *not* consistent is the offset within the cell: the two icons
 # below start at (8,8) and (8,10) and others in the same block start at (4,10)
-# or (6,8) — so the cut is still "find the cell, then take the bounding box of
+# or (6,8), so the cut is still "find the cell, then take the bounding box of
 # what is in it", never "take the cell". A fixed offset would clip.
 #
 # Style 1 rows 18-22 hold a darker recolour of the same 41-glyph flat icon set
@@ -1994,12 +1994,12 @@ MUI_ABSENT = {
     "terminal": "no console, prompt or shell glyph exists. The only screen in the "
                 "pack is a monitor at Style_1 cell (19,3), and it sits inside the "
                 "pack's media strip beside monitor-with-cursor, phone, image and "
-                "speaker — so the pack's own semantics for it are 'display', not "
+                "speaker, so the pack's own semantics for it are 'display', not "
                 "'shell'. Rejected on that ground alone and not on legibility: "
                 "composited into the badge frame it measures glyph IoU 0.31 "
                 "against document and 0.43 against checklist, which is no worse "
                 "than pairs already shipping. A display standing in for a shell "
-                "is the cog-and-hammer rule. Overruling this is one line — add "
+                "is the cog-and-hammer rule. Overruling this is one line: add "
                 "\"terminal\": (\"style1\", 19, 3, ...) to MUI_BADGE_ICONS in "
                 "scripts/process-assets.py and rebuild.",
 }
@@ -2023,8 +2023,8 @@ def strip_shadow(w, h, px):
     """Remove the Office pack's baked drop shadow. Returns pixels stripped.
 
     Not a plain colour replace. RGB(167,151,150) is also used as a legitimate
-    fill in a small number of tiles — 436 such pixels survive into the
-    shadowless sheet — so a blind replace would punch holes in real art.
+    fill in a small number of tiles: 436 such pixels survive into the
+    shadowless sheet, so a blind replace would punch holes in real art.
 
     Shadows are always outside the silhouette; legitimate uses of the colour are
     interior detail enclosed by other opaque pixels. So we flood inward from
@@ -2097,7 +2097,7 @@ def room_colour(r, g, b, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_
 
     `sat_scale`/`sat_target` are ADR-010's per-theme escape hatch, the
     saturation-axis sibling of `floor`: `office` calls this with `(1.0, 1.0)`,
-    which is the identity operation on saturation — `min(s * 1.0, 1.0) == s` —
+    which is the identity operation on saturation: `min(s * 1.0, 1.0) == s`,
     so its props keep the pack's own saturation while `floor`/`VALUE_CEIL`
     still compress value exactly as they do for every other theme.
     """
@@ -2113,15 +2113,15 @@ def recolour(px, cache, floor=VALUE_FLOOR, sat_scale=SAT_SCALE, sat_target=SAT_T
     """Apply the room palette transform in place.
 
     Memoised on source RGB *and on the band floor and saturation knobs*,
-    because a theme may draw its props on a wider value band — see
-    PROP_VALUE_FLOOR_DEFAULT — or, since ADR-010, at a different saturation —
+    because a theme may draw its props on a wider value band: see
+    PROP_VALUE_FLOOR_DEFAULT, or, since ADR-010, at a different saturation,
     see PROP_SAT_SCALE_DEFAULT / PROP_SAT_TARGET_DEFAULT. Keying on all three
     matters: without it the first band processed would poison every later one
     and the bug would look like "some props are the wrong tone", which is
     exactly the kind of thing nobody notices in a 720x400 panel.
 
-    Pixel art has a tiny palette — the whole Office pack uses about 320 distinct
-    colours — so this turns a per-pixel colorsys round trip into a dict lookup,
+    Pixel art has a tiny palette: the whole Office pack uses about 320 distinct
+    colours, so this turns a per-pixel colorsys round trip into a dict lookup,
     making a full reimport fast enough that nobody is tempted to skip it.
     """
     for i in range(0, len(px), 4):
@@ -2146,12 +2146,12 @@ def gif_timing(path):
     rate is as much a claim about the art as a filename is.
 
     It also independently confirms the frame *width*, which is not recoverable
-    from the sheet — every sheet is one row, so a wrong width still slices into
+    from the sheet: every sheet is one row, so a wrong width still slices into
     plausible frames. The GIF's canvas is one frame, so sheet width divided by
     GIF width is the frame count, checkable against the GIF's own.
 
     Structure walk only: block headers, the Graphics Control Extension's delay
-    field, and the NETSCAPE2.0 loop count. **No LZW decode** — the pixels come
+    field, and the NETSCAPE2.0 loop count. **No LZW decode**: the pixels come
     from the PNG sheet, which is the lossless copy. Returns None if the file is
     not a GIF or does not parse, which the caller treats as "unverified" rather
     than as an error.
@@ -2318,8 +2318,8 @@ class Importer:
                 self.log("  room builder %s: absent" % size)
                 continue
             # **The builder sheet is the office's alone.** `processed/room/` is
-            # referenced by exactly one theme — `office`, which is also the
-            # resolved default and the only theme that draws a plan — so its
+            # referenced by exactly one theme: `office`, which is also the
+            # resolved default and the only theme that draws a plan, so its
             # floors and walls take that theme's own value knobs rather than
             # the standard band. Checked, not assumed: no other set in
             # `assets/manifest.json` names a path under `processed/room/`.
@@ -2341,7 +2341,7 @@ class Importer:
             w, h, px = pnglite.load(src)
             if w % tile or h % tile:
                 self.log(
-                    "  room builder %s: %dx%d is not a whole number of %dpx tiles — skipped"
+                    "  room builder %s: %dx%d is not a whole number of %dpx tiles: skipped"
                     % (size, w, h, tile)
                 )
                 continue
@@ -2405,7 +2405,7 @@ class Importer:
 
         Returns None if the sprite does not fit. That case used to be covered by
         "every prop selected was measured first and fits", which is a claim
-        about the table rather than a check on it — and a negative offset here
+        about the table rather than a check on it, and a negative offset here
         does not raise, it writes the overhanging columns onto the wrong rows
         and produces a plausible-looking file. The caller logs and skips, which
         is the same treatment a sheet that disagrees with its GIF gets.
@@ -2421,7 +2421,7 @@ class Importer:
         return buf
 
     def _mean_colour(self, tile, px):
-        """Mean RGB of the opaque pixels — the flat stand-in for a patterned tile."""
+        """Mean RGB of the opaque pixels: the flat stand-in for a patterned tile."""
         n, r, g, b = 0, 0, 0, 0
         for i in range(0, len(px), 4):
             if px[i + 3] == 0:
@@ -2441,8 +2441,8 @@ class Importer:
         colour, and taking the darkest and the lightest. Of the Office room's
         141 builder tiles exactly 2 pass that test, which is why today's room is
         two flat fields and why 139 patterned tiles in the manifest are never
-        drawn. Until the scene reads the floor and wall it is told to use — the
-        manifest now declares both — a theme that shipped only patterned tiles
+        drawn. Until the scene reads the floor and wall it is told to use: the
+        manifest now declares both: a theme that shipped only patterned tiles
         would render with no floor at all. So each theme ships both: the pattern
         it should use, and a flat of the right tone that the current heuristic
         will pick. Neither is a guess about which one the scene wants; the
@@ -2463,7 +2463,7 @@ class Importer:
                 prop_ceil = theme.get("prop_value_ceil", PROP_VALUE_CEIL_DEFAULT)
                 # ADR-010: `office` restores its props to the pack's own
                 # saturation; every other theme gets PROP_SAT_SCALE_DEFAULT /
-                # PROP_SAT_TARGET_DEFAULT, which are SAT_SCALE / SAT_TARGET —
+                # PROP_SAT_TARGET_DEFAULT, which are SAT_SCALE / SAT_TARGET,
                 # bit-identical to the transform this room has always used.
                 prop_sat_scale = theme.get("prop_sat_scale", PROP_SAT_SCALE_DEFAULT)
                 prop_sat_target = theme.get("prop_sat_target", PROP_SAT_TARGET_DEFAULT)
@@ -2485,7 +2485,7 @@ class Importer:
                     buf = self._pad(w, h, px, *PROP_CANVAS)
                     if buf is None:
                         self.log("  themes/%s: %s is %dx%d and does not fit the "
-                                 "%dx%d prop canvas — skipped"
+                                 "%dx%d prop canvas: skipped"
                                  % ((name, role, w, h) + PROP_CANVAS))
                         continue
                     recolour(buf, self.cache, prop_floor, prop_sat_scale, prop_sat_target,
@@ -2493,7 +2493,7 @@ class Importer:
                     self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
                 # Extra stock for a role's pool, beyond `roles[role]` itself.
-                # Same cut, same band, same canvas — the only difference is the
+                # Same cut, same band, same canvas: the only difference is the
                 # filename, `<role>_<n>.png` for n = 1, 2, ..., so `roles[role]`
                 # keeps writing exactly `<role>.png` and a build that has never
                 # heard of `role_variants` sees no change at all.
@@ -2516,7 +2516,7 @@ class Importer:
                         buf = self._pad(w, h, px, *PROP_CANVAS)
                         if buf is None:
                             self.log("  themes/%s: %s variant %d is %dx%d and does "
-                                     "not fit the %dx%d prop canvas — skipped"
+                                     "not fit the %dx%d prop canvas: skipped"
                                      % ((name, role, i, w, h) + PROP_CANVAS))
                             continue
                         recolour(buf, self.cache, prop_floor, prop_sat_scale,
@@ -2524,7 +2524,7 @@ class Importer:
                         self._emit(dst, PROP_CANVAS[0], PROP_CANVAS[1], buf)
 
                 # Scenery. Same cut, same shadow strip, same value band, same
-                # canvas as a role — the only difference is that the filename
+                # canvas as a role: the only difference is that the filename
                 # carries the declaration order and the band, because a scenery
                 # entry has no unique name to key on and its order is what maps
                 # it onto an anchor.
@@ -2547,7 +2547,7 @@ class Importer:
                     buf = self._pad(w, h, px, *PROP_CANVAS)
                     if buf is None:
                         self.log("  themes/%s: scenery %d is %dx%d and does not fit "
-                                 "the %dx%d prop canvas — skipped"
+                                 "the %dx%d prop canvas: skipped"
                                  % ((name, i, w, h) + PROP_CANVAS))
                         continue
                     recolour(buf, self.cache, prop_floor, prop_sat_scale, prop_sat_target,
@@ -2558,12 +2558,12 @@ class Importer:
                     continue
                 # The floor and wall tile take this theme's own band and
                 # saturation knobs ONLY if the theme has opted into the
-                # FULL pack-value package — declared `prop_sat_scale` or
+                # FULL pack-value package: declared `prop_sat_scale` or
                 # `prop_sat_target`, the same "declared vs. default" test
                 # `scripts/lint-palette.py`'s `sat_override_themes()` uses.
                 # `mission_control` is the reason this is not simply "every
                 # theme with a `prop_value_floor`": it declares one (0.46)
-                # for its PROPS only, on purpose — "Why props only" above
+                # for its PROPS only, on purpose: "Why props only" above
                 # says the wall and floor stay on the standard band because
                 # they are the largest continuous areas on screen. Gating on
                 # `prop_value_floor` alone would have silently pulled
@@ -2572,8 +2572,8 @@ class Importer:
                 # this change caught: its theme mean dropped from 0.733 to
                 # 0.728 and nothing in this task touched `mission_control`.
                 #
-                # `plan_cap`/`plan_body` — the wall-band pair a theme's own
-                # floor plan draws, cut below — take the identical pair: a
+                # `plan_cap`/`plan_body`: the wall-band pair a theme's own
+                # floor plan draws, cut below: take the identical pair: a
                 # plan's wall is the same continuous surface as `wall` itself,
                 # just carrying the pack's 12 px floor-plan line, and a second
                 # transform here would make the band a visibly different tone
@@ -2586,12 +2586,12 @@ class Importer:
                         ("wall", walls_p, theme["wall"])]
                 # **The plan wall-band pair.** [M8 face-the-camera] Cut from
                 # `Room_Builder_Walls`, the same sheet `wall` itself already
-                # comes from — not the combined `Room_Builder_32x32.png`
+                # comes from, not the combined `Room_Builder_32x32.png`
                 # `PLAN_SURFACES` reads for `office`, which is a different
                 # coordinate space. `cap` carries the pack's 12 px floor-plan
                 # line over 20 px of face; `body`, the row directly below it
                 # on the sheet, carries 30 px more face over a 2 px
-                # baseboard — the same cap/body convention
+                # baseboard: the same cap/body convention
                 # `scripts/build-manifest.py`'s `PLAN_SURFACES` already
                 # documents for office's own sheet. Only themes with a pick in
                 # `THEME_PLAN_WALLS` get one; a theme absent from that table
@@ -2645,7 +2645,7 @@ class Importer:
         shadow stripped, the room transform applied **on the target theme's own
         prop band**, and padded bottom-centred into PROP_CANVAS. They are
         furniture that happens to move, not a layer of their own, so I7 binds
-        them exactly as it binds a desk — and the padding is what lets one
+        them exactly as it binds a desk, and the padding is what lets one
         `props.canvas` cover a moving prop and a still one.
 
         The theme band matters and is easy to miss: `mission_control` draws its
@@ -2653,7 +2653,7 @@ class Importer:
         band would be the one pale object in a theme built around dark screens.
 
         Every sheet is checked against the pack's own GIF of the same object
-        before it is cut — canvas size, frame count, and a uniform delay that
+        before it is cut: canvas size, frame count, and a uniform delay that
         matches the declared `fps`. A sheet that disagrees with its GIF is
         skipped and named, because the failure it prevents (a wrong frame width
         slicing into plausible frames) is exactly the one that survives review.
@@ -2679,7 +2679,7 @@ class Importer:
                 w, h, px = pnglite.load(src)
                 if h != fh or w % fw:
                     self.log("  animated/%s: %s is %dx%d, not a whole number of "
-                             "%dx%d frames — skipped" % (size, name, w, h, fw, fh))
+                             "%dx%d frames: skipped" % (size, name, w, h, fw, fh))
                     continue
                 count = w // fw
                 if not self._timing_agrees(size, name, spec, gifs, fw, fh, count):
@@ -2687,14 +2687,14 @@ class Importer:
                 # An object that fits the prop canvas is padded into it and is
                 # adoptable. One that does not is still cut, at its own frame
                 # size, so `preview-theme.py --animated <id>` can stand it in a
-                # room and it can be argued about — it just cannot be a manifest
+                # room and it can be argued about: it just cannot be a manifest
                 # role, and scripts/build-manifest.py refuses it on exactly that
                 # test rather than on this table's say-so.
                 fits = fw <= PROP_CANVAS[0] and fh <= PROP_CANVAS[1]
                 cw, ch = PROP_CANVAS if fits else (fw, fh)
                 if not fits:
                     self.log("  animated/%s: %s is %dx%d per frame, larger than the "
-                             "%dx%d prop canvas — cut for review, not adoptable"
+                             "%dx%d prop canvas: cut for review, not adoptable"
                              % ((size, name, fw, fh) + PROP_CANVAS))
                 theme = THEMES.get(spec["for"], {})
                 prop_floor = theme.get("prop_value_floor", PROP_VALUE_FLOOR_DEFAULT)
@@ -2728,29 +2728,29 @@ class Importer:
     def _timing_agrees(self, size, name, spec, gifs, fw, fh, count):
         """True if the pack's own GIF confirms this sheet's slicing and rate.
 
-        Absent GIF is not a failure — the sheet is the art and the GIF is the
-        corroboration — but it is logged, because an unverified frame rate is a
+        Absent GIF is not a failure: the sheet is the art and the GIF is the
+        corroboration, but it is logged, because an unverified frame rate is a
         claim about the download that nobody checked.
         """
         info = gif_timing(os.path.join(gifs, spec["sheet"].replace(".png", ".gif")))
         if info is None:
-            self.log("  animated/%s: %s has no readable GIF — frame rate "
+            self.log("  animated/%s: %s has no readable GIF: frame rate "
                      "unverified" % (size, name))
             return True
         gw, gh, gframes, delays, _loop = info
         if (gw, gh) != (fw, fh) or gframes != count:
             self.log("  animated/%s: %s sheet slices to %d frames of %dx%d but its "
-                     "GIF is %d of %dx%d — skipped"
+                     "GIF is %d of %dx%d: skipped"
                      % (size, name, count, fw, fh, gframes, gw, gh))
             return False
         if not delays or len(set(delays)) != 1:
-            self.log("  animated/%s: %s has a non-uniform GIF delay %s — one `fps` "
+            self.log("  animated/%s: %s has a non-uniform GIF delay %s: one `fps` "
                      "cannot describe it, skipped" % (size, name, delays))
             return False
         fps = round(100.0 / delays[0], 3)
         if abs(fps - spec["fps"]) > 1e-6:
             self.log("  animated/%s: %s declares %g fps but its GIF holds each frame "
-                     "%d/100 s (%g fps) — skipped"
+                     "%d/100 s (%g fps): skipped"
                      % (size, name, spec["fps"], delays[0], fps))
             return False
         return True
@@ -2779,13 +2779,13 @@ class Importer:
                     else "Premade_Character_%s.png" % who
                 src = os.path.join(base, stem)
                 if not os.path.exists(src):
-                    self.log("  characters %s: %s absent — skipped" % (size, stem))
+                    self.log("  characters %s: %s absent: skipped" % (size, stem))
                     continue
                 key = "chars:" + _digest(src)
                 w, h, px = pnglite.load(src)
                 if w // fw != CHAR_COLS:
                     self.log(
-                        "  characters %s: %s is %dx%d, expected %d columns of %dpx — skipped"
+                        "  characters %s: %s is %dx%d, expected %d columns of %dpx: skipped"
                         % (size, stem, w, h, CHAR_COLS, fw)
                     )
                     continue
@@ -2836,7 +2836,7 @@ class Importer:
     def costumes(self, sizes):
         """Cut each costume's layers the way `characters()` cuts a premade.
 
-        Same rows, same direction blocks, same frame counts, same canvas — the
+        Same rows, same direction blocks, same frame counts, same canvas: the
         scene steps a costume layer on the *body's* frame index and
         `TextureStore.costumeFrames` drops any layer whose count disagrees,
         silently. Cutting from one table is what makes the counts agree by
@@ -2861,12 +2861,12 @@ class Importer:
                             if os.path.basename(p) in COSTUME_EXCLUDED]
                 if excluded:
                     self.log("  costumes %s: %s uses %s, whose darkest pixel is "
-                             "below the cast's 0.314 — refused [I7]"
+                             "below the cast's 0.314: refused [I7]"
                              % (size, who, ", ".join(excluded)))
                     continue
                 missing = [p for _k, p in layers if not os.path.exists(p)]
                 if missing:
-                    self.log("  costumes %s: %s missing %s — skipped"
+                    self.log("  costumes %s: %s missing %s: skipped"
                              % (size, who, ", ".join(os.path.basename(p)
                                                      for p in missing)))
                     continue
@@ -2879,8 +2879,8 @@ class Importer:
                         break
                     sheets.append((w, h, px))
                 if bad:
-                    self.log("  costumes %s: %s — %s, not the premade sheet's "
-                             "geometry — skipped" % (size, who, bad))
+                    self.log("  costumes %s: %s: %s, not the premade sheet's "
+                             "geometry: skipped" % (size, who, bad))
                     continue
                 key = "costume:%s:" % size + ":".join(
                     _digest(p) for _k, p in layers)
@@ -2908,7 +2908,7 @@ class Importer:
                                     buf[di:di + fw * 4] = px[si:si + fw * 4]
                                 self._emit(dst, fw, fh, buf)
             roles = sorted(set(COSTUME_ROLES.values()))
-            self.log("  costumes/%s: %d frames across %d costumes — %d recognised "
+            self.log("  costumes/%s: %d frames across %d costumes: %d recognised "
                      "(%d agent types), %d assignable"
                      % (size, n_frames, len(built), len(roles),
                         len(COSTUME_ROLES), len(COSTUME_ASSIGNABLE)))
@@ -2920,7 +2920,7 @@ class Importer:
 
         Two sources, one canvas:
 
-          * Modern Interiors' emote bubbles, cut whole — `question_mark` and
+          * Modern Interiors' emote bubbles, cut whole: `question_mark` and
             `attention` are complete badges as drawn.
           * Modern User Interface icons dropped inside the *same* bubble frame.
             The frame is that pack's own empty bubble, so this composites two
@@ -2928,7 +2928,7 @@ class Importer:
             editing; neither permits redistribution, and assets/ is gitignored.
 
         Only badges whose icon was actually found go here. The rest have no icon
-        in any pack on disk — see MUI_ABSENT for what was looked for and where —
+        in any pack on disk: see MUI_ABSENT for what was looked for and where,
         and are authored by scripts/generate-art.py instead. No further packs
         will be bought, so that is a finished answer rather than a wait. [I1]
         """
@@ -2936,7 +2936,7 @@ class Importer:
             unit = int(size.split("x")[0])
             scale = unit // 32
             if unit % 32:
-                self.log("  badges %s: rectangles were measured at 32x — skipped" % size)
+                self.log("  badges %s: rectangles were measured at 32x: skipped" % size)
                 continue
             src = os.path.join(INTERIORS, "4_User_Interface_Elements", "UI_%s.png" % size)
             if not os.path.exists(src):
@@ -2978,7 +2978,7 @@ class Importer:
             composed = self.badge_composites(size, scale, w, h, px, key, sources)
             self._write_badge_sources(size, sources, frame)
             self.log("  badges/%s: %d cut whole, %d composed, %d still unsourceable "
-                     "(%s) — empty frame written to %s for the authored glyphs"
+                     "(%s): empty frame written to %s for the authored glyphs"
                      % (size, len(BADGE_RECTS), composed, len(MUI_ABSENT),
                         ", ".join(sorted(MUI_ABSENT)), BADGE_FRAME_FILE))
 
@@ -2987,7 +2987,7 @@ class Importer:
 
         It is written out for one reason: scripts/generate-art.py needs the very
         same pixels. Until M5c the four badges no pack draws used a hand-made
-        lookalike bubble — heavier border, darker ink — so they read louder in
+        lookalike bubble (heavier border, darker ink) so they read louder in
         the room than the pack art beside them and the badge row spoke in two
         visual languages. Emitting the frame here rather than re-measuring the
         rectangle in the other script keeps BADGE_FRAME_RECT the single place
@@ -3006,7 +3006,7 @@ class Importer:
             "sheet": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % size,
             "rect": [fx, fy, frw, frh],
             "interior": [v * scale for v in BADGE_FRAME_INTERIOR],
-            "note": "the pack's own empty speech bubble — the same component the "
+            "note": "the pack's own empty speech bubble: the same component the "
                     "question_mark badge is cut from, with no glyph in it. Every "
                     "badge on the canvas is this frame plus a glyph, the four "
                     "authored ones included as of M5c.",
@@ -3028,14 +3028,14 @@ class Importer:
 
         The icon is located by 32px cell and then cut by the bounding box of
         whatever is inside that cell. Both halves matter. The cell is what makes
-        the coordinate reproducible and reviewable — anyone can open the sheet
+        the coordinate reproducible and reviewable: anyone can open the sheet
         and go to (28,22). The bounding box is what makes the cut correct, since
         this pack pads its icons into the cell at no fixed offset: the two used
         here start at (8,8) and (8,10), and siblings in the same block start at
         (4,10) and (6,8). Taking the cell whole would centre nothing.
         """
         if not os.path.isdir(USERINTERFACE):
-            self.log("  badges %s: Modern User Interface absent — %d badges fall "
+            self.log("  badges %s: Modern User Interface absent: %d badges fall "
                      "back to their authored versions" % (size, len(MUI_BADGE_ICONS)))
             return 0
         cw, ch = BADGE_CANVAS[0] * scale, BADGE_CANVAS[1] * scale
@@ -3048,7 +3048,7 @@ class Importer:
             stem = MUI_SHEETS[sheet_key] % (int(sheet_key[-1]), size)
             src = os.path.join(USERINTERFACE, size, stem)
             if not os.path.exists(src):
-                self.log("  badges %s: %s absent — %s falls back to authored"
+                self.log("  badges %s: %s absent: %s falls back to authored"
                          % (size, stem, name))
                 continue
             if src not in loaded:
@@ -3057,17 +3057,17 @@ class Importer:
             cell = 32 * scale
             if sw % cell or sh % cell:
                 self.log("  badges %s: %s is %dx%d, not a whole number of %dpx cells "
-                         "— %s falls back to authored" % (size, stem, sw, sh, cell, name))
+                         ": %s falls back to authored" % (size, stem, sw, sh, cell, name))
                 continue
             box = _bbox_in(sw, sh, spx, cx * cell, cy * cell, cell, cell)
             if box is None:
-                self.log("  badges %s: %s cell (%d,%d) is empty — %s falls back to "
+                self.log("  badges %s: %s cell (%d,%d) is empty: %s falls back to "
                          "its authored version" % (size, stem, cx, cy, name))
                 continue
             bx, by, bw, bh = box
             if bw > iw or bh > ih:
                 self.log("  badges %s: %s cell (%d,%d) is %dx%d, larger than the "
-                         "%dx%d bubble interior — %s falls back to authored"
+                         "%dx%d bubble interior: %s falls back to authored"
                          % (size, stem, cx, cy, bw, bh, iw, ih, name))
                 continue
 
@@ -3080,7 +3080,7 @@ class Importer:
                 "frame_sheet": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % size,
                 "frame_rect": [fx, fy, frw, frh],
                 "cut_by": "32px cell on a sheet that divides exactly, then the "
-                          "bounding box inside that cell — the pack pads icons "
+                          "bounding box inside that cell: the pack pads icons "
                           "into their cell at no fixed offset",
                 "composed": "Modern User Interface icon inside Modern Interiors' own "
                             "empty speech bubble, which is pixel-identical to the "
@@ -3117,7 +3117,7 @@ class Importer:
 
         The manifest has to say which sheet and which coordinates produced each
         badge, and the honest place for that is the script that did the cutting
-        — not a second hardcoded table in the manifest builder that could drift
+, not a second hardcoded table in the manifest builder that could drift
         from this one.
         """
         d = os.path.join(OUT, "badges", size)
@@ -3137,13 +3137,13 @@ class Importer:
 
         Idempotency has to cut both ways: if a pack drops a file or the cast
         changes, a stale processed copy would keep satisfying the manifest and
-        hide the loss. Authored art and placeholders are left alone — a
+        hide the loss. Authored art and placeholders are left alone: a
         different script owns those, and they live under assets/authored/ and
         assets/placeholder/, not here.
 
-        **Scoped to `OWNED`.** `processed/` is not this script's alone —
+        **Scoped to `OWNED`.** `processed/` is not this script's alone,
         `scripts/import-catalogue.py` puts 12,279 files in `processed/catalogue/`
-        — and a prune over the whole tree deletes them all. See `OWNED`.
+, and a prune over the whole tree deletes them all. See `OWNED`.
         """
         removed = 0
         roots = [os.path.join(OUT, d) for d in OWNED]

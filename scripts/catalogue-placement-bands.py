@@ -16,14 +16,14 @@ file (see `docs/PLACEMENT-BANDS.md` for the numbers):
   1. ink aspect ratio (content_box w/h)
   2. box fill (`coverage` scaled onto the content box instead of the canvas)
   3. bottom alignment (gap between content box and canvas bottom)
-  4. **corner fill** — opacity of four 3x3 patches at the content box's own
+  4. **corner fill**: opacity of four 3x3 patches at the content box's own
      corners
-  5. **leg ratio** — the narrowest ink row within the content box, over its
+  5. **leg ratio**: the narrowest ink row within the content box, over its
      width
 
-(1) and (3) show no usable separation at all — every band's items span the
+(1) and (3) show no usable separation at all: every band's items span the
 same range. (2) is subsumed by (4). (4) and (5) together identify a **freestanding,
-non-rectangular silhouette** — legs, arms, an irregular outline — which is a
+non-rectangular silhouette** (legs, arms, an irregular outline) which is a
 real, checkable fact about furniture that stands clear of a flat surface. nothing
 in the available measurements distinguishes a wall-hung item from a desk-top
 item from a *flat, boxy* piece of floor furniture (a plain cabinet or a slab
@@ -31,20 +31,20 @@ desk read exactly like a picture frame at this resolution): every one of those i
 a dense rectangle with full corners. That is not a threshold that needs
 tuning; it is confirmed by inspecting the actual pixels (`painting_framed`,
 `desk_wood`, `keyboard` and `table_console` are all corner_fill 1.0,
-leg_ratio 1.0 — geometrically the same shape).
+leg_ratio 1.0, geometrically the same shape).
 
 So this script produces exactly two things with any confidence, and refuses
 to guess at the third:
 
-  - **`floor`** — freestanding furniture, high-precision, reduced recall.
-  - **`fragment_excluded`** — extreme aspect ratio (>=4:1 either way):
+  - **`floor`**: freestanding furniture, high-precision, reduced recall.
+  - **`fragment_excluded`**: extreme aspect ratio (>=4:1 either way):
     the modular segments and finish swatches `docs/06-SET-BUILDING.md` section
     4 warns about (`partition`'s 6x86 posts), not discrete objects at all.
-  - **`band_undetermined`** — everything else: a dense, roughly rectangular
+  - **`band_undetermined`**: everything else: a dense, roughly rectangular
     silhouette that could be a desk-top item, a wall-hung item, or a slab of
     floor furniture, and nothing measured here says which. This is the
     overwhelming majority of the catalogue. See docs/PLACEMENT-BANDS.md for
-    why, and do not fill this bucket by guessing from the `name` string — a
+    why, and do not fill this bucket by guessing from the `name` string: a
     name is an identity, not a placement, and turning it into one is the
     hand-typed table this script exists to avoid.
 
@@ -53,14 +53,14 @@ desk-standing items with a narrow foot (`monitor_lit` on a stand) measure
 exactly like a chair leg (corner_fill 0.25, leg_ratio 0.27) and land in
 `floor`. `floor` is therefore a *candidate* list for the one-time visual check
 `docs/06-SET-BUILDING.md` section 9 already prescribes for legibility and
-facing — not ground truth to build on unseen.
+facing, not ground truth to build on unseen.
 
 Scope: named, non-animated, 32x32 singles only. 48x48 is imported but unused
 by the app [M8-HANDOFF.md §4] and animated spritesheets are Phase 2c's
 problem, not this one's.
 
 Python 3 stdlib only. Reads real pixels (via pnglite) for corner_fill and
-leg_ratio — catalogue.json's own fields are not enough, on their own, to
+leg_ratio: catalogue.json's own fields are not enough, on their own, to
 answer this question.
 """
 
@@ -94,7 +94,7 @@ ASPECT_FRAGMENT_MIN = 0.25
 
 
 def shape_features(path, content_box):
-    """corner_fill, leg_ratio — read straight from the decoded pixels."""
+    """corner_fill, leg_ratio: read straight from the decoded pixels."""
     w, h, px = pnglite.load(path)
     x0, y0 = content_box["x"], content_box["y"]
     ww, hh = content_box["w"], content_box["h"]
@@ -147,7 +147,7 @@ def classify(content_box, corner_fill, leg_ratio):
 
 def main():
     if not os.path.exists(CATALOGUE):
-        print("no assets/catalogue.json — run scripts/import-catalogue.py "
+        print("no assets/catalogue.json: run scripts/import-catalogue.py "
               "and scripts/name-catalogue.py first", file=sys.stderr)
         return 1
 
@@ -185,7 +185,7 @@ def main():
         "generated_by": "scripts/catalogue-placement-bands.py",
         "note": ("Placement-band candidates over the 32x32 named singles. "
                  "'floor' is a high-precision, reduced-recall candidate list "
-                 "for freestanding furniture, not ground truth — see the "
+                 "for freestanding furniture, not ground truth; see the "
                  "module docstring and docs/PLACEMENT-BANDS.md before using "
                  "it unseen. 'wall' and 'desk-top' are not split out: no "
                  "measured signal in this catalogue separates them from each "

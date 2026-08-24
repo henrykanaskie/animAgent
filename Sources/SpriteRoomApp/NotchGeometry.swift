@@ -68,7 +68,7 @@ public struct PanelRect: Sendable, Hashable, CustomStringConvertible {
             width: width - 2 * dx, height: height - 2 * dy)
     }
 
-    /// The smallest rectangle containing both. An empty operand is ignored —
+    /// The smallest rectangle containing both. An empty operand is ignored:
     /// unioning with `.zero` must not drag a region down to the origin.
     public func union(_ other: PanelRect) -> PanelRect {
         if other.isEmpty { return self }
@@ -84,8 +84,8 @@ public struct PanelRect: Sendable, Hashable, CustomStringConvertible {
 
 /// Where the notch is on one display, and where the panel hangs from it.
 ///
-/// **On a display without a notch** — an external monitor, or any Mac before
-/// the 2021 MacBook Pro — there is no physical region to point at, so the hot
+/// **On a display without a notch** (an external monitor, or any Mac before
+/// the 2021 MacBook Pro), there is no physical region to point at, so the hot
 /// zone is *synthesised*: a rectangle of `syntheticWidth` points centred on the
 /// top edge, as tall as that display's menu bar. It sits where a notch would be
 /// if the display had one. That keeps one mental model ("point at the middle of
@@ -110,7 +110,7 @@ public struct NotchGeometry: Sendable, Hashable {
     /// Default width of the synthetic region. Roughly a physical notch (220 pt
     /// on a 14-inch MacBook Pro) plus the same padding.
     public static let defaultSyntheticWidth: Double = 240
-    /// Fallback when a display reports no menu bar at all — a secondary display
+    /// Fallback when a display reports no menu bar at all: a secondary display
     /// with the menu bar disabled still needs a hot zone with some height.
     public static let minimumRegionHeight: Double = 24
 

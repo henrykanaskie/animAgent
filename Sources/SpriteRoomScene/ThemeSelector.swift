@@ -15,13 +15,13 @@ import Foundation
 /// taught to. [§3b, §14 item 1]
 public enum ThemeSelector {
 
-    // MARK: The hash — §8 item 1
+    // MARK: The hash: §8 item 1
 
     /// FNV-1a, 64-bit, over raw bytes.
     ///
     /// **Not Swift's `Hasher`, and this is the whole reason this function
     /// exists.** `hashValue` is seeded per process, so the same `cwd` would draw
-    /// a different room on every launch — the exact requirement themes exist to
+    /// a different room on every launch: the exact requirement themes exist to
     /// satisfy, violated in a way that reads as a rendering bug rather than as a
     /// hash bug. `ThemeSelectorTests.thePinnedVector…` pins the mapping so that
     /// a well-meaning refactor to `Hasher` turns a test red instead of quietly
@@ -42,7 +42,7 @@ public enum ThemeSelector {
     /// gets to choose an encoding.
     public static func fnv1a64(_ text: String) -> UInt64 { fnv1a64(text.utf8) }
 
-    // MARK: Rendezvous — §8 item 2
+    // MARK: Rendezvous: §8 item 2
 
     /// Separates the key from the candidate id inside the hashed string.
     ///
@@ -62,7 +62,7 @@ public enum ThemeSelector {
     /// 64-bit collision without it would make the room depend on the order the
     /// caller happened to build its array in. [§3c]
     ///
-    /// `nil` for an empty pool — there is nothing to pick, and saying so is the
+    /// `nil` for an empty pool: there is nothing to pick, and saying so is the
     /// caller's cue to fall to its own floor rather than receive a guess.
     public static func rendezvous(key: String, over ids: [String]) -> String? {
         var best: (id: String, score: UInt64)?
@@ -79,7 +79,7 @@ public enum ThemeSelector {
         return best?.id
     }
 
-    // MARK: The theme — §8 item 3
+    // MARK: The theme: §8 item 3
 
     /// §3c, in the order §3c gives it:
     ///
@@ -91,8 +91,8 @@ public enum ThemeSelector {
     /// ```
     ///
     /// **Keyed on `cwd` exactly as received.** That is already the project
-    /// bucket everywhere else in this app — a trailing slash or a symlink is
-    /// already a different project — so the theme inherits that behaviour rather
+    /// bucket everywhere else in this app: a trailing slash or a symlink is
+    /// already a different project, so the theme inherits that behaviour rather
     /// than inventing a normalisation of its own. [§3c]
     ///
     /// A stored entry naming a theme the manifest does not have falls through to
@@ -100,8 +100,8 @@ public enum ThemeSelector {
     /// entry: the theme may come back. [§3d]
     ///
     /// **Returns `String?`, where §8 item 3 wrote `String`.** There is no theme
-    /// id to name when the manifest declares no themes at all — a checkout with
-    /// no art, and every user who has not run the import scripts — and the
+    /// id to name when the manifest declares no themes at all: a checkout with
+    /// no art, and every user who has not run the import scripts, and the
     /// honest answer there is "none", not an invented sentinel. `nil` means
     /// *draw `manifest.room`*, which is the room this app has always drawn and
     /// which §14a establishes **is** the resolved default theme. The divergence
@@ -116,7 +116,7 @@ public enum ThemeSelector {
         return manifest.themes.defaultID
     }
 
-    // MARK: The station — §8 item 4
+    // MARK: The station: §8 item 4
 
     /// The main thread's seat. Every theme is required to bind it. [§7]
     ///
@@ -124,7 +124,7 @@ public enum ThemeSelector {
     /// *is* the main agent, which is the identity rule. [CLAUDE.md]
     public static let mainStationID = "main"
 
-    /// A subagent whose type we were not told — the `question_mark` of
+    /// A subagent whose type we were not told: the `question_mark` of
     /// furniture. A separate binding from `main`, because they say different
     /// things. [§4]
     public static let defaultStationID = "default"
@@ -141,7 +141,7 @@ public enum ThemeSelector {
     /// ```
     ///
     /// **The two tiers are the whole of I1 here, and they are the same two the
-    /// wardrobe has** — see `costume(agentID:agentType:in:)`, whose doc argues
+    /// wardrobe has**: see `costume(agentID:agentType:in:)`, whose doc argues
     /// it at length. A station says what kind of worker sits at it, and whether
     /// that is true depends entirely on how it was reached: through `roles` it
     /// is a translation of the exact `agent_type` a session produced, which is
@@ -164,7 +164,7 @@ public enum ThemeSelector {
     /// keying on `agent_id` would spend the station's only meaning on variety.
     /// [§4]
     ///
-    /// **The empty-pool case is not in §8 and is resolved here** — a theme that
+    /// **The empty-pool case is not in §8 and is resolved here**: a theme that
     /// declares no assignable stations seats every typed subagent at `default`,
     /// because `default` is already this function's answer for "we have nothing
     /// that distinguishes this agent".
@@ -193,8 +193,8 @@ public enum ThemeSelector {
     /// ```
     ///
     /// **The two tiers are the whole of I1 here, and they are not the same
-    /// rule.** A costume can say something — a lab coat says *this agent tests
-    /// things* — and whether that is true depends entirely on how it was
+    /// rule.** A costume can say something: a lab coat says *this agent tests
+    /// things*, and whether that is true depends entirely on how it was
     /// reached:
     ///
     /// - **Reached by `roles`, it is a translation.** The key is the exact
@@ -206,17 +206,17 @@ public enum ThemeSelector {
     ///   anticipated is arbitrary text and nothing in it licenses a costume that
     ///   asserts. So the hash draws only from `assignableIDs`, whose members are
     ///   neutral by contract, and "different clothes" then says exactly and only
-    ///   *these are different agents* — which is exactly and only what we know.
+    ///   *these are different agents*, which is exactly and only what we know.
     ///   It is `question_mark`'s answer worn instead of drawn.
     ///
     /// Keyed on `agent_type`, never on `agent_id`, for §4's reason: two
     /// `general-purpose` subagents are the same kind of worker and dressing them
     /// differently would spend the channel's meaning on variety. `nil` for the
-    /// main thread is not a gap — absence of `agent_id` **is** the main agent,
+    /// main thread is not a gap: absence of `agent_id` **is** the main agent,
     /// and it wears the cast's own clothes because there is no type to translate.
     ///
     /// **Exact match, no folding.** `agent_type` is the user's own string and
-    /// this app does not invent normalisations of those — the same decision
+    /// this app does not invent normalisations of those: the same decision
     /// `theme(for:stored:manifest:)` makes about `cwd`. A wardrobe that wants
     /// `Explore` and `explore` to agree lists both.
     public static func costume(

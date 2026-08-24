@@ -20,7 +20,7 @@ with the same origin, so they can be laid side by side:
 2. `spriteroom --render` with `SPRITEROOM_DEBUG=1` → the scene's own roster at
    the sample instant, printed by `RoomScene.debugRoster`. This is what the
    thing that drew the picture believes it drew, after animation, and it comes
-   out of a different code path from (1) — `SceneDirector` and `RoomScene`, not
+   out of a different code path from (1): `SceneDirector` and `RoomScene`, not
    `WorldModel`.
 3. The same trace's timestamped `SpriteIntent` lines → a reconstruction of what
    the director *told* the scene. It carries two facts the roster string does
@@ -30,17 +30,17 @@ with the same origin, so they can be laid side by side:
    render `--motion-probe` seconds after each mark, because "whether any are
    idle" is a thing an observer reads off *motion* and two frames 1.5 s apart
    come out pixel-identical about half the time even with five characters
-   working — the ambient loop lands on the same phase. Identity between
+   working: the ambient loop lands on the same phase. Identity between
    consecutive filmstrip frames is therefore not evidence of a static room, and
    the probe is what separates them.
 
 (1) versus (2)/(3) is the only mechanical check available on "does the picture
-match reality". It is not a check on whether the picture is legible — nothing
+match reality". It is not a check on whether the picture is legible: nothing
 here can be, and this file does not try. It reports counts and names.
 
 **What it cannot answer, said plainly.** Whether the six characters are
 *distinguishable*, whether the nameplate can be read at this size, whether a
-badge means anything to someone who has not read the source — every one of those
+badge means anything to someone who has not read the source: every one of those
 is the S5 judgement and needs an eye. It can say two characters wear the same
 sprite variant; it cannot say two characters look the same. It also never sees
 the real panel: the notch reveal, the drop animation, the retract, and whatever
@@ -48,7 +48,7 @@ the panel's own compositing does to these pixels are all outside `--render`.
 
 **The renderer is deterministic**, verified: rendering mark t in its own process
 produces the same bytes as rendering it inside a longer run of marks. That is
-what makes the per-frame roster runs legitimate — each frame's roster is read
+what makes the per-frame roster runs legitimate: each frame's roster is read
 from the same simulation that drew that frame.
 
 Nothing here opens a window. `--render` is offscreen; `--panel-render` would put
@@ -140,7 +140,7 @@ def render_instants(mark, step=STEP):
     the roster.
 
     The accumulation is reproduced step by step rather than computed as
-    `ceil(mark*60)/60` for the same reason — repeated `+= 1/60` in a double
+    `ceil(mark*60)/60` for the same reason: repeated `+= 1/60` in a double
     drifts, and `31.5` comes out as `31.499999999999492`, which is on the other
     side of the comparison the renderer actually makes."""
     time, frame_at = 0.0, None
@@ -322,7 +322,7 @@ def intents_at(intents, t):
 
 
 def parse_roster(text):
-    """The scene's own state at the end of a render — `RoomScene.debugRoster`."""
+    """The scene's own state at the end of a render: `RoomScene.debugRoster`."""
     chars, camera = {}, None
     for line in text.splitlines():
         m = ROSTER_CHAR.match(line)
@@ -436,7 +436,7 @@ def compare(roster_truth, truth, roster, intents):
     reality at the instant the frame was drawn. They are one 60 Hz tick apart
     and each half of the comparison is held to its own, so that a tool call that
     opens and closes between the two is not reported as the room lying. See
-    `render_instants` — the first baseline run produced exactly two such
+    `render_instants`: the first baseline run produced exactly two such
     "disagreements" and both were this."""
     findings = []
     truth_refs = {a["ref"] for a in roster_truth["agents"]}
@@ -500,7 +500,7 @@ def observations(truth, roster, intents):
     """Facts about the frame that are not disagreements. Counting, not judging.
 
     `variant` is the sprite sheet a character wears. Two characters sharing one
-    is not a bug — nothing promises uniqueness — but it is the mechanical form
+    is not a bug (nothing promises uniqueness) but it is the mechanical form
     of 'they all look the same', so it is counted rather than described."""
     chars = list(intents["characters"].values())
     variants = [c["variant"] for c in chars]
@@ -532,9 +532,9 @@ def badge_summary(index):
 
     Two views, from the two sources, and they answer different questions:
 
-      `badge_agent_frames` — the glyph the scene put over a character, counted
+      `badge_agent_frames`: the glyph the scene put over a character, counted
       per (frame, character). This is the picture.
-      `tool_agent_frames` — the tool the deltas say that character had open.
+      `tool_agent_frames`: the tool the deltas say that character had open.
       This is reality, and it counts calls no frame ever caught.
 
     `frames_by_distinct_classes` is the one the design is really asking about: a
@@ -662,15 +662,15 @@ def main():
     #    **This is the expensive step and its cost scales with the capture, not
     #    just the frame count**, because every invocation re-parses the whole
     #    JSONL. At 132 KB that is 0.5 s a frame; the badge-diverse baseline came
-    #    to 57 MB — ten `Edit` calls on a 5.5 MB file, each POSTing the file back
-    #    in `tool_response` — and the same 225 frames took ten times as long.
+    #    to 57 MB: ten `Edit` calls on a 5.5 MB file, each POSTing the file back
+    #    in `tool_response`, and the same 225 frames took ten times as long.
     #    Worth knowing before pointing this at a capture full of large payloads.
     #
     #    A second render `--motion-probe` seconds after each mark answers a
     #    question a filmstrip cannot: *is the room moving here*. Two frames 1.5 s
     #    apart come out pixel-identical about half the time even while five
     #    characters are working, because the ambient loop lands on the same phase
-    #    — measured, not assumed. So "identical to the previous frame" is not
+    #: measured, not assumed. So "identical to the previous frame" is not
     #    evidence the room is static, and a short probe is what tells them apart.
     motion_dir = os.path.join(out, "motion")
     if args.motion_probe:

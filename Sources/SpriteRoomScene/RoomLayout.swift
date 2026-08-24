@@ -1,6 +1,6 @@
 import Foundation
 
-/// A point in unscaled scene pixels, y-up. Deliberately not `CGPoint` — the
+/// A point in unscaled scene pixels, y-up. Deliberately not `CGPoint`: the
 /// layout is pure arithmetic and unit-tests without any graphics framework.
 public struct ScenePoint: Sendable, Hashable {
     public var x: Double
@@ -30,7 +30,7 @@ public struct ScenePoint: Sendable, Hashable {
 /// |---|---|---|
 /// | toward the camera | `idle_down` | the **desk**, downstage of the feet |
 /// | away from the camera | `idle_up` | the **chair back**, downstage of the feet; the desk goes upstage |
-/// | side-on | `working` (the sit row) | nothing — it is a real seated pose |
+/// | side-on | `working` (the sit row) | nothing: it is a real seated pose |
 ///
 /// See `seatFacing(_:)` for which seat gets which, and `SeatFacing` for what
 /// each brings with it.
@@ -40,13 +40,13 @@ public struct RoomLayout: Sendable, Hashable {
     /// **How many seats exist. Not a soft limit.**
     ///
     /// `seatColumn` and `ring` both wrap mod this number, so seat 7 resolves to
-    /// seat 0's column *and* — because the two-row fold keys on ring parity —
+    /// seat 0's column *and* (because the two-row fold keys on ring parity)
     /// seat 0's row. That is a total overlap, not a near miss: two characters
     /// drawn on one spot, and a room that says seven when eight agents are
     /// running. It is the room asserting a false number [I1] and it is S5, the
     /// criterion this product is for, failing.
     ///
-    /// **The number cannot be raised.** At `1x` — the only scale the app uses —
+    /// **The number cannot be raised.** At `1x` (the only scale the app uses)
     /// the panel is 720 px and the seat pitch is 96, so `96 × 7 = 672` is the
     /// physical maximum across the visible width. More seats moves the failure
     /// from "two characters overlapping" to "characters off screen", which
@@ -60,12 +60,12 @@ public struct RoomLayout: Sendable, Hashable {
     /// second lap by an amount `s` does not rescue it: two plates clear each
     /// other only at `SceneBitmaps.maximumNameplateWidth` = **71 px** or more,
     /// so `s` would have to satisfy `s ≥ 71` **and** `96 − s ≥ 71` at once, and
-    /// no `s` does — a 96 px pitch is not two plates wide. Half a pitch is 48.
+    /// no `s` does: a 96 px pitch is not two plates wide. Half a pitch is 48.
     ///
     /// (Three numbers have been written in this file for that plate: 65 when the
     /// headline was one line, 77 when it was twelve glyphs, 71 since the limit
-    /// was cut to eleven. It is measured — `SceneBitmaps.maximumNameplateWidth`
-    /// — and every test that depends on it asks the measurement rather than the
+    /// was cut to eleven. It is measured (`SceneBitmaps.maximumNameplateWidth`)
+    /// and every test that depends on it asks the measurement rather than the
     /// prose, which is why the prose could go stale without anything failing.)
     ///
     /// So the seats are the seats, and what overflows them is *said* rather than
@@ -77,7 +77,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// **Which `seatCapacity` agents is not "the first".** It was, and that was
     /// the defect: seats came free only on `agentDeparted`, so the seven filled
     /// with *dormant* subagents over a session's life and a working agent could
-    /// sit in the overflow indefinitely — the room drawing six sleepers and
+    /// sit in the overflow indefinitely, the room drawing six sleepers and
     /// hiding the one worker, which is S5 failing at the criterion this file's
     /// whole argument is in service of. A live agent with no seat now takes one
     /// from the longest-dormant character that has one. The number of seats is
@@ -88,7 +88,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// one of air.
     ///
     /// **The third tile is the nameplate's, not the air's**, and it is the only
-    /// one that is negotiable — see `minimumSeatSpacingTiles(plateWidth:
+    /// one that is negotiable: see `minimumSeatSpacingTiles(plateWidth:
     /// plateHeight:tile:)`, which is the pitch stated as a function of the plate
     /// rather than as the constant 3.
     public let seatSpacingTiles: Int
@@ -108,8 +108,8 @@ public struct RoomLayout: Sendable, Hashable {
     /// hang its pictures on nothing. See `sceneryAnchors(_:)`.
     ///
     /// It is `let` and arrives through `adopting(plan:)` rather than through
-    /// `init`, so that every existing construction of a `RoomLayout` — and there
-    /// are dozens, in tests and in the app — is the open floor unless something
+    /// `init`, so that every existing construction of a `RoomLayout` (and there
+    /// are dozens, in tests and in the app) is the open floor unless something
     /// deliberately hands it a plan.
     public let plan: RoomPlan
 
@@ -127,7 +127,7 @@ public struct RoomLayout: Sendable, Hashable {
         // population, so the panel is a 720×400 window on it and the only
         // question composition can ask is what is inside that window. With four
         // floor rows the wall began at y=128 and everything above the tallest
-        // badge — 36% of the panel — was flat wall with nothing on it, because a
+        // badge (36% of the panel) was flat wall with nothing on it, because a
         // wall tile is an authored flat field (the pack's own wall tiles seam
         // every 32 px when repeated) and no pack we own draws anything that
         // hangs on one.
@@ -148,8 +148,8 @@ public struct RoomLayout: Sendable, Hashable {
     }
 
     /// The same layout, drawn on `plan`. Every route number is unchanged by
-    /// construction — this initialiser copies them rather than recomputing them
-    /// — which is what makes "a plan cannot move a seat" true in the type
+    /// construction (this initialiser copies them rather than recomputing them),
+    /// which is what makes "a plan cannot move a seat" true in the type
     /// system rather than in a comment.
     public func adopting(plan: RoomPlan) -> RoomLayout {
         RoomLayout(
@@ -161,7 +161,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// The pitch has never been a composition number. It is 96 px because the
     /// widest plate the font can produce is 71 px, and two characters whose
-    /// plates overlap are two characters the room cannot tell apart — which is
+    /// plates overlap are two characters the room cannot tell apart, which is
     /// an occlusion failure, not a crowding one. Bodies are 32 px of canvas over
     /// perhaps 18 px of ink and a desk's content box is 32 px; none of them needs
     /// anything like 96. So when the plate moves, this moves with it, and the
@@ -175,7 +175,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// | pair | needs a pitch of |
     /// |---|---|
-    /// | two plates on one row — two reporters on the walkway | `W + m` |
+    /// | two plates on one row: two reporters on the walkway | `W + m` |
     /// | a plate against a body across rows | `W/2 + 16 + m` |
     /// | a plate against a badge | `W/2 + 12 + m` |
     /// | a badge against a body | `28 + m` |
@@ -193,8 +193,8 @@ public struct RoomLayout: Sendable, Hashable {
     /// `noAdversarialPairingOfBeatsEverTouchesTwoPlates` pins. Using the same
     /// number across means the room clears by the same amount in both axes.
     ///
-    /// It returns **3** for every plate the room has yet had — 71 × 26 when this
-    /// was derived, 63 × 11 as the plate stands — so stating it costs nothing
+    /// It returns **3** for every plate the room has yet had (71 × 26 when this
+    /// was derived, 63 × 11 as the plate stands), so stating it costs nothing
     /// today. The threshold worth knowing is where it returns **2**, a 64 px
     /// pitch and a room a third narrower: `plateWidth + tile − plateHeight ≤ 64`.
     /// At the plate's current 11 px height that is a width of **43 px or less**;
@@ -205,7 +205,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// room across the rows and therefore asks for more across the columns: the
     /// one-row plate made the two-tile pitch harder to reach, not easier. It
     /// also opened a band of plate widths, **44…48 px**, at which the pitch this
-    /// returns is two plates wide — see
+    /// returns is two plates wide: see
     /// `RoomCameraTests.noStaggerCanInterleaveTheTwoSeatRowsAtAnyPlateWidth`,
     /// which used to hold for every width from 33 up and now names the
     /// exception. Nothing in the room is in that band; a plate that lands there
@@ -216,7 +216,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// fails when the declared pitch and this formula disagree. Deriving the
     /// default would reflow the desks, the station props and the decoration
     /// columns the instant the plate moved, and those clearances are argued from
-    /// content boxes in the manifest rather than from this file — they have to be
+    /// content boxes in the manifest rather than from this file; they have to be
     /// re-derived by whoever narrows the plate, not silently inherited.
     public static func minimumSeatSpacingTiles(
         plateWidth: Int, plateHeight: Int, tile: Int
@@ -233,7 +233,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// **Overscan, not a margin that grows with the room.** It used to be
     /// `rows + 8`, which was six rows of overscan when the room was six rows
-    /// tall and nine when it became nine — and the field then reached past the
+    /// tall and nine when it became nine, and the field then reached past the
     /// top of the 1600×900 viewport `scripts/preview-theme.py --verify` renders
     /// into, where a field touching an edge cannot be registered and the whole
     /// scene-agreement check fails with nothing wrong with the room. Six rows
@@ -273,7 +273,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// It is the room's thoroughfare: every character reaches its chair from it,
     /// every character that leaves mid-beat comes back through it, and a
     /// reporter that could not get the delivery row hands its report over from
-    /// it. **What nobody does is travel *along* it** — every character that
+    /// it. **What nobody does is travel *along* it**: every character that
     /// touches this row is crossing it inside its own seat column. That is what
     /// lets any number of characters use it at once, and it is why the one
     /// lateral leg in the room is on `deliveryRowY` and not here. See
@@ -301,7 +301,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// Two characters on different rows cannot share a plate's horizontal strip,
     /// because the rows are a tile apart and a plate is
-    /// `SceneBitmaps.maximumNameplateHeight` tall — which is the second block of
+    /// `SceneBitmaps.maximumNameplateHeight` tall, which is the second block of
     /// `theRoomHasNoLateralMovementLeftToSeparate`, and the reason it is stated
     /// as a list here is so that a row added anywhere is a row that test sees.
     public var standingRows: [Double] { [deliveryRowY, aisleY] + seatRows }
@@ -314,11 +314,11 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// Two seats of the same ring are on **opposite sides** of the room, and two
     /// seats of different rings are at least one pitch apart in x. Its parity is
-    /// what picks a seat's row — see `isBackRow(seat:)`.
+    /// what picks a seat's row: see `isBackRow(seat:)`.
     ///
     /// It used to pick one more thing: a reporter's own delivery row, one row of
     /// floor per ring reserved in front of the walkway. **There is one delivery
-    /// row now and every reporter uses it**, so the ring no longer names a row —
+    /// row now and every reporter uses it**, so the ring no longer names a row,
     /// what keeps two reporters off each other is `DeliveryFloor`, which
     /// separates them in x rather than in depth. See
     /// `deliveryPosition(anchorSeat:reporterSeat:)`.
@@ -343,9 +343,9 @@ public struct RoomLayout: Sendable, Hashable {
     /// on either of them would be hanging it on the skirting or on the room's
     /// own outline.
     ///
-    /// Meaningless without a plan — the open floor's wall is a single tile
+    /// Meaningless without a plan: the open floor's wall is a single tile
     /// repeated to the top of the overscan and has no face, no baseboard and no
-    /// line — which is why the two callers both ask `plan.isEmpty` first.
+    /// line, which is why the two callers both ask `plan.isEmpty` first.
     public var wallFace: (bottom: Double, top: Double) {
         (wallBaseY + Double(RoomPlan.baseboardPx),
          wallBaseY + Double(wallRows * tile) - Double(RoomPlan.planLinePx))
@@ -356,7 +356,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// baseboard visible under them.
     public var hungPropY: Double { wallBaseY + Double(tile) / 4 }
 
-    /// The floor line of the space one wall band upstage of the seats — the
+    /// The floor line of the space one wall band upstage of the seats: the
     /// **far** room. Where the `wallLine` scenery stands under a plan.
     public var farFloorY: Double { wallBaseY + Double(wallRows * tile) }
 
@@ -373,18 +373,18 @@ public struct RoomLayout: Sendable, Hashable {
 
     /// **Which of the two rows a seat is on: its ring's parity.**
     ///
-    /// This is not a new rule bolted onto the lattice — it is the lattice read
+    /// This is not a new rule bolted onto the lattice: it is the lattice read
     /// one column further. Seats fill outward in pairs, so consecutive rings are
     /// consecutive columns on alternating sides, and *ring parity along x is
-    /// perfect alternation*: columns in x order are seats 6, 4, 2, 0, 1, 3, 5 —
+    /// perfect alternation*: columns in x order are seats 6, 4, 2, 0, 1, 3, 5,
     /// rings 3, 2, 1, 0, 1, 2, 3. Sending odd rings upstage therefore puts the
     /// rows in a checkerboard, every occupied column differing in depth from
     /// both its neighbours.
     ///
     /// **Nothing the lattice proves has to be re-proved, and that is the whole
     /// reason the row is keyed on the ring.** Every clearance argument in this
-    /// file rests on one number — *any two seats are at least a seat pitch apart
-    /// in x* — and folding the row does not touch x at all. `seatColumn` is
+    /// file rests on one number: *any two seats are at least a seat pitch apart
+    /// in x*, and folding the row does not touch x at all. `seatColumn` is
     /// unchanged, so the minimum column gap is still one pitch, still 96 px
     /// against a 71 px plate.
     ///
@@ -413,7 +413,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// A cluster narrower than seven columns means **two seats in one column**,
     /// because seven seats over fewer than seven columns is what "narrower"
     /// means. And every route into or out of a seat runs up or down that seat's
-    /// own column — that is not an incidental choice, it is the property every
+    /// own column: that is not an incidental choice, it is the property every
     /// argument in this file is built on, and it is what
     /// `entranceRoute(forSeat:)` and `upstageExit(forSeat:)` exist to state. So
     /// a stacked column puts one character's corridor through the other's chair
@@ -428,15 +428,15 @@ public struct RoomLayout: Sendable, Hashable {
     /// the staggered pitch again: an offset `s` must clear a plate on **both**
     /// sides, so `s ≥ W` and `pitch − s ≥ W`, which needs `pitch ≥ 2W`. At the
     /// shipped 96 px pitch and 71 px plate there is no such `s`. **Both numbers
-    /// can move** — see `minimumSeatSpacingTiles(plateWidth:tile:)`, which is
-    /// what ties them together — but they move in lockstep, because the pitch is
+    /// can move**: see `minimumSeatSpacingTiles(plateWidth:tile:)`, which is
+    /// what ties them together, but they move in lockstep, because the pitch is
     /// derived from the plate: a pitch is one plate wide plus a margin, never
     /// two. So there is no plate width at which a stagger opens up.
     ///
     /// **What that leaves is one seat per column**, so the room's occupied width
     /// is `(seats − 1) × 96` plus the padding `occupiedSpan` adds, and the only
     /// way to narrow it is to seat fewer agents. `RoomCamera` carries what a
-    /// `2x` frame could actually hold, which is three of them — and the shipped
+    /// `2x` frame could actually hold, which is three of them, and the shipped
     /// panel cannot hold three either, on height. The two seat rows bought
     /// depth: a room that reads as a place rather than a queue, and a badge line
     /// that does not sit on a neighbour's plate. They did not buy width and no
@@ -445,7 +445,7 @@ public struct RoomLayout: Sendable, Hashable {
         !ring(ofSeat: index).isMultiple(of: 2)
     }
 
-    /// Whether the room has a seat for `index` — every position function below
+    /// Whether the room has a seat for `index`: every position function below
     /// wraps, so anything else lands on top of an existing seat.
     ///
     /// This is the whole of the seat contract, stated once so a caller can ask
@@ -476,7 +476,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// body draws and therefore what has to stand in front of the body for it to
     /// read as seated at all. The pack ships no front- or back-facing *sitting*
     /// sprite [M0], so the two turned facings draw the **standing** `idle` row
-    /// and let furniture hide the legs — the technique the pack's own
+    /// and let furniture hide the legs: the technique the pack's own
     /// `Office_Design_2.gif` uses at every desk in its own room.
     public enum SeatFacing: String, Sendable, Hashable, CaseIterable {
         /// `idle_down`, with the **desk** downstage of the feet. You see the
@@ -486,7 +486,7 @@ public struct RoomLayout: Sendable, Hashable {
         /// upstage. You see the back of the head and the shoulders.
         case awayFromCamera = "away_from_camera"
         /// The sit row, which is a real seated pose and needs no occluder. **No
-        /// seat in the shipped lattice takes it** — see `seatFacing(_:)` — and
+        /// seat in the shipped lattice takes it** (see `seatFacing(_:)`) and
         /// `theShippedLatticeTurnsEverySeat` is that as a measurement rather
         /// than as a remark. It is kept because it is the only facing with true
         /// seated art, because the sit row, `Facing.seated`, the desk's
@@ -512,32 +512,32 @@ public struct RoomLayout: Sendable, Hashable {
         /// is. That is what the pack's own room does, and it is the only reason
         /// the toward-camera seat costs one prop rather than two.
         ///
-        /// ## An away-facing seat has none either, and it is a measurement — M8
+        /// ## An away-facing seat has none either, and it is a measurement: M8
         ///
         /// It was `chair_back` from ADR-008 until here. The maintainer, looking at
         /// the shipped room: *"the chairs that are facing forward, and they look
         /// weird. So I don't really think those are doing well, so they might be
-        /// removed."* The sprite is not the problem — single 101 is genuinely the
+        /// removed."* The sprite is not the problem: single 101 is genuinely the
         /// pack's back view, and a **vacant** away-facing pod renders correctly
         /// with it. What does not fit is the chair between the two things an
         /// *occupied* seat already draws in the same 32 px column:
         ///
         /// | bound | the furthest it may go | why |
         /// |---|---:|---|
-        /// | the chair's top may not reach the head | feet **+22** | the head band of a turned body is canvas rows 0…40, `canvas.height − 1 − costumes.ink_top_px`, so row 41 — feet +22 — is the highest row furniture may occupy. `StationAndCostumeTests.nothingTheRoomDrawsInFrontOfASeatedBodyCoversItsHead` is that as a shipped invariant, and a top at feet +33 reports up to 256 px of head covered per variant in all seven rooms |
+        /// | the chair's top may not reach the head | feet **+22** | the head band of a turned body is canvas rows 0…40, `canvas.height − 1 − costumes.ink_top_px`, so row 41 (feet +22) is the highest row furniture may occupy. `StationAndCostumeTests.nothingTheRoomDrawsInFrontOfASeatedBodyCoversItsHead` is that as a shipped invariant, and a top at feet +33 reports up to 256 px of head covered per variant in all seven rooms |
         /// | the chair's base may not hang below the nameplate | feet **−13** | `RoomScene.seatedPlateDrop`, `maximumNameplateHeight + 2` |
         ///
         /// A chair standing on the second and reaching no higher than the first
         /// may be **36 px** tall. `chair_back` is **46**: it is 10 px too tall, so
         /// no standoff satisfies both. The shipped 30 satisfies the first and
-        /// misses the second by 17 px, which is the picture that was reported — a
+        /// misses the second by 17 px, which is the picture that was reported: a
         /// grey column with the plate drawn across its back and a foot below it.
         /// Every candidate was rendered at the panel's own 720×400 before this was
         /// written: 30 (shipped), 24, 13, and none.
         ///
         /// **Neither side of the window can move.** Hanging the plate below the
         /// chair instead costs 17 px of `contentBand`, which stands at 192 against
-        /// the 200 a `2x` view of that panel gives — so every room in the corpus
+        /// the 200 a `2x` view of that panel gives, so every room in the corpus
         /// would fall to `1x` to tidy one seat. Raising the chair to feet −13
         /// takes its top to feet +33 and breaks the head invariant, and it also
         /// cuts the occupant's visible ink from **68% to 28–33%** (measured on
@@ -545,7 +545,7 @@ public struct RoomLayout: Sendable, Hashable {
         ///
         /// **What it costs, named rather than discovered.** ADR-008's table gives
         /// the chair back as what hides an `idle_up` figure's legs, and nothing
-        /// hides them now — an away-facing occupant is a whole standing back view
+        /// hides them now: an away-facing occupant is a whole standing back view
         /// at its own desk, and only its position says it is seated. The four
         /// vacant back seats of a normal room lose a prop each, and with
         /// `SeatFacing.towardCamera` already at `nil` and no seat in the shipped
@@ -553,8 +553,8 @@ public struct RoomLayout: Sendable, Hashable {
         /// roles stay bound and stay unread.
         ///
         /// **What would restore it**, so that this is a bound and not a verdict on
-        /// chairs: a back view no taller than 36 px. The office suite has none —
-        /// `chair_office_back` is the 46 — but `scripts/compose-scene.py`'s own
+        /// chairs: a back view no taller than 36 px. The office suite has none,
+        /// `chair_office_back` is the 46, but `scripts/compose-scene.py`'s own
         /// `CHAIR_SUITES` records two that would fit, `chair_school` at 30 and
         /// `chair_ornate` at 32, both up-views of families the manifest does not
         /// bind here and neither of them an office chair. Binding one is an
@@ -572,7 +572,7 @@ public struct RoomLayout: Sendable, Hashable {
         /// **False toward the camera**, for two independent reasons, either of
         /// which is sufficient: the desk is between the occupant and the viewer,
         /// so an object on it faces *upstage* and every screen in 12,279
-        /// catalogue props is drawn face-on — a lit monitor there is somebody
+        /// catalogue props is drawn face-on: a lit monitor there is somebody
         /// staring at the back of their own screen; and the desk is 32 px wide
         /// with the body occupying all of it, so there is no column on that desk
         /// an object can stand in without crossing the face the orientation
@@ -586,7 +586,7 @@ public struct RoomLayout: Sendable, Hashable {
         /// standing row for *both*, because that is the only row it has, so the
         /// two states are the same picture pixel for pixel and the channel is
         /// mute. Something else has to carry the fact, and `Character`'s dim is
-        /// what does — see `Character.setDimsOutOfTurn(_:)`.
+        /// what does: see `Character.setDimsOutOfTurn(_:)`.
         public var showsPosture: Bool { self == .sideOn }
     }
 
@@ -596,7 +596,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// It is keyed on the row, and the row decides it because the *floor*
     /// decides it. An away-facing seat needs its chair 30 px downstage of the
     /// occupant's feet (`awayChairStandoff`), and the front row has 32 px of
-    /// floor between it and `aisleY` — the one row every character in the room
+    /// floor between it and `aisleY`: the one row every character in the room
     /// walks across. A chair there would stand 2 px off the walkway. The back
     /// row has 64 px and the chair lands in the middle of it.
     /// [docs/M8-MEASUREMENTS-phase1c.md §3]
@@ -608,7 +608,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// **The result is the reference composition, for free.** Seats fill outward
     /// in pairs and ring parity puts them in a checkerboard, so in x order the
     /// rows run back, front, back, front, … and the facings therefore alternate
-    /// up, down, up, down, … across the whole room — which is exactly what
+    /// up, down, up, down, … across the whole room, which is exactly what
     /// `Office_Design_2` and `scripts/compose-scene.py`'s own office do, and it
     /// is not arranged here, it falls out of `isBackRow(seat:)`.
     public func seatFacing(_ index: Int) -> SeatFacing {
@@ -617,7 +617,7 @@ public struct RoomLayout: Sendable, Hashable {
 
     /// Which way the *body* faces at a seat.
     ///
-    /// It was `var seatedFacing: Facing { .right }` — one constant for the whole
+    /// It was `var seatedFacing: Facing { .right }`: one constant for the whole
     /// room, and the `.right` in it is the reason `Facing.seated` folds `up` and
     /// `down` onto the side views. Both are still correct **for a side-on seat**
     /// and neither is the room's answer any more.
@@ -625,23 +625,23 @@ public struct RoomLayout: Sendable, Hashable {
 
     /// **The measured art a seat's furniture is placed against.**
     ///
-    /// `RoomLayout` opens no PNG and reads no manifest — that is what makes it
-    /// unit-testable as arithmetic — so the three numbers a turned seat needs
+    /// `RoomLayout` opens no PNG and reads no manifest: that is what makes it
+    /// unit-testable as arithmetic, so the three numbers a turned seat needs
     /// arrive as a parameter, the same shape
     /// `deskSurfacePosition(seat:surfaceHeightAboveFloor:)` and
     /// `contentBand(badgeTopAboveFeet:plateDropBelowFeet:)` already take theirs.
     ///
     /// It is a required argument on every accessor that needs it, deliberately.
     /// A default would place a toward-camera desk at a depth of
-    /// `0 − 1 − deskCutAboveFeet` — *upstage* of the character it is supposed to
-    /// be in front of — and the room would draw a person standing in front of
+    /// `0 − 1 − deskCutAboveFeet`: *upstage* of the character it is supposed to
+    /// be in front of, and the room would draw a person standing in front of
     /// their own desk with nothing failing.
     public struct SeatMetrics: Sendable, Hashable {
         /// The desk's own ink height, from its `content_box`.
         public var deskInkHeight: Double
         /// The chair's ink height, from `chair_back`'s `content_box`.
         public var chairInkHeight: Double
-        /// `characters.costumes.ink_top_px` — how far above the feet a costume's
+        /// `characters.costumes.ink_top_px`: how far above the feet a costume's
         /// ink reaches.
         public var costumeTopAboveFeet: Double
         /// The desk's own ink **width**. `0` for a theme with no desk role at
@@ -667,7 +667,7 @@ public struct RoomLayout: Sendable, Hashable {
         ///
         /// Two conditions and both are load-bearing. A theme with no `monitor`
         /// role has nothing to stand, and a desk narrower than two rigs has no
-        /// second slot — which is the arrangement ADR-008 §7 described as an art
+        /// second slot, which is the arrangement ADR-008 §7 described as an art
         /// fact rather than a taste one when it kept the away-facing desk beside
         /// its occupant: *"The pack can centre its figure because its desk is
         /// 64 px wide with two monitors at ±16 and the person between them; ours
@@ -707,7 +707,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// floor point.
     ///
     /// For every desk in the room this has always been the manifest's
-    /// `surface_y` — the topmost row of an 80%-of-box-width ink run, which for a
+    /// `surface_y`: the topmost row of an 80%-of-box-width ink run, which for a
     /// desk drawn in near profile *is* the desktop. A pod's slab is not drawn in
     /// near profile: 25 of its 38 rows are top surface seen at an angle, so
     /// `surface_y` finds its **back** edge and a prop placed there stands behind
@@ -779,7 +779,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// on the corner of a desk, but it's actually not because it's, like, flipped
     /// the wrong way."*
     ///
-    /// The `monitor` role is `workstation_composite` — a 32×42 rig carrying **its
+    /// The `monitor` role is `workstation_composite`: a 32×42 rig carrying **its
     /// own desk surface, front edge, keyboard and mouse**, drawn in the pack's
     /// oblique projection. One of them on a 64 px slab covers the left half in
     /// desktop-seen-from-a-workstation and leaves the right half in
@@ -788,13 +788,13 @@ public struct RoomLayout: Sendable, Hashable {
     /// reads as two desks rather than as one.
     ///
     /// `compose-scene.py`'s `desk_pod` never had the defect and its own comment
-    /// says why — *"Ink 32 wide against 64, so x-16 and x+16 tile it exactly"* —
+    /// says why: *"Ink 32 wide against 64, so x-16 and x+16 tile it exactly"*,
     /// so this is that file's arrangement rather than a new one.
     ///
     /// **What ADR-006 keeps, and what was tried first.** The right slot is still
     /// where the work-kind object stands [`RoomScene.showDeskObject(_:for:)`], and
     /// the object now stands **in front of** that slot's rig rather than in place
-    /// of it — one depth step nearer the camera, on the rig's own desktop, the way
+    /// of it: one depth step nearer the camera, on the rig's own desktop, the way
     /// anything else on a desk sits in front of the screen behind it.
     ///
     /// The first attempt had the object *replace* the rig, hiding it for as long
@@ -805,9 +805,9 @@ public struct RoomLayout: Sendable, Hashable {
     /// tool. ADR-006 licenses an **object appearing** in that slot; it does not
     /// license the room's own furniture disappearing, which is the failure
     /// ADR-002 §6 rule 1 and I1 both name. Standing the object in front costs
-    /// nothing that mattered — the rig's screen is 24 px of its 42 and the tallest
+    /// nothing that mattered: the rig's screen is 24 px of its 42 and the tallest
     /// object is 22, so what an object covers is the keyboard, the stalk and at
-    /// most the screen's bottom four rows — and it buys the whole of the defect
+    /// most the screen's bottom four rows, and it buys the whole of the defect
     /// above, at an occupied seat as well as an empty one. [I2] Nothing animates
     /// either way.
     public func monitorPosition(_ index: Int, slot: PodRigSlot, metrics: SeatMetrics)
@@ -826,15 +826,15 @@ public struct RoomLayout: Sendable, Hashable {
     /// front of.
     ///
     /// `scripts/compose-scene.py`'s `desk_pod` puts four objects on a
-    /// camera-facing desktop — *"folder, clipboard on the left, paper stack and
-    /// mug on the right"* — where this file used to put one, and these are those
+    /// camera-facing desktop: *"folder, clipboard on the left, paper stack and
+    /// mug on the right"*: where this file used to put one, and these are those
     /// four places. Two columns, because a pod has exactly two kit slots
     /// (`podSlotOffsetX`); two rows, because the desktop is 38 px deep and one
     /// row of objects across a slab that wide reads as a shelf.
     ///
     /// **The declaration order is the office theme's own stock order**, so a seat
     /// that takes `variants[slot.rawValue]` gets the reference's arrangement: the
-    /// paper stack — `variants[0]`, the only object this room drew before — stays
+    /// paper stack (`variants[0]`, the only object this room drew before) stays
     /// in the right-hand slot it has always stood in, and the folder, clipboard
     /// and mug land where `desk_pod` draws them. `RoomScene` rotates that by the
     /// seat, which is why the order has to be a fact rather than a preference.
@@ -843,8 +843,8 @@ public struct RoomLayout: Sendable, Hashable {
 
         /// Which of the pod's two kit slots this stands in.
         var isLeft: Bool { self == .backLeft || self == .frontLeft }
-        /// **Whether the object's top lands on the desk's back edge** — the back
-        /// row — or on the desktop's mid-line, which is the front row.
+        /// **Whether the object's top lands on the desk's back edge**: the back
+        /// row, or on the desktop's mid-line, which is the front row.
         var isBackRow: Bool { self == .backLeft || self == .backRight }
         /// The back row first, so a front-row object is added to the tree after
         /// the object it overlaps. The depth bias is what actually sorts them;
@@ -889,8 +889,8 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// `nil` for an object **taller than the desk**, which has no lift that
     /// satisfies the bound: its top can only reach the back edge by hanging its
-    /// base below the desk's front edge. Nothing in the shipped stock is — the
-    /// tallest is 24 against 38 — and I1's answer where you cannot draw something
+    /// base below the desk's front edge. Nothing in the shipped stock is: the
+    /// tallest is 24 against 38, and I1's answer where you cannot draw something
     /// truthfully is to draw nothing.
     public func deskKitLift(inkHeight: Double, slot: PodKitSlot, metrics: SeatMetrics)
     -> Double? {
@@ -906,14 +906,14 @@ public struct RoomLayout: Sendable, Hashable {
     /// ADR-008 §5 left a camera-facing desk bare and gave two independent reasons.
     /// The first still holds and is why none of these is a rig: an object there
     /// faces upstage, and a screen has no honest rear view. **The second has
-    /// expired.** It was geometric — *"the theme desk is 32 px wide and the body
-    /// occupies all of it"* — and a pod is 64 px wide with 16 px of desktop
+    /// expired.** It was geometric: *"the theme desk is 32 px wide and the body
+    /// occupies all of it"*, and a pod is 64 px wide with 16 px of desktop
     /// outside the body's canvas on either side.
     ///
     /// What stands here is therefore theme furniture that says nothing about any
-    /// agent [I1]: paper, a folder, a clipboard, a mug — objects that read the
+    /// agent [I1]: paper, a folder, a clipboard, a mug: objects that read the
     /// same from either side. It is still not ADR-006's work-kind slot, and a
-    /// camera-facing seat still carries none of that —
+    /// camera-facing seat still carries none of that,
     /// `SeatFacing.showsDeskTopObject` is unchanged.
     ///
     /// **It cannot cover a face, and that is arithmetic rather than care.** See
@@ -952,7 +952,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// The anatomy is measured too: legs h0–h7, torso and arms h8–h21, head and
     /// hair h22 up. **There is no cut that keeps the costume and sells "seated"**
-    /// — at h8 you keep 55% of the costume and you can see the hips, and a chibi
+    ///: at h8 you keep 55% of the costume and you can see the hips, and a chibi
     /// with visible hips is standing. h12 is the waist: the first cut that reads
     /// as a desk rather than as a table, and it is bought with 71% of the
     /// costume. Toward-camera buys a **face**, which no other orientation gives
@@ -962,7 +962,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// How far **upstage** of the feet an away-facing seat's desk stands.
     ///
     /// A quarter tile, and it is `scripts/compose-scene.py`'s own `SEAT_STANDOFF
-    /// = 8` in that file's frame of reference — it seats its away-facing figure
+    /// = 8` in that file's frame of reference: it seats its away-facing figure
     /// 8 px downstage of the desk's floor point, which is this number seen from
     /// the desk instead of from the feet. Nothing has to be derived here because
     /// nothing is being occluded: the desk is *behind* the occupant, so it sorts
@@ -970,7 +970,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// shows around the body.
     public var awayDeskUpstage: Double { Double(tile) / 4 }
 
-    /// **How far downstage of the feet an away-facing seat's chair stands** — the
+    /// **How far downstage of the feet an away-facing seat's chair stands**: the
     /// one number in this file that decides whether a costume survives.
     ///
     /// ## The two numbers, and which frame of reference each is in
@@ -994,7 +994,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// ## The floor under it is measured, and it is not the head
     ///
     /// A 46 px chair back is *taller than four of the six variants*, so "does the
-    /// head clear" is the wrong question — the head clears at 24 and the costume
+    /// head clear" is the wrong question: the head clears at 24 and the costume
     /// does not appear until 25. The binding number is the **costume**: its ink
     /// tops out at `costumeTopAboveFeet` (22 px, measured over all twelve sets,
     /// `characters.costumes.ink_top_px`), so a chair of height `H` hides *every*
@@ -1012,8 +1012,8 @@ public struct RoomLayout: Sendable, Hashable {
     /// **What it costs, stated rather than discovered in review:** six rows out
     /// of twenty-two is 24% of the costume, so an away-facing seat spends three
     /// quarters of its occupant's costume on the chair. The accent, the
-    /// nameplate and the badge are untouched — they are drawn in the overlay
-    /// band far above anything furniture sorts in — and at `1x` the costume was
+    /// nameplate and the badge are untouched: they are drawn in the overlay
+    /// band far above anything furniture sorts in, and at `1x` the costume was
     /// already measured at a 0.00% silhouette difference [ADR-005 §9.6], so what
     /// is being spent is the weakest identity channel the room owns, on the only
     /// orientation that shows the back of a head.
@@ -1045,14 +1045,14 @@ public struct RoomLayout: Sendable, Hashable {
     /// depth, and that is a decision worth its own paragraph.** Centring it on
     /// the column is the obvious arrangement and it was tried first: it puts a
     /// 32 px desk directly behind a 20 px body, so six pixels of desk show at
-    /// each side, and — much worse — the object standing on it has nowhere to be
+    /// each side, and (much worse) the object standing on it has nowhere to be
     /// except behind the occupant's head. `docs/M8-PLAN-face-the-camera.md`'s
     /// complaint #3 is "still no laptops, the desk objects are not readable";
     /// a layout that hides the desk object at every seat in the room would be
     /// answering complaint #4 by making #3 worse. Keeping the desk beside the
     /// occupant keeps `RoomScene.deskObjectNearEdgeX`'s rule exactly as ADR-006
-    /// §2c wrote it — one character half-canvas to the right, the first column
-    /// strictly outside the body — so the object is as visible at an away-facing
+    /// §2c wrote it: one character half-canvas to the right, the first column
+    /// strictly outside the body, so the object is as visible at an away-facing
     /// seat as it has ever been, and the depth offset is what says the occupant
     /// is *at* the desk rather than beside it.
     ///
@@ -1068,7 +1068,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// occupant's row; a turned one does not.
     ///
     /// **The depth is per-theme and derived, because a constant fails every
-    /// theme in one direction or the other** — at 0 all six cut at or above the
+    /// theme in one direction or the other**: at 0 all six cut at or above the
     /// collarbone (four leave a head on a slab, `mission_control` cuts into the
     /// head, `library` decapitates) and at one whole floor row four of six do not
     /// occlude at all and the room draws people standing behind furniture. The
@@ -1081,14 +1081,14 @@ public struct RoomLayout: Sendable, Hashable {
     /// something stand"; occlusion asks "where does the ink stop", and reaching
     /// for the more natural-sounding of the two would be wrong exactly once.
     /// How far to a side-on occupant's right its desk is centred. Seven eighths
-    /// of a tile — see `deskPosition(_:metrics:)`. Named because
+    /// of a tile: see `deskPosition(_:metrics:)`. Named because
     /// `RoomScene.surfaceNearEdgeX` is the *only* other thing that needs it, and
     /// it needs it for a seat it may not be able to ask about: the near-edge cue
     /// is a property of the side-on arrangement, not of whichever seat happens
     /// to be seat 0.
     public var sideOnDeskOffsetX: Double { Double(tile) * 0.875 }
 
-    /// **How far to an away-facing occupant's right its desk is centred — `0` for
+    /// **How far to an away-facing occupant's right its desk is centred: `0` for
     /// a pod.** [ADR-009]
     ///
     /// ADR-008 §7 kept the away-facing desk beside its occupant rather than
@@ -1101,7 +1101,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// taste one."*
     ///
     /// The office desk is 64 px wide with two rig slots now, so the condition is
-    /// met and the desk centres — which is what puts a rig at each shoulder in
+    /// met and the desk centres, which is what puts a rig at each shoulder in
     /// `output/01-engineering-office.png`. Nothing else in the room changes,
     /// because `SeatMetrics.isDeskPod` is false for every other theme and this
     /// returns exactly what it returned before.
@@ -1134,7 +1134,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// Side-on keeps what it always had: the chair on the seat's own point, with
     /// the body drawn a hair in front of it. **Neither turned facing has a chair
-    /// at all** — `SeatFacing.seatRole`, which carries the measurement that took
+    /// at all**: `SeatFacing.seatRole`, which carries the measurement that took
     /// the away-facing one away.
     ///
     /// The away-facing arm is kept rather than deleted, and it is not dead: it is
@@ -1152,21 +1152,21 @@ public struct RoomLayout: Sendable, Hashable {
         }
     }
 
-    /// **The desk's top surface for a seat** — the plane an object could stand
+    /// **The desk's top surface for a seat**: the plane an object could stand
     /// on, not the desk's own bottom-centre anchor. [ADR-006 §2b, §2c]
     ///
     /// `content_box` measures a desk's ink footprint, and for most desks that
-    /// footprint's top row *is* the surface — but not always: `library` binds a
+    /// footprint's top row *is* the surface, but not always: `library` binds a
     /// desk with a book already drawn on it, whose box top is 8 px above the
     /// slab underneath. `surfaceHeightAboveFloor` is the manifest's answer to
     /// which row is really the surface (`room.props.roles.desk.surface_y`, or a
     /// theme's own), measured by `scripts/build-manifest.py` rather than
-    /// guessed here — this file has no access to the manifest and never reads a
+    /// guessed here: this file has no access to the manifest and never reads a
     /// PNG, so the height above the floor is a parameter, the same shape
     /// `contentBand(badgeTopAboveFeet:plateDropBelowFeet:)` already takes its
     /// own manifest-measured heights in.
     ///
-    /// `x` matches `deskPosition(_:)`'s own — this point sits directly above
+    /// `x` matches `deskPosition(_:)`'s own: this point sits directly above
     /// the desk's bottom-centre anchor, on the same column. Where *on* that
     /// surface an object's own near edge goes, and how it depth-sorts against
     /// the desk, is §2c's placement rule for the step that draws something
@@ -1196,7 +1196,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// arithmetic that keeps it out of everyone else's way is worth writing down
     /// rather than eyeballing. A seat pitch is three tiles. Within one pitch a
     /// side-on desk's 32 px box spans `x+12 … x+44` and this prop's spans
-    /// `x−48 … x−16`, so a station occupies `x−48 … x+44` — 92 px of a 96 px
+    /// `x−48 … x−16`, so a station occupies `x−48 … x+44`: 92 px of a 96 px
     /// pitch, with the next station's prop starting at `x+48`. Nothing overlaps
     /// and nothing is on a column any character walks down, because every column
     /// in this room is a seat's own and this is beside one, not on it.
@@ -1209,7 +1209,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// [ADR-008 §7, docs/M8-MEASUREMENTS-phase1c.md §3]
     ///
     /// It is on its seat's **own** row, so it is furniture beside the character
-    /// rather than decoration in front of the characters — the rule that
+    /// rather than decoration in front of the characters: the rule that
     /// replaced M5's foreground row, and it is not weakened by anything a theme
     /// can declare.
     public func stationPropPosition(_ index: Int) -> ScenePoint {
@@ -1236,7 +1236,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// - **Nothing else stands there.** The decoration columns alternate
     ///   backdrop/accent along x, and seat 0's column is the middle one of the
-    ///   seven — an *accent* column, so the backdrops are a full seat pitch
+    ///   seven: an *accent* column, so the backdrops are a full seat pitch
     ///   away on either side and the accent itself stands two tiles downstage
     ///   against the back seat row. The tallest accent any theme ships reaches
     ///   `accentRowY + 78 = 238`, which is under this line.
@@ -1249,7 +1249,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///   break.
     ///
     /// It is upstage of both seat rows, so it does not weaken "nothing is drawn
-    /// nearer the camera than the seat row" — see `RoomScene.buildRoom`.
+    /// nearer the camera than the seat row": see `RoomScene.buildRoom`.
     public var overflowPlatePosition: ScenePoint {
         ScenePoint(x: propColumnX(forSeat: 0), y: wallBaseY + Double(tile))
     }
@@ -1258,14 +1258,14 @@ public struct RoomLayout: Sendable, Hashable {
 
     /// **The eight columns a piece of scenery may stand on, in x order.**
     ///
-    /// Every seat's `propColumnX` — half a pitch outward from the seat — plus
+    /// Every seat's `propColumnX` (half a pitch outward from the seat) plus
     /// the one half a pitch outward from the leftmost seat, which no seat claims
     /// because the seats fill outward in pairs and there are seven of them.
     ///
     /// **They are the only floor a prop may have**, and that is a fact about the
     /// room's routes rather than a choice about composition. Every seat column
-    /// is a corridor from the delivery row to the wall line — `entranceRoute`,
-    /// `homeRoute` and `upstageExit` are all "straight up its own column" — so a
+    /// is a corridor from the delivery row to the wall line: `entranceRoute`,
+    /// `homeRoute` and `upstageExit` are all "straight up its own column", so a
     /// prop on one stands in somebody's way at some point in every session. The
     /// gaps between the columns meet no route at all: nothing travels laterally
     /// anywhere except on `deliveryRowY`, which is two rows downstage of the
@@ -1295,7 +1295,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// which columns already have a full-height board standing in front of them,
     /// since a picture hung behind one is a picture nobody will ever see.
     /// `RoomScene.decorationPlacements` reads this rather than repeating the
-    /// alternation — a transcription checked against a transcription is not a
+    /// alternation: a transcription checked against a transcription is not a
     /// check, and this file has paid for that twice.
     public var decorationColumns: [(isBackdrop: Bool, x: Double)] {
         (0..<seatCapacity)
@@ -1310,12 +1310,12 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// They are declared by the *manifest* per prop and resolved to a point
     /// here, so the art can be swapped without the room moving. The vocabulary
-    /// is closed and an unrecognised band draws nothing — the same answer the
+    /// is closed and an unrecognised band draws nothing: the same answer the
     /// identity model gives an ambiguous attribution. [I1]
     public enum SceneryBand: String, Sendable, CaseIterable {
         /// Hung on the wall face, two tiles above the line where the wall meets
-        /// the floor. Nothing stands here — a leaver's feet stop at `wallBaseY`
-        /// — so this band alone may use the **seat** columns, and it is behind
+        /// the floor. Nothing stands here: a leaver's feet stop at `wallBaseY`
+        ///, so this band alone may use the **seat** columns, and it is behind
         /// everything the room draws.
         case wall
         /// Standing on the line where the floor meets the wall, in the gaps the
@@ -1323,7 +1323,7 @@ public struct RoomLayout: Sendable, Hashable {
         case wallLine = "wall_line"
         /// One row downstage of the wall line.
         case backFloor = "back_floor"
-        /// One row upstage of the back seat row — the nearest the camera any
+        /// One row upstage of the back seat row: the nearest the camera any
         /// scenery ever comes, and still a whole row behind the furthest-upstage
         /// character.
         case midFloor = "mid_floor"
@@ -1344,8 +1344,8 @@ public struct RoomLayout: Sendable, Hashable {
     /// | `backFloor` | `wallBaseY − tile` | column 0 and the odd ones | an accent column already carries a full-height prop a row in front |
     /// | `midFloor` | `backSeatRowY + tile` | column 0 and the odd ones | the even ones are the accent row itself |
     ///
-    /// The one column that carries three floor props — 0, and the odd ones with
-    /// their backdrop — stacks them a row apart with the shortest nearest the
+    /// The one column that carries three floor props: 0, and the odd ones with
+    /// their backdrop: stacks them a row apart with the shortest nearest the
     /// camera, which is what lets all three read. `sceneryInkBound(_:)` is that
     /// argument as a number.
     public func sceneryAnchors(_ band: SceneryBand) -> [ScenePoint] {
@@ -1361,8 +1361,8 @@ public struct RoomLayout: Sendable, Hashable {
             //
             // **And a doorway column carries nothing.** A picture hung across a
             // gap cut clean through the band is `06-SET-BUILDING.md`'s R1, and
-            // the doorways are on seat columns — the very columns this band
-            // uses — so it is not a hypothetical. [ADR-007 §4]
+            // the doorways are on seat columns: the very columns this band
+            // uses, so it is not a hypothetical. [ADR-007 §4]
             let seats = (0..<seatCapacity).map { seatPosition($0).x }
             guard !plan.isEmpty else {
                 return seats.sorted().map {
@@ -1384,7 +1384,7 @@ public struct RoomLayout: Sendable, Hashable {
                 .sorted()
                 .map { ScenePoint(x: $0, y: hungPropY) }
         case .wallLine:
-            // The line where the floor meets the wall — and under a plan that
+            // The line where the floor meets the wall, and under a plan that
             // is the **far** room's floor line, one wall band upstage, because
             // the near room's own is where the backdrops stand. The tall props
             // this band carries (a cooler, a vending machine, a coffee counter,
@@ -1410,7 +1410,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// Width is one number everywhere: half a pitch less half a body, with 8 px
     /// kept back so the clearance is visible rather than exactly zero. On the
     /// floor that is the gap between two seat columns. On the wall it is the gap
-    /// to the nearest backdrop, and the same number covers it — the three themes
+    /// to the nearest backdrop, and the same number covers it: the three themes
     /// whose backdrop reaches above this band's own floor bind one 38, 32 and 30
     /// px wide, which leaves 58 px of column even at the worst of them.
     ///
@@ -1419,7 +1419,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// row upstage of it begins and the two abut instead of overlapping. The two
     /// floor bands are given a tile and a quarter rather than a tile, which
     /// costs the prop behind them 8 px of its base and buys a pool of props
-    /// worth placing — a 32 px ceiling excludes almost every printer, cabinet
+    /// worth placing: a 32 px ceiling excludes almost every printer, cabinet
     /// and bin in either pack. The wall-line band is the far plane of the floor
     /// and has nothing behind it, so it takes the whole two tiles of wall face.
     public func sceneryInkBound(_ band: SceneryBand) -> (width: Int, height: Int) {
@@ -1457,13 +1457,13 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// Near enough that the hand-over is between two characters and not into
     /// space, far enough that the reporter's body does not stand on the anchor's
-    /// nameplate — which is the defect `noTwoNameplatesEverIntersect` was written
+    /// nameplate, which is the defect `noTwoNameplatesEverIntersect` was written
     /// against, and the reason the number is 48 rather than a tile.
     public var deliveryGap: Double { Double(tile) * 1.5 }
 
     /// The point on the delivery row directly below a seat. A reporter drops to
     /// here out of its own column before it goes anywhere sideways, and comes
-    /// back to here before it climbs — so every *vertical* move it makes is
+    /// back to here before it climbs, so every *vertical* move it makes is
     /// inside its own column and every *lateral* one is on this row.
     public func deliveryLaneEntry(forSeat index: Int) -> ScenePoint {
         ScenePoint(x: seatPosition(index).x, y: deliveryRowY)
@@ -1478,7 +1478,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// to buy 96 px of band, and what was left was a beat that mimes a hand-over
     /// with nothing within a seat pitch to hand anything to. That is not a
     /// composition complaint. The beat *depicts* a transfer between two
-    /// characters, and one of them was not there — a picture asserting something
+    /// characters, and one of them was not there: a picture asserting something
     /// no arrangement of the data supports. [I1]
     ///
     /// ## The rule this is an instance of
@@ -1498,7 +1498,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// The exception is two characters in **one** column, which the room produces
     /// exactly once: a seat is free the instant its occupant starts walking out,
     /// so a refill can begin while the leaver is still in the column. Both move
-    /// upstage, so they are a convoy — same direction, same speed, the gap they
+    /// upstage, so they are a convoy: same direction, same speed, the gap they
     /// start with is the gap they keep. `entranceRoute(forSeat:)` and
     /// `theWholeCastCanLeaveInOneFrame` rest on that and are untouched.
     ///
@@ -1514,14 +1514,14 @@ public struct RoomLayout: Sendable, Hashable {
     /// which is the first clause again.
     ///
     /// That is the direct answer to the objection this option was rejected on at
-    /// M6f — that it "puts a lateral corridor back across the one row every
+    /// M6f: that it "puts a lateral corridor back across the one row every
     /// arrival steps through". It does not, because the corridor is not on that
     /// row. The objection was written when the arrival began one seat pitch
     /// outward *along the walkway*; M6f itself deleted that, so by the time the
     /// trade was refused the reason had already expired.
     ///
     /// **2. Two reporters cannot be on the row together unless their corridors
-    /// are clear of each other**, which is `DeliveryFloor` — and it is a
+    /// are clear of each other**, which is `DeliveryFloor`, and it is a
     /// statement about x, not about time. A beat claims the closed interval
     /// `deliveryCorridor(anchorSeat:reporterSeat:)`, every x its body will occupy
     /// from the moment it drops onto the row to the moment it leaves it. A second
@@ -1542,7 +1542,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// the 720×400 panel gives. It is affordable now and was not at M6f because
     /// the nameplate paid for it: `2806f5c` put the task on the plate and cost
     /// 8 px (170 → 178), and `2caa864` cut the plate to one row and gave back 18
-    /// (178 → 160). Three rows — one per ring, which is what M6f deleted — would
+    /// (178 → 160). Three rows (one per ring, which is what M6f deleted) would
     /// be 96 px and a band of 256, and does not fit. That is the whole of the
     /// difference between the option refused then and the one taken here: **one
     /// row instead of three, paid for out of the plate.**
@@ -1552,11 +1552,11 @@ public struct RoomLayout: Sendable, Hashable {
     /// A report that does not get the row is told apart from one that does, and
     /// the same agent's report can look different on two different occasions.
     /// That is a real inconsistency and it is recorded rather than dressed up.
-    /// What is bought is that when the walk plays — which is most of the time;
-    /// `mostReportsInTheCorpusGetTheWalk` measures it on `fixtures/` — the
+    /// What is bought is that when the walk plays, which is most of the time;
+    /// `mostReportsInTheCorpusGetTheWalk` measures it on `fixtures/`: the
     /// envelope goes to a character rather than to the floor.
     ///
-    /// `anchorSeat` is whose seat the reporter delivers to — 0, the main agent,
+    /// `anchorSeat` is whose seat the reporter delivers to: 0, the main agent,
     /// unless `tool_response.agentId` linked it to a parent that is still in the
     /// room.
     public func deliveryPosition(anchorSeat: Int, reporterSeat: Int) -> ScenePoint {
@@ -1570,7 +1570,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// reporter's own column to where it stands to hand over.
     ///
     /// The claim `DeliveryFloor` grants is this interval and it is held for the
-    /// whole beat, out and back — so a granted claim is a statement about the
+    /// whole beat, out and back, so a granted claim is a statement about the
     /// reporter's position at every instant it is on the row, not about the
     /// instant it was granted. That is what makes the exclusion geometric rather
     /// than a matter of scheduling: two granted claims are two disjoint stretches
@@ -1586,7 +1586,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// that shipped between M6f and now.** One row downstage onto the walkway,
     /// in its own column, turned towards the anchor.
     ///
-    /// It says less — it does not say *who* — and it says nothing false. Every
+    /// It says less (it does not say *who*) and it says nothing false. Every
     /// frame of it still traces to one real `reportDelivered`, and it is
     /// available at every instant for any number of reporters at once, because
     /// the walkway is crossed in-column by construction. That is what lets the
@@ -1620,8 +1620,8 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// It is built here rather than at the call site, and returned as a list
     /// rather than a point, because the *shape* is the guarantee and the shape is
-    /// the thing a caller could get wrong. A caller that cut the corner — a
-    /// straight desk-to-anchor diagonal — would drag the plate across three rows
+    /// the thing a caller could get wrong. A caller that cut the corner: a
+    /// straight desk-to-anchor diagonal: would drag the plate across three rows
     /// of the room and the second clause of
     /// `deliveryPosition(anchorSeat:reporterSeat:)`'s rule would be gone with
     /// nothing failing.
@@ -1632,14 +1632,14 @@ public struct RoomLayout: Sendable, Hashable {
     }
 
     /// The same route reversed: **back along the delivery row into the
-    /// character's own column, then straight up it into the chair** — or no legs
+    /// character's own column, then straight up it into the chair**, or no legs
     /// at all when it is already in it.
     ///
     /// **`fromY` decides how much of that is needed, and it is load-bearing in
     /// both directions.**
     ///
     /// - *At or below the delivery row* the character may be off its own column
-    ///   — the delivery row is the one place in the room where that is true — so
+    /// (the delivery row is the one place in the room where that is true) so
     ///   the lane entry goes in front and the climb starts from the column. A
     ///   caller that omitted it would produce the diagonal `deliveryRoute` is
     ///   written to prevent, on the way home instead of on the way out.
@@ -1648,7 +1648,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// - *At or above the seat row* there is no leg at all, and that guard is not
     ///   tidiness: a zero-length walk still costs `Character.duration`'s 0.2 s
     ///   floor, and a leaver spends those 0.2 s standing still in a column its
-    ///   replacement is already climbing — a seat is free the instant its
+    ///   replacement is already climbing: a seat is free the instant its
     ///   occupant starts walking out. 0.2 s at 72 px/s is 14 px of a 32 px convoy
     ///   gap; `noAdversarialPairingOfBeatsEverTouchesTwoPlates` measured the two
     ///   plates 8 px *inside* each other before it was added.
@@ -1668,8 +1668,8 @@ public struct RoomLayout: Sendable, Hashable {
     /// It used to start one seat pitch *outward* in the aisle and walk sideways
     /// to its own station, and that was the last beat in the room the lattice
     /// did not close by construction. One pitch outward on the aisle is not a
-    /// clear patch of floor — it is **exactly the next ring's own aisle
-    /// station** — so an arrival's corridor ran from one occupied column to
+    /// clear patch of floor: it is **exactly the next ring's own aisle
+    /// station**, so an arrival's corridor ran from one occupied column to
     /// another along the one row every character steps through. It needed a
     /// seat vacated and refilled while the next seat out was mid-report, and
     /// then the newcomer stood on the reporter as it passed: measured at
@@ -1678,14 +1678,14 @@ public struct RoomLayout: Sendable, Hashable {
     /// The repair is the rule the exits already follow, stated the other way up:
     ///
     /// > **Every vertical move in the room goes upstage.** Out of the aisle into
-    /// > a chair, home up a reporter's own column, out through the back wall —
+    /// > a chair, home up a reporter's own column, out through the back wall,
     /// > every one of them increases `y`.
     ///
     /// That is why the arrival comes up from the front rather than down from the
     /// back, which is the other way to put a walk-in inside its own column. Two
-    /// characters in one column is not hypothetical — a seat is free the instant
+    /// characters in one column is not hypothetical: a seat is free the instant
     /// its occupant starts walking out, so a refill can begin while the leaver
-    /// is still in the column — and a *downstage* arrival would meet that leaver
+    /// is still in the column, and a *downstage* arrival would meet that leaver
     /// head-on at zero separation, which no spacing fixes. Arriving upstage makes
     /// the pair a convoy instead: same direction, same speed, so a gap that
     /// starts at a tile stays at a tile. It is the argument
@@ -1693,7 +1693,7 @@ public struct RoomLayout: Sendable, Hashable {
     ///
     /// **Nothing new has to be proved about the rows it crosses.** The route is a
     /// character ascending its own column, which is every other route in the room
-    /// — see `deliveryPosition(anchorSeat:reporterSeat:)`. It began on the
+    ///: see `deliveryPosition(anchorSeat:reporterSeat:)`. It began on the
     /// character's own ring's delivery row until those rows were removed and now
     /// begins on the walkway, which is the same claim one row up.
     ///
@@ -1716,18 +1716,18 @@ public struct RoomLayout: Sendable, Hashable {
     /// is the one route in the room that cannot be made safe. A lateral corridor
     /// that reaches the frame edge passes through *every* column outside it, so
     /// a leaver crossed the exact patch of floor every other character steps
-    /// onto — and `noTwoNameplatesEverIntersect` caught it doing so in
+    /// onto, and `noTwoNameplatesEverIntersect` caught it doing so in
     /// `three-subagents`, 44 seconds in, walking through a reporter that was on
     /// its way home up its own column.
     ///
     /// Going upstage costs nothing to guarantee *in x*, because no other
     /// character's route is behind the desk row: a leaver's whole exit is inside
     /// its own column, and columns are a seat pitch apart. It also reads as what
-    /// it is — you stand up and walk out the back rather than squeezing along the
+    /// it is: you stand up and walk out the back rather than squeezing along the
     /// front of everyone's desk.
     ///
     /// It walks **as far as its own furniture leaves floor to walk on**, fading
-    /// as it goes — see `Character.departOffScreen` and
+    /// as it goes: see `Character.departOffScreen` and
     /// `upstageClearance(forSeat:metrics:)`. The old exit walked off the side of
     /// the frame, which needed no fade because the frame edge did the hiding;
     /// there is no edge behind the desks, and a flat wall gives a character
@@ -1739,7 +1739,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// away-facing seats that was a walk through their own desks.** The paragraph
     /// above this one said "there is nothing behind the desk row" and it was
     /// written when that was true of every seat. ADR-008 put a desk
-    /// `awayDeskUpstage` — 8 px — behind an away-facing occupant and ADR-009
+    /// `awayDeskUpstage` (8 px) behind an away-facing occupant and ADR-009
     /// stood two screen rigs on it, so those four seats have 8 px of floor behind
     /// them and 58 px of furniture above it. The metrics argument is what makes
     /// the difference visible in the type system rather than in a comment, and it
@@ -1750,7 +1750,7 @@ public struct RoomLayout: Sendable, Hashable {
             x: seatPosition(index).x, y: upstageClearance(forSeat: index, metrics: metrics))
     }
 
-    /// The same, for a character whose seat is not known — it leaves from
+    /// The same, for a character whose seat is not known: it leaves from
     /// wherever it is standing, and stops at whatever furniture its column has.
     ///
     /// A body 32 px wide standing at `x` may overlap at most two seat columns, so
@@ -1785,7 +1785,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// ## Which furniture counts, and why only two pieces of it
     ///
     /// A piece counts when it is **upstage of the seat** and reaches into the
-    /// seat's own one-tile column — the same "clears one tile centred on the
+    /// seat's own one-tile column: the same "clears one tile centred on the
     /// seat" test `RoomPlan.dressingViolations` applies to a hand-placed prop,
     /// and the same 32 px body every clearance argument in this file is written
     /// against. Only two pieces can ever satisfy the first half:
@@ -1797,7 +1797,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// | camera-facing desk | `deskDepth` downstage | no |
     /// | desktop kit | on a camera-facing desk | no |
     /// | chair | `awayChairStandoff` downstage | no |
-    /// | station prop | the seat's own row, a tile to its left | no — and it is exactly a tile, so it does not reach the column either |
+    /// | station prop | the seat's own row, a tile to its left | no, and it is exactly a tile, so it does not reach the column either |
     ///
     /// The four that do not count are the occluders a seat is deliberately
     /// composed *behind* [ADR-008], and a route to that seat has to pass them or
@@ -1807,7 +1807,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// ## What this costs
     ///
     /// An away-facing leaver's exit is 7 px rather than 96, so it fades where it
-    /// sits instead of walking out the back — `Character.duration`'s 0.2 s floor
+    /// sits instead of walking out the back: `Character.duration`'s 0.2 s floor
     /// is the whole of its departure. The room said the opposite until now:
     /// `theSeatsAlternateDepthAlongXWithoutMovingAnyColumn` asserted that the back
     /// row keeps two tiles of floor behind it to leave through, which stopped
@@ -1835,7 +1835,7 @@ public struct RoomLayout: Sendable, Hashable {
         // by the `point.y > seat.y` guard: `SeatMetrics` carries its height and
         // not its width, because nothing has ever needed the width. It is
         // `chairPosition(_:metrics:)`'s own arithmetic that makes the omission
-        // safe — a side-on chair is *on* the seat's point and an away-facing one
+        // safe: a side-on chair is *on* the seat's point and an away-facing one
         // is `awayChairStandoff` downstage of it, so neither is ever upstage, and
         // a camera-facing seat has none at all.
         return max(seat.y, ceiling)
@@ -1844,8 +1844,8 @@ public struct RoomLayout: Sendable, Hashable {
     /// The vertical strip the camera actually has to frame: from the bottom of
     /// the lowest nameplate to the top of the tallest badge.
     ///
-    /// **Not `height`.** The room's nominal box is `rows * tile` — 192 px when
-    /// this was written, 288 px now that the floor is seven rows deep — and the
+    /// **Not `height`.** The room's nominal box is `rows * tile`: 192 px when
+    /// this was written, 288 px now that the floor is seven rows deep, and the
     /// camera used to fit it. At the panel's 720×400 the consequence was that
     /// the strip where anything happens sat in the middle third with a flat band
     /// of wall above and a flat band of floor below, and `3x` was unreachable at
@@ -1873,7 +1873,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// with 8 to spare. **It was 300, then 160.** The history is worth the four
     /// lines because the last two rows of this table were bought and sold twice:
     ///
-    /// - M6f spent 96 px of delivery row — one row per ring — and 34 px of badge,
+    /// - M6f spent 96 px of delivery row (one row per ring) and 34 px of badge,
     ///   taking 300 to 170. The rows were floor the report beat reserved so that a
     ///   reporter walking to its anchor crossed nobody, and deleting them deleted
     ///   the walk.
@@ -1890,7 +1890,7 @@ public struct RoomLayout: Sendable, Hashable {
     /// See `deliveryPosition(anchorSeat:reporterSeat:)`. `RoomCamera.init` carries
     /// what the camera does with the result and
     /// `theBandFitsACloserScaleAndWidthDecidesWhoGetsIt` keeps these numbers
-    /// honest. **Width is what holds the camera now**, not height — 192 still fits
+    /// honest. **Width is what holds the camera now**, not height: 192 still fits
     /// `2x`, and it is the seat pitch that says only three agents do.
     ///
     /// Both arguments are measured from the manifest by the caller rather than
@@ -1904,12 +1904,12 @@ public struct RoomLayout: Sendable, Hashable {
     public func contentBand(
         badgeTopAboveFeet: Double, plateDropBelowFeet: Double
     ) -> (bottom: Double, top: Double) {
-        // The lowest plate belongs to a character on the **delivery row** — the
+        // The lowest plate belongs to a character on the **delivery row**: the
         // furthest downstage anyone ever stands, and the row a reporter walks
         // along to reach its anchor. It is `standingRows.first`, and it is
         // written that way so that a row added to the room is a row the camera
         // frames rather than a row it crops.
-        // The highest pixel belongs to a character on the **back** seat row —
+        // The highest pixel belongs to a character on the **back** seat row,
         // the furthest upstage anyone sits, and the row whose badge would be
         // cropped by a band measured from `baselineY`.
         ((standingRows.min() ?? aisleY) - plateDropBelowFeet,
@@ -1938,8 +1938,8 @@ public struct RoomLayout: Sendable, Hashable {
     /// number rather than as a policy: a plate plus the margin the lattice
     /// already clears by everywhere else.
     ///
-    /// It is `minimumSeatSpacingTiles`' own `needed` — the seat pitch *before*
-    /// it is rounded up to a whole tile — so the delivery row separates two
+    /// It is `minimumSeatSpacingTiles`' own `needed`: the seat pitch *before*
+    /// it is rounded up to a whole tile, so the delivery row separates two
     /// reporters by the same amount the seat rows separate two neighbours, for
     /// the same reason, computed from the same two measurements. Two claims that
     /// clear each other by this leave their plates at least `tile − plateHeight`
@@ -1957,7 +1957,7 @@ public struct RoomLayout: Sendable, Hashable {
 /// safe instead, and the thing to understand about it is that **it is not a
 /// scheduler**: it grants a claim on a stretch of one row, refuses claims that
 /// would overlap a live one, and never makes anybody wait. A reporter that is
-/// refused plays `RoomLayout.inPlaceDeliveryRoute(reporterSeat:)` immediately —
+/// refused plays `RoomLayout.inPlaceDeliveryRoute(reporterSeat:)` immediately,
 /// the beat that shipped before this row existed, in its own column, where any
 /// number of characters can be at once.
 ///
@@ -1965,25 +1965,25 @@ public struct RoomLayout: Sendable, Hashable {
 /// answer to "what happens if it never drains" is that there is nothing to
 /// drain. [I4]
 ///
-/// **What can still go wrong is a claim that is never given back** — a callback
-/// that does not fire, a character retired between two frames — and that is a
+/// **What can still go wrong is a claim that is never given back**: a callback
+/// that does not fire, a character retired between two frames, and that is a
 /// stuck *room* rather than a stuck character: the holder finishes its walk and
 /// sits down normally, and only later reports are affected, and only by being
 /// given the in-place beat. It is closed twice over anyway:
 ///
 /// - `RoomScene` releases on the beat's own completion, and every frame drops
 ///   any claim whose character has stopped running a script or has left the
-///   scene — the condition itself rather than a proxy for it;
+///   scene: the condition itself rather than a proxy for it;
 /// - and `reap(at:)` drops a claim held past `budget`, which `RoomScene` sets to
 ///   twice the beat it is timing. A deadline is the reaper of last resort here,
 ///   not the mechanism, which is why it can afford to be generous.
 ///
-/// **It is keyed by an opaque id, one per beat — not by seat and not by agent.**
+/// **It is keyed by an opaque id, one per beat, not by seat and not by agent.**
 ///
 /// A seat looks like the natural key and is the wrong one. A subagent goes
 /// dormant on the same event that starts its report, which makes it the
 /// longest-dormant character in the room and therefore the first candidate
-/// `SceneDirector.settleSeats` evicts — so its seat can be handed to a new agent
+/// `SceneDirector.settleSeats` evicts, so its seat can be handed to a new agent
 /// while it is still several seconds from the end of its walk. Keyed by seat,
 /// that new agent's own report would overwrite a claim whose holder is standing
 /// in the corridor. A per-beat id has no such collision, and it keeps this type
@@ -1996,7 +1996,7 @@ public struct DeliveryFloor: Sendable, Hashable {
         public var budget: TimeInterval
         /// When the clock first saw it. `nil` until the first `reap(at:)` after
         /// the claim, so the floor never has to be told what time it is at claim
-        /// time and cannot mis-reap against an unstarted clock — `RoomScene`'s
+        /// time and cannot mis-reap against an unstarted clock: `RoomScene`'s
         /// clock is the render loop's, whose origin is system uptime.
         public var startedAt: TimeInterval?
     }
@@ -2026,7 +2026,7 @@ public struct DeliveryFloor: Sendable, Hashable {
     }
 
     /// Take the stretch if it is free. `false` means the caller plays the
-    /// in-place beat — it does **not** mean "try again later", and there is no
+    /// in-place beat: it does **not** mean "try again later", and there is no
     /// later to try at.
     @discardableResult
     public mutating func claim(

@@ -3,7 +3,7 @@ import Testing
 @testable import SpriteRoomScene
 
 /// The three authored desk objects: their palette, their grid, their budget and
-/// — the one that matters — whether they are actually tellable apart.
+/// (the one that matters) whether they are actually tellable apart.
 ///
 /// None of this needs the pack on disk. It is bitmap arithmetic over art this
 /// repository draws itself, which is exactly the layer `scripts/lint-palette.py`
@@ -127,8 +127,8 @@ struct DeskWorkArtTests {
     /// **The one that matters: all four read as different shapes with the colour
     /// thrown away.**
     ///
-    /// Contrast is not available to this layer — I7 keeps the room pale on
-    /// purpose — so silhouette is the entire legibility budget. Each object is
+    /// Contrast is not available to this layer (I7 keeps the room pale on
+    /// purpose), so silhouette is the entire legibility budget. Each object is
     /// flattened to its per-row ink width and the four profiles are compared.
     /// Equal profiles would mean two kinds that are distinguishable only by a
     /// detail pixel, which is what the pack's own three singles amounted to at
@@ -184,7 +184,7 @@ struct DeskWorkArtTests {
     }
 
     /// Every kind is authored now, so no kind names a manifest role. The seam is
-    /// kept deliberately — see `WorkKind.propRole` — and this pins the shipped
+    /// kept deliberately (see `WorkKind.propRole`), and this pins the shipped
     /// state so that a role reappearing is a decision rather than an accident.
     @Test func noKindNamesAManifestRoleAnyMore() {
         for kind in WorkKind.allCases {

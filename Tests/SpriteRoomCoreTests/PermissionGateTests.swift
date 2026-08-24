@@ -3,28 +3,28 @@ import Testing
 
 @testable import SpriteRoomCore
 
-/// **ADR-001 (d) — mark on `PermissionRequest`, act on `UserPromptSubmit`,
+/// **ADR-001 (d): mark on `PermissionRequest`, act on `UserPromptSubmit`,
 /// change only the deadline.** Accepted 2026-08-07.
 ///
 /// Click "No" on a permission prompt and nothing ever closes that tool call:
 /// no `PostToolUse`, no `PostToolUseFailure`, no mention in the following
 /// `PostToolBatch`, not even a `Stop` for the turn. `Bash` carries the
 /// 15-minute deadline, so a two-second interaction left that character typing
-/// for 900 s — the signature bug of this project on the most ordinary
+/// for 900 s: the signature bug of this project on the most ordinary
 /// interaction there is.
 ///
 /// Three rules replace that, and each one is a test below:
 ///
 /// 1. a `PermissionRequest` **marks** the agent and the set of calls it held
-///    open at that instant — no join, by name or by recency;
+///    open at that instant: no join, by name or by recency;
 /// 2. any close of any marked call, or a `Stop`, **disarms** the mark;
 /// 3. a `UserPromptSubmit` for that agent while the mark is still set pulls
-///    those calls' deadlines in to `now + G`. **Shortened, never closed** — the
+///    those calls' deadlines in to `now + G`. **Shortened, never closed**: the
 ///    reaper still does the closing and still emits `.callAbandoned`.
 ///
 /// Everything here is driven by captured payloads. Where a shape no capture
-/// contains is needed — a denial whose turn produced a `Stop`, an approved call
-/// still running when a later prompt arrives — it is built by re-ordering real
+/// contains is needed (a denial whose turn produced a `Stop`, an approved call
+/// still running when a later prompt arrives), it is built by re-ordering real
 /// payloads from one real session, or by the one sanctioned rewrite helper, and
 /// the comment says which and why. Time is injected everywhere; there is no
 /// `sleep` in this file.
@@ -73,11 +73,11 @@ import Testing
         return Date()
     }
 
-    // MARK: Decoding — it is consumed, and it still names no call
+    // MARK: Decoding - it is consumed, and it still names no call
 
     /// `PermissionRequest` stops being counted as unhandled. That is a real
-    /// cost — the unhandled counter's job is to notice the hook surface growing
-    /// — and it is paid deliberately.
+    /// cost (the unhandled counter's job is to notice the hook surface growing)
+    /// and it is paid deliberately.
     @Test func permissionRequestIsConsumedRatherThanCounted() async throws {
         let (entries, _) = try permissionPrompt()
         let requests = entries.filter { $0.event?.kind == .permissionRequest }
@@ -90,7 +90,7 @@ import Testing
 
     /// **The fact the whole design rests on.** It carries `tool_name`,
     /// `tool_input` and `permission_suggestions[]` and *no* `tool_use_id`, so
-    /// there is nothing to join with — which is why marking is legitimate where
+    /// there is nothing to join with, which is why marking is legitimate where
     /// pairing would not be. ADR-001 (c), rejected: `tool_name` + `tool_input`
     /// is not even unique within one batch, and a wrong join closes the wrong
     /// call. [I3]
@@ -117,7 +117,7 @@ import Testing
     /// still main-thread, and the subagent one lands on the subagent.
     ///
     /// It is load-bearing rather than tidy. Per-agent scoping is what keeps the
-    /// synchronous-`Agent` case safe — in this same fixture the parent's `Agent`
+    /// synchronous-`Agent` case safe: in this same fixture the parent's `Agent`
     /// call is open across the child's dialog, so a session-scoped mark would
     /// mark the parent and let a synthetic prompt shorten it.
     @Test func aSubagentsGateIsAttributedToTheSubagent() async throws {
@@ -150,7 +150,7 @@ import Testing
         #expect(await model.snapshot().agent(main)?.isWorking == true)
     }
 
-    // MARK: Rule 1 — the mark arms and records the right set
+    // MARK: Rule 1 - the mark arms and records the right set
 
     /// It records *this agent's open-call set at that instant* and nothing
     /// else. No `tool_use_id` is read from the event, because it has none.
@@ -176,7 +176,7 @@ import Testing
         #expect(await model.permissionGateMark(main) == [Self.deniedCall])
     }
 
-    /// A second gate re-marks with the set as it stands *then* — which in this
+/// A second gate re-marks with the set as it stands *then*, which in this
     /// capture is both calls, because the denied one is still open. "At most
     /// one permission prompt outstanding" is untested and nothing here assumes
     /// it.
@@ -189,7 +189,7 @@ import Testing
 
     /// Consuming it must not have made it a badge-clearing event. It is the
     /// *announcement* of a wait, and it arrives 6 s before the `Notification`
-    /// that raises the badge — so a second gate opening while the first badge
+/// that raises the badge, so a second gate opening while the first badge
     /// is up would otherwise erase a badge that is still true.
     @Test func aPermissionRequestDoesNotClearTheAttentionBadge() async throws {
         let (entries, main) = try permissionPrompt()
@@ -212,7 +212,7 @@ import Testing
         #expect(await model.snapshot().agent(main)?.attention == .permissionPrompt)
     }
 
-    // MARK: Rule 2 — disarming
+    // MARK: Rule 2 - disarming
 
     /// **The test that stops this fix reaping approved long-running calls.**
     ///
@@ -223,7 +223,7 @@ import Testing
     /// path. [I1]
     ///
     /// Under (d) the approval closes the gated call, that close disarms the
-    /// mark, and no later prompt can shorten anything — including a call opened
+    /// mark, and no later prompt can shorten anything, including a call opened
     /// afterwards that runs for a quarter of an hour.
     @Test func theApprovePathDisarmsAndALaterPromptShortensNothing() async throws {
         let (entries, main) = try permissionPrompt()
@@ -233,14 +233,14 @@ import Testing
         try await feed(model, entries, through: "PermissionRequest", skipping: 1)
         #expect(await model.permissionGateMark(main)?.contains(Self.approvedCall) == true)
 
-        // The approval's own `PostToolUse` — one of the three close paths,
-        // behaving exactly as it always has — disarms it.
+        // The approval's own `PostToolUse` (one of the three close paths,
+        // behaving exactly as it always has) disarms it.
         let close = try entry(entries, "PostToolUse")
         await model.ingest(try #require(close.event), at: close.receivedAt)
         #expect(await model.permissionGateMark(main) == nil)
 
         // A long `Bash` opened after the gate was answered. Real captured
-        // payload — `killed-session`'s never-closed call — routed into this
+        // payload (`killed-session`'s never-closed call) routed into this
         // session by the one sanctioned rewrite helper, because no single
         // capture contains "a gate, then an approval, then a long-running
         // command". Only its address is changed.
@@ -272,7 +272,7 @@ import Testing
     /// is no longer pending.
     ///
     /// Assembled by re-ordering real payloads from this one session, because
-    /// the shape cannot be captured — a denial produces *no* `Stop` for its
+    /// the shape cannot be captured: a denial produces *no* `Stop` for its
     /// turn, which is the whole reason this ADR exists. The `Stop` used is the
     /// capture's own.
     @Test func stopDisarmsTheMark() async throws {
@@ -287,7 +287,7 @@ import Testing
         // **`Stop` says two things and they are separate facts on separate
         // channels.** The gate clear releases a body that was being held still
         // [ADR-005 §7]; the turn end stands the character up [ADR-005 §3]. The
-        // order is the one every other arm takes — the wait ended, then the turn
+        // order is the one every other arm takes: the wait ended, then the turn
         // did.
         #expect(deltas == [
             .gateChanged(agent: main, isGated: false),
@@ -308,13 +308,13 @@ import Testing
         #expect(call.deadline == call.startedAt.addingTimeInterval(15 * 60))
     }
 
-    // MARK: Rule 3 — the deadline, pulled in
+    // MARK: Rule 3 - the deadline, pulled in
 
     /// **The fix, measured against the fixture that motivated it.**
     ///
     /// The denied `Bash` opens at t=2.06 and nothing in the stream ever closes
     /// it. Its deadline used to be t=902; the user's next prompt lands at
-    /// t=57.46, so it is now t=117.46 — `now + G`, 60 s.
+    /// t=57.46, so it is now t=117.46: `now + G`, 60 s.
     ///
     /// The capture's `SessionEnd` arrives at t=103.46 and would close the call
     /// first, so it is withheld here: `permission-prompt.jsonl` ends before the
@@ -343,7 +343,7 @@ import Testing
         let opened = try #require(openedAt)
         let answered = try #require(promptAt, "the user's next prompt after the denial")
 
-        // The orphan is still open and its deadline has moved — and only its
+        // The orphan is still open and its deadline has moved, and only its
         // deadline. It is still a `Bash`, still started when it started.
         let orphan = try #require(await model.snapshot().agent(main)?.openCalls.first)
         #expect(orphan.toolUseID == Self.deniedCall)
@@ -352,7 +352,7 @@ import Testing
 
         // The number this replaces, stated so the improvement is legible. The
         // call used to live 900 s from the moment it opened; it now lives
-        // 115.4 s — the 55.4 s the user spent at the dialog and afterwards,
+        // 115.4 s: the 55.4 s the user spent at the dialog and afterwards,
         // plus G. The deadline moved in by 784.6 s.
         let old = opened.addingTimeInterval(Reaper.deadlineInterval(forTool: "Bash"))
         #expect(abs(old.timeIntervalSince(orphan.deadline) - 784.6) < 1,
@@ -381,7 +381,7 @@ import Testing
     }
 
     /// **The same fix against the capture that can actually distinguish 60 s
-    /// from 900 s — and with the clock advancing through the stream, which is
+    /// from 900 s, and with the clock advancing through the stream, which is
     /// how a replay sees it.**
     ///
     /// `permission-prompt.jsonl` ends 40 s after its denial, so its `SessionEnd`
@@ -411,7 +411,7 @@ import Testing
             return
         }
         #expect(tool == "Bash")
-        // The reaper closed it, on its own deadline — not `SessionEnd` at
+        // The reaper closed it, on its own deadline, not `SessionEnd` at
         // t=252.06, which is what a replay that only swept at the end reported.
         #expect(reason == .deadlineExpired)
 
@@ -475,7 +475,7 @@ import Testing
     /// The only thing G has to survive is the gap between a synthetic
     /// `UserPromptSubmit` and the close of a call that is genuinely still
     /// running. `three-subagents` contains the only two such straddles anyone
-    /// has captured — 8.05 s and 15.05 s — and G is four times the larger.
+    /// has captured (8.05 s and 15.05 s) and G is four times the larger.
     ///
     /// Derived from the fixture rather than written down, so that a capture
     /// with a longer straddle turns this from a passing test into a failing
@@ -508,7 +508,7 @@ import Testing
         #expect(abs(largest - 15.049) < 0.1, "largest straddle \(largest)s")
         #expect(Reaper.permissionGateGraceInterval == 60)
         // 60 / 15.049 = 3.987. "Four times", as the ADR states it, is the
-        // largest straddle rounded to the second — which is the precision the
+        // largest straddle rounded to the second, which is the precision the
         // claim deserves and the precision this pins it to. A capture with a
         // straddle past ~15.4 s makes this fail, which is the conversation the
         // ADR asks for rather than a number that quietly stops being true.
@@ -516,12 +516,12 @@ import Testing
                 "G is \(Reaper.permissionGateGraceInterval / largest)× the largest straddle")
     }
 
-    // MARK: Regression — the hazard that got option (b) rejected
+    // MARK: Regression - the hazard that got option (b) rejected
 
     /// **The two straddles in `three-subagents` are untouched, and this is the
     /// test that says so.**
     ///
-    /// Option (b) — "the next `UserPromptSubmit` closes stragglers" — was
+    /// Option (b), "the next `UserPromptSubmit` closes stragglers", was
     /// rejected because a subagent's result reaches the main thread as a
     /// *synthetic* `UserPromptSubmit`, and two calls here are genuinely still
     /// running when one arrives: `toolu_017StzPCoy…` for 8.05 s across one
@@ -567,7 +567,7 @@ import Testing
 
     /// The other side of the same coin: a prompt only ever reaches the agent it
     /// is addressed to. Every `UserPromptSubmit` in every fixture carries no
-    /// `agent_id`, so it is the main thread's by the identity rule — a
+    /// `agent_id`, so it is the main thread's by the identity rule: a
     /// subagent's marked calls could not be shortened by one even if a subagent
     /// gate existed.
     @Test func aPromptOnlyEverAnswersItsOwnAgentsGate() async throws {
@@ -580,7 +580,7 @@ import Testing
         }
     }
 
-    // MARK: Reapability [I4] — the marker must not leak
+    // MARK: Reapability [I4] - the marker must not leak
 
     /// It is one more open state, so it answers to the same three paths as
     /// every other one. `SessionEnd` takes the character and the mark with it.
@@ -600,7 +600,7 @@ import Testing
     ///
     /// The timeout is shortened for this test so that the idle path is the one
     /// under test: at the real 30 minutes the gated `Bash`'s own 900 s deadline
-    /// fires first, and reaping a marked call disarms the mark by rule 2 — true,
+        // fires first, and reaping a marked call disarms the mark by rule 2, true,
     /// and belt and braces, but it would mean this test never exercised the
     /// sweep it is named after. [I4]
     @Test func theIdleSweepClearsAnArmedMark() async throws {
@@ -629,7 +629,7 @@ import Testing
     /// armed gate into dormancy for the rest of the session and be badged by a
     /// later `permission_prompt` it has nothing to do with. [I1]
     ///
-    /// The abandon path hides this in the ordinary case — `SubagentStop`
+    /// The abandon path hides this in the ordinary case: `SubagentStop`
     /// abandons the agent's open calls, and abandoning a *marked* call disarms
     /// by rule 2. The case it does not cover is the legal empty mark: a snapshot
     /// of an open-call set that happened to be empty. So this test builds
@@ -658,8 +658,8 @@ import Testing
         for entry in entries {
             guard let event = entry.event else { continue }
             // Drop only this agent's gated `PreToolUse`, so its mark arms over
-            // an empty open-call set — legal, documented, and the one shape the
-            // abandon path cannot disarm.
+            // an empty open-call set (legal, documented, and the one shape the
+            // abandon path cannot disarm).
             if case let .preToolUse(_, tool, _) = event.kind,
                tool == "Bash", event.agentID == gated.agent { continue }
             let deltas = await model.ingest(event, at: entry.receivedAt)
@@ -671,7 +671,7 @@ import Testing
         }
         #expect(reachedStop, "the fixture no longer stops this subagent")
         // And it says so, ahead of the report beat it rides with: the turn is
-        // over, so the gate is over, so the body may move again — which for this
+        // over, so the gate is over, so the body may move again, which for this
         // character means the walk to its parent it is about to play.
         // [ADR-005 §7]
         #expect(stopDeltas.map(\.tag)
@@ -680,7 +680,7 @@ import Testing
         // Dormant, in the room, and carrying nothing.
         #expect(await model.snapshot().agent(gated)?.lifecycle == .dormant)
         #expect(await model.permissionGateMark(gated) == nil)
-        // The other gate is untouched — it is genuinely still open, and the mark
+        // The other gate is untouched: it is genuinely still open, and the mark
         // was always per-agent rather than per-session. That scoping is what
         // makes this a one-line change instead of a rule.
         #expect(await model.permissionGateMark(stillGated) != nil)
@@ -700,8 +700,8 @@ import Testing
     /// close it rode in on.**
     ///
     /// This is the ordinary release: the human clicks yes, the gated call's own
-    /// `PostToolUse` arrives, and `removeCall` disarms. The order — gate clear,
-    /// then `callClosed` — is the one `clearsAttention` already reads in: the
+    /// `PostToolUse` arrives, and `removeCall` disarms. The order (gate clear,
+    /// then `callClosed`) is the one `clearsAttention` already reads in: the
     /// wait ended, then the work did.
     @Test func theApprovingCloseClearsTheGateAndSaysSo() async throws {
         let (entries, main) = try permissionPrompt()
@@ -720,7 +720,7 @@ import Testing
     ///
     /// Rule 3 shortens deadlines and closes nothing, so before this delta
     /// existed there was no moment at which anything downstream learned the human
-    /// had answered "no" — the character would have gone on standing still until
+    /// had answered "no": the character would have gone on standing still until
     /// the reaper abandoned the call 60 s later. The prompt is the answer, so the
     /// gate ends there.
     @Test func theAnsweringPromptClearsTheGate() async throws {
@@ -734,7 +734,7 @@ import Testing
         #expect(await model.permissionGateMark(main) == nil)
         // Shortened, never closed: the call is still open and still that agent's.
         #expect(await model.snapshot().agent(main)?.openCalls.count == 1)
-        // And the abandon that follows 60 s later emits no second clear — the
+        // And the abandon that follows 60 s later emits no second clear: the
         // gate closed once, at the answer.
         let orphan = try #require(await model.snapshot().agent(main)?.openCalls.first)
         let swept = await model.sweep(at: orphan.deadline)
@@ -744,7 +744,7 @@ import Testing
     /// **A reaped gated call clears it as well**, which is the path that has to
     /// hold when the human never answers at all: the deadline expires, the call
     /// is abandoned, and the same `removeCall` disarms. Otherwise a character
-    /// frozen by a gate would stay frozen with nothing left to unfreeze it —
+    /// frozen by a gate would stay frozen with nothing left to unfreeze it:
     /// I4's *types forever* with the sign flipped.
     @Test func abandoningAGatedCallClearsTheGate() async throws {
         let (entries, main) = try permissionPrompt()
@@ -772,7 +772,7 @@ import Testing
     /// `agentDeparted`.
     ///
     /// It also pins the corpus: **nine gates open across the eighteen files**,
-    /// and two of them are still open when their stream ends — the pair in
+    /// and two of them are still open when their stream ends: the pair in
     /// `concurrent-permission-gates`, one of which never sees a human at all.
     ///
     /// Both of those two are nonetheless closed by a `gateChanged(false)` rather
@@ -781,7 +781,7 @@ import Testing
     /// the session abandons the agent's open calls, and abandoning a *marked*
     /// call disarms the mark through the same `removeCall` every other close
     /// path uses. The departure ending is therefore reachable only for a gate
-    /// whose marked set is empty or already closed, which no capture contains —
+    /// whose marked set is empty or already closed, which no capture contains:
     /// so `closedByDeparture` is 0 and the branch is kept for the shape rather
     /// than for the corpus.
     @Test func everyGateThatOpensIsClosedOrItsCharacterLeaves() async throws {
@@ -830,13 +830,13 @@ import Testing
 
             #expect(gated.isEmpty, Comment(rawValue:
                 "\(name): \(gated.count) character(s) left stopped at a permission gate after"
-                + " every close path and both sweeps — a character frozen forever [I4]"))
+                + " every close path and both sweeps: a character frozen forever [I4]"))
         }
 
         #expect(opened == 9, "the corpus's gate count moved: \(opened)")
         #expect(closedByDeparture == 0, Comment(rawValue:
             "\(closedByDeparture) gate(s) ended by their character leaving rather than by a"
-            + " clear — true and legal, but no capture produced that shape before, so the"
+            + " clear, true and legal, but no capture produced that shape before, so the"
             + " marked-set-is-empty path has become reachable and wants a look"))
     }
 
@@ -846,7 +846,7 @@ import Testing
     /// remember.
     ///
     /// **Over all eighteen captures.** It named `Fixtures.required` plus two
-    /// interactive files — one of which, `permission-prompt`, had already joined
+    /// interactive files, one of which, `permission-prompt`, had already joined
     /// the required set at ADR-001, so the list was a duplicate and a gap at
     /// once: `concurrent-permission-gates`, the one capture that ends with two
     /// gates outstanding, was in neither.

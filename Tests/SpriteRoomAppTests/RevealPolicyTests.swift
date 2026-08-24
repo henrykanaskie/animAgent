@@ -10,7 +10,7 @@ import Testing
 /// window, and nothing here needs anyone to watch a screen.
 struct RevealPolicyTests {
 
-    // MARK: Criterion 1 — reveal on entry, retract on exit
+    // MARK: Criterion 1: reveal on entry, retract on exit
 
     @Test func pointingAtTheNotchRevealsThePanel() {
         var run = Simulation(policy: PanelFixtures.policy())
@@ -38,7 +38,7 @@ struct RevealPolicyTests {
         #expect(run.retracts == 1)
     }
 
-    // MARK: The dwell — temporal hysteresis on the way in
+    // MARK: The dwell: temporal hysteresis on the way in
 
     @Test func aBrushPastTheNotchNeverRevealsAnything() {
         let tuning = RevealPolicy.Tuning.default
@@ -60,7 +60,7 @@ struct RevealPolicyTests {
         #expect(run.reveals == 0)
     }
 
-    // MARK: The grace period — temporal hysteresis on the way out
+    // MARK: The grace period: temporal hysteresis on the way out
 
     @Test func anOvershootShorterThanTheGraceCostsNothing() {
         let tuning = RevealPolicy.Tuning.default
@@ -85,7 +85,7 @@ struct RevealPolicyTests {
         #expect((retractedAt ?? 0) - (revealedAt ?? 0) >= 0.6)
     }
 
-    // MARK: Spatial hysteresis — the keep-open zone
+    // MARK: Spatial hysteresis: the keep-open zone
 
     @Test func theKeepOpenZoneStrictlyContainsTheTriggerZone() {
         var policy = PanelFixtures.policy()
@@ -130,7 +130,7 @@ struct RevealPolicyTests {
         #expect(run.retracts == 0)
     }
 
-    // MARK: Criterion 4 — diagonals do not oscillate
+    // MARK: Criterion 4: diagonals do not oscillate
 
     /// A straight line crosses a rectangle at most once, so a diagonal can
     /// legitimately produce at most one reveal and one retract. Anything more
@@ -159,7 +159,7 @@ struct RevealPolicyTests {
         let region = geometry.region
         var run = Simulation(policy: PanelFixtures.policy(geometry))
         run.hold(PanelFixtures.away(geometry), for: 0.3)
-        // 1400 points of travel in 120 ms — a flick towards a menu on the far
+        // 1400 points of travel in 120 ms: a flick towards a menu on the far
         // side of the screen. The pointer is over the hot zone for ~20 ms.
         run.sweep(
             from: PanelPoint(x: region.midX - 700, y: region.midY - 200),
@@ -221,7 +221,7 @@ struct RevealPolicyTests {
 
     @Test func aGapInSamplingRestartsAWaitRatherThanSatisfyingIt() {
         var policy = PanelFixtures.policy()
-        // Enter, then vanish for a minute — a closed lid, a stalled main
+        // Enter, then vanish for a minute: a closed lid, a stalled main
         // thread. The dwell must not be considered served by the missing time.
         #expect(policy.update(pointer: PanelFixtures.inside(), at: 0) == nil)
         #expect(policy.update(pointer: PanelFixtures.inside(), at: 60) == nil)
@@ -261,7 +261,7 @@ struct RevealPolicyTests {
     }
 }
 
-/// Deterministic, dependency-free, and identical on every machine — a seeded
+/// Deterministic, dependency-free, and identical on every machine: a seeded
 /// walk that fails on one Mac and passes on another would be worthless.
 struct SplitMix64 {
     private var state: UInt64

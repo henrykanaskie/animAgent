@@ -7,8 +7,8 @@ public typealias ToolUseID = String
 /// Which character an event belongs to.
 ///
 /// `agent_id` is present **only** inside a subagent; its *absence* is the main
-/// thread. `agent_type` is not a subagent marker — it also appears on the main
-/// thread of an `--agent` session — so it is never consulted here.
+/// thread. `agent_type` is not a subagent marker (it also appears on the main
+/// thread of an `--agent` session), so it is never consulted here.
 /// See `docs/03-EVENT-MODEL.md`, "Identity resolution".
 public enum AgentID: Hashable, Sendable, Comparable, CustomStringConvertible {
     case mainThread
@@ -38,7 +38,7 @@ public enum AgentID: Hashable, Sendable, Comparable, CustomStringConvertible {
 /// M0c captured exactly two values under a pty, in real interactive sessions:
 /// `permission_prompt` ("Claude needs your permission") and `idle_prompt`
 /// ("Claude is waiting for your input"). Neither carries a `tool_use_id` or an
-/// `agent_id` — not even when the gate belongs to a subagent, which M6c
+/// `agent_id`, not even when the gate belongs to a subagent, which M6c
 /// verified in `fixtures/subagent-permission.jsonl`. So a `Notification` names
 /// no character of its own, and which one it badges is decided by
 /// `WorldModel.attentionTargets(for:of:resolved:)` from the permission-gate
@@ -46,22 +46,22 @@ public enum AgentID: Hashable, Sendable, Comparable, CustomStringConvertible {
 ///
 /// `other` keeps the raw value rather than discarding it. `Notification` is by
 /// construction the hook Claude Code fires *at the user*, so a third value
-/// appearing tomorrow still means "this session wants you" — the same fact the
+/// appearing tomorrow still means "this session wants you": the same fact the
 /// one attention glyph asserts. That is the question-mark badge's reasoning
 /// applied to a second axis: we know an alert fired, we do not know which kind,
 /// and showing the honest generic is not a guess. [I1]
 public enum AttentionKind: Sendable, Hashable, CustomStringConvertible {
     /// `permission_prompt`. Fires **6.0 s after** `PermissionRequest`, not with
-    /// the dialog — three occurrences within 30 ms of each other.
+    /// the dialog: three occurrences within 30 ms of each other.
     case permissionPrompt
-    /// `idle_prompt`. Fires **60.02 s after `Stop`**, once per *idle stretch* —
+    /// `idle_prompt`. Fires **60.02 s after `Stop`**, once per *idle stretch*,
     /// not once per session. A single stretch produces exactly one however long
     /// it lasts (a further 145 s of silence produced no repeat at M0c), but a
     /// session that goes quiet again after working produces another:
     /// `fixtures/denial-then-work.jsonl` has two, 60.03 s and 60.02 s after its
     /// two `Stop`s. Nothing may expect at most one.
     ///
-    /// It means "this has been waiting a while", *not* "this is waiting" —
+    /// It means "this has been waiting a while", *not* "this is waiting",
     /// `Stop` with an empty open-call set already says the latter, immediately
     /// and for free. Nothing may drive a live idle state off it.
     case idlePrompt
@@ -99,15 +99,15 @@ public struct BatchedCall: Hashable, Sendable {
 /// A decoded hook payload: the common input fields plus the per-event fields
 /// the world model actually uses.
 ///
-/// An unrecognised — or structurally unusable — `hook_event_name` becomes
+/// An unrecognised (or structurally unusable) `hook_event_name` becomes
 /// `.unhandled(name:)`. It is never an error. The hook surface grows (2.1.224
-/// defines at least fifteen event names we do not consume — it was sixteen
+/// defines at least fifteen event names we do not consume: it was sixteen
 /// until ADR-001 consumed `PermissionRequest`) and a new event must never crash
 /// the app.
 public struct HookEvent: Hashable, Sendable {
 
     public enum Kind: Hashable, Sendable {
-        /// Decoration only. Never a precondition — it did not fire once in five
+        /// Decoration only. Never a precondition: it did not fire once in five
         /// captured headless sessions.
         case sessionStart(source: String?)
         /// The user sent a turn. Consumed for one reason only: it creates the
@@ -118,7 +118,7 @@ public struct HookEvent: Hashable, Sendable {
         case subagentStart
         /// `task` is `tool_input.description` **and only from the `Agent`
         /// dispatch tool**, where it is the 3–5 word summary of the job the
-        /// subagent was dispatched to do — `'Touch file s1'`,
+        /// subagent was dispatched to do: `'Touch file s1'`,
         /// `'Read three.txt sleep'`, `'Read delta/epsilon, sleep, reread alpha'`.
         /// `nil` for every other tool and for an `Agent` call that carried no
         /// description.
@@ -133,12 +133,12 @@ public struct HookEvent: Hashable, Sendable {
         /// tasked with*.
         ///
         /// It is also what keeps the decode off the hot path. `tool_input` is
-        /// unbounded — a 5.5 MB `Edit` produces a 5.7 MB POST — and this is the
+        /// unbounded (a 5.5 MB `Edit` produces a 5.7 MB POST) and this is the
         /// only branch that opens a nested container inside it, on a tool that
         /// appears 10 times in 83 calls across the whole corpus. Every other
         /// `PreToolUse` never looks at `tool_input` at all. [I5]
         case preToolUse(toolUseID: ToolUseID, toolName: String, task: String?)
-        /// `spawnedAgentID` is `tool_response.agentId` — present only on the
+        /// `spawnedAgentID` is `tool_response.agentId`: present only on the
         /// `Agent` dispatch tool, where it maps this parent `tool_use_id` to
         /// the `agent_id` of the child it launched. There is no
         /// `parent_agent_id` field anywhere; this is the whole link.
@@ -153,7 +153,7 @@ public struct HookEvent: Hashable, Sendable {
         /// One assistant message stream ended. **Not** "turn over."
         case stop
         /// A permission gate opened for *this agent*. Consumed as an
-        /// **agent-level marker** and nothing more —
+        /// **agent-level marker** and nothing more,
         /// `docs/ADR-001-denied-calls.md` (d).
         ///
         /// It carries `tool_name`, `tool_input` and `permission_suggestions[]`
@@ -161,12 +161,12 @@ public struct HookEvent: Hashable, Sendable {
         /// carries no payload at all. Deliberate: reading `tool_name` off it
         /// would be the first step towards joining it to an open call by name,
         /// which the pairing rule forbids and which ADR-001 (c) rejects with
-        /// data — `tool_name` + `tool_input` is not even unique within one
+        /// data: `tool_name` + `tool_input` is not even unique within one
         /// batch, and a wrong join closes the wrong call. There is nothing here
         /// to join with. [I3]
         case permissionRequest
         case sessionEnd(reason: String?)
-        /// The main agent raises an attention badge. **Badge only** — the pack
+        /// The main agent raises an attention badge. **Badge only**: the pack
         /// ships no body animation for "waiting on a human" and repurposing an
         /// unrelated one would be fiction. [I1]
         case notification(attention: AttentionKind)
@@ -215,12 +215,12 @@ extension HookEvent: Decodable {
     /// A payload whose `hook_event_name` is neither a string nor a number.
     public static let nonStringEventName = "<non-string hook_event_name>"
 
-    /// The subagent-dispatch tool. Its hook name is `Agent`, never `Task` —
+    /// The subagent-dispatch tool. Its hook name is `Agent`, never `Task`,
     /// `Task` is the model-facing name and does not appear in a payload.
     ///
     /// Used for **one** decision and no other: whether to read
     /// `tool_input.description`. It is deliberately *not* how a parent→child
-    /// link is recognised — that stays keyed on `tool_response.agentId`,
+    /// link is recognised: that stays keyed on `tool_response.agentId`,
     /// because `SendMessage` returns one too. The two questions are different:
     /// "which tool's input schema has a field meaning *the subagent's job*" has
     /// exactly one answer, and it is this one.
@@ -246,7 +246,7 @@ extension HookEvent: Decodable {
 
     /// The only field of `tool_response` we read.
     ///
-    /// `tool_response` is otherwise the tool's own output — arbitrary shape,
+    /// `tool_response` is otherwise the tool's own output: arbitrary shape,
     /// arbitrary size, and none of our business. Decoding one key out of it
     /// keeps the payload's private half private, and means a `tool_response`
     /// that is a *string* (which most tools produce) simply yields `nil`
@@ -263,8 +263,8 @@ extension HookEvent: Decodable {
     /// tool.
     ///
     /// Same construction, and the same reason, as `ToolResponse` above:
-    /// `tool_input` is the tool's own arguments — arbitrary shape, arbitrary
-    /// size — so one key comes out and the rest stays private. A
+    /// `tool_input` is the tool's own arguments: arbitrary shape, arbitrary
+    /// size, so one key comes out and the rest stays private. A
     /// `tool_input` that is not an object yields `nil` instead of failing the
     /// whole event.
     private struct AgentDispatch: Decodable {
@@ -337,7 +337,7 @@ extension HookEvent: Decodable {
             if let toolUseID, let toolName {
                 // The single gate on reading `tool_input` at all. Everything
                 // that is not a subagent dispatch skips the nested container
-                // entirely, however large the payload is. [I5/I1 — see the
+                // entirely, however large the payload is. [I5/I1: see the
                 // `task` doc on the case.]
                 let task = toolName == Self.agentDispatchTool
                     ? (try? container.decodeIfPresent(
@@ -380,7 +380,7 @@ extension HookEvent: Decodable {
 
         case "PermissionRequest":
             // No required fields, because it has none we use. Identity comes
-            // from the common input fields alone — which is exactly what makes
+            // from the common input fields alone, which is exactly what makes
             // it a legal *marker* rather than an illegal join.
             self.kind = .permissionRequest
 
@@ -400,7 +400,7 @@ extension HookEvent: Decodable {
 /// Decoding that cannot fail into the caller's face.
 ///
 /// A malformed body is not an error to report back into a Claude Code session
-/// — it is a counter increment and a `202`. [I5]
+///: it is a counter increment and a `202`. [I5]
 public enum HookEventDecoder {
     /// Returns `nil` only when the body is not JSON, or carries no `session_id`
     /// / `cwd` and therefore cannot be routed to any project.

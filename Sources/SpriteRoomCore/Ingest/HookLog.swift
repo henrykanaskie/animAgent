@@ -10,7 +10,7 @@ public struct HookLogEntry: Sendable, Hashable {
     public let synthetic: Bool
     /// The request body exactly as captured. Never normalised.
     public let payload: Data
-    /// `nil` when the payload is not routable — not JSON, or no `session_id` /
+    /// `nil` when the payload is not routable: not JSON, or no `session_id` /
     /// `cwd`. Counted as malformed; never an error.
     public let event: HookEvent?
 }
@@ -65,7 +65,7 @@ public enum HookLog {
             event: HookEventDecoder.decode(payload))
     }
 
-    /// The logger writes `2026-08-07T08:14:10.670+00:00` — fractional seconds
+    /// The logger writes `2026-08-07T08:14:10.670+00:00`: fractional seconds
     /// and a colon in the offset.
     ///
     /// The formatters are built per call rather than cached because

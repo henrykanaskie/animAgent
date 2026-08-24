@@ -10,9 +10,9 @@ import Foundation
 /// # Why an instant step and never a fade
 ///
 /// A crossfade is motion, and I2 licenses motion on a character **if and only
-/// if** it holds at least one open tool call. A dormant agent holds none —
+/// if** it holds at least one open tool call. A dormant agent holds none,
 /// `SubagentStop` abandons every one of them in the same batch that sets
-/// dormancy — so a fade would be the one thing this room may not draw: a
+/// dormancy, so a fade would be the one thing this room may not draw: a
 /// character animating with no call open. Two still states, and the transition
 /// between them takes exactly the frame the fact changed on. This is ADR-005's
 /// posture argument on a second channel: *a still frame is not activity.*
@@ -25,7 +25,7 @@ import Foundation
 /// I7's third check is `theme mean value − the character's darkest pixel ≥
 /// 0.40`. The shipped numbers, from `scripts/lint-palette.py`: the cast's
 /// darkest pixel is **0.314** and the lowest theme mean is `mission_control`'s
-/// **0.738**, so the binding character clears the floor at **0.424** — 0.024 of
+/// **0.738**, so the binding character clears the floor at **0.424**: 0.024 of
 /// headroom, the tightest number in the whole palette argument.
 ///
 /// **Reducing alpha over a pale room raises that darkest pixel and eats the
@@ -39,14 +39,14 @@ import Foundation
 /// | that theme's darkest ink, 0.604 | `0.134 + 0.29 α` | **0.917** |
 ///
 /// So the entire alpha range I7 permits is roughly `[0.92, 1.0]`: an 8%
-/// reduction at best, which is not a signal — it is a rounding error with a
+/// reduction at best, which is not a signal: it is a rounding error with a
 /// mechanism attached. **Alpha is measured out, not judged out.**
 ///
 /// A tint toward a colour **at or below** the cast's own darkest value has the
 /// opposite sign: every character pixel moves toward that value, so the darkest
 /// pixel cannot rise and the contrast cannot fall. The dim recedes by giving up
-/// **saturation and internal value structure** — the two channels I7 hands the
-/// cast — rather than by giving up presence, which is the honest thing for a
+/// **saturation and internal value structure**: the two channels I7 hands the
+/// cast, rather than by giving up presence, which is the honest thing for a
 /// character that is still in the room.
 ///
 /// # The numbers this ships with
@@ -57,24 +57,24 @@ import Foundation
 ///
 /// | | lit | dimmed | floor |
 /// |---|---:|---:|---:|
-/// | cast peak saturation | 1.000 (var 09) | **0.520** | — |
-/// | cast darkest value | 0.314 | **0.304** | — |
+/// | cast peak saturation | 1.000 (var 09) | **0.520** | - |
+/// | cast darkest value | 0.314 | **0.304** | - |
 /// | contrast vs `mission_control`'s 0.738 mean | 0.424 | **0.434** | 0.40 |
-/// | cast mean value | 0.533 | **0.369** | — |
+/// | cast mean value | 0.533 | **0.369** | - |
 ///
 /// The contrast **improves**, from 0.424 to 0.434, so the dim moves away from
 /// I7's floor rather than toward it and the tightest number in the palette
 /// argument is not made tighter by this feature.
 public enum CharacterDim {
 
-    /// **The colour a dormant character is tinted toward** — `(58, 58, 80)`.
+    /// **The colour a dormant character is tinted toward**: `(58, 58, 80)`.
     ///
     /// Not a new ink: it is `HeldObjectArt.outline`, already authored, already
     /// ratified, and already drawn *on* a character. Its own doc comment records
-    /// why it is allowed to be as dark as it is — "`HeldObjectArt` is allowed
+    /// why it is allowed to be as dark as it is: "`HeldObjectArt` is allowed
     /// `(58, 58, 80)` precisely because it is drawn on a character and is
     /// measured against the cast's floor instead" (`DeskWorkArt`, "What is not
-    /// available") — and its value is **0.314**, which is the cast's darkest
+    /// available"), and its value is **0.314**, which is the cast's darkest
     /// pixel to three decimal places.
     ///
     /// **That equality is the whole safety argument and it is why this colour
@@ -87,14 +87,14 @@ public enum CharacterDim {
     /// `theDimCannotWeakenI7sContrastFloorAtAnyFactor` asserts.
     public static let tint = Bitmap.RGBA(58, 58, 80)
 
-    /// **How far toward `tint` a dormant character is taken** — `0.65`.
+    /// **How far toward `tint` a dormant character is taken**: `0.65`.
     ///
     /// Derived from the two saturation thresholds `scripts/lint-palette.py`
     /// already enforces, rather than chosen by eye:
     ///
-    /// - `CHAR_MIN_SAT = 0.55` — every *lit* character must carry a colour above
+    /// - `CHAR_MIN_SAT = 0.55`: every *lit* character must carry a colour above
     ///   it. It is the line that says "this is a working member of the cast".
-    /// - `ROOM_MAX_SAT = 0.25` — nothing in the room may reach it. It is the
+    /// - `ROOM_MAX_SAT = 0.25`: nothing in the room may reach it. It is the
     ///   line that says "this is scenery".
     ///
     /// > **A dormant character sits in the gap between them: it no longer
@@ -122,8 +122,8 @@ public enum CharacterDim {
     /// real PNGs and fails if this constant moves past either.
     public static let factor: Double = 0.65
 
-    /// One pixel, dimmed. The blend `SKSpriteNode.colorBlendFactor` performs — a
-    /// per-channel linear interpolation toward `color`, with alpha untouched —
+    /// One pixel, dimmed. The blend `SKSpriteNode.colorBlendFactor` performs: a
+    /// per-channel linear interpolation toward `color`, with alpha untouched,
     /// written out here so the measurement can be made without a renderer and
     /// the silhouette's invariance is visible rather than assumed.
     ///

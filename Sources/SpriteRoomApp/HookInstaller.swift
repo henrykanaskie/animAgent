@@ -15,7 +15,7 @@ import Foundation
 ///    ours, survives with its value unchanged.
 /// 2. **Reversible.** `remove` takes the file back to what it was. When the
 ///    file has not been edited by anyone else in the meantime, it is restored
-///    **byte for byte** from the copy taken at install time — key order and
+///    **byte for byte** from the copy taken at install time, key order and
 ///    whitespace included, because re-serialising JSON does not preserve
 ///    either and "I only changed what I said I would" should be checkable with
 ///    `diff`.
@@ -23,15 +23,15 @@ import Foundation
 ///    so a hand-edited file is still cleaned up correctly.
 ///
 /// Nothing here reads or writes a project-level settings file. Nothing here
-/// asks for consent either — that is the caller's job, and it is a separate
+/// asks for consent either; that is the caller's job, and it is a separate
 /// job on purpose.
 struct HookInstaller: Sendable {
 
     /// The events `docs/03-EVENT-MODEL.md` says we consume, and no others.
     ///
     /// 2.1.224 emits at least sixteen more. An unregistered event costs the
-    /// user nothing and costs us nothing — the listener decodes anything that
-    /// does arrive to `.unhandled` rather than throwing — so registering only
+    /// user nothing and costs us nothing (the listener decodes anything that
+    /// does arrive to `.unhandled` rather than throwing), so registering only
     /// what we act on is the smaller tax on every tool call.
     static let events = [
         "SessionStart",
@@ -46,13 +46,13 @@ struct HookInstaller: Sendable {
         "Stop",
         "Notification",
         // ADR-001 (d). Consumed as the *marker* that an agent has a call at a
-        // permission gate — never as a close, and never joined to a
+        // permission gate, never as a close, and never joined to a
         // `tool_use_id`, which it does not carry. Without this line the model
         // consumes an event that never arrives, and a denied call goes back to
         // sitting open for 900 s.
         //
         // Registered with `matcher: "*"`, which is the shape it was captured
-        // firing under at M0c — not a guess. A wrong matcher here is a hook
+        // firing under at M0c, not a guess. A wrong matcher here is a hook
         // that silently never fires and looks like a working install.
         "PermissionRequest",
     ]
@@ -66,7 +66,7 @@ struct HookInstaller: Sendable {
     ///
     /// A floor under our own failure: if SpriteRoom is not running, or wedges,
     /// this is the *most* any one event can cost. There is no `async` field on
-    /// the HTTP hook schema, so the session blocks — keep it low. [I5]
+    /// the HTTP hook schema, so the session blocks. Keep it low. [I5]
     static let timeout = 2
 
     let settingsURL: URL
@@ -80,7 +80,7 @@ struct HookInstaller: Sendable {
         case absent
         /// Ours, pointing at this port.
         case installed(port: UInt16)
-        /// Ours, but pointing somewhere else — a stale install from a run on a
+        /// Ours, but pointing somewhere else: a stale install from a run on a
         /// different port.
         case installedAtOtherPort(ports: [UInt16])
     }
@@ -164,7 +164,7 @@ struct HookInstaller: Sendable {
         guard removed else { return false }
 
         // The byte-exact path. Only taken when what is left agrees, key for
-        // key, with the file we found at install time — so restoring the
+        // key, with the file we found at install time, so restoring the
         // original bytes cannot silently discard someone else's edit.
         if let backup = try? Data(contentsOf: backupURL),
            let backupObject = try? Self.parse(backup),
@@ -244,7 +244,7 @@ struct HookInstaller: Sendable {
         }
     }
 
-    /// An absent settings file is an empty object, not an error — a machine
+    /// An absent settings file is an empty object, not an error; a machine
     /// that has never had one is the first-run case.
     private func read() throws -> [String: Any] {
         guard let data = try? Data(contentsOf: settingsURL) else { return [:] }
@@ -259,7 +259,7 @@ struct HookInstaller: Sendable {
 
     /// Deterministic output: sorted keys, two-space pretty printing, and no
     /// escaped slashes so the URLs stay readable. Key *order* is therefore
-    /// normalised — which is exactly why `remove` restores the original bytes
+    /// normalised, which is exactly why `remove` restores the original bytes
     /// rather than re-serialising when it can.
     private func write(_ object: [String: Any]) throws {
         var data = try JSONSerialization.data(
@@ -304,7 +304,7 @@ extension HookInstaller {
         /// Already registered, at our port. Nothing to ask.
         case alreadyInstalled
         /// Registered, but pointing elsewhere. Re-registering is a fix, not a
-        /// first run — but it is still a write, so it still asks.
+        /// first run, but it is still a write, so it still asks.
         case reinstalled(from: [UInt16])
         case installed
         case declined
@@ -313,7 +313,7 @@ extension HookInstaller {
 
     /// The first-run flow, with the asking supplied by the caller.
     ///
-    /// `ask` is `nil` when nobody can be asked — a non-interactive harness —
+    /// `ask` is `nil` when nobody can be asked (a non-interactive harness),
     /// in which case nothing is written. Silence is not consent.
     func firstRun(ask: () -> HookConsent?) -> FirstRunOutcome {
         let current: State
@@ -353,7 +353,7 @@ extension HookInstaller {
     enum QuitOutcome: Equatable {
         /// Nothing of ours is in the file. There is nothing to ask about.
         case notInstalled
-        /// Asked, and the answer was to leave them — or nobody could be asked.
+        /// Asked, and the answer was to leave them, or nobody could be asked.
         /// Either way **nothing was written.**
         case kept
         case removed
@@ -364,7 +364,7 @@ extension HookInstaller {
     /// no longer exists, so offer to take them out.
     ///
     /// **Why this exists.** The hooks are registered at *user* scope, which is
-    /// the whole design — one registration, routed by `cwd`. The cost of that
+    /// the whole design: one registration, routed by `cwd`. The cost of that
     /// design is that they fire for every Claude Code session on the machine,
     /// in every project, including while SpriteRoom is not listening. Claude
     /// Code has no `async` field on the HTTP hook schema and no "ignore
@@ -377,12 +377,12 @@ extension HookInstaller {
     /// **Why it asks rather than just doing it.** `~/.claude/settings.json` is
     /// the user's file. The install path asks; removal without asking would be
     /// the app editing that file behind the user's back, which is a worse
-    /// failure than the error it prevents — and it would silently undo a
+    /// failure than the error it prevents, and it would silently undo a
     /// deliberate choice for the user who quits and relaunches all day. The
     /// symmetry is the point.
     ///
-    /// `ask` returning `nil` means nobody could be asked — a harness, a
-    /// non-interactive run — and the answer to "may I write to your settings"
+    /// `ask` returning `nil` means nobody could be asked (a harness, a
+    /// non-interactive run), and the answer to "may I write to your settings"
     /// with nobody present is no.
     ///
     /// Any state that is not `.absent` is offered: entries pointing at some
@@ -433,7 +433,7 @@ extension HookInstaller {
     /// other file's backup lives beside it.
     ///
     /// Derived from the settings path rather than fixed, so exercising the
-    /// installer against a copy — which is the only safe way to test it —
+    /// installer against a copy (which is the only safe way to test it)
     /// cannot overwrite the backup that `--remove-hooks` would restore the
     /// user's real file from.
     static func defaultBackupURL(for settings: URL) -> URL {

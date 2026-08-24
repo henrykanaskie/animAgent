@@ -34,7 +34,7 @@ guessing, is what this file is built on:
     baseboard y=380..383, floor from y=384. That is 12 + 52 = 64 px, on the
     tile grid, every time.
 
-  * The other three edges are **line only** — 12 px for horizontal, 14 px for
+  * The other three edges are **line only**: 12 px for horizontal, 14 px for
     vertical, always 2 px dark / white / 2 px dark. You only see the *face* of
     a wall you are looking at head-on, so only the north wall gets one.
 
@@ -65,8 +65,8 @@ sitting looks like from the front, and `idle_up` below the desk is a back view
 that needs no trick at all. See `seat`. Nothing new has to be drawn or
 imported for the room to face the camera.
 
-**Position and depth are different numbers.** Every prop resting on another —
-a monitor on a desk, a patient in a bed, a cup on a table — is drawn above the
+**Position and depth are different numbers.** Every prop resting on another
+(a monitor on a desk, a patient in a bed, a cup on a table) is drawn above the
 surface's floor point, so sorting it on its own floor point puts it *behind*
 the thing it stands on. The surface then paints over it. The symptom is
 specific and survived two renders unread: monitors that look like screens
@@ -75,7 +75,7 @@ came through. See `place` and `on_desk`. A `SCENE_DEBUG=1` render draws every
 ink box and floor point, which is the fastest way to see it.
 
 The other half of the same class of bug is coordinates chosen against a room's
-*rect* rather than its *floor* — the north wall eats the top two tiles, so a
+*rect* rather than its *floor*: the north wall eats the top two tiles, so a
 5-tile room has 3 tiles of floor. `floor_of` reports anything standing outside
 one, which is how the figures on walls were found rather than guessed at.
 
@@ -83,14 +83,14 @@ one, which is how the figures on walls were found rather than guessed at.
 viewer spots instantly.** Two of them here, and they are not the same shape.
 
 *Monitors have exactly one view.* Every screen in 12,279 props is drawn face-on
-with its keyboard below — `monitor_lit`, `monitor_dark`, `monitor_off_white`,
+with its keyboard below: `monitor_lit`, `monitor_dark`, `monitor_off_white`,
 `laptop_open_lit`, all six 32x42 `workstation_composite` rigs. There is no rear
 view anywhere. A screen is therefore being *looked at* from below, by someone
 sitting between it and the viewer, so **a screen belongs only to a seat facing
 away from the camera.** Give one to a camera-facing occupant and you have drawn
 somebody staring at the back of their own monitor.
 
-*Chairs have six.* `chair_office_swivel` is a full rotation — measured on the
+*Chairs have six.* `chair_office_swivel` is a full rotation: measured on the
 Hospital singles, five colours of {profile facing left, three-quarter left,
 front, profile facing right, three-quarter right, back}, and `chair_office_back`
 and `chair_office_front` are two *models* of the same back view. Which way a
@@ -102,7 +102,7 @@ low-detail profiles, concluded the pack drew chairs only one way, and wrote
 "there is no near-side chair" into this file as a fact about the art. It was a
 fact about how far I had looked. The correction came from the packs' own rooms
 (`Office_Design_2.gif`, the ice-cream shop preview), which is where it should
-have come from first — see `chair` for what they show. **R9 now measures the
+have come from first; see `chair` for what they show. **R9 now measures the
 sprite rather than trusting either of us.**
 
 # Why there is a linter in here
@@ -113,7 +113,7 @@ order I happened to notice them. `check_continuity` replaces that with five
 rules, checked exhaustively on every run:
 
   R1  wall decor hangs on an actual wall, and not in a doorway
-  R2  furniture stands on a floor — the walkable part, not the room's rect
+  R2  furniture stands on a floor: the walkable part, not the room's rect
   R3  and on one floor: no footprint straddling a wall or the plan's edge
   R4  no two pieces of furniture in the same floor space
   R5  anything resting on a surface is fully on some particular surface
@@ -143,12 +143,12 @@ matter more than the first five because they catch what *looks* right. R6
 found a ticket office parked across the full width of a doorway and a plant in
 another; R7 found a 140x86 dinosaur entirely inside that ticket office, a
 visitor reduced to a floating clump of hair, an exit sign under a painting and
-four mugs at 100% buried. Every one of those was correctly placed by R1-R5 —
-they are not misplaced, they are underneath something — and every one of them
+four mugs at 100% buried. Every one of those was correctly placed by R1-R5
+(they are not misplaced, they are underneath something) and every one of them
 rendered, cost draw time, and could not be seen.
 
 R8 is the subtlest and catches the most embarrassing class. `ink` narrows a
-name to one piece of its family, which also shrinks the pool it indexes into —
+name to one piece of its family, which also shrinks the pool it indexes into,
 often to two. A stride chosen against the full family then aliases: `3 + i * 4`
 over a pool of two is odd every time. The ward drew all six of its nightstands
 from one file, three identical patients per row, and three identical benches in
@@ -157,13 +157,13 @@ It is judged against what is *reachable*, so a name with one catalogue entry is
 not a complaint.
 
 The same read found three structural bugs, all invisible from inside:
-`_open_at`, step 2 of `draw_plan`, and the cap tiles — a boundary drawn
+`_open_at`, step 2 of `draw_plan`, and the cap tiles: a boundary drawn
 correctly by each of the two rooms that share it and walled over between them;
 a doorway patched with two different floors stacked; and four of eight surfaces
 built on a mid-run cap tile that omits the wall's outer edge.
 
-Uses Pillow, which the app's own pipeline avoids — fine here, because nothing
-in this file is part of the build. `scripts/process-assets.py` stays stdlib.
+Uses Pillow, which the app's own pipeline avoids (fine here, because nothing
+in this file is part of the build). `scripts/process-assets.py` stays stdlib.
 """
 
 import importlib.util
@@ -183,7 +183,7 @@ SHEET = os.path.join(ASSETS, "Modern_Office_Revamped_v1.2",
 
 PANEL = (720, 400)
 TILE = 32
-# 22x12 tiles is 704x384 — the largest whole-tile plan that fits, leaving an
+# 22x12 tiles is 704x384: the largest whole-tile plan that fits, leaving an
 # 8 px surround so the plan reads as a drawing rather than a bleeding edge.
 PLAN = (22, 12)
 ORIGIN = (8, 8)
@@ -199,8 +199,8 @@ OUTSIDE = (34, 34, 44)
 # That directory is the app's, and `process-assets.py` drops every tile under
 # 60% opaque on the grounds that a mostly-transparent tile is edge trim and
 # laying it as floor would show the void behind the room. That rule is right
-# for the app and wrong here: the entire thin-wall vocabulary — every plain
-# horizontal and vertical run, every T-junction, every doorway jamb — is a
+# for the app and wrong here: the entire thin-wall vocabulary (every plain
+# horizontal and vertical run, every T-junction, every doorway jamb) is a
 # 12 or 14 px line on an otherwise empty tile, so all of it falls under the
 # cut. 141 tiles survive there; 161 exist. The missing 20 are exactly the
 # pieces a floor plan is drawn with.
@@ -235,7 +235,7 @@ OUTSIDE = (34, 34, 44)
 
 # **Only columns 0-2 of a cap row carry the wall's top edge.** Every cap tile
 # is 12 px of floor-plan line over 20 px of face, but the line is only drawn
-# complete — 2 px dark, 8 px white, 2 px dark — in the first three columns.
+# complete (2 px dark, 8 px white, 2 px dark) in the first three columns.
 # Columns 3-9 omit the top 2 px because they are mid-run pieces meant to butt
 # against something above them. Four of these eight surfaces were built on c07
 # and drew every room's north wall with its outer edge missing, which reads at
@@ -313,7 +313,7 @@ def fill_tiled(canvas, name, box):
     im = tile(name)
     x0, y0, x1, y1 = box
     # Snap back to the nearest tile boundary, fill whole tiles, then crop to
-    # the box — `alpha_composite` cannot take a negative offset, so the phase
+    # the box: `alpha_composite` cannot take a negative offset, so the phase
     # has to come from the crop rather than from the paste.
     sx = (x0 // im.width) * im.width
     sy = (y0 // im.height) * im.height
@@ -367,7 +367,7 @@ def prop(by_name, name, variant=0, ink=None):
     entries and they are five finishes of the same ten pieces: a 32x16 back
     strip, a 32x32 surface with no legs, a 32x32 front with legs, a 64x38
     desk and a 64x64 L-desk. Only the last two are furniture; the rest are
-    **modular segments** meant to be laid in runs. `partition` is worse — its
+    **modular segments** meant to be laid in runs. `partition` is worse: its
     six entries are a 6x86 post, a 64x42 panel and a 32x86 corner, so five in
     six draws a bare pole.
 
@@ -409,7 +409,7 @@ def character(variant, pose, facing, frame=0):
 
 class Wall:
     """Accumulates wall geometry, then rasterises it in two passes so that
-    every junction — corner, T, cross — closes without special-casing."""
+    every junction (corner, T, cross) closes without special-casing."""
 
     def __init__(self):
         self.rects = []   # (x0, y0, x1, y1) of the *white* core
@@ -471,7 +471,7 @@ def _open_at(rooms, room, side, t):
     unless the neighbour is asked too. That is not a hypothetical: the meeting
     room declared a west door onto the open plan, the open plan drew its east
     wall across the whole shared edge, and the result was a meeting room with
-    no way in — reachable only by going through the break room. It rendered as
+    no way in: reachable only by going through the break room. It rendered as
     an unbroken wall and nothing complained, because from each room's own point
     of view the drawing was correct.
 
@@ -519,7 +519,7 @@ def draw_plan(rooms):
     #
     #    Nothing is drawn in the gap. Step 1 already laid this room's floor
     #    across the whole rect, so leaving the band off shows a clean 64 px of
-    #    it — a threshold. An earlier version patched the gap's top tile with
+    #    it: a threshold. An earlier version patched the gap's top tile with
     #    the floor of the room *beyond*, which put two different floor
     #    materials one above the other and left a hard seam across the middle
     #    of every doorway that read as a step.
@@ -584,14 +584,14 @@ def draw_plan(rooms):
 
 def place(canvas, items):
     """Bottom-centre every item's *ink* on its floor point and depth-sort by
-    that point's y — the same convention the app uses, so a scene that reads
+    that point's y: the same convention the app uses, so a scene that reads
     here is telling the truth about what the app could draw.
 
     # Position and depth are not the same number
 
     The convention above works for things standing on the floor and breaks for
     everything standing on something else. A monitor on a desk has to be drawn
-    *higher* than the desk's floor point, because it sits on a raised surface —
+    *higher* than the desk's floor point, because it sits on a raised surface,
     but drawing it higher means sorting it behind, so the desk paints over it
     and the desk is bare. The first version of `desk_pod` hit this from both
     sides at once: monitors vanished under desks, and the seated figure meant
@@ -626,7 +626,7 @@ def _flags(entry):
     it: "floor" for furniture, "wall" for something hung on a wall face, "on"
     for anything resting on other furniture. It used to be a single `flat` flag
     meaning only "draw no shadow", which conflated a picture on a wall with a
-    mug on a desk — and a checker cannot tell those apart, so neither could I.
+    mug on a desk, and a checker cannot tell those apart, so neither could I.
     """
     kind, ink, z = "floor", None, 0
     for f in (entry[4] if len(entry) > 4 else ()):
@@ -635,7 +635,7 @@ def _flags(entry):
         elif f == "flat":
             # `flat` alone is wall decor; `flat` with a `z` is something
             # resting on furniture. The two are distinguishable without a
-            # third flag because a prop on a surface *must* carry a z — with
+            # third flag because a prop on a surface *must* carry a z: with
             # z 0 it sorts behind its own support and is painted over. So a
             # flat prop with no z has nothing under it but a wall.
             kind = "wall"
@@ -663,7 +663,7 @@ def floor_of(rooms, x, y):
     it, so a 9x5 room has 5 tiles of rect and 3 of floor, and coordinates
     chosen against the rect land a third of the way up a wall. This is how the
     meeting room ended up with a conference table and four chairs standing on
-    the break room's wall band below it — every one of those y values was
+    the break room's wall band below it: every one of those y values was
     inside the room by the rect and outside it by the floor.
     """
     for r in rooms:
@@ -694,7 +694,7 @@ FACINGS = ("up", "down", "left", "right", "none")
 
 
 def check_facing(name, x, y, entry, im, box):
-    """R9 — a chair declares which way it faces, and the sprite agrees.
+    """R9: a chair declares which way it faces, and the sprite agrees.
 
     # Why this rule exists
 
@@ -711,8 +711,8 @@ def check_facing(name, x, y, entry, im, box):
 
     # What it can and cannot prove
 
-    `backrest_side` separates a profile from a face-on chair exactly — the
-    measured gap is +-8.4 px or 0.0 with nothing between — so a left profile
+    `backrest_side` separates a profile from a face-on chair exactly (the
+    measured gap is +-8.4 px or 0.0 with nothing between) so a left profile
     used as a right-hand seat is caught outright, in any scene, from any pack.
 
     Up and down it **cannot** separate: both are symmetric about the sprite's
@@ -720,7 +720,7 @@ def check_facing(name, x, y, entry, im, box):
     the back of one. Those two are pinned in `CHAIR_VIEWS` from the packs'
     own room designs, and the rule checks membership rather than pretending
     to derive it. Where a family is not pinned, an `up`/`down` claim is
-    checked only as far as "the sprite is at least face-on" — and saying so is
+    checked only as far as "the sprite is at least face-on", and saying so is
     the point, because a rule that overstated its reach would be worse than
     none.
     """
@@ -754,7 +754,7 @@ def check_facing(name, x, y, entry, im, box):
         # from behind, the backrest hides the seat, so the back view loses the
         # seat's depth and comes out bodily shorter. It is true of
         # `chair_school` (44 vs 30), `chair_ornate` (46 vs 32) and
-        # `chair_office_swivel` (42 vs 24) — three unrelated sheets.
+        # `chair_office_swivel` (42 vs 24): three unrelated sheets.
         #
         # It is still not a *rule*, because a catalogue name is a family of
         # pieces rather than a set of views, which is the same thing `prop`
@@ -765,8 +765,8 @@ def check_facing(name, x, y, entry, im, box):
         # height. Both scenes were correct and both would have been reported.
         #
         # So the heuristic lives in `CHAIR_SUITES` as the reason each suite is
-        # pinned the way it is — use it to propose a new suite, then look at it
-        # once — and the rule checks only what is certain: that nothing uses a
+        # pinned the way it is (use it to propose a new suite, then look at it
+        # once) and the rule checks only what is certain: that nothing uses a
         # sprite some suite has already identified as the opposite face.
         for views in CHAIR_SUITES.values():
             for face in ("up", "down"):
@@ -817,7 +817,7 @@ def check_continuity(rooms, placed):
     """Every rule the scenes have broken, as a list of complaints.
 
     `placed` is (name, x, y, w, h, kind) where kind is "floor", "wall" or
-    "on" — resting on other furniture, which is exempt from the floor rules
+    "on": resting on other furniture, which is exempt from the floor rules
     because its support is what stands on the floor.
     """
     out = []
@@ -825,7 +825,7 @@ def check_continuity(rooms, placed):
     # R8. A row of the same name must not be a row of the same sprite.
     #
     # `ink` narrows a name to one piece of its family, which also shrinks the
-    # pool it indexes into — often to two or three. A stride chosen against the
+    # pool it indexes into, often to two or three. A stride chosen against the
     # full family then aliases: `3 + i * 4` over a pool of 2 is odd every time.
     # The ward drew all six of its nightstands from one file, three identical
     # patients per row, and three identical benches in an unbroken run that
@@ -839,7 +839,7 @@ def check_continuity(rooms, placed):
         families[name][0].add(source)
         families[name][1] += 1
         families[name][2] = pool
-    # Judged against what is *reachable* — a name with one catalogue entry can
+    # Judged against what is *reachable*: a name with one catalogue entry can
     # only ever draw one sprite, and a deliberate subset (only the lit screens,
     # say) is a choice rather than a bug. The complaint is using less than half
     # of what could have been used.
@@ -871,7 +871,7 @@ def check_continuity(rooms, placed):
             if room is None:
                 out.append("R2 %s@%d,%d is not on any floor" % (name, x, y))
                 continue
-            # R3. And on ONE floor — a footprint spanning a room boundary is
+            # R3. And on ONE floor: a footprint spanning a room boundary is
             # a desk with a wall drawn through it.
             if kind != "ground":
                 for edge in _walls_between(rooms, left, right, y):
@@ -880,7 +880,7 @@ def check_continuity(rooms, placed):
                                    % (name, x, y, edge))
     # R5. Anything resting on furniture has to be resting on some *particular*
     # piece of furniture, with its whole footprint on the surface. Otherwise it
-    # is a mug in mid-air beside a desk — which looks, at panel size, exactly
+    # is a mug in mid-air beside a desk, which looks, at panel size, exactly
     # like a mug on a desk, so this is not findable by eye.
     supports = [p for p in placed if p[5] == "floor"]
     for name, x, y, w, h, kind, _, _p, _m in placed:
@@ -898,7 +898,7 @@ def check_continuity(rooms, placed):
 
     # R4. Two pieces of furniture cannot occupy the same floor.
     #
-    # Compared as *footprint rectangles* — the ink's bottom band, which is what
+    # Compared as *footprint rectangles*: the ink's bottom band, which is what
     # touches the ground. An earlier version compared horizontal spans only and
     # skipped any pair whose floor points differed by more than 10 px, which is
     # a hole you can drive furniture through: it passed a bench parked across a
@@ -918,7 +918,7 @@ def check_continuity(rooms, placed):
                            % (n1, x1, y1, n2, x2, y2, share))
 
     # R6. A doorway is for walking through. Anything standing in one blocks the
-    # only route between two rooms — and both R2 and R3 wave it through,
+    # only route between two rooms, and both R2 and R3 wave it through,
     # because a door aperture is legitimately outside the floor and legitimately
     # on a wall line. The museum had a ticket office across the whole width of
     # its north door and a potted plant in the west one.
@@ -953,7 +953,7 @@ def report_hidden(items, size, floor=0.55):
     a 140x86 dinosaur entirely inside a ticket booth, a visitor reduced to a
     floating clump of hair, an exit sign under a painting and a picture frame
     half behind a counter. All four rendered; all four were invisible; not one
-    broke R1 through R6, because none of them is *misplaced* — they are
+    broke R1 through R6, because none of them is *misplaced*: they are
     correctly placed underneath something.
 
     So this composites into an index buffer rather than pixels: every opaque
@@ -1010,7 +1010,7 @@ def compose(spec, by_name, out_path):
         box = got[1]
         # A furniture-sized name that resolves to a sliver is a modular segment
         # picked by accident. Report it rather than drawing a pole and calling
-        # it a partition — see `prop`'s note on families versus pieces.
+        # it a partition; see `prop`'s note on families versus pieces.
         if min(box["w"], box["h"]) < 8:
             tiny.append("%s#%d %dx%d" % (name, variant, box["w"], box["h"]))
         breaks_facing += check_facing(name, x, y, entry, got[0], box)
@@ -1026,7 +1026,7 @@ def compose(spec, by_name, out_path):
             missing.append("character %s %s_%s" % (v, pose, facing))
             continue
         # A figure seated facing the camera stands *inside* the desk, whose own
-        # floor point is what has to be on the floor — so check where the desk
+        # floor point is what has to be on the floor, so check where the desk
         # is, not where the head is.
         placed.append((v, x, y, im.width, im.height, "seat", v, 1, False))
         items.append((y + z, im, None, x, y, z >= 0, "character " + v))
@@ -1034,8 +1034,8 @@ def compose(spec, by_name, out_path):
 
     if os.environ.get("SCENE_DEBUG"):
         # Every item's ink rect and floor point, over the finished plan. Which
-        # prop is where is not answerable by reading coordinates — a prop's ink
-        # sits at an arbitrary offset inside a 64x96 canvas — so the only
+        # prop is where is not answerable by reading coordinates (a prop's ink
+        # sits at an arbitrary offset inside a 64x96 canvas) so the only
         # reliable way to see that a cup is on a desk is to draw the boxes.
         d = ImageDraw.Draw(plan)
         for _, im, box, x, y, _, *_r in items:
@@ -1053,7 +1053,7 @@ def compose(spec, by_name, out_path):
         print("  MISSING: %s" % ", ".join(sorted(set(missing))))
     if tiny:
         print("  SLIVERS: %s" % ", ".join(sorted(set(tiny))))
-    # A surface is *meant* to disappear under what stands on it — a desk with
+    # A surface is *meant* to disappear under what stands on it: a desk with
     # two screens, a tray and an occupant is doing its job at 30% visible. So
     # anything carrying something is exempt; the rule is about props buried by
     # things that have no business on top of them.
@@ -1123,7 +1123,7 @@ def grid(name, x0, y0, nx, ny, dx, dy, v0=0, flags=()):
 #                    top-left quadrant is a 32x25 hole.
 #
 # The first pod used the L and put a 64-wide rig across its top edge, which
-# dropped half of every monitor into that hole — the render showed screens
+# dropped half of every monitor into that hole: the render showed screens
 # hanging in the air beside each desk with nothing under them. On the slab
 # there is no hole to fall into, and a 32-wide rig covers exactly half of it.
 DESK = ("ink:64x38",)
@@ -1131,7 +1131,7 @@ DESK_TOP = 38          # desk's back edge, above the floor point
 
 # Which of the six 32x42 `workstation_composite` entries have a *lit* screen.
 # Two of the six are drawn switched off, and a dark panel at panel size reads
-# as a broken monitor rather than as an idle one — the room is meant to look
+# as a broken monitor rather than as an idle one: the room is meant to look
 # staffed.
 LIT_RIGS = (0, 1, 3, 4)
 
@@ -1159,7 +1159,7 @@ def on_desk(lift, ink=None):
 # ---------------------------------------------------------------------------
 # Seating a character at a desk, in all four directions
 #
-# The character pack ships `sit` in **left and right only** — there is no
+# The character pack ships `sit` in **left and right only**: there is no
 # front- or back-facing seated pose at any size, which is why every room this
 # project has drawn so far has its cast side-on. That looked like a hard limit
 # on the art. It is not; it is a limit on the *pose*, and a seat is made of a
@@ -1168,7 +1168,7 @@ def on_desk(lift, ink=None):
 #   facing the camera   `idle_down`, standing, planted **inside** the desk's
 #                       footprint and sorted above it. `place` depth-sorts on
 #                       the floor point, so the desk draws over the legs and
-#                       what is left is a head and shoulders behind a desk —
+#                       what is left is a head and shoulders behind a desk,
 #                       which is what sitting looks like from the front.
 #   facing away         `idle_up`, standing below the desk with a chair. No
 #                       occlusion needed; a back view is a back view.
@@ -1178,7 +1178,7 @@ def on_desk(lift, ink=None):
 
 # Feet this far above the desk's floor point. The figure is ~34 px tall, so
 # from a back edge at y-38 this leaves head and shoulders showing and buries
-# everything below them — 8 px of overlap is enough to read as "behind", and
+# everything below them: 8 px of overlap is enough to read as "behind", and
 # more starts to look decapitated.
 SEAT_INSET = 30
 # Feet this far below the desk for the back view. The back-view chair is 46 px
@@ -1205,7 +1205,7 @@ def _sheet_number(path):
 
 
 def backrest_side(im, box):
-    """`"left"`, `"right"` or `"face-on"` — where the backrest sits.
+    """`"left"`, `"right"` or `"face-on"`: where the backrest sits.
 
     The horizontal centroid of the top 8 rows of ink against the centroid of
     the bottom 12. On a profile chair the backrest is a tall bar over one edge
@@ -1214,7 +1214,7 @@ def backrest_side(im, box):
 
     The threshold is not a number I chose. Measured over every chair sprite in
     the catalogue the gap is **+-8.4 px on a 22 px sprite, or 0.0 to the
-    pixel** — the distribution is two spikes and a hole, so anything past 3 is
+    pixel**: the distribution is two spikes and a hole, so anything past 3 is
     unambiguous and nothing has ever landed in between.
     """
     px = im.load()
@@ -1239,15 +1239,15 @@ def backrest_side(im, box):
 #
 # Rooms are furnished, not merely occupied. A library reading table ringed with
 # grey padded office chairs is as wrong as a chair facing backwards, and the
-# pack has the vocabulary to avoid it — every suite below is a real rotation
+# pack has the vocabulary to avoid it: every suite below is a real rotation
 # the artist drew as consecutive singles on one sheet, so a table seated from
 # a suite matches on all four sides.
 #
 # **`down` is always the family's tallest face-on view and `up` its shortest**,
 # and that is not a convention imposed here. Seen from behind, the backrest
 # hides the seat, so the silhouette loses the seat's depth and the back view is
-# bodily shorter. Measured on three unrelated families — `chair_school` 44/30,
-# `chair_ornate` 46/32, `chair_office_swivel` 42/24 — and R9 re-derives it on
+# bodily shorter. Measured on three unrelated families (`chair_school` 44/30,
+# `chair_ornate` 46/32, `chair_office_swivel` 42/24) and R9 re-derives it on
 # every run rather than trusting this comment.
 CHAIR_SUITES = {
     # Office. Three views come from the swivel rotation, but `up` is the big
@@ -1262,7 +1262,7 @@ CHAIR_SUITES = {
                "down":  ("chair_school", (28, 44)),
                "left":  ("chair_school", (24, 40)),
                "right": ("chair_school", (24, 40))},
-    # Turned wood with a slatted back — a reading room or a dining room.
+    # Turned wood with a slatted back: a reading room or a dining room.
     "wood":   {"up":    ("chair_ornate", (28, 32)),
                "down":  ("chair_ornate", (28, 46)),
                "left":  ("chair_ornate", (22, 46)),
@@ -1275,8 +1275,8 @@ _chair_pools = {}
 def chair_pool(suite, facing):
     """Which variants of a suite's ink pool actually face that way.
 
-    `left` and `right` share one ink pool — the office suite's is twenty
-    entries, five colours of two profiles each way — so the index alone does
+    `left` and `right` share one ink pool (the office suite's is twenty
+    entries, five colours of two profiles each way) so the index alone does
     not say which. Rather than hardcode the stride (regular today, and it
     would rot silently if the catalogue were regenerated) every entry is
     **measured** and kept if its backrest is on the far side from the way it
@@ -1322,7 +1322,7 @@ def chair(x, y, v=0, facing="down", flags=(), suite="office"):
     `chair_office_swivel` resolves to a full rotation. One colour's six
     consecutive Hospital singles are, in order: profile facing left,
     three-quarter left, **front**, profile facing right, three-quarter right,
-    **back** — in five colours, plus a chunkier Jail set with the same
+    **back**: in five colours, plus a chunkier Jail set with the same
     coverage. `chair_office_back` and `chair_office_front` are the padded and
     mesh *models* of the same back view, which is the only part of my earlier
     reading that survived.
@@ -1332,11 +1332,11 @@ def chair(x, y, v=0, facing="down", flags=(), suite="office"):
     Two rooms settle every question this raises, and both were sitting in
     `assets/` the whole time:
 
-      * `Office_Design_2.gif` — every desk chair is the 32x46 back view and
+      * `Office_Design_2.gif`: every desk chair is the 32x46 back view and
         every one of them is drawn **below** its desk, so its occupant faces
         away from the camera. Where a character faces the camera at a desk,
         the artist draws **no chair at all**: the body covers it entirely.
-      * `Ice_Cream_Shop_Design_preview_32x32.png` — cafe tables are seated on
+      * `Ice_Cream_Shop_Design_preview_32x32.png`: cafe tables are seated on
         the **left and right** with mirrored profiles facing inward, not on
         the near and far edges.
 
@@ -1380,7 +1380,7 @@ def table_with_seats(x, y, slabs=3, seats=(0, 0, 1, 1), v=0,
                      suite="office"):
     """A table and its chairs, laid out so both survive.
 
-    `seats` is `(far, near, west, east)` — how many chairs on each edge.
+    `seats` is `(far, near, west, east)`: how many chairs on each edge.
 
     # Why the sides come first
 
@@ -1388,7 +1388,7 @@ def table_with_seats(x, y, slabs=3, seats=(0, 0, 1, 1), v=0,
     packs' own artists do: the ice-cream shop's cafe tables are seated left
     and right with mirrored profiles facing inward, and nothing in either
     pack's designs seats a table on the far edge at all. A profile chair
-    reads as a chair instantly — you can see the backrest, the seat and the
+    reads as a chair instantly: you can see the backrest, the seat and the
     legs as separate parts. A face-on chair is a symmetric lump the same
     colour as the table, and at 1x it disappears into it.
 
@@ -1406,7 +1406,7 @@ def table_with_seats(x, y, slabs=3, seats=(0, 0, 1, 1), v=0,
     The top runs from `y - ink[1]` to `y`. A far chair's *feet* belong on the
     back edge, so its floor point is `y - ink[1] + FAR_TUCK`. A near chair's
     *head* belongs on the front edge, so its floor point is
-    `y + chair_h - NEAR_TUCK` — below the table, not level with it.
+    `y + chair_h - NEAR_TUCK`: below the table, not level with it.
 
     Note the vertical budget: a table seated on both faces needs
     `chair_h + ink[1] + chair_h - FAR_TUCK - NEAR_TUCK` px of floor, about 122
@@ -1421,7 +1421,7 @@ def table_with_seats(x, y, slabs=3, seats=(0, 0, 1, 1), v=0,
     for i in range(slabs):
         # One finish for the whole table. Walking the variant along the run
         # walks the *finishes*, and the library came out as one tan slab
-        # abutted to one dark orange one — a two-tone table nobody makes.
+        # abutted to one dark orange one: a two-tone table nobody makes.
         out.append((name, left + i * pitch, y, v,
                     ("ink:%dx%d" % ink, "matched")))
     far, near, west, east = seats
@@ -1436,7 +1436,7 @@ def table_with_seats(x, y, slabs=3, seats=(0, 0, 1, 1), v=0,
     # tables lap the outermost slab, not the centre.
     reach = span // 2 + CHAIR_W // 2 - SIDE_STANDOFF
     # A side chair's depth is not free. Placed level with the table's own
-    # floor point it ties on the sort key, and `place` breaks ties by x — so
+    # floor point it ties on the sort key, and `place` breaks ties by x, so
     # the chair to the *left* of a table draws behind it and the identical one
     # to the right draws in front. The meeting room showed exactly that: a
     # chair on one side, a sliver of chair on the other.
@@ -1462,7 +1462,7 @@ def desk_pod(x, y, v=0, facing="down"):
     draws a monitor. `z:` keeps all of it in front of the desk.
 
     A chair is only emitted for a back-facing seat. Facing the camera, the
-    chair is behind the desk and would be entirely hidden — drawing one there
+    chair is behind the desk and would be entirely hidden: drawing one there
     just puts a stray backrest through the desktop.
 
     **A monitor can only belong to a seat that faces away from the camera,
@@ -1474,12 +1474,12 @@ def desk_pod(x, y, v=0, facing="down"):
     from below, by someone sitting between it and the viewer.
 
     So a camera-facing occupant cannot have one. Giving them a screen puts
-    them behind their own monitor looking at its back — which is what the
+    them behind their own monitor looking at its back, which is what the
     first three renders of this scene showed, six times over.
 
     Camera-facing desks get orientation-neutral kit instead: paper, a tray, a
     mug, a lamp. Those read the same from either side, and the split gives the
-    floor something the app wants anyway — desks that look like different
+    floor something the app wants anyway: desks that look like different
     kinds of work.
     """
     out = [("desk_corner_l", x, y, v, DESK)]
@@ -1564,7 +1564,7 @@ def engineering():
     props += [("tv_wall", 566, 60, 1, ("flat",)),
               ("certificate", 648, 52, 0, ("flat",)),
               ("noticeboard", 484, 56, 0, ("flat",))]
-    # Seated on all four edges — a meeting room is the one place a table is
+    # Seated on all four edges: a meeting room is the one place a table is
     # meant to look surrounded. The 7 tiles this room has were chosen for
     # exactly the 122 px `table_with_seats` needs to seat both faces.
     props += table_with_seats(560, 176, slabs=3, seats=(2, 2, 1, 1), v=0)
@@ -1755,7 +1755,7 @@ def hospital():
               ("kiosk_touchscreen", 678, 128, 0, ())]
     # The 62x36 entries are the two-seat units and the 32x36 the singles.
     # Walking the variant by 1 across the whole family mixes the two and the
-    # run comes out chair, bench, chair — but pinning the *double* was no
+    # run comes out chair, bench, chair, but pinning the *double* was no
     # better: six seats at a 4 px spacing make an unbroken 190 px band that
     # reads as a fence rather than as seating. Singles at a 12 px gap read as
     # five chairs, which is what a waiting room looks like.
@@ -1802,8 +1802,8 @@ def library():
     proves the rules hold *here*; it does not prove they generalise, and the
     whole point of `check_continuity`, `table_with_seats`, `chair` and `prop`'s
     `ink` is that a new scene should get correctness without repeating the
-    argument. So this one was written straight through against the rules — no
-    render was looked at until the linter was silent — and out of a different
+    argument. So this one was written straight through against the rules (no
+    render was looked at until the linter was silent) and out of a different
     pack's vocabulary: shelving, reading tables, armchairs, none of which the
     office kit covers.
 

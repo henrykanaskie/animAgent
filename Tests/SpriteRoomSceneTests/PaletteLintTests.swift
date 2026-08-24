@@ -5,8 +5,8 @@ import Testing
 /// **I7's stated enforcement, actually run.**
 ///
 /// `CLAUDE.md` says the palette invariant is "enforced by lint over the asset
-/// manifest, not by good intentions". The lint is real —
-/// `scripts/lint-palette.py`, four checks — but until this file **nothing
+/// manifest, not by good intentions". The lint is real (
+/// `scripts/lint-palette.py`, four checks) but until this file **nothing
 /// invoked it**: no test shelled out to it, there is no CI directory in the
 /// repository, and no hook calls it. Its only caller was a line in `README.md`
 /// telling a human to type the command.
@@ -20,7 +20,7 @@ import Testing
 /// # Why this is the only test in the suite that spawns a process
 ///
 /// It is a deliberate exception and should stay a lone one. The lint reads
-/// `assets/manifest.json` and the processed art — the half of I7 that Swift
+/// `assets/manifest.json` and the processed art: the half of I7 that Swift
 /// cannot see, because those bitmaps are pack files rather than anything the
 /// scene draws. The complementary half (the bitmaps this repository authors:
 /// badges, nameplate, `DeskWorkArt`, `HeldObjectArt`) is checked natively in

@@ -31,7 +31,7 @@ extension NotchGeometry {
     ///
     /// `auxiliaryTopLeftArea` and `auxiliaryTopRightArea` are the two stretches
     /// of menu bar either side of the camera housing, and they are `nil` on
-    /// every display without one. The gap between them *is* the notch — asking
+    /// every display without one. The gap between them *is* the notch: asking
     /// for it that way means we never hard-code a housing width, and a Mac
     /// model with a different one is handled without a change here.
     ///

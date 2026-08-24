@@ -6,7 +6,7 @@ import Testing
 /// **The liveness signal, and the half of it that matters most: the negative.**
 ///
 /// A test that only shows the lamp beating is half a test. Anything at all
-/// beats when everything is fine — a timer does, and a timer is the fiction
+/// beats when everything is fine: a timer does, and a timer is the fiction
 /// this whole design exists to avoid. What has to be shown is that the beat
 /// **stops when the listener stops**, and that is what
 /// `theHeartbeatStopsWhenTheListenerStops` is. [I1]
@@ -63,12 +63,12 @@ import Testing
             // Every beat is a request the listener actually answered, so the
             // two counts are the same number seen from the two ends of the
             // socket. If they ever diverge, something is beating without
-            // posting — which is the fiction this design forbids. [I1]
+            // posting, which is the fiction this design forbids. [I1]
             #expect(stats.counters.probes >= liveness.beats)
         }
     }
 
-    // MARK: The negative — the half that makes it a signal rather than a clock
+    // MARK: The negative: the half that makes it a signal rather than a clock
 
     @Test func theHeartbeatStopsWhenTheListenerStops() async throws {
         try await Self.withListener { port, listener, _, _ in
@@ -191,7 +191,7 @@ import Testing
         }
     }
 
-    // MARK: I5 — the probe must not be why a hook response is late
+    // MARK: I5: the probe must not be why a hook response is late
 
     /// The listener's p99 budget is 5 ms and the session blocks on it. A
     /// heartbeat running beside it at its **real** rate must not move that.

@@ -4,20 +4,20 @@ import Testing
 import SpriteRoomCore
 @testable import SpriteRoomScene
 
-/// `docs/ADR-002-themed-rooms.md` §14b — the rule that replaced the flat ban on
+/// `docs/ADR-002-themed-rooms.md` §14b: the rule that replaced the flat ban on
 /// animated props:
 ///
 /// > A prop may idle on its own loop and **may never take input from the delta
 /// > stream.**
 ///
 /// Half of this suite checks that the prop idles. The other half checks that it
-/// cannot be told anything, which is the half that matters — a clock that swings
+/// cannot be told anything, which is the half that matters: a clock that swings
 /// is scenery, and a clock that swings faster when an agent is busy is scenery
 /// asserting something the data did not say. [I1]
 @MainActor
 struct PropAnimationTests {
 
-    /// The first theme whose `board` — or any role — carries an `animation`.
+    /// The first theme whose `board` (or any role) carries an `animation`.
     ///
     /// Found by asking the manifest rather than by naming a theme, both because
     /// no theme name may appear in a source file the scene ships and because
@@ -47,7 +47,7 @@ struct PropAnimationTests {
 
     /// The manifest declares an animation and it is the shape §14b describes:
     /// `file` is frame 0, there is more than one frame, the rate is real, and
-    /// `loop` is `true` — which §14b says is its only value.
+    /// `loop` is `true`, which §14b says is its only value.
     ///
     /// Runs on a fresh clone; the manifest is tracked.
     @Test func theManifestDeclaresOneIdleAnimationInTheShapeTheADRSpecifies() throws {
@@ -67,7 +67,7 @@ struct PropAnimationTests {
         #expect(Set(role.declaredPaths) == Set(animation.frames))
     }
 
-    // MARK: The arithmetic half — time in, frame out, nothing else
+    // MARK: The arithmetic half - time in, frame out, nothing else
 
     /// The frame is `floor(elapsed × fps) mod count`, measured from the first
     /// advance. Checked without a scene, because the point is that the only
@@ -110,8 +110,8 @@ struct PropAnimationTests {
             node: node, frames: [SKTexture(), SKTexture()], fps: 0, loops: true) == nil)
     }
 
-    /// A non-looping animation clamps on its last frame. Nothing ships one —
-    /// §14b says `loop` is always `true` — but the flag is decoded, so it is
+    /// A non-looping animation clamps on its last frame. Nothing ships one
+    /// (§14b says `loop` is always `true`), but the flag is decoded, so it is
     /// honoured rather than ignored, and a decoded value nothing acts on is
     /// worse than either.
     @Test func aNonLoopingAnimationStopsOnItsLastFrame() throws {
@@ -125,7 +125,7 @@ struct PropAnimationTests {
         #expect(player.frameIndex(at: 100) == 2)
     }
 
-    // MARK: The room half — it actually plays
+    // MARK: The room half - it actually plays
 
     @Test(.enabled(if: SceneArt.isAvailable))
     func theRoomPlaysTheAnimatedPropAndTheOthersStayStill() throws {
@@ -171,7 +171,7 @@ struct PropAnimationTests {
 
     /// **§6 rule 1 for an animated prop.** Zero prop-node rebuilds across a
     /// fixture replay is an existing assertion, and the obvious way to implement
-    /// an animation is the one that breaks it — rebuild the room, or the node,
+    /// an animation is the one that breaks it: rebuild the room, or the node,
     /// every frame. This replays a real capture into the *animated* theme, which
     /// the existing sweep does not cover because it builds the default room.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -205,12 +205,12 @@ struct PropAnimationTests {
         #expect(textures.count > 1, "the prop did not actually animate during the replay")
     }
 
-    // MARK: The rule — it cannot read a delta
+    // MARK: The rule - it cannot read a delta
 
     /// **The behavioural proof.** Two rooms in the same theme on the same clock:
     /// one is fed an entire real capture, the other is fed nothing at all. If
-    /// the animation could see a delta — directly, or through some state the
-    /// scene keeps — the two would diverge on the frame the first delta lands.
+    /// the animation could see a delta (directly, or through some state the
+    /// scene keeps) the two would diverge on the frame the first delta lands.
     /// They must be equal on every frame, and the equality has to be per frame
     /// rather than at the end, because a loop that fell out of step and back in
     /// would pass an end-state comparison.
@@ -225,7 +225,7 @@ struct PropAnimationTests {
 
         // **What was drawn, not what would be drawn.** Reading
         // `frameIndex(at:)` here would compare a pure function against itself
-        // and pass however the drawing was actually driven — checked, by making
+        // and pass however the drawing was actually driven: checked, by making
         // `RoomScene.advance(to:)` pass a delta-dependent clock and watching
         // this test stay green until it read `currentFrame` instead.
         func frames(_ scene: RoomScene) -> [Int?] {
@@ -233,7 +233,7 @@ struct PropAnimationTests {
         }
 
         // **At real time**, a fixed 1/60 step with each event delivered as its
-        // own `_receivedAt` passes — the same loop the offscreen harness runs.
+        // own `_receivedAt` passes, the same loop the offscreen harness runs.
         // Stepping once per batch instead would advance the clock 20 frames
         // over a 34-second capture, and the animation would barely move.
         let entries = try HookLog.load(contentsOf: SceneFixtures.url("three-subagents"))
@@ -276,7 +276,7 @@ struct PropAnimationTests {
         #expect(deltasDelivered > 40, "the busy room was barely driven")
         #expect(comparisons > 2000, "the whole fixture was not stepped at 1/60")
         #expect(distinctFrames.count > 1, "the animation never moved, so this compared two stills")
-        // And the busy room really was busy — otherwise the two scenes are
+        // And the busy room really was busy, otherwise the two scenes are
         // trivially equal and this proves nothing.
         #expect(busiestPopulation > 2, "only \(busiestPopulation) characters were ever on screen")
     }
@@ -341,7 +341,7 @@ struct PropAnimationTests {
     ///
     /// Mechanical because "does not import `SpriteRoomCore`" is exactly the kind
     /// of thing a later edit adds without noticing, and because the rule it
-    /// enforces — §14b — is a rule about what the code *can* do rather than what
+    /// enforces (§14b) is a rule about what the code *can* do rather than what
     /// it does today.
     ///
     /// **Comments are stripped first**, and that is not a loophole: the reason a
@@ -383,7 +383,7 @@ struct PropAnimationTests {
             "PropAnimation has \(code.components(separatedBy: "func ").count - 1) functions;"
             + " a new one is a new way in, so check it takes no delta input"))
         // `init` is the only other way to put anything in, and it is called from
-        // exactly one place — see `noSpriteIntentCanMoveAPropTexture` for the
+        // exactly one place: see `noSpriteIntentCanMoveAPropTexture` for the
         // other half.
         #expect(code.components(separatedBy: "init").count - 1 == 1)
     }

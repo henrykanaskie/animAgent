@@ -4,8 +4,8 @@
 NOT a fixture. It does not go in fixtures/ and it is not ground truth.
 
 Every line is a *copy of a real captured payload* from
-fixtures/three-subagents.jsonl with three fields rewritten — agent_id,
-agent_type, tool_use_id — and the timestamps shifted so the clones overlap. No
+fixtures/three-subagents.jsonl with three fields rewritten: agent_id,
+agent_type, tool_use_id, and the timestamps shifted so the clones overlap. No
 event name, no field shape and no value structure is invented; the agent_ids
 keep the observed `a` + 16 hex form.
 
@@ -28,7 +28,7 @@ lines = [json.loads(l) for l in open(SRC)]
 TEMPLATE = "a894ded5b0c4b18de"
 
 # New ids in the observed shape: 'a' + 16 hex. Chosen so the last three
-# characters — the discriminator the nameplate shows — are all different, which
+# characters (the discriminator the nameplate shows) are all different, which
 # is the thing under test.
 CLONES = [
     ("a1c0ffee0badf00d1", "general-purpose", 0.0),
@@ -47,7 +47,7 @@ def shift(ts, seconds):
     return (d + timedelta(seconds=seconds)).isoformat().replace("+00:00", "+00:00")
 
 out = []
-# The main thread's own stream, untouched, minus the real subagents — the six
+# The main thread's own stream, untouched, minus the real subagents: the six
 # characters on screen are main plus five clones.
 for l in lines:
     if "agent_id" in l["payload"]:

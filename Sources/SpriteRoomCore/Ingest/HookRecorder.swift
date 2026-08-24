@@ -7,8 +7,8 @@ import Foundation
 ///
 /// All 17 fixtures were captured at M0 to exercise ingest, and they exercise
 /// `sleep`, `touch` and reading a file. Between them they hold **zero** `Edit`,
-/// `Write`, `NotebookEdit`, `Grep` and `Glob` calls, which means `authoring` —
-/// the laptop, the maintainer's leading example of what the room should show —
+/// `Write`, `NotebookEdit`, `Grep` and `Glob` calls, which means `authoring`
+/// (the laptop, the maintainer's leading example of what the room should show)
 /// cannot fire anywhere in the corpus and has never once been observed on real
 /// data. Every claim about it rests on unit tests of the derivation.
 ///
@@ -20,15 +20,15 @@ import Foundation
 ///
 /// `HookEvent` is a decoded struct and does not retain the JSON it came from, so
 /// recording at the drain would mean re-encoding a subset of the fields and
-/// calling the result ground truth. `fixtures/` is ground truth — the one
-/// directory in this repository that is never edited — so a capture has to be
+/// calling the result ground truth. `fixtures/` is ground truth (the one
+/// directory in this repository that is never edited), so a capture has to be
 /// byte-faithful to what Claude Code actually sent. The line is assembled by
 /// wrapping the untouched body:
 ///
 ///     {"_receivedAt": "<stamp>", "payload": <the bytes, verbatim>}
 ///
 /// No re-serialisation, so field order, unknown keys and unusual escaping all
-/// survive exactly as sent — including the fields this app does not read, which
+/// survive exactly as sent, including the fields this app does not read, which
 /// are precisely the ones a future version might need.
 ///
 /// # I5: the handler still never does work
@@ -106,7 +106,7 @@ public final class HookRecorder: @unchecked Sendable {
         }
     }
 
-    /// `2026-08-07T08:14:06.645Z` — UTC, with fractional seconds.
+    /// `2026-08-07T08:14:06.645Z`: UTC, with fractional seconds.
     ///
     /// **Not `+00:00`, and that is the formatter's choice rather than ours.**
     /// `ISO8601DateFormatter` writes a zero offset as `Z` even with

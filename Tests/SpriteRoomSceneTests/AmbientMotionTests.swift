@@ -21,13 +21,13 @@ import SpriteRoomCore
 struct AmbientMotionPolicyTests {
 
     /// The frame count of the shipped seated loop. Row 4, three frames per
-    /// direction — pinned by `ManifestTests` and restated here so the phrase
+    /// direction, pinned by `ManifestTests` and restated here so the phrase
     /// arithmetic below is read against the real number.
     static let seatedFrameCount = 3
 
     /// **Six phrases, six distinct loops.** A shared phrase would be two kinds
     /// of work moving identically while the room asserts they differ, which is
-    /// the failure this whole file exists to prevent — and it is the one the
+    /// the failure this whole file exists to prevent, and it is the one the
     /// task that produced this layer named explicitly.
     ///
     /// Compared **up to rotation**, because a loop is a cycle: `S R` and `R S`
@@ -54,8 +54,8 @@ struct AmbientMotionPolicyTests {
         #expect(seen.count == ToolBadge.allCases.count - 1)
     }
 
-    /// **The 3x2 grid, pinned.** A two-position bob has exactly two parameters —
-    /// period and duty — so the six classes occupy the six cells of {fast, slow}
+    /// **The 3x2 grid, pinned.** A two-position bob has exactly two parameters (
+    /// period and duty) so the six classes occupy the six cells of {fast, slow}
     /// x {25%, 50%, 75%} and no two share one. This is the assertion that keeps
     /// a later edit from nudging two phrases into the same corner of the space
     /// while `noTwoBadgeClassesArePlayedTheSameWay` still passes on a one-step
@@ -87,7 +87,7 @@ struct AmbientMotionPolicyTests {
     ///
     /// `questionMark` is the glyph that asserts only "we do not recognise this",
     /// and the same discipline applies with more force to a whole animation than
-    /// to an icon — the argument `HeldObject.init(badge:)` already makes for the
+    /// to an icon: the argument `HeldObject.init(badge:)` already makes for the
     /// hands. `Monitor` is deliberately and permanently in this bucket.
     @Test func anUnmappedToolIsGivenNoMotionToClaimWith() {
         #expect(AmbientMotion.phrase(for: .questionMark) == nil)
@@ -109,7 +109,7 @@ struct AmbientMotionPolicyTests {
     /// about how a character walks, spawns, departs or hands a report over, so
     /// every one of those plays its animation exactly as authored.
     ///
-    /// `idle` is excluded here and pinned by `anIdleBodyHoldsOneFrame` instead —
+    /// `idle` is excluded here and pinned by `anIdleBodyHoldsOneFrame` instead:
     /// it plays no phrase either, but it no longer plays the shipped loop.
     ///
     /// The open call is what makes this test about the *state*: since ADR-005 a
@@ -133,14 +133,14 @@ struct AmbientMotionPolicyTests {
     /// move more than 2 px, so the assertion is `[0]` rather than "less than".
     ///
     /// The badge loop matters because the two channels are deliberately allowed
-    /// to disagree — an `ADR-003` closing beat is a tool glyph over a body that
+    /// to disagree: an `ADR-003` closing beat is a tool glyph over a body that
     /// is not working, and a dormant character wears a tab over one. Neither may
     /// put the body back in motion, because the body is the channel I2 makes
     /// truthful for every frame.
     ///
     /// The open-call loop is ADR-005's addition: a standing character with an
-    /// open call is unreachable in the live stream — a `PreToolUse` opens the
-    /// turn that seats it — but this function is total and a state nothing can
+    /// open call is unreachable in the live stream (a `PreToolUse` opens the
+    /// turn that seats it) but this function is total and a state nothing can
     /// produce is still a state something may ask for.
     @Test func anIdleBodyHoldsOneFrame() {
         for frameCount in 1...10 {
@@ -162,7 +162,7 @@ struct AmbientMotionPolicyTests {
     /// did not, so the dead air between two calls of one turn is now drawn
     /// seated instead of standing and moves 0 px/s either way. If this fails,
     /// the room has an ambient loop running with nothing open, which is the one
-    /// thing I2 exists to forbid — and it would be running under a character
+    /// thing I2 exists to forbid, and it would be running under a character
     /// that the badge layer correctly shows as doing nothing.
     ///
     /// The badge loop is what makes it exact. A closing beat leaves a `magnifier`
@@ -193,7 +193,7 @@ struct AmbientMotionPolicyTests {
     /// The third and last thing that stops the body, and the only one of the
     /// three that takes away motion this room was previously drawing. The badge
     /// loop is the point: a gated `Bash` is `terminal`, the busiest schedule in
-    /// the table, and it played it. The open-call loop is the other half — a
+    /// the table, and it played it. The open-call loop is the other half: a
     /// gated agent is holding those calls, which is exactly why the open-call
     /// set could not answer this question by itself.
     @Test func aBodyStoppedAtAPermissionGateHoldsOneFrame() {
@@ -214,7 +214,7 @@ struct AmbientMotionPolicyTests {
         #expect(AmbientMotion.gatedStillSequence
                 == [AmbientMotion.Beat.settled.frameIndex(inFrameCount: 3)])
 
-        // And the same inputs without the gate do move, for every mapped class —
+        // And the same inputs without the gate do move, for every mapped class,
         // so the rule above is the gate's doing and not a phrase table that
         // resolved to one frame.
         for badge in ToolBadge.allCases where AmbientMotion.phrase(for: badge) != nil {
@@ -225,7 +225,7 @@ struct AmbientMotionPolicyTests {
     }
 
     /// **A gate never freezes a told event.** `walk`, `spawn`, `depart` and
-    /// `deliver` each *are* an event being told, so they play as authored — a
+    /// `deliver` each *are* an event being told, so they play as authored: a
     /// character that stopped mid-stride because a dialog opened would slide
     /// across the floor. Reachable in one batch: `SubagentStop` clears the gate
     /// and starts the report walk together.
@@ -253,7 +253,7 @@ struct AmbientMotionPolicyTests {
                     "\(state.rawValue) lost its frames")
         }
         // `walk`, `spawn`, `depart` and `deliver` each *are* an event being
-        // told, so they keep every frame whether or not a call is open — a
+        // told, so they keep every frame whether or not a call is open: a
         // character that stopped mid-stride because its `Read` returned would
         // slide across the floor. Only the two resting postures answer to the
         // open-call set. [ADR-005 §3]
@@ -265,7 +265,7 @@ struct AmbientMotionPolicyTests {
     }
 
     /// **Total for any frame count**, which is the property that keeps a tool
-    /// name appearing tomorrow from needing new art — the same argument
+    /// name appearing tomorrow from needing new art: the same argument
     /// `03-EVENT-MODEL.md` makes for the pose table, applied to the schedule
     /// over it. A phrase that indexed past the end of a shorter seated loop
     /// would crash the room on a manifest change rather than degrade.
@@ -295,7 +295,7 @@ struct AmbientMotionPolicyTests {
 /// a reading of the art that the art does not support.
 struct AmbientMotionArtTests {
 
-    /// **The seated loop holds two positions, not three — and its feet never
+    /// **The seated loop holds two positions, not three, and its feet never
     /// touch the floor row.**
     ///
     /// Both halves matter and they are different claims. *Two positions* is why
@@ -336,7 +336,7 @@ struct AmbientMotionArtTests {
                 }
 
                 // Frames 0 and 1 are the same position. The difference between
-                // them is an eye blink — 0 px on variant 10, 32 at the most —
+                // them is an eye blink (0 px on variant 10, 32 at the most)
                 // against a body of about a thousand.
                 let blink = differing(bitmaps[0], bitmaps[1])
                 #expect(blink <= 40, Comment(rawValue:
@@ -394,7 +394,7 @@ struct AmbientMotionSceneTests {
     /// **The maintainer's question, mechanised: with the badges covered, do two
     /// agents running different tool classes move differently?**
     ///
-    /// Every pair, not one pair, and over a whole second — long enough for the
+    /// Every pair, not one pair, and over a whole second, long enough for the
     /// slowest phrase to complete a bar. A pair that agreed would be the room
     /// claiming a difference it does not draw.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -414,7 +414,7 @@ struct AmbientMotionSceneTests {
                 #expect(played[lhs] != played[rhs],
                         "\(lhs) and \(rhs) draw the same frames: \(played[lhs] ?? [])")
             }
-            // And each of them genuinely moves — a phrase that resolved to one
+            // And each of them genuinely moves: a phrase that resolved to one
             // frame would pass the inequality above against a different constant
             // while drawing a character frozen at its desk.
             #expect(Set(played[lhs] ?? []).count > 1, "\(lhs) never changes frame")
@@ -422,7 +422,7 @@ struct AmbientMotionSceneTests {
     }
 
     /// **I3: an agent's state is a set, and the body plays the set's
-    /// lowest-ordinal class — the same one its badge shows.**
+    /// lowest-ordinal class, the same one its badge shows.**
     ///
     /// Two properties, and the second is the one that matters. The choice is
     /// *the badge's* choice, so nothing new decides it; and because
@@ -461,7 +461,7 @@ struct AmbientMotionSceneTests {
     /// **A phrase swap does not restart the loop.**
     ///
     /// This class's standing contract is that a looping animation is never
-    /// restarted by an event arriving — it is what keeps a burst of short calls
+    /// restarted by an event arriving: it is what keeps a burst of short calls
     /// from stuttering. A badge change is an event arriving. Every phrase is on
     /// the same 125 ms grid, so the swap lands on a step boundary and the body
     /// continues into the new schedule from wherever it was.
@@ -489,9 +489,9 @@ struct AmbientMotionSceneTests {
     /// plays no phrase, in either posture, and neither does one inside
     /// `ADR-003`'s closing beat.**
     ///
-    /// The beat is a glyph over a body that asserts no ongoing work — the
+    /// The beat is a glyph over a body that asserts no ongoing work (the
     /// condition `ADR-003` §6 says voids it if an implementer drops it, as
-    /// restated by ADR-005 §5 — so a lingering `terminal` must not reach this
+    /// restated by ADR-005 §5) so a lingering `terminal` must not reach this
     /// channel. It could not before because the body was `idle` for every frame
     /// of a beat; it cannot now because the sequence is a function of the
     /// open-call count, which is `0` for every frame of a beat. **That is the
@@ -507,7 +507,7 @@ struct AmbientMotionSceneTests {
 
         // The beat's shape as the room now draws it: the open set emptied, so
         // `BadgeSelection.select` reaches `closingBeat` and the slot still shows
-        // `terminal` — over a body that is **seated** and has stopped moving,
+        // `terminal`, over a body that is **seated** and has stopped moving,
         // because the turn did not end when the call did.
         character.apply(state: .working, facing: .right, startingAt: 0)
         character.apply(badge: BadgeSelection.select(openToolNames: [], closingBeat: .terminal))
@@ -529,9 +529,9 @@ struct AmbientMotionSceneTests {
     /// not what stops it.** [ADR-005 §7]
     ///
     /// This test used to be named `aGatedCallKeepsItsGaitAndLosesOnlyItsHands`
-    /// and asserted the opposite of its first half. The argument it carried —
+    /// and asserted the opposite of its first half. The argument it carried (
     /// I2 keys the body on the open-call set, a gated agent is still holding
-    /// those calls, so it is still working — is *true about the set* and was
+    /// those calls, so it is still working) is *true about the set* and was
     /// wrong about the room: a call parked at a dialog is not running, which is
     /// ADR-003 §1's own sentence for refusing to draw `terminal` over it, and
     /// the body was drawing the fastest phrase in the table over the one agent
@@ -540,12 +540,12 @@ struct AmbientMotionSceneTests {
     /// **The three characters here are the whole of the distinction**, and the
     /// middle one is why the gate needed a delta of its own:
     ///
-    /// - **ungated, `Bash` open** — moves, and holds a console;
-    /// - **the bubble alone** — moves. A `Notification` can name an agent with
+    /// - **ungated, `Bash` open**: moves, and holds a console;
+    /// - **the bubble alone**: moves. A `Notification` can name an agent with
     ///   no gate at all (`idle_prompt`, and a `permission_prompt` that no mark
     ///   could attribute), so the bubble is not evidence of a block. It empties
     ///   the hands, because that is a claim about the badge slot;
-    /// - **gated** — still, whatever the slot shows. The bubble arrives 6.0 s
+    /// - **gated**: still, whatever the slot shows. The bubble arrives 6.0 s
     ///   after the gate opens, so for those six seconds this is the only signal
     ///   there is.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -580,7 +580,7 @@ struct AmbientMotionSceneTests {
         #expect(gated.heldObjectForTesting == .console)
 
         // Answering the dialog puts the body straight back into its own class's
-        // phrase — no new badge, no new state, nothing else to re-send.
+        // phrase: no new badge, no new state, nothing else to re-send.
         gated.setGated(false)
         #expect(gated.frameSequenceForTesting == ungated.frameSequenceForTesting,
                 "the body did not resume when the gate cleared")

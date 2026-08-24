@@ -12,7 +12,7 @@ import Foundation
 ///   Measured here again rather than taken on trust: `Book_32x32_01.png` is
 ///   1792x1312 with ink on exactly one 32-px row, row 15, and compositing it
 ///   onto the premade at `dy = 0` puts **0 of its 2656 pixels on transparency
-///   and changes only 104** — it is a recolour of a book the premade already
+///   and changes only 104**: it is a recolour of a book the premade already
 ///   draws. `Smartphone_32x32_1.png` is 768x384 with ink on exactly one 32-px
 ///   row, row 9, and its best fit is `dy = +128`: **0 on transparency, 24
 ///   changed**. In the pack's own row table those land on **row 7 (`phone_b`,
@@ -24,8 +24,8 @@ import Foundation
 /// - *An arbitrary prop cannot be placed against this art, because there is no
 ///   per-frame hand anchor.* **True of the download, and it does not follow.**
 ///   The two held rows are front-facing standing poses and this room draws a
-///   side-view seated character and nothing else, so route 1 — composite the
-///   layer, which pins the body to the row the layer was drawn for — buys a
+///   side-view seated character and nothing else, so route 1: composite the
+///   layer, which pins the body to the row the layer was drawn for: buys a
 ///   held book at the price of the pose, the chair and the desk. It was cut and
 ///   looked at at M6g and again here.
 ///
@@ -58,7 +58,7 @@ import Foundation
 /// **A held object on this pose cannot change the silhouette.** The seated body
 /// is a chibi: the head spans `x 2...29, y 20...45` and the whole torso below it
 /// is about 20x16 px. The hands sit in the middle of that torso, so an object in
-/// them is a colour block *inside* an existing outline — the same channel a
+/// them is a colour block *inside* an existing outline: the same channel a
 /// costume buys (`04-ART-DIRECTION.md`, "Costumes"), at about half the area, and
 /// not the silhouette channel that document says carries identity at `1x`. The
 /// honest claim for this layer is "you can see they are holding something, and
@@ -118,61 +118,61 @@ public enum HeldObject: String, Sendable, Hashable, CaseIterable {
 /// Three constraints, all of them measured off the pack rather than chosen:
 ///
 /// - **The pack's grid.** Every feature in the 32x set is a 2x2 block, because
-///   the 32x art is a 2x scale-up of a 16-px design — dump any seated frame and
+///   the 32x art is a 2x scale-up of a 16-px design: dump any seated frame and
 ///   the rows come in identical pairs. So every design below is an ASCII grid at
 ///   half resolution and is doubled on the way out, which is the same
 ///   construction `generate-art.py` uses for the badges. It also forces the
 ///   simple silhouette that survives `1x`.
 /// - **The pack's palette.** `outline`, `shade` and `soft` are the three
 ///   structural inks every held object in `Character_Generator/Books/` and
-///   `/Smartphones/` is built from — all eleven files share them exactly — and
+///   `/Smartphones/` is built from (all eleven files share them exactly) and
 ///   `paper` is the page white from the same set. Nothing here is a new colour
 ///   in the sense that matters: they are the numbers the artist used for the
 ///   only held objects this pack contains.
 /// - **The pack's floor.** `outline` is `(58, 58, 80)`, value **0.314**, which
 ///   is the cast's own darkest pixel to three decimals. Nothing here goes below
-///   it, so a held object can never be the darkest thing on screen — the one
+///   it, so a held object can never be the darkest thing on screen: the one
 ///   axis I7 actually protects. `HeldObjectArtTests` measures this rather than
 ///   trusting it, because `scripts/lint-palette.py` reads the *manifest* and
 ///   this layer is drawn by the scene, exactly like the nameplate and the `×N`,
 ///   so the lint does not and cannot see it.
 enum HeldObjectArt {
 
-    // MARK: Palette — measured off Books/ and Smartphones/, which are the only
+    // MARK: Palette: measured off Books/ and Smartphones/, which are the only
     // held objects the pack draws. All eleven files carry these three inks.
 
-    /// `(58, 58, 80)` — saturation 0.275, value **0.314**. The cast's floor.
+    /// `(58, 58, 80)`: saturation 0.275, value **0.314**. The cast's floor.
     /// Nothing in this file may be darker.
     static let outline = Bitmap.RGBA(58, 58, 80)
-    /// `(70, 70, 94)` — value 0.369. Interior shadow.
+    /// `(70, 70, 94)`: value 0.369. Interior shadow.
     static let shade = Bitmap.RGBA(70, 70, 94)
-    /// `(86, 89, 114)` — value 0.447. The soft edge step.
+    /// `(86, 89, 114)`: value 0.447. The soft edge step.
     static let soft = Bitmap.RGBA(86, 89, 114)
-    /// `(255, 255, 255)` — the page white the pack's book is printed on.
+    /// `(255, 255, 255)`: the page white the pack's book is printed on.
     static let paper = Bitmap.RGBA(255, 255, 255)
-    /// `(235, 228, 242)` — the page's shaded side.
+    /// `(235, 228, 242)`: the page's shaded side.
     static let paperShade = Bitmap.RGBA(235, 228, 242)
 
-    /// `(66, 128, 221)` — `Book_32x32_01`'s cover.
+    /// `(66, 128, 221)`: `Book_32x32_01`'s cover.
     static let blue = Bitmap.RGBA(66, 128, 221)
-    /// `(49, 90, 130)` — `Book_32x32_05`'s dark cover step.
+    /// `(49, 90, 130)`: `Book_32x32_05`'s dark cover step.
     static let blueDark = Bitmap.RGBA(49, 90, 130)
-    /// `(242, 178, 43)` — the gold the pack stamps its books with.
+    /// `(242, 178, 43)`: the gold the pack stamps its books with.
     static let gold = Bitmap.RGBA(242, 178, 43)
-    /// `(150, 114, 80)` — `Book_32x32_04`'s board.
+    /// `(150, 114, 80)`: `Book_32x32_04`'s board.
     static let board = Bitmap.RGBA(150, 114, 80)
-    /// `(109, 187, 201)` — `Smartphone_32x32_1`'s lit screen.
+    /// `(109, 187, 201)`: `Smartphone_32x32_1`'s lit screen.
     static let screen = Bitmap.RGBA(109, 187, 201)
-    /// `(198, 189, 213)` — `Smartphone_32x32_4`'s pale casing.
+    /// `(198, 189, 213)`: `Smartphone_32x32_4`'s pale casing.
     static let casing = Bitmap.RGBA(198, 189, 213)
-    /// `(240, 78, 36)` — `Smartphone_32x32_5`'s casing. The only warm hue in the
+    /// `(240, 78, 36)`: `Smartphone_32x32_5`'s casing. The only warm hue in the
     /// set, given to the one class whose meaning is open-ended.
     static let orange = Bitmap.RGBA(240, 78, 36)
-    /// `(192, 42, 25)` — the same phone's dark step.
+    /// `(192, 42, 25)`: the same phone's dark step.
     static let orangeDark = Bitmap.RGBA(192, 42, 25)
 
     /// The design grid's canvas, **before** the 2x doubling. Every object is cut
-    /// to the same box so one anchor serves all six — a per-object anchor would
+    /// to the same box so one anchor serves all six: a per-object anchor would
     /// be six numbers where the measurement only supports one.
     ///
     /// **6x5 was arrived at by looking, and the first attempt was 6x6.** At 6x6
@@ -218,7 +218,7 @@ enum HeldObjectArt {
                 "oooooo",
             ]
         // An open book: two pages either side of a dark spine. Same white as the
-        // page, split down the middle — which is the one difference that
+        // page, split down the middle, which is the one difference that
         // survives being 12 px wide.
         case .book:
             return [
@@ -230,7 +230,7 @@ enum HeldObjectArt {
             ]
         // A handheld console, screen towards the character's face. The screen is
         // the pack's own *lit* `Smartphone_1` cyan at value 0.788, so it reads as
-        // on rather than as a dark rectangle — a dark screen here would be a
+        // on rather than as a dark rectangle: a dark screen here would be a
         // black block on a dark torso, which is the shape of the mistake M6b
         // made with `mission_control`'s monitors.
         case .console:
@@ -263,7 +263,7 @@ enum HeldObjectArt {
                 "oooooo",
             ]
         // A plug: two prongs under a body, in the set's only warm hue. Smallest
-        // and least explicit of the six on purpose — `mcp__*` is the one class
+        // and least explicit of the six on purpose: `mcp__*` is the one class
         // whose contents we cannot know, so it gets a connector and not a
         // depiction of any particular work. [I1]
         case .plug:

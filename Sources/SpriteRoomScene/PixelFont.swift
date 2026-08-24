@@ -73,7 +73,7 @@ public struct Bitmap: Sendable, Hashable {
 
 /// A 5×7 bitmap typeface, embedded as a constant.
 ///
-/// **Why this exists.** No font ships with either LimeZu pack — M0 confirmed
+/// **Why this exists.** No font ships with either LimeZu pack: M0 confirmed
 /// there is no `.ttf` or `.otf` anywhere in the files, and the pack previews
 /// use Arial Bold, which beside this art looks exactly as wrong as it sounds.
 /// A system font rendered at 8pt antialiases, and antialiased text next to
@@ -82,7 +82,7 @@ public struct Bitmap: Sendable, Hashable {
 ///
 /// So the nameplate is drawn from a glyph table instead. It is one constant
 /// (`PixelFont.standard`) and one call site, so swapping it for a sourced pixel
-/// typeface — or for a manifest-declared font, once the manifest carries one —
+/// typeface (or for a manifest-declared font, once the manifest carries one)
 /// is a local change.
 ///
 /// Since M0 established this art does **not** carry identity in silhouette
@@ -116,7 +116,7 @@ public struct PixelFont: Sendable {
     }
 
     /// Uppercases, and replaces anything with no glyph by a space rather than
-    /// dropping it — a missing glyph must not silently shorten a name.
+    /// dropping it: a missing glyph must not silently shorten a name.
     public func normalise(_ text: String) -> String {
         String(text.uppercased().map { glyphs[$0] != nil ? $0 : Swift.Character(" ") })
     }
@@ -125,7 +125,7 @@ public struct PixelFont: Sendable {
     ///
     /// **Scale is integer pixel doubling, not resampling.** Every glyph pixel
     /// becomes a `scale × scale` block, so a doubled line is exactly the 1×
-    /// line magnified — same shapes, same grid, no new letterforms to get
+    /// line magnified: same shapes, same grid, no new letterforms to get
     /// wrong. That is also the pack's own idiom: the Modern UI 32× sheet is a
     /// 2× scale-up of a 16 px design, and `04-ART-DIRECTION` requires authored
     /// glyphs to be drawn at half resolution and doubled so they read as one
@@ -151,7 +151,7 @@ public struct PixelFont: Sendable {
     /// integer `scale`.
     ///
     /// **Both axes together, never one of them.** A non-uniform `scaleX`/
-    /// `scaleY` was written for the nameplate's headline — the type is too wide
+    /// `scaleY` was written for the nameplate's headline: the type is too wide
     /// to magnify horizontally inside a seat pitch, so stretching it vertically
     /// looked like the free win. It was rendered at `1x` and it is worse than
     /// no magnification at all: a 5×14 cell leaves 1 px vertical strokes beside

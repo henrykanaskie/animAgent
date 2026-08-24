@@ -4,12 +4,12 @@ import Testing
 
 /// ADR-006 §2b/§2c, step 1 only: the desk-surface anchor.
 ///
-/// This step draws nothing — no object stands on a desk yet, and none is
+/// This step draws nothing: no object stands on a desk yet, and none is
 /// placed by this file. What exists after it is a manifest measurement
 /// (`room.props.roles.desk.surface_y` and each theme's own) and a pure
 /// `RoomLayout` accessor a later step will use to place something there. These
 /// tests check exactly that pair: the measurement is right, and the arithmetic
-/// that turns it into a scene point is right — nothing about what gets drawn.
+/// that turns it into a scene point is right: nothing about what gets drawn.
 struct DeskSurfaceTests {
 
     enum FixtureError: Error { case notADictionary(String) }
@@ -20,7 +20,7 @@ struct DeskSurfaceTests {
     /// did not decode it, "that being a later step's job, once something
     /// actually reads it to draw". That step landed: `Manifest.PropRole.surfaceY`
     /// decodes it and `RoomScene` places desk-top objects at it [ADR-006]. These
-    /// tests still read the bytes directly, deliberately — they are about what
+/// tests still read the bytes directly, deliberately: they are about what
     /// the *generator measured*, so going through the decoder would let a
     /// decoding bug and a measurement bug cancel out.
     static func rawManifest() throws -> [String: Any] {
@@ -63,7 +63,7 @@ struct DeskSurfaceTests {
 
     // MARK: The manifest measurement
 
-    /// Every theme's desk has a surface — the room default plus all six
+/// Every theme's desk has a surface: the room default plus all six
     /// themes, seven entries total, matching ADR-006 §2b's table.
     @Test func everyThemesDeskHasASurface() throws {
         let root = try Self.rawManifest()
@@ -87,7 +87,7 @@ struct DeskSurfaceTests {
     ///
     /// **What the office desk also proves is that `surface_y` is not the whole
     /// answer for every desk shape**, which is why a pod does not place its kit
-    /// there — 25 of the slab's 38 rows are top surface seen at an angle, so its
+/// there: 25 of the slab's 38 rows are top surface seen at an angle, so its
     /// first full-width row is the *back* edge. See
     /// `RoomLayout.deskTopLift(surfaceHeightAboveFloor:metrics:)`, and
     /// `RoomLayoutTests.aPodStandsItsKitOnItsDesktopRatherThanOnItsBackEdge`,
@@ -146,7 +146,7 @@ struct DeskSurfaceTests {
         #expect(checked == 7)
     }
 
-    // MARK: RoomLayout.deskSurfacePosition — pure arithmetic, needs no manifest
+    // MARK: RoomLayout.deskSurfacePosition - pure arithmetic, needs no manifest
 
     /// The shipped room's own seat metrics, written out rather than read, so
     /// this block stays arithmetic with no manifest behind it. [ADR-008]
@@ -165,8 +165,8 @@ struct DeskSurfaceTests {
         #expect(first == second)
     }
 
-    /// The surface sits directly above the desk's own bottom-centre anchor —
-    /// same `x`, `y` raised by exactly the given height — for every seat the
+    /// The surface sits directly above the desk's own bottom-centre anchor (
+    /// same `x`, `y` raised by exactly the given height) for every seat the
     /// room has.
     @Test func deskSurfaceSitsDirectlyAboveTheDesksOwnAnchor() {
         let layout = RoomLayout()
@@ -180,7 +180,7 @@ struct DeskSurfaceTests {
     }
 
     /// `library`'s taller surface (36) stands further above the floor than a
-    /// bare desk's (24), by exactly the difference — the height parameter is
+    /// bare desk's (24), by exactly the difference: the height parameter is
     /// not silently clamped or ignored.
     @Test func aTallerSurfaceHeightStandsFurtherAboveTheFloor() {
         let layout = RoomLayout()
@@ -193,7 +193,7 @@ struct DeskSurfaceTests {
     }
 
     /// Every seat's desk surface, at the room's own measured heights, lands on
-    /// the row `RoomLayout` says the seat's desk occupies — never below the
+    /// the row `RoomLayout` says the seat's desk occupies, never below the
     /// desk's bottom-centre anchor, which is where the ADR's placement rule
     /// (§2c, a later step) starts reasoning from.
     @Test func deskSurfaceIsNeverBelowTheDesksOwnAnchor() throws {

@@ -32,15 +32,15 @@ struct AttentionBadgeTests {
     // MARK: Precedence
 
     /// **Attention outranks the tool badge.** A `Bash` parked at a permission
-    /// gate is not running — the badge that says "this needs you" is both the
+    /// gate is not running: the badge that says "this needs you" is both the
     /// actionable one and the truthful one.
     @Test func attentionOutranksAnOpenToolCall() {
         let selection = BadgeSelection.select(
             openToolNames: ["Bash", "Read"], attention: .permissionPrompt)
         #expect(selection.isAttention)
         #expect(selection.attention == .permissionPrompt)
-        // The tool badge is still *computed* — the open calls did not stop
-        // existing — so answering the prompt restores it without the model
+        // The tool badge is still *computed* (the open calls did not stop
+        // existing) so answering the prompt restores it without the model
         // having to re-announce anything.
         #expect(selection.badge == .magnifier)
         #expect(selection.count == 2)
@@ -85,9 +85,9 @@ struct AttentionBadgeTests {
         #expect(director.bodyState(agent) == .working)
 
         // And a character with no call open keeps the posture it had rather
-        // than gaining a pose. Under ADR-005 that posture is seated — the
+        // than gaining a pose. Under ADR-005 that posture is seated (the
         // notification is a fact about the human, not evidence that the agent's
-        // turn started or ended — and the body is still, which is what says
+        // turn started or ended) and the body is still, which is what says
         // nothing is running.
         var idle = Self.director()
         _ = idle.apply([.agentAppeared(agent: agent, agentType: nil, lifecycle: .active)])
@@ -116,8 +116,8 @@ struct AttentionBadgeTests {
         #expect(Self.badge(of: cleared) == before)
     }
 
-    /// Both `notification_type`s draw the same glyph — there is one attention
-    /// badge and it asserts the one thing they share — but they are different
+    /// Both `notification_type`s draw the same glyph: there is one attention
+    /// badge and it asserts the one thing they share, but they are different
     /// values, so a delta stream that swaps one for the other is a change.
     @Test func thePromptTypesAreDistinctValuesShowingOneGlyph() {
         let permission = BadgeSelection.select(openToolNames: [String](),
@@ -137,7 +137,7 @@ struct AttentionBadgeTests {
         #expect(BadgeSelection.none.isAttention == false)
     }
 
-    // MARK: Determinism — criterion 6
+    // MARK: Determinism: criterion 6
 
     /// Adding attention must not make the badge depend on arrival order.
     @Test func selectionStaysIndependentOfOrder() {
@@ -151,7 +151,7 @@ struct AttentionBadgeTests {
         }
     }
 
-    /// The badge is emitted only when it actually changed — a repeated
+    /// The badge is emitted only when it actually changed: a repeated
     /// notification must not produce a second `setBadge`.
     @Test func arepeatedAttentionEmitsNoSecondIntent() {
         var director = Self.director()
@@ -202,7 +202,7 @@ struct AttentionBadgeTests {
     // MARK: Art
 
     /// The manifest key is tracked, so this runs on a fresh clone with no art.
-    /// `attention` lives under `badges.states`, not `badges.map` — it answers
+    /// `attention` lives under `badges.states`, not `badges.map`: it answers
     /// to no tool, and `map`'s keys are exhaustively required.
     @Test func theManifestDeclaresTheAttentionBadge() throws {
         let manifest = try SceneFixtures.manifest()
@@ -212,7 +212,7 @@ struct AttentionBadgeTests {
         // M5b: this used to say it and `question_mark` were the only two real
         // badges and that the other six were "pending a purchase". The purchase
         // was made. It supplied `document` and `checklist`. Corrected again at
-        // M5c: the remaining four are not placeholders either — no icon for them
+        // M5c: the remaining four are not placeholders either: no icon for them
         // exists in any pack we own and no further pack is coming, so they were
         // drawn here and are `authored`. See
         // `ManifestTests.badgeProvenanceIsRecorded` for the exact split.

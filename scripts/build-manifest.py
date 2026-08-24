@@ -8,7 +8,7 @@ Swapping real art in at M5 must be a manifest edit with zero code change.
 This is generated rather than hand-written for one reason, and it is the
 art-director's standing rule: "Nothing enters the manifest until it exists in
 the download." Deriving every entry by walking assets/ makes that true by
-construction instead of by diligence — there is no way for a path to appear here
+construction instead of by diligence: there is no way for a path to appear here
 that was not just read off the filesystem. Every entry is re-stat'd before the
 file is written, so a manifest that references a missing file cannot be
 produced.
@@ -42,7 +42,7 @@ FPS = 8
 # unsourceable and docs/04 already permits dropping it.
 STATES = {
     "idle":    {"pose": "idle", "loop": True,  "dirs": ("right", "up", "left", "down")},
-    # The desk pose. Side views only — the pack ships no front or back sit.
+    # The desk pose. Side views only: the pack ships no front or back sit.
     "working": {"pose": "sit",  "loop": True,  "dirs": ("right", "left")},
     "walk":    {"pose": "walk", "loop": True,  "dirs": ("right", "up", "left", "down")},
     "deliver": {"pose": "gift", "loop": False, "dirs": ("right", "up", "left", "down")},
@@ -118,8 +118,8 @@ PROP_ROLES = {
     # for as long as they have been in the manifest.** [ADR-006 §1a, §2c]
     #
     # They reached `assets/manifest.json` without reaching the generator, so
-    # every `python3 scripts/build-manifest.py` since silently dropped all three
-    # — `room.props.roles` is a GUARDED_SECTION, but the guard fires only when a
+    # every `python3 scripts/build-manifest.py` since silently dropped all three:
+    # `room.props.roles` is a GUARDED_SECTION, but the guard fires only when a
     # whole section is lost, and three of seven keys is not a section. Found by
     # regenerating and watching `DeskTopObjectTests` crash on a nil role. The
     # `what` and `identified_by` text below is the manifest's own, restored
@@ -174,14 +174,14 @@ PROP_ROLES = {
 # mistake that file already made and recorded.
 #
 # **Only the Modern Office builder sheet has these tiles.** Every other theme
-# ships four tiles — a cut floor, a flat wall, and the two patterns they came
-# from — so `build_plan` returns None for them and they keep the open floor.
+# ships four tiles (a cut floor, a flat wall, and the two patterns they came
+# from) so `build_plan` returns None for them and they keep the open floor.
 # That is not a gap to be filled later by guessing: a plan needs a cap, a body
 # and several floors that agree, and five of the six themes have no such set.
 #
 # **Every wall is column 1 of its row pair, and that is a measurement rather
 # than a preference.** Columns 0 and 2 of a cap or body row carry the wall's
-# *end* — a 2 px dark trim down the left edge or the right — because the sheet
+# *end* (a 2 px dark trim down the left edge or the right) because the sheet
 # is drawn for wall segments with corners. Laid across a 25-tile room they draw
 # a dark seam every 32 px, which at 1x reads as a row of panels rather than as a
 # wall. Column 1 is the mid-run piece: it carries the complete 12 px top edge
@@ -210,12 +210,12 @@ PLAN_SURFACES = {
 #   * The near space covers rows -6..8, which is exactly what the open floor
 #     painted, so the delivery row, the walkway and both seat rows are one
 #     unbroken floor and no wall stands anywhere a character walks.
-#   * Its band is at rows 7 and 8 — the wall line at y=224, where `upstageExit`
+#   * Its band is at rows 7 and 8: the wall line at y=224, where `upstageExit`
 #     already ends. A leaver walks into it and fades, as it always has.
 #   * `doorways` are on **seat columns** 3, 12 and 21 (seats 6, 0 and 5), so the
 #     three characters whose columns carry one walk out through a door rather
 #     than into a flat wall, and the rooms behind are reachable.
-#   * Everything behind the band — rows 9..11 — is floor no route ever touches,
+#   * Everything behind the band (rows 9..11) is floor no route ever touches,
 #     which is why the interior partitions are all there. It is the only part of
 #     this room where a north-south wall fits: below it, seven seat columns 96 px
 #     apart leave a 40 px gap between one seat's desk and the next seat's chair,
@@ -224,20 +224,20 @@ ROOM_PLAN = {
     "spaces": [
         # The walkway: the delivery row, the aisle and the apron in front of
         # them, which `RoomLayout` already calls "the room's thoroughfare". It
-        # carries **no band** — it is not a separate room, it is the circulation
-        # half of one — so what marks it is the finish changing at the seat row
+        # carries **no band** (it is not a separate room, it is the circulation
+        # half of one) so what marks it is the finish changing at the seat row
         # and nothing else. A line there would be a wall across seven columns
         # and across the one row anybody travels along.
         #
         # It is 78 px of the panel that was flat grey and is now legible as
         # something: the floor people cross. Nothing is *drawn* on it, so the
-        # rule that replaced M5's foreground row is untouched — a floor is what
+        # rule that replaced M5's foreground row is untouched: a floor is what
         # objects stand on, not an object. [ADR-007 §4, ADR-002 §1]
         {"name": "walkway", "surface": "concrete",
          "x": 2, "y": -6, "w": 21, "h": 8, "band": False},
         # (`concrete` is the grey micro-tile and `slab` the pale one. The
         # walkway takes the darker of the two so the work floor behind it is the
-        # lighter field the cast is read against — I7's "characters own the
+        # lighter field the cast is read against: I7's "characters own the
         # darkest values" is easier to hold over a pale floor than a grey one.)
         {"name": "open plan", "surface": "slab",
          "x": 2, "y": 2, "w": 21, "h": 7,
@@ -248,7 +248,7 @@ ROOM_PLAN = {
     ],
     # **Tiles 5 and 17, because those are the two boundaries no prop stands on.**
     # The `wall_line` scenery stands on the back strip's floor at x=64, 256 and
-    # 640 — `RoomLayout.sceneryAnchors(.wallLine)` — and a partition at 8 or 20
+    # 640 (`RoomLayout.sceneryAnchors(.wallLine)`) and a partition at 8 or 20
     # put a vending machine and a coffee counter across a wall, which is
     # `06-SET-BUILDING.md`'s R3 and looked exactly as wrong as R3 says it does.
     # 160 and 544 are the midpoints of those gaps: 96 px from the nearest anchor
@@ -258,7 +258,7 @@ ROOM_PLAN = {
         {"x": 16, "y": 9, "h": 3},
         # **The outer wall**, both edges, the full depth of the plan. [ADR-013]
         # Without these the plan simply stops and the floor gives way to the
-        # void, which reads as a crop rather than as the end of a building —
+        # void, which reads as a crop rather than as the end of a building:
         # every one of `scripts/compose-scene.py`'s reference scenes is bordered.
         # They run rows -6..11, the whole of the walkway and the rooms above it,
         # and they are admissible downstage of the seat row because they occlude
@@ -282,7 +282,7 @@ ROOM_PLAN = {
 # prop clears one when `|x - seat| >= (32 + width) / 2`; anything whose base is
 # at or above the wall line at 224 is exempt, because that is where a leaver's
 # feet stop. `RoomPlan.dressingViolations` is those two sentences as a check and
-# `RoomPlanTests` runs it over this list — the numbers below are not trusted.
+# `RoomPlanTests` runs it over this list: the numbers below are not trusted.
 #
 # **Why by hand at all.** The band system gave every prop one of four depths, so
 # twenty props came out as four horizontal stripes across a floor with nothing
@@ -295,7 +295,7 @@ ROOM_PLAN = {
 #
 # The habits copied from that scene, deliberately:
 #
-#   * one edge carries a **stack** — printer over cabinet over tower over bin —
+#   * one edge carries a **stack**: printer over cabinet over tower over bin,
 #     rather than the pieces being spread evenly along the wall;
 #   * a lane is either full or empty, never uniformly half-filled;
 #   * x is jittered inside a lane instead of being centred in it, because a
@@ -318,14 +318,14 @@ ROOM_DRESSING = [
     {"scenery": 12, "x": 256, "y": 206, "what": "flatbed scanner"},
     {"role": "plant", "x": 246, "y": 160, "what": "small potted plant"},
     {"scenery": 17, "x": 264, "y": 96, "what": "backpack on the floor"},
-    # Lane 3 (320..384) — deliberately thin, so the eye has somewhere to rest.
+    # Lane 3 (320..384): deliberately thin, so the eye has somewhere to rest.
     {"scenery": 11, "x": 350, "y": 200, "what": "office printer"},
     {"scenery": 19, "x": 362, "y": 108, "what": "waste bin, mixed rubbish"},
     # Lane 4 (416..480).
     {"role": "plant", "x": 440, "y": 190, "what": "small potted plant"},
     {"scenery": 14, "x": 452, "y": 130, "what": "wooden two-drawer cabinet"},
     {"scenery": 16, "x": 436, "y": 84, "what": "PC tower"},
-    # Lane 5 (512..576) — thin again.
+    # Lane 5 (512..576): thin again.
     {"scenery": 10, "x": 540, "y": 204, "what": "two-drawer filing cabinet"},
     {"scenery": 15, "x": 552, "y": 118, "what": "waste bin"},
     # Lane 6 (608..672).
@@ -348,7 +348,7 @@ ROOM_DRESSING = [
     # **x=100, not the original 88.** [M8] `RoomPlanTests.nothingStandsOnAPartition`
     # checks `officePlan()`'s dressing against `RoomPlan.dressingViolations`'s
     # partition clause by resolving each placement's `scenery` index through
-    # `RoomPlanTests.handPlacedTheme().room` — the *first* theme with non-empty
+    # `RoomPlanTests.handPlacedTheme().room`: the *first* theme with non-empty
     # `plan.dressing`, alphabetically, which was always `office` until this
     # theme also composed its own. Now it is `library`, whose own scenery
     # index 0 (`cork notice board`, 52px) is wider than office's own (this
@@ -367,22 +367,22 @@ ROOM_DRESSING = [
     # This room's nearest-neighbour minimum was 33 px where every other composed
     # room is 1.4 and `scripts/compose-scene.py`'s scenes are 1-2: no two office
     # props touched, so the floor read as arranged rather than lived in. Those
-    # scenes get there by *piling* — a paper stack on a printer, a mug on a
-    # folder — and `dressingViolations` has always allowed it, since only a
+    # scenes get there by *piling*: a paper stack on a printer, a mug on a
+    # folder, and `dressingViolations` has always allowed it, since only a
     # **wholly** hidden box is refused.
     #
     # **Seven piles were authored and five were wrong, which the number could
     # not tell me.** A pile reads only when the two props differ in *size*: a
     # small object on a large one leaves the large one showing on both sides and
     # the eye gets two things. Leaning a 26 px cabinet on a 26 px cabinet hit
-    # 1.4 px exactly and drew one cabinet with a pixel of another behind it —
+    # 1.4 px exactly and drew one cabinet with a pixel of another behind it,
     # and it passed the validator, because a 1 px offset means the box is not
     # *wholly* contained. That is a real weakness in the check and it is worth
     # knowing: `dressingViolations` can only catch a prop that is 100% hidden,
     # not one that is 99% hidden. Only looking at the render at 5x caught it.
     #
-    # So the two that survive are both small-on-large — a 24 px tower on the
-    # 50 px printer, a 28 px bin on the 52 px scanner — and each sits one pixel
+    # So the two that survive are both small-on-large: a 24 px tower on the
+    # 50 px printer, a 28 px bin on the 52 px scanner, and each sits one pixel
     # downstage so it draws in front and cannot itself be the hidden one. The
     # other five are placed clear, in their own lanes, to carry the count.
     {"scenery": 16, "x": 258, "y": 174, "what": "PC tower"},
@@ -402,7 +402,7 @@ ROOM_DRESSING = [
 ]
 
 
-# **`library` and `stage`'s dressing, placed by hand — composed, no floor plan
+# **`library` and `stage`'s dressing, placed by hand: composed, no floor plan
 # drawn.** [RoomPlan.Dressing, commit 29844e6]
 #
 # Neither theme's builder sheet carries the cap/body/floor set `PLAN_SURFACES`
@@ -410,14 +410,14 @@ ROOM_DRESSING = [
 # the dressing arrived together in the code but they answer different
 # questions, and composing where the furniture stands needs nothing but
 # somebody deciding. So these two carry a `plan` block holding only
-# `dressing` — no `spaces`, no `surfaces`, no `partitions` — which
+# `dressing` (no `spaces`, no `surfaces`, no `partitions`) which
 # `Manifest.plan(_:)` accepts on its own and which keeps `RoomPlan.isEmpty`
 # true, so no floor, band or partition is drawn; only the lattice the four
 # bands used to lay switches off, because `RoomScene.buildRoom` keys that off
 # `dressing.isEmpty`, not off the plan.
 #
 # `library` is composed straight from `scripts/compose-scene.py`'s `library()`
-# reference — reading room, stacks, study — read for its habits (a stack down
+# reference (reading room, stacks, study) read for its habits (a stack down
 # one edge, lanes either full or empty, x jittered) rather than copied
 # verbatim, because that scene draws on a different pack's vocabulary than the
 # Modern Interiors Theme Sorter set 5 this theme actually binds. `stage`
@@ -426,7 +426,7 @@ ROOM_DRESSING = [
 # Both scenery pools are thinner than office's: 11 (`library`) and 12
 # (`stage`) declared items against office's 20, because a classroom or a
 # rehearsal-room set spends most of its singles on the seat furniture itself.
-# So the small clutter — a globe, a step ladder, a trophy, a mic stand —
+# So the small clutter: a globe, a step ladder, a trophy, a mic stand,
 # repeats 4-6 times each to reach 40 placements honestly, the way office
 # repeats a bin; the large, one-of-a-kind pieces (a copier, a locker run, a
 # concert harp, the drum kit) still appear once or twice, never padded.
@@ -435,7 +435,7 @@ ROOM_DRESSING = [
 # wall partition at each edge, so its outermost props stood in the void
 # beyond the wall. Each moved to the nearest legal lane at its own depth.
 #
-# **The 32px margins cannot hold anything once the wall is there** — the
+# **The 32px margins cannot hold anything once the wall is there**: the
 # partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
 # column caps it at 83. That is why these went to lanes and not to the
 # edges, and it is the check `nothingStandsOnAPartition` makes.
@@ -502,7 +502,7 @@ LIBRARY_DRESSING = [
 # wall partition at each edge, so its outermost props stood in the void
 # beyond the wall. Each moved to the nearest legal lane at its own depth.
 #
-# **The 32px margins cannot hold anything once the wall is there** — the
+# **The 32px margins cannot hold anything once the wall is there**: the
 # partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
 # column caps it at 83. That is why these went to lanes and not to the
 # edges, and it is the check `nothingStandsOnAPartition` makes.
@@ -514,16 +514,16 @@ STAGE_DRESSING = [
     {"scenery": 0, "x": 600, "y": 246, "what": "framed medal and citation"},
     {"scenery": 1, "x": 700, "y": 240, "what": "sports poster"},
     {"scenery": 2, "x": 140, "y": 258, "what": "trophy shelf"},
-    # The drum kit — the room's one big set piece — centre stage,
+    # The drum kit (the room's one big set piece) centre stage,
     # floor-standing on the wall line, amp stacks flanking it. Two more kits
     # (a spare and a rehearsal-corner one) at the wings, mirroring the way
     # `office`'s presentation board stands three times on its wall line.
     {"role": "board", "x": 400, "y": 224,
-     "what": "drum kit — kick, snare, toms, two cymbals on stands"},
+     "what": "drum kit: kick, snare, toms, two cymbals on stands"},
     {"role": "board", "x": 150, "y": 224,
-     "what": "drum kit — kick, snare, toms, two cymbals on stands"},
+     "what": "drum kit: kick, snare, toms, two cymbals on stands"},
     {"role": "board", "x": 650, "y": 224,
-     "what": "drum kit — kick, snare, toms, two cymbals on stands"},
+     "what": "drum kit: kick, snare, toms, two cymbals on stands"},
     {"scenery": 5, "x": 200, "y": 224, "what": "amplifier stack"},
     {"scenery": 5, "x": 600, "y": 224, "what": "amplifier stack"},
     # Lane 1 (128..192, seats at 112/208): backline corner. Amp stack, combo
@@ -569,38 +569,38 @@ STAGE_DRESSING = [
     {"role": "plant", "x": 345, "y": 188, "what": "microphone on a round-base stand"},
 ]
 
-# **`briefing`, `broadcast` and `mission_control`'s dressing, at M8 — the last
+# **`briefing`, `broadcast` and `mission_control`'s dressing, at M8: the last
 # three still on the four-band lattice.** [RoomPlan.Dressing]
 #
 # Same mechanism as `library`/`stage` above and the same habits: a stack in one
 # lane, a lane either full or empty, x jittered rather than centred, and the
 # same small-object repeat (4-6x) that keeps a thin pool honest instead of
-# padded. All three of these sets are thinner than `office`'s twenty — 12, 12
-# and 13 declared items against a `board`/`plant` pair each — so the pieces
+# padded. All three of these sets are thinner than `office`'s twenty: 12, 12
+# and 13 declared items against a `board`/`plant` pair each, so the pieces
 # that repeat here are the ones that read as clutter rather than as furniture:
 # a stool, a mic stand, a step ladder, a spare monitor.
 #
 # **`board`'s art is not always the static single named in `THEMES`.**
-# `mission_control` adopts `control_room_server` — a blinking server rack —
+# `mission_control` adopts `control_room_server`: a blinking server rack,
 # for the `board` role [`ANIMATED_ADOPTED`], so its placements below name the
 # adopted animation's own `what` ("server rack cabinet...") and not the static
 # pedestal single `THEMES["mission_control"]["roles"]["board"]` still points
 # at. A placement naming the static prop's text fails
 # `RoomPlanTests.theShippedDressingStandsInNobodysWay` with "the list moved
-# under the placement" — the same tripwire that caught `library`'s own
+# under the placement": the same tripwire that caught `library`'s own
 # `pendulum_clock` adoption once this mechanism moved the check to the
 # manifest's resolved role rather than to `THEMES`. `board` repeats 3x in
 # every one of these three rooms, matching `office`'s presentation board and
 # `stage`'s drum kit; for `mission_control` that is 3 x 109 px/s = 328 px/s of
-# the 1461 motion ceiling (0.22x) — cheaper than the 437 px/s (4 copies) the
+# the 1461 motion ceiling (0.22x): cheaper than the 437 px/s (4 copies) the
 # band lattice spent on the same object, because a hand-placed room draws
 # `board` exactly as many times as it is written down rather than once per
 # even back-row seat.
 # Re-homed when briefing gained a floor plan: the composition was authored
 # across the full 800px room and the plan spans 64..736 with an outer wall at
 # each edge, so its outermost props stood in the void. The 32px margins cannot
-# hold anything once the wall is there — the partition line spans 57..71 and a
-# 26px prop needs x >= 84 while the seat column caps it at 83 — so these went
+# hold anything once the wall is there: the partition line spans 57..71 and a
+# 26px prop needs x >= 84 while the seat column caps it at 83, so these went
 # to lanes, at their own depths.
 BRIEFING_DRESSING = [
     # Wall hangs, on the wall face above the wall line (y >= 224, exempt from
@@ -619,7 +619,7 @@ BRIEFING_DRESSING = [
     {"role": "board", "x": 650, "y": 224, "what": "flip chart"},
     {"role": "plant", "x": 200, "y": 224, "what": "full-height hanging curtain panel"},
     {"role": "plant", "x": 500, "y": 224, "what": "full-height hanging curtain panel"},
-    # Lane 1 (x 128..192, between seats at 112 and 208): the lectern corner —
+    # Lane 1 (x 128..192, between seats at 112 and 208): the lectern corner,
     # two lecterns and a chair stacked 1-2px apart, a spare piece out front.
     {"scenery": 3, "x": 160, "y": 190, "what": "grey lectern with a microphone"},
     {"scenery": 4, "x": 158, "y": 176, "what": "lectern with a lit screen"},
@@ -640,7 +640,7 @@ BRIEFING_DRESSING = [
     {"role": "plant", "x": 448, "y": 186, "what": "full-height hanging curtain panel"},
     {"scenery": 8, "x": 434, "y": 150, "what": "lectern top"},
     {"scenery": 10, "x": 464, "y": 124, "what": "wall shelf edge"},
-    # Lane 5 (512..576) — mirrors lane 3.
+    # Lane 5 (512..576): mirrors lane 3.
     {"scenery": 5, "x": 540, "y": 206, "what": "wooden lectern"},
     {"scenery": 9, "x": 556, "y": 178, "what": "microphone stand"},
     {"scenery": 6, "x": 530, "y": 106, "what": "stacking chair, back view"},
@@ -667,7 +667,7 @@ BRIEFING_DRESSING = [
 # wall partition at each edge, so its outermost props stood in the void
 # beyond the wall. Each moved to the nearest legal lane at its own depth.
 #
-# **The 32px margins cannot hold anything once the wall is there** — the
+# **The 32px margins cannot hold anything once the wall is there**: the
 # partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
 # column caps it at 83. That is why these went to lanes and not to the
 # edges, and it is the check `nothingStandsOnAPartition` makes.
@@ -679,15 +679,15 @@ BROADCAST_DRESSING = [
     {"scenery": 0, "x": 600, "y": 238, "what": "blank wall monitor"},
     {"scenery": 1, "x": 700, "y": 250, "what": "broadcast monitor carrying a presenter"},
     {"scenery": 2, "x": 140, "y": 258, "what": "blank wall monitor, wider"},
-    # Three tall softbox lights on the wall line — `office`'s board, `stage`'s
-    # kit — flanked by two backdrop panels the way `stage` flanks its kit
+    # Three tall softbox lights on the wall line: `office`'s board, `stage`'s
+    # kit: flanked by two backdrop panels the way `stage` flanks its kit
     # with amp stacks.
     {"role": "board", "x": 150, "y": 224, "what": "studio softbox light on a tripod, tall"},
     {"role": "board", "x": 400, "y": 224, "what": "studio softbox light on a tripod, tall"},
     {"role": "board", "x": 650, "y": 224, "what": "studio softbox light on a tripod, tall"},
     {"scenery": 5, "x": 200, "y": 224, "what": "striped studio backdrop panel"},
     {"scenery": 5, "x": 600, "y": 224, "what": "striped studio backdrop panel"},
-    # Lane 1 (128..192, seats at 112/208): the camera corner — a tall and a
+    # Lane 1 (128..192, seats at 112/208): the camera corner: a tall and a
     # short tripod and a stool 1-2px apart, a spare stool out front.
     {"scenery": 3, "x": 160, "y": 190, "what": "film camera on a tall tripod"},
     {"scenery": 4, "x": 158, "y": 176, "what": "film camera on a short tripod"},
@@ -708,7 +708,7 @@ BROADCAST_DRESSING = [
     {"role": "plant", "x": 448, "y": 186, "what": "film camera on a tripod"},
     {"scenery": 6, "x": 434, "y": 150, "what": "news desk, plain front"},
     {"scenery": 11, "x": 464, "y": 124, "what": "round studio stool"},
-    # Lane 5 (512..576) — mirrors lane 3.
+    # Lane 5 (512..576): mirrors lane 3.
     {"scenery": 8, "x": 540, "y": 206, "what": "striped studio backdrop panel, short"},
     {"scenery": 10, "x": 556, "y": 178, "what": "script pages on the floor"},
     {"scenery": 9, "x": 530, "y": 106, "what": "round studio stool"},
@@ -734,7 +734,7 @@ BROADCAST_DRESSING = [
 # wall partition at each edge, so its outermost props stood in the void
 # beyond the wall. Each moved to the nearest legal lane at its own depth.
 #
-# **The 32px margins cannot hold anything once the wall is there** — the
+# **The 32px margins cannot hold anything once the wall is there**: the
 # partition line spans 57..71, so a 26px prop needs x >= 84 and the seat
 # column caps it at 83. That is why these went to lanes and not to the
 # edges, and it is the check `nothingStandsOnAPartition` makes.
@@ -747,7 +747,7 @@ MISSION_CONTROL_DRESSING = [
     {"scenery": 3, "x": 600, "y": 246, "what": "warning sign"},
     {"scenery": 0, "x": 700, "y": 236, "what": "wall-mounted security monitor"},
     {"scenery": 1, "x": 140, "y": 262, "what": "schedule board"},
-    # Three server racks on the wall line — the theme's one adopted
+    # Three server racks on the wall line: the theme's one adopted
     # animation, see the note above this table for why `what` names the
     # animated rack and not the static pedestal single. Two consoles flank
     # them, reading as the screen wall the role's own `what` describes.
@@ -759,7 +759,7 @@ MISSION_CONTROL_DRESSING = [
                                                    "blinking status LEDs"},
     {"role": "plant", "x": 200, "y": 224, "what": "console bench with two wall screens"},
     {"role": "plant", "x": 500, "y": 224, "what": "console bench with two wall screens"},
-    # Lane 1 (128..192, seats at 112/208): the monitoring corner — a filing
+    # Lane 1 (128..192, seats at 112/208): the monitoring corner: a filing
     # cabinet, a security monitor and a control box 1-2px apart, a spare bin
     # out front.
     {"scenery": 8, "x": 160, "y": 190, "what": "two-drawer filing cabinet"},
@@ -816,7 +816,7 @@ DRESSING_ONLY_PLANS = {
 def plan_line_inks(path):
     """`(edge, fill)` of a cap tile's floor-plan line, measured down its middle.
 
-    The section is 2 px dark / 8 px light / 2 px dark in the top 12 rows —
+    The section is 2 px dark / 8 px light / 2 px dark in the top 12 rows,
     measured in `Office_Design_2.gif` and reproduced here off the shipped bytes
     rather than transcribed, so a re-import that shifts a tone moves the
     partitions with it. `None` for a tile that does not carry one, which is how
@@ -871,7 +871,7 @@ def build_plan(builder_tiles, dressing=None):
         "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own "
                 "grid, y up; a space's `h` includes the two rows its north wall "
                 "eats. `doorways` are absolute tile columns cut clean through that "
-                "wall — nothing is drawn in one, the space's own floor is already "
+                "wall: nothing is drawn in one, the space's own floor is already "
                 "there. `line_edge`/`line_fill` are measured off the cap tile and "
                 "are what a partition is drawn from, because every plain wall run "
                 "in the sheet is a 12-14 px stripe on an otherwise empty tile and "
@@ -890,15 +890,15 @@ def build_plan(builder_tiles, dressing=None):
 #
 # `office`'s `ROOM_PLAN` carves five rooms out of its floor because its own
 # builder sheet ships five floor materials that agree with one wall. These
-# five themes ship one — their own `floor`, cut once, same as it always was
-# — so they get one banded space instead of five, and the shape is office's
+# five themes ship one: their own `floor`, cut once, same as it always was
+#, so they get one banded space instead of five, and the shape is office's
 # own with the interior partitions and its three back-room surfaces dropped
 # to a single un-dressed one.
 #
 # **Why a second, un-dressed space at all, when a theme's own composed room
 # already ends at the wall line.** `RoomPlan.topRow()` is what
 # `RoomScene.decorationTopY` measures to aim the camera, and it is a function
-# of a space's own `y + h` alone — not of what the space is used for. A
+# of a space's own `y + h` alone, not of what the space is used for. A
 # single space whose band sits exactly on the existing wall line (matching
 # `RoomLayout.wallBaseY`, which is where every one of these five themes
 # already hangs its dressing) raises `topRow()` no further than the dressing
@@ -906,9 +906,9 @@ def build_plan(builder_tiles, dressing=None):
 # placement's own top [`RoomScene.decorationTopY`, the `dressingPlacements`
 # loop]. Office's own back rooms are what buy it 384 over the ~290-306 these
 # five themes measure with no plan at all: a second wall face, further
-# upstage, with nothing hung on it. `back` is that second face — the same
+# upstage, with nothing hung on it. `back` is that second face: the same
 # surface repeated, since these five themes have no second material to spend
-# on it — and it is un-dressed on purpose: the composed placements in
+# on it, and it is un-dressed on purpose: the composed placements in
 # `LIBRARY_DRESSING` and its four siblings all assume the wall stands where
 # it already visually does, at `wallBaseY`, and moving that face would leave
 # every wall hang floating over open floor instead of mounted on one.
@@ -927,7 +927,7 @@ def build_wall_band_plan(name, builder_tiles, dressing):
     """A one-surface wall band for a theme with no combined builder sheet.
 
     `build_plan` reads `PLAN_SURFACES`, five names keyed to the office room's
-    combined `Room_Builder_Office_32x32.png` — a different sheet and a
+    combined `Room_Builder_Office_32x32.png`: a different sheet and a
     different coordinate space from the one `scripts/process-assets.py` cuts
     a themed `floor`/`wall` from. This is that same idea over the sheet the
     themes actually bind: one surface, named for the theme, built from its
@@ -935,7 +935,7 @@ def build_wall_band_plan(name, builder_tiles, dressing):
     `scripts/process-assets.py`'s `THEME_PLAN_WALLS` cuts for it.
 
     `None` for a theme whose sheet has no `floor`, `plan_cap` or `plan_body`
-    — every theme not in `THEME_PLAN_WALLS`, and not a defect: that table
+: every theme not in `THEME_PLAN_WALLS`, and not a defect: that table
     only names a theme once somebody looked at the cap's tone against its
     existing wall and floor and judged it a match. A theme absent from it,
     or whose cap fails `plan_line_inks`, keeps composing its dressing on the
@@ -961,7 +961,7 @@ def build_wall_band_plan(name, builder_tiles, dressing):
                 "interior partitions and its three back-room surfaces dropped to "
                 "one: this theme's sheet carries a single floor/cap/body set "
                 "rather than five that agree. `back` is undressed and un-doored "
-                "on purpose — it exists only to give RoomPlan.topRow() a second "
+                "on purpose: it exists only to give RoomPlan.topRow() a second "
                 "wall face, upstage of the one this theme's own dressing is hung "
                 "on, which is what closes the empty floor below the seat row the "
                 "same way office's own back rooms do. RoomPlan.routeViolations(in:) "
@@ -1032,7 +1032,7 @@ def raised_frame(frames):
     """Which frame of an animation holds the body **highest**. [ADR-008]
 
     The `AmbientMotion` phrase table is a schedule over two positions of one
-    bob — `settled` and `raised` — and until now `raised` was "the last frame",
+    bob (`settled` and `raised`) and until now `raised` was "the last frame",
     which is a measurement of the three-frame `sit` row (0, 0, up) that happens
     to be right there and is wrong everywhere else. The six-frame `idle` row
     bobs on frames **2 and 3** and returns to rest on 4 and 5, so `frameCount -
@@ -1044,7 +1044,7 @@ def raised_frame(frames):
     highest.
 
     Measured on the state's first direction. For the two rows anything reads it
-    for — `idle` and `working` — all four directions agree exactly, on every
+    for (`idle` and `working`) all four directions agree exactly, on every
     variant (idle 2, working 2). `walk` does **not** agree, because its bob is a
     stride and the down block starts on the raised foot; nothing reads `walk`'s,
     and a number that means "the up part of the loop" is not meaningful for a
@@ -1068,7 +1068,7 @@ def costume_ink_top(sets):
     fails. Measured here rather than in `Sources/` because the scene would have
     to open ~1000 PNGs to ask the same question at build time.
 
-    `idle` and `working` only — the two states a seated character draws. `walk`
+    `idle` and `working` only: the two states a seated character draws. `walk`
     reaches 2 px higher and no seat ever draws it.
     """
     highest = None
@@ -1087,7 +1087,7 @@ def desk_surface_height(path, box):
     """How many px above the floor a desk's top surface sits. [ADR-006 SS2b]
 
     `content_box` measures a desk's own ink footprint, not the plane an object
-    could stand on — usually the same row, but not when something is already
+    could stand on: usually the same row, but not when something is already
     drawn on the desk (`library` binds a wooden desk with an open book on it,
     whose box top is 8px above the slab underneath).
 
@@ -1100,7 +1100,7 @@ def desk_surface_height(path, box):
     because that is what a placement rule needs and what `content_box`'s own
     docstring establishes: the scene puts a prop's content_box *bottom*-centre
     on the floor point for its tile, so the box's bottom row is the floor and
-    every row above it is that many px higher — `(box.y + box.h) - surface_row`.
+    every row above it is that many px higher: `(box.y + box.h) - surface_row`.
 
     Returns `None` if no row clears the threshold, which should not happen for
     anything shaped like a desk; the caller treats that as "no surface" rather
@@ -1181,7 +1181,7 @@ def build_characters():
         "directions": ["right", "up", "left", "down"],
         "frame_rate": FPS,
         "accent_note": "accent_hex is assigned, not sampled. The art's own most "
-                       "saturated pixels do not separate — all six selected premades "
+                       "saturated pixels do not separate: all six selected premades "
                        "land inside a 30 degree hue arc and two of them are "
                        "hue-identical (measured at M2). These six are 60 degrees "
                        "apart. The accent is drawn by the scene as the nameplate "
@@ -1190,19 +1190,19 @@ def build_characters():
         "unsourceable_states": {
             "read": "no 'read a book' animation exists in Modern Interiors; "
                     "docs/04-ART-DIRECTION.md permits dropping it",
-            "attention": "badge only, by design — no honest body animation exists [I1]",
+            "attention": "badge only, by design: no honest body animation exists [I1]",
         },
         "variants": variants,
     }
 
 
 def build_costumes():
-    """`characters.costumes` — the wardrobe, from what `costumes()` actually cut.
+    """`characters.costumes`: the wardrobe, from what `costumes()` actually cut.
 
     **On, unconditionally.** It shipped behind a `--costumes` flag while
     `CostumeContractTests.theShippedManifestDeclaresNoWardrobeAndThatIsLegal`
     still asserted the committed manifest declared none. That assertion has
-    flipped — the suite now reads a wardrobe out of the shipped manifest — so
+    flipped (the suite now reads a wardrobe out of the shipped manifest) so
     the flag had become a loaded gun: a rerun *without* it silently deleted a
     hand-verified section, which is exactly the failure the no-regression check
     in `main()` now refuses outright. There is no way to ask for a manifest
@@ -1286,7 +1286,7 @@ def build_costumes():
         raise SystemExit(3)
     out = {
         "note": "Two tiers. `roles` is keyed on the exact agent_type string and "
-                "may translate it — a test-engineer in a lab coat is the room "
+                "may translate it: a test-engineer in a lab coat is the room "
                 "repeating a name the user chose. `assignable` is the pool an "
                 "unrecognised type is hashed over and nothing in it asserts, "
                 "which is the question_mark rule on the character layer. [I1]",
@@ -1374,7 +1374,7 @@ def build_room():
         "provenance": "pack",
         "processed_by": "scripts/process-assets.py",
         "note": "Desaturated and value-compressed at import [I7]. Never edit these by "
-                "hand — they are regenerated whenever the pack updates.",
+                "hand: they are regenerated whenever the pack updates.",
         "builder": {
             "source": "Modern Office / Room_Builder_Office_%s.png" % SIZE,
             "note": "floors and walls, sliced on the sheet's exact 32px grid",
@@ -1384,7 +1384,7 @@ def build_room():
             "source": "Modern Office / 4_Modern_Office_singles/%s" % SIZE,
             "canvas": {"w": 64, "h": 96},
             "identified": bool(roles),
-            "note": "The pack names singles by index only — no filenames, no layer or "
+            "note": "The pack names singles by index only: no filenames, no layer or "
                     "slice names in its .ase, no tags. The %d roles below were "
                     "identified by rendering the singles and looking at them; the "
                     "other %d files stay unidentified and are listed for completeness "
@@ -1393,10 +1393,10 @@ def build_room():
                     "bottom-aligned in their canvas. The `desk` role additionally "
                     "carries `surface_y`: how many px above the floor its top surface "
                     "sits, measured by the topmost row of an 80%%-of-box-width ink run "
-                    "rather than by the box's own top — the two disagree wherever "
+                    "rather than by the box's own top: the two disagree wherever "
                     "something is drawn standing on the desk. [ADR-006 SS2b] "
                     "`laptop`, `papers` and `pad` are desk-top object "
-                    "declarations for ADR-006 SS1/SS2c — measured content_box "
+                    "declarations for ADR-006 SS1/SS2c: measured content_box "
                     "only, not yet placed by any scene code. A fourth kind, a "
                     "desk monitor with a lit screen for `running`, is "
                     "deliberately not declared: every candidate single in the "
@@ -1408,8 +1408,8 @@ def build_room():
                     "[ADR-002 SS14a] and its dressing has to be byte-identical to "
                     "themes.sets.office's or the same room would be two rooms. "
                     "Six of the office scenery props come from the Hospital set "
-                    "— the only bins, filing cabinets, wall clocks and schedule "
-                    "boards in either pack — and the room singles folder holds "
+                    ": the only bins, filing cabinets, wall clocks and schedule "
+                    "boards in either pack, and the room singles folder holds "
                     "the Office set only, so it could not carry them at all."
                     % (len(roles), len(props) - len(roles)),
             "scenery_note": SCENERY_NOTE,
@@ -1435,7 +1435,7 @@ def build_room():
 
 
 def build_stations(base):
-    """`room.props.stations` — the workspace one agent sits at. [ADR-002 §14c]
+    """`room.props.stations`: the workspace one agent sits at. [ADR-002 §14c]
 
     Declared **once**, here under `room`, and inherited by every theme that does
     not declare its own. Only one object in either pack is a chair drawn side-on
@@ -1539,17 +1539,17 @@ def build_stations(base):
 
 SCENERY_NOTE = (
     "`scenery` is the room's dressing: everything the four roles above are not "
-    "— printers, cabinets, bins, coolers, wall boards. An ordered list, not a "
+    ": printers, cabinets, bins, coolers, wall boards. An ordered list, not a "
     "map, because the order is what maps a prop onto an anchor. Each entry "
-    "carries a `band` — `wall`, `wall_line`, `back_floor`, `mid_floor` — and "
+    "carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and "
     "that is the ONLY placement fact here: which column and which y is scene "
     "geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with "
     "no code change. The band is hand-authored in scripts/process-assets.py, "
-    "because it cannot be derived — docs/PLACEMENT-BANDS.md is the measured "
+    "because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured "
     "negative result. A band the scene does not know draws nothing rather than "
     "guessing. Scenery is chosen by theme, decided at build time and identical "
     "for every agent; nothing in the delta stream reaches it, and none of it "
-    "may ever carry an `animation` — the motion budget is priced on the four "
+    "may ever carry an `animation`: the motion budget is priced on the four "
     "roles. [ADR-002 SS6 rule 1, SS14b, I1]"
 )
 
@@ -1558,7 +1558,7 @@ def scenery_entries(theme_name, spec, path_for):
     """`props.scenery` for one room: the declared list, measured off disk.
 
     `path_for(index, band)` says where this room keeps the cut file, which is
-    the one thing `room` and `themes.sets.<id>` do differently — the default
+    the one thing `room` and `themes.sets.<id>` do differently: the default
     room draws the Office singles straight out of `processed/room/`, and a theme
     draws its own re-padded copies. Everything else, including the order, is one
     list in `scripts/process-assets.py`: two copies of it would be two rooms.
@@ -1598,8 +1598,8 @@ def _importer():
 
     Imported rather than duplicated. The importer owns which single fills which
     slot, which animated object a theme adopts, and what canvas everything was
-    padded into — those are the things that were established by looking at the
-    art — and a second copy here would be a second source of truth that drifts.
+    padded into: those are the things that were established by looking at the
+    art, and a second copy here would be a second source of truth that drifts.
     The hyphenated filename is why this needs importlib rather than `import`.
     """
     import importlib.util
@@ -1642,7 +1642,7 @@ def animated_role(name, spec, canvas):
     **`content_box` is the union over every frame**, not frame 0's. The scene
     anchors a prop by its box and draws every frame on one canvas at one
     position, so a box that described only frame 0 would be a claim about the
-    prop that is false for the rest of the loop — and the foreground-clearance
+    prop that is false for the rest of the loop, and the foreground-clearance
     test in the scene reads that box's height. Where the union equals frame 0's
     box, as it does for everything adopted so far, the two readings agree and
     `file`-only readers lose nothing.
@@ -1654,7 +1654,7 @@ def animated_role(name, spec, canvas):
     transcribed figure did at M6b.
 
     The three are different quantities and the distinction is load-bearing.
-    `moving_px` is the union over the loop against frame 0 — a per-loop total
+    `moving_px` is the union over the loop against frame 0: a per-loop total
     that grows with the number of frames and carries no rate. `transition_px` is
     what changes on each step, so `mean(transition_px) * fps` is pixels changed
     per second, which is comparable between a 3-frame loop at 2 fps and an
@@ -1681,7 +1681,7 @@ def animated_role(name, spec, canvas):
     # of the art. It fails loudly because a silently dropped role leaves a theme
     # with no backdrop.
     if (w, h) != tuple(canvas):
-        print("  note: %s frames are %dx%d, not the %dx%d prop canvas — not "
+        print("  note: %s frames are %dx%d, not the %dx%d prop canvas, not "
               "adoptable as a role" % ((name, w, h) + tuple(canvas)), file=sys.stderr)
         return None
 
@@ -1713,7 +1713,7 @@ def animated_role(name, spec, canvas):
     # Per *step* of the loop, wrapping past the last frame back to the first,
     # because `loop` is always true. `moving_px` above is the union over the
     # whole loop against frame 0, which grows with loop length and says nothing
-    # about rate — a 20-frame loop that drifts one pixel at a time accumulates a
+    # about rate: a 20-frame loop that drifts one pixel at a time accumulates a
     # large union while changing almost nothing per second. This list is the raw
     # measurement the motion budget is computed from; integers, so the manifest
     # stays byte-deterministic and a reviewer can see the shape of the loop
@@ -1744,7 +1744,7 @@ def animated_role(name, spec, canvas):
                            "`transition_px` is the pixels that change on each "
                            "step of the loop, wrapping, and is what "
                            "scripts/lint-palette.py's motion budget is computed "
-                           "from — mean(transition_px) * fps * how many times "
+                           "from: mean(transition_px) * fps * how many times "
                            "the room draws this role. The lint recomputes all "
                            "three off the same PNGs and fails if they disagree "
                            "with these.",
@@ -1757,8 +1757,8 @@ def build_themes():
 
     Why a sibling of `room` rather than a replacement for it: `room` is the
     contract the scene loads today, and a themed room has to be a manifest swap
-    with zero code change. So `room` stays byte-for-byte what it was — it is the
-    resolved default theme — and `themes.sets.<id>` carries the same shape for
+    with zero code change. So `room` stays byte-for-byte what it was: it is the
+    resolved default theme, and `themes.sets.<id>` carries the same shape for
     every theme including that default. A scene that learns to select a theme
     reads `themes.sets[id]` with the loader it already has for `room`; nothing
     has to be reshaped and no existing reader breaks.
@@ -1790,7 +1790,7 @@ def build_themes():
         # **A hand-dressed theme keeps its animated prop.** This block briefly
         # withheld one, because the dressing path drew through
         # `RoomScene.place(prop:at:depthBias:)` and only the old decoration-band
-        # path wired up `PropAnimation` — so a composed room shipped a role
+        # path wired up `PropAnimation`, so a composed room shipped a role
         # stamped "animated" that nothing ever played, and `library` lost its
         # pendulum clock by being composed. That was the manifest working around
         # a gap in the scene; the scene now places dressing through
@@ -1844,10 +1844,10 @@ def build_themes():
                     roles[role]["surface_y"] = surface
 
             # `role_variants` is extra stock for this role beyond `roles[role]`
-            # itself — scripts/process-assets.py writes it to `<role>_<n>.png`
+            # itself: scripts/process-assets.py writes it to `<role>_<n>.png`
             # for n = 1, 2, .... `variants[0]` is always `roles[role]["file"]`,
             # unpicked, so a reader that has never heard of `variants` draws it
-            # and is correct — same contract as `animation`'s `frames`. Missing
+            # and is correct: same contract as `animation`'s `frames`. Missing
             # or unfittable stock is skipped rather than failing the build: a
             # pool that came up short of the source table is a real finding
             # (recorded beside the table in scripts/process-assets.py), not a
@@ -1872,8 +1872,8 @@ def build_themes():
             #
             # The WALL IS THE FLAT, and that is a finding about the pack rather
             # than a preference. Every wall tile in Room_Builder_Walls carries
-            # vertical trim — measured: the left and right edge columns differ
-            # on 28-32 of 32 rows for every tile picked — because the sheet is
+            # vertical trim: measured: the left and right edge columns differ
+            # on 28-32 of 32 rows for every tile picked, because the sheet is
             # drawn for wall *segments* with corners, not for a wall repeated
             # across a 25-tile room. Tiled horizontally they show a hard seam
             # every 32 px. The Office room never hit this because its builder
@@ -1906,7 +1906,7 @@ def build_themes():
         plan = build_plan(tiles, ROOM_DRESSING if name == "office" else None)
         # **`library`, `stage`, `briefing`, `broadcast` and `mission_control`
         # get a one-surface wall band when their sheet has a cap and body that
-        # suit them** [M8 face-the-camera] — `THEME_PLAN_WALLS` in
+        # suit them** [M8 face-the-camera]: `THEME_PLAN_WALLS` in
         # `scripts/process-assets.py` is what says a theme suits one; this is
         # just where the pick is turned into a plan. `build_wall_band_plan`
         # returns `None` for a theme absent from that table, or whose cut cap
@@ -1916,8 +1916,8 @@ def build_themes():
         # `library` and `stage` have no builder sheet `build_plan` can draw a
         # floor plan from, but they still compose their own dressing by hand
         # [RoomPlan.Dressing, commit 29844e6]: a `plan` holding only
-        # `dressing` keeps `RoomPlan.isEmpty` true — no floor, band or
-        # partition draws — and switches off the four-band lattice, which
+        # `dressing` keeps `RoomPlan.isEmpty` true: no floor, band or
+        # partition draws, and switches off the four-band lattice, which
         # `RoomScene.buildRoom` keys off `dressing.isEmpty` rather than off
         # the plan.
         if plan is None and name in DRESSING_ONLY_PLANS:
@@ -1938,7 +1938,7 @@ def build_themes():
             # ADR-002 §3e. `assignable` is what the *hash* may pick; every theme
             # is choosable by the user regardless. The split exists so a room
             # that would read as a claim about the work can be offered without
-            # ever being assigned to someone by accident — the difference
+            # ever being assigned to someone by accident: the difference
             # between a user saying "make mine the jail" and the app deciding a
             # project looks like one. [I1]
             #
@@ -1958,7 +1958,7 @@ def build_themes():
                            else "Modern Office / Room_Builder_Office_%s.png" % SIZE,
                  "note": "`floor` and `wall` are the two tiles this theme draws. "
                          "`floor` is cut from the pack. `wall` is provenance "
-                         "'authored' — a flat field of the mean tone of the pack tile "
+                         "'authored': a flat field of the mean tone of the pack tile "
                          "recorded in `wall_pattern_source`, because every wall tile "
                          "in that sheet carries vertical trim and seams every 32px "
                          "when repeated across a 25-tile room. `floor_flat` is the "
@@ -1979,12 +1979,12 @@ def build_themes():
                         "measured content_box bottom-centre on a named point. The "
                         "canvas widened from 64 to 128 at M6c to admit a 128px-wide "
                         "animated prop; padding is bottom-centred and placement is by "
-                        "content_box, so nothing moved — checked in pixels against a "
+                        "content_box, so nothing moved: checked in pixels against a "
                         "before/after render of all six themes, not in arithmetic. "
                         "The `desk` role additionally carries `surface_y`: how many px "
                         "above the floor its top surface sits, measured by the topmost "
                         "row of an 80%%-of-box-width ink run rather than by the box's "
-                        "own top — bottom-centred padding does not move it, since it is "
+                        "own top: bottom-centred padding does not move it, since it is "
                         "computed from the box's own coordinates. [ADR-006 SS2b]"
                         % prop_canvas,
                 "animation_note": "A role may carry an `animation` object beside `file`. "
@@ -1992,7 +1992,7 @@ def build_themes():
                                   "knows nothing about animation draws it and is "
                                   "correct. `animation.fps` comes from the pack's own "
                                   "GIF of the object, `loop` is always true, and the "
-                                  "prop never reacts to an event — ADR-002 §6 rule 1 "
+                                  "prop never reacts to an event: ADR-002 §6 rule 1 "
                                   "and §9. `moving_px`/`visible_px`/`transition_px` are "
                                   "I7's numbers for a moving prop and are measured on "
                                   "these frames; the motion budget in "
@@ -2003,7 +2003,7 @@ def build_themes():
                 "variants_note": "A role may carry `variants` beside `file`: an ordered "
                                  "list of file paths, `file` first, so a reader that "
                                  "knows nothing about `variants` draws `file` and is "
-                                 "correct — the same contract `animation` states for "
+                                 "correct: the same contract `animation` states for "
                                  "`frames`, in the same voice. What indexes it is the "
                                  "seat, at build time, identically for every agent: §6 "
                                  "rule 1 says the room does not change with activity at "
@@ -2026,7 +2026,7 @@ def build_themes():
         "note": "Each entry has the same shape as `room`, which is the resolved "
                 "default. The four role names are placement slots, not object nouns: "
                 "`plant` is the repeated back-wall and walkway accent, and a theme "
-                "fills it with whatever plays that part — a console terminal, a "
+                "fills it with whatever plays that part: a console terminal, a "
                 "bookcase, a stage curtain. Selection mechanism is docs/ADR-002.",
         "sets": sets,
     }
@@ -2066,7 +2066,7 @@ def build_badges():
                 # are scaffolding.
                 entry = {"file": rel(p), "provenance": "authored"}
                 # The search that led here, in the words of the script that did
-                # it. Kept because it is a real finding and someone will ask —
+                # it. Kept because it is a real finding and someone will ask,
                 # but worded as why this badge is *authored*, not as why it is
                 # still waiting. Nothing here should send a reader shopping.
                 reason = unsourceable.get(name)
@@ -2077,7 +2077,7 @@ def build_badges():
                     entry["searched"] += "UI sheets rendered and inspected at M5b; "
                     entry["searched"] += "filename sweep of all 52726 PNGs in the three "
                     entry["searched"] += "packs. The search is closed, not paused."
-                    entry["drawn_by"] = "scripts/generate-art.py — authored on the "
+                    entry["drawn_by"] = "scripts/generate-art.py: authored on the "
                     entry["drawn_by"] += "pack's own 2x design grid and in the pack's "
                     entry["drawn_by"] += "own four-colour icon palette, composited "
                     entry["drawn_by"] += "into the pack's own empty speech bubble"
@@ -2106,7 +2106,7 @@ def build_badges():
                 "are drawn or composited here top out at saturation 0.384, which is "
                 "the bubble's own border. The two emotes cut whole from the pack, "
                 "question_mark (0.710) and attention (0.770), are the loud ones and "
-                "always were — they are pack art, high-value rather than heavy, and "
+                "always were: they are pack art, high-value rather than heavy, and "
                 "they sit under the most saturated character pixel (1.000). Every "
                 "badge is over the 0.25 room ceiling, which is why the exemption "
                 "exists rather than being decorative.",
@@ -2114,7 +2114,7 @@ def build_badges():
             "source": "Modern Interiors / 4_User_Interface_Elements/UI_%s.png" % SIZE,
             "rect": [164, 16, 24, 34],
             "note": "Every badge shares this bubble, the four authored ones "
-                    "included as of M5c — before that they drew a hand-made "
+                    "included as of M5c: before that they drew a hand-made "
                     "lookalike with a heavier border and read louder in the room "
                     "than the pack art beside them. It is the same "
                     "692-pixel component the question_mark badge is cut from with "
@@ -2126,19 +2126,19 @@ def build_badges():
     if os.path.exists(extra):
         states["attention"] = {
             "file": rel(extra), "provenance": "pack",
-            "note": "for Notification. Badge only — docs/04-ART-DIRECTION.md "
+            "note": "for Notification. Badge only: docs/04-ART-DIRECTION.md "
                     "rules out a body animation here [I1]."}
     dormant = os.path.join(real, "sleep.png")
     if os.path.exists(dormant):
         states["sleep"] = {
             "file": rel(dormant), "provenance": "pack",
-            "note": "for a dormant subagent — one that stopped a turn, kept its "
+            "note": "for a dormant subagent: one that stopped a turn, kept its "
                     "seat, and may be revived by a later event. Badge only, and "
                     "that is a finding rather than a shortcut: the pack's own "
                     "`sleep` body row is a head on a pillow drawn from above, to "
                     "be composited onto a top-down bed, so it cannot be worn by a "
                     "character sitting side-on in an office chair. Measured at "
-                    "M6b — see docs/04-ART-DIRECTION.md. This says exactly what "
+                    "M6b: see docs/04-ART-DIRECTION.md. This says exactly what "
                     "the model knows and nothing more. [I1]"}
     if states:
         result["states"] = states
@@ -2186,7 +2186,7 @@ def _dig(node, path):
 def sections_lost_against(path, manifest):
     """Names of GUARDED_SECTIONS present in the file at `path` and absent here.
 
-    A malformed or missing file guards nothing — there is nothing to lose — and
+    A malformed or missing file guards nothing (there is nothing to lose) and
     an empty section counts as absent, since an empty wardrobe dresses no one.
     """
     if not os.path.exists(path):
@@ -2221,7 +2221,7 @@ def main(argv=None):
         },
         "credit": {
             "required": True,
-            "text": "Pixel art by LimeZu — limezu.itch.io",
+            "text": "Pixel art by LimeZu: limezu.itch.io",
             "url": "https://limezu.itch.io",
             "note": "Three packs, one author, so one credit line still covers all of "
                     "them: Modern Interiors and Modern User Interface both state "
@@ -2231,7 +2231,7 @@ def main(argv=None):
                       "Modern User Interface"],
             "restrictions": "All three forbid resale and redistribution and permit "
                             "editing. Modern User Interface additionally forbids NFT "
-                            "minting — a clause neither other pack carries, and the "
+                            "minting: a clause neither other pack carries, and the "
                             "only licence term in this project that restricts a use "
                             "rather than a distribution. Nothing here mints anything, "
                             "but the clause travels with the art, so any future use of "
@@ -2276,7 +2276,7 @@ def main(argv=None):
 
     # The check above only catches paths we *declared* and could not find. With
     # no art at all nothing gets declared, so `missing` is empty and the run
-    # looks like a success — and then overwrites the one art artefact that is
+    # looks like a success, and then overwrites the one art artefact that is
     # tracked in git with an empty shell, exit 0, no complaint.
     #
     # That is exactly what a fresh clone is: `assets/` is gitignored, so a
@@ -2294,7 +2294,7 @@ def main(argv=None):
     if empty:
         print("error: refusing to write an empty manifest (%s)." % ", ".join(empty),
               file=sys.stderr)
-        print("       The packs are not unpacked under assets/ — see README.md.",
+        print("       The packs are not unpacked under assets/: see README.md.",
               file=sys.stderr)
         print("       %s is left untouched." % rel(args.out), file=sys.stderr)
         return 2
@@ -2305,7 +2305,7 @@ def main(argv=None):
               "on disk already has:", file=sys.stderr)
         for name in lost:
             print("   %s" % name, file=sys.stderr)
-        print("       Whatever produced those entries is not running now — an "
+        print("       Whatever produced those entries is not running now: an "
               "unpacked pack, a table, a flag. Fix that, not this file.",
               file=sys.stderr)
         print("       %s is left untouched." % rel(args.out), file=sys.stderr)

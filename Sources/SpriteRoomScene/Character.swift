@@ -12,7 +12,7 @@ import SpriteKit
 /// reason `WorldModel` takes its instant as an argument: it makes the whole
 /// thing deterministic and renderable without a window. (`SKRenderer` was
 /// measured not to evaluate the action tree at all, so an `SKAction`-based
-/// character is invisible to any offscreen check — the milestone that has to
+/// character is invisible to any offscreen check: the milestone that has to
 /// prove nameplates are legible cannot afford that.)
 ///
 /// The state machine is deliberately tiny, and `apply(state:facing:)` is a
@@ -32,8 +32,8 @@ import SpriteKit
 ///   anchors. The premise is right about the download and the conclusion did not
 ///   follow: on the one pose this room draws, **the hands do not move**, so
 ///   there is a single anchor to measure rather than a per-frame table to
-///   invent. It is measured — `x 14...17, y 52...55` in the 32x64 canvas, the
-///   same box on every cast variant, every `sit` frame and both facings — and
+///   invent. It is measured: `x 14...17, y 52...55` in the 32x64 canvas, the
+///   same box on every cast variant, every `sit` frame and both facings, and
 ///   `HeldObject` carries the derivation and the numbers.
 /// - The **badge** still carries tool identity. The held object is a colour
 ///   block inside an existing outline and cannot change the silhouette on this
@@ -42,7 +42,7 @@ import SpriteKit
 /// The two `Books` and `Smartphones` folders remain unusable and the reason has
 /// changed shape without changing sign: they carry ink on one standing
 /// front-facing row each, and the held-object layer is now **frozen to the sit
-/// row** — a seat that faces the camera or away from it draws the standing
+/// row**: a seat that faces the camera or away from it draws the standing
 /// `idle` row, for which the pack gives us no hand anchor at all, so its hands
 /// stay empty. [ADR-008 §8] The sentence used to read "this room is side-view
 /// seated"; the room is not, and no seat in it holds anything.
@@ -52,14 +52,14 @@ public final class Character: SKNode {
     /// Z bands, in accumulated `zPosition`.
     ///
     /// Bodies are sorted by row (`rowDepth`), so whoever is nearer the camera
-    /// draws in front — that is what lets a character cross the aisle without
+    /// draws in front: that is what lets a character cross the aisle without
     /// cutting through the seated row. **The badge and the nameplate are not
     /// in that competition.** They sit in a band far above every body, so no
     /// character can ever paint over another character's identity.
     ///
     /// This is not a cosmetic preference. M0 measured that this cast is not
-    /// separable by silhouette — the best six-variant subset differs by 7.3%
-    /// of outline and several premades are identical — so the nameplate *is*
+    /// separable by silhouette: the best six-variant subset differs by 7.3%
+    /// of outline and several premades are identical, so the nameplate *is*
     /// the identity, and the badge *is* the tool. A body occluding either one
     /// is a loss of information, not a loss of polish. [criterion 5]
     public enum Layer {
@@ -91,7 +91,7 @@ public final class Character: SKNode {
 
     public let agentVariant: String
     /// What this character is wearing, or `nil` for the cast's own clothes.
-    /// **`let`** — §6 rule 2, and there is deliberately no setter.
+    /// **`let`**: §6 rule 2, and there is deliberately no setter.
     public let agentCostume: String?
     /// Walk speed in unscaled scene pixels per second. **The same for every
     /// walk, at every distance.**
@@ -101,11 +101,11 @@ public final class Character: SKNode {
     /// distance, which nothing in the data says and which has a consequence:
     /// two characters leaving in the same direction converge, because the one
     /// with further to go is the one that has been sped up. `SessionEnd` departs
-    /// the whole cast in a single frame, so that is not a corner — it is what
+    /// the whole cast in a single frame, so that is not a corner: it is what
     /// the end of every session looks like.
     ///
-    /// What the cap was guarding against — "a character that takes fifteen
-    /// seconds to cross the room reads as broken" — is bounded by the routes
+    /// What the cap was guarding against: "a character that takes fifteen
+    /// seconds to cross the room reads as broken": is bounded by the routes
     /// that exist rather than by a clamp. The longest walk the layout can
     /// produce is a departure from the centre seat to the far edge, 432 px, six
     /// seconds; every other route is a seat pitch, a delivery, or an entrance,
@@ -128,14 +128,14 @@ public final class Character: SKNode {
     /// index, so a costume cannot drift out of phase with the person wearing it.
     private var costumeFrames: [[SKTexture]?] = []
     /// What is in the hands, or nothing. One node, created at spawn, never
-    /// added or removed — only its texture and its visibility change.
+    /// added or removed: only its texture and its visibility change.
     private let heldNode = SKSpriteNode()
     private let badgeNode = SKSpriteNode()
     private let badgeCountNode = SKSpriteNode()
     private let nameplateNode = SKSpriteNode()
 
     /// The badge slot's **top** edge, above the feet. Every picture the slot can
-    /// hold hangs from this line — see `placeBadgePicture(width:height:)`.
+    /// hold hangs from this line: see `placeBadgePicture(width:height:)`.
     private var badgeSlotTopY: Double = 0
     /// The badge slot's **near** edge: the side facing the head. Every picture
     /// the slot can hold is aligned to this line, so a small one is beside the
@@ -149,7 +149,7 @@ public final class Character: SKNode {
     ///
     /// The identity sequence for every state except `idle` and `working`, and
     /// for a `working` character with an open call whose badge class is
-    /// `questionMark` or absent — so a character walking, delivering or running
+    /// `questionMark` or absent, so a character walking, delivering or running
     /// an unmapped tool plays exactly the animation this app has always played.
     /// For the six mapped classes it is the class's phrase over the seated art's
     /// two positions, which is the whole of the motion channel. For a character
@@ -161,7 +161,7 @@ public final class Character: SKNode {
     private var stateStartedAt: TimeInterval = 0
     private var currentState: BodyState?
     /// **Which animation row is actually on screen**, which is `currentState`
-    /// except at a seat whose facing has no seated art — see
+    /// except at a seat whose facing has no seated art: see
     /// `BodyState.artState(facing:)`. Read where the *frames* are the question
     /// (their count, their rate, which of them is the raised one) and never
     /// where the *fact* is. [ADR-008]
@@ -178,8 +178,8 @@ public final class Character: SKNode {
     /// **Which way the data says this character faces when it is not walking.**
     /// [ADR-008]
     ///
-    /// The end of a script used to restore `currentFacing.seated` — a *fold of
-    /// the travel facing* — and that was correct only while every seat in the
+    /// The end of a script used to restore `currentFacing.seated`: a *fold of
+    /// the travel facing*, and that was correct only while every seat in the
     /// room faced the same way: `.up.seated` is `.right`, and every entrance in
     /// this room is a walk upstage, so a character arriving at its chair turned
     /// to the room's one seated facing whatever it had been told. With a seat
@@ -209,7 +209,7 @@ public final class Character: SKNode {
     /// **Only an exit sets it, and an exit always does.** The departure walk
     /// used to end off the side of the frame, where the frame edge did the
     /// hiding for free. It now walks upstage, out through the back of the room,
-    /// because that is the only route in the room that crosses nobody's path —
+    /// because that is the only route in the room that crosses nobody's path,
     /// and there is no edge back there, only a flat wall, which gives a
     /// character walking away nothing to disappear behind. So it fades over that
     /// last leg. That is not a dramatisation: the agent is gone, and the fade is
@@ -221,9 +221,9 @@ public final class Character: SKNode {
     private var moveDuration: TimeInterval = 0
 
     /// - Parameter costume: what this agent wears, from
-    ///   `ThemeSelector.costume(agentID:agentType:in:)`. `nil` — the main
+    ///   `ThemeSelector.costume(agentID:agentType:in:)`. `nil`: the main
     ///   thread, an untyped subagent, or any agent at all in a manifest that
-    ///   declares no wardrobe — builds no layer nodes, so the character is
+    ///   declares no wardrobe: builds no layer nodes, so the character is
     ///   byte-for-byte the one this app has always drawn.
     public init(
         variant: String, nameplate: NameplateText, store: TextureStore,
@@ -278,9 +278,9 @@ public final class Character: SKNode {
             width: Double(store.manifest.badges.canvas.width),
             height: Double(store.manifest.badges.canvas.height))
 
-        // The `×N` keeps the corner of the slot it has always had — the
+        // The `×N` keeps the corner of the slot it has always had: the
         // bottom-right, 3 px inside the bubble's right edge and 2 px above its
-        // bottom — so the chip's relationship to the glyph it annotates is
+        // bottom, so the chip's relationship to the glyph it annotates is
         // untouched by the move. It rides the slot, not the head.
         badgeCountNode.anchorPoint = CGPoint(x: 0, y: 0)
         badgeCountNode.position = CGPoint(
@@ -290,7 +290,7 @@ public final class Character: SKNode {
         badgeCountNode.isHidden = true
         addChild(badgeCountNode)
 
-        // Under the feet, where nothing competes with it — the badge is beside
+        // Under the feet, where nothing competes with it: the badge is beside
         // the head rather than over it, so the space above the head is now
         // room, but the plate stays on the floor: it is the wider of the two
         // pictures and the aisle below is the only place a 63 px box fits
@@ -323,7 +323,7 @@ public final class Character: SKNode {
     /// **The highest pixel the badge slot can put on screen, above the feet.**
     ///
     /// This is the one number the camera's content band takes from a character,
-    /// and it is `headTop + 1` — the badge slot's **top** edge now sits one
+    /// and it is `headTop + 1`: the badge slot's **top** edge now sits one
     /// pixel above the head, where its *bottom* edge used to. That is the whole
     /// of the move from above-the-head to beside-the-head, stated as arithmetic:
     ///
@@ -337,7 +337,7 @@ public final class Character: SKNode {
     ///
     /// **34 px is what the move is for.** A 720×400 panel at `2x` frames 200
     /// scene pixels of height, and 108 of them were this number plus the
-    /// nameplate — the one term no rearrangement of the floor can touch, which
+    /// nameplate: the one term no rearrangement of the floor can touch, which
     /// is why clustering the seats was refuted rather than tried again
     /// [`RoomLayout.isBackRow(seat:)`]. It is also 34 px of *empty air* at `1x`:
     /// nothing but the badge is ever drawn there, so the room was reserving a
@@ -362,7 +362,7 @@ public final class Character: SKNode {
     /// while the 9×11 dormancy tab shipped, and the tab is gone
     /// [`docs/04-ART-DIRECTION.md` §1b-ii]. The two rules below are kept because
     /// they are what a second size would need again, and because they were
-    /// derived from a picture smaller than the slot — which is the only case
+    /// derived from a picture smaller than the slot, which is the only case
     /// that can tell them apart:
     ///
     /// - **Top, not bottom.** The head is the landmark and it is at the top of
@@ -386,7 +386,7 @@ public final class Character: SKNode {
 
     // MARK: Badge
 
-    /// The badge layer. **attention > sleep > tool** — see
+    /// The badge layer. **attention > sleep > tool**: see
     /// `BadgeSelection.isAttention` and `.isSleeping` for why, and why the `×N`
     /// goes with either of the first two. The *precedence* is unchanged by this
     /// method, and it is unchanged by the slot moving beside the head: what the
@@ -394,21 +394,21 @@ public final class Character: SKNode {
     /// decides where the pixels land.
     ///
     /// **Two pictures, and the split is the point.** A white speech bubble in
-    /// this slot means a tool call — open, just closed inside an ADR-003 beat, or
+    /// this slot means a tool call: open, just closed inside an ADR-003 beat, or
     /// parked at a gate waiting on you. Nothing else puts one there. Dormancy
-    /// gets `badges.states.sleep` — the pack's blue `Z` bubble, distinguished from
+    /// gets `badges.states.sleep`: the pack's blue `Z` bubble, distinguished from
     /// like the room's lettering rather than like a bubble; that file carries the
     /// measurement that made it necessary. So at `1x` the question "is this agent
     /// working right now" is answered by *whether there is a bubble*, which is
     /// the one thing the eye gets at that size.
     ///
     /// **Attention keeps the bubble deliberately.** It is the only badge a glance
-    /// can act on, and a gated call is a call the agent is still holding — so a
+    /// can act on, and a gated call is a call the agent is still holding, so a
     /// bubble over it is not the inversion this split exists to remove. The one
     /// residue is a *dormant* agent raising attention (`isSleeping` is
     /// `isDormant && !isAttention`, so attention takes the slot): that draws a
     /// bubble over an agent with nothing running. It is rare, it is the more
-    /// urgent of two true things, and its precedence is settled — see
+    /// urgent of two true things, and its precedence is settled: see
     /// `BadgeSelection.isSleeping`.
     ///
     /// If the attention glyph is missing from the manifest nothing is drawn in
@@ -416,14 +416,14 @@ public final class Character: SKNode {
     /// above already decided the order. **The sleep bubble takes the same
     /// fallback**, and it needs one: it is pack art loaded from the manifest, so
     /// on a checkout with no art the slot is simply empty. The authored tab that
-    /// could not go missing — drawn rather than loaded — was reverted with the
+    /// could not go missing (drawn rather than loaded) was reverted with the
     /// bubble's return [`docs/04-ART-DIRECTION.md` §1b-ii].
     public func apply(badge selection: BadgeSelection) {
         guard selection != currentBadge else { return }
         currentBadge = selection
         let attentionTexture = selection.isAttention ? store.attentionTexture() : nil
         let toolTexture = selection.badge.flatMap(store.badgeTexture)
-        // The hands follow the badge, in the same call, at the same instant —
+        // The hands follow the badge, in the same call, at the same instant,
         // and before the early return below, so a selection that puts no glyph
         // in the slot still empties the hands.
         refreshHeld()
@@ -441,13 +441,13 @@ public final class Character: SKNode {
         // shape family, so the room's loudest signal fires for *finished*
         // exactly as it fires for *working*. An authored 9x11 tab was built
         // against that measurement and shipped for a while. It is gone, and the
-        // paragraph below is why — the measurement is not gone, it is the price
+        // paragraph below is why: the measurement is not gone, it is the price
         // now being paid on purpose. [`docs/04-ART-DIRECTION.md` §1b, §1b-ii]
         //
         // **The pack's own sleep bubble, not the authored tab.**
         //
         // The tab was 9x11 of dark plate carrying a `Z`, chosen so dormancy took
-        // 15-19% of the slot a working badge fills — the argument being that
+        // 15-19% of the slot a working badge fills: the argument being that
         // *extent* is what "there is a bubble over that head" is read from at a
         // glance, and that a 9 px `Z` nobody can resolve at 1x is a fair price
         // for that distinction.
@@ -456,7 +456,7 @@ public final class Character: SKNode {
         // text box**, which is what it is: the room's lettering family, the same
         // dark plate a nameplate is drawn from, sitting where every other badge
         // is pack art. The distinction it bought is real and it is not lost by
-        // reverting, because it was never the only one available —
+        // reverting, because it was never the only one available,
         // `badges.states.attention` is a **red** exclamation and
         // `badges.states.sleep` a **blue** `Z`, on identical bubbles. Hue
         // separates alarm from status at 1x at least as well as size does, and
@@ -464,8 +464,8 @@ public final class Character: SKNode {
         //
         // What this gives up, stated: a dormant character's badge is now the
         // same size as a working one, so "someone has a bubble" no longer means
-        // "someone is doing something". Priority is unchanged — attention still
-        // wins over sleep, and sleep over a tool badge — so the one badge a
+        // "someone is doing something". Priority is unchanged: attention still
+        // wins over sleep, and sleep over a tool badge, so the one badge a
         // glance can act on is still the one that shows.
         if selection.isSleeping {
             badgeCountNode.isHidden = true
@@ -480,7 +480,7 @@ public final class Character: SKNode {
             badgeNode.isHidden = false
             return
         }
-        // The badge canvas, which is what the dormant arm above sets too — both
+        // The badge canvas, which is what the dormant arm above sets too: both
         // arms draw pack art at the sheet's own size now that the 9x11 tab is
         // gone. Kept as an explicit place rather than assumed: a node that was
         // last sized by something else would be the fractional resample I6
@@ -496,7 +496,7 @@ public final class Character: SKNode {
         }
         badgeNode.texture = texture
         badgeNode.isHidden = false
-        // The `×N` annotates a *tool* badge — "N calls, of which this is the
+        // The `×N` annotates a *tool* badge: "N calls, of which this is the
         // lowest ordinal". Pinned to the attention glyph it would read as N
         // notifications, which is not a thing we count. The dormant arm returned
         // above with the count already hidden, so this test is over the two
@@ -519,14 +519,14 @@ public final class Character: SKNode {
     ///
     /// **Derived from the measurement, not chosen.** The hands occupy
     /// `x 14...17, y 52...55` of the 32x64 canvas with y counted **down** from
-    /// the top — the same box on all six cast variants, all three `sit` frames
+    /// the top: the same box on all six cast variants, all three `sit` frames
     /// and both facings (`HeldObject` records how that was found and
     /// `HeldObjectArtTests.theSeatedHandBoxIsWhereTheArtSaysItIs` re-derives it
     /// from the shipped PNGs). The body is anchored bottom-centre, so:
     ///
     /// - x: the box spans 14 to 18 in canvas x, whose centre is 16, and the
     ///   anchor's x is 16. The offset is **0**, and it is 0 for both facings
-    ///   because the box straddles the canvas centre symmetrically — mirroring
+    ///   because the box straddles the canvas centre symmetrically: mirroring
     ///   a symmetric box is a no-op.
     /// - y: y-down 52...55 is y-up 8...12 measured from the feet, centre **10**.
     nonisolated static let seatedHandCentre = CGPoint(x: 0, y: 10)
@@ -535,7 +535,7 @@ public final class Character: SKNode {
     /// character facing **right**. Mirrored in x for `left`.
     ///
     /// **Forward and up, by three pixels and two.** Forward because the hands
-    /// are at the near edge of the object rather than behind it — a person holds
+    /// are at the near edge of the object rather than behind it: a person holds
     /// a thing in front of themselves, and the room's seated character faces
     /// right at its desk. Up because the hand box's own centre puts the object's
     /// bottom third over the lap, where it read as resting on the knees instead
@@ -552,7 +552,7 @@ public final class Character: SKNode {
     /// The object this character is holding, or `nil`.
     ///
     /// Three guards. Two are invariants and the third is geometry, and keeping
-    /// them apart is the point — **the hands are full if and only if the
+    /// them apart is the point: **the hands are full if and only if the
     /// open-call set is non-empty and the badge slot is showing a tool**
     /// [ADR-005 §5]:
     ///
@@ -562,7 +562,7 @@ public final class Character: SKNode {
     ///   "the open-call set is non-empty". ADR-005 broke that identity: a
     ///   character between two calls of one turn is seated, and seated is
     ///   `working` by name, so the old guard would now put a book in the hands
-    ///   of an agent running nothing. The guard therefore moved onto the fact —
+    ///   of an agent running nothing. The guard therefore moved onto the fact,
     ///   `count` is the size of the open-call set on every selection the
     ///   director emits, including `0` for an ADR-003 closing beat, which is how
     ///   a lingering badge still puts nothing in the hands.
@@ -577,7 +577,7 @@ public final class Character: SKNode {
     ///   measurement of the `sit` row's hand box and of nothing else. There is
     ///   no per-frame anchor for the walk cycle, so an object on a walking
     ///   character would hang in the air beside it. A character can hold calls
-    ///   while it walks — a spawn and a `PreToolUse` in one batch — so this is
+    ///   while it walks (a spawn and a `PreToolUse` in one batch) so this is
     ///   reachable, and it is a *placement* rule rather than a truth rule.
     ///   [04-ART-DIRECTION]
     ///
@@ -585,9 +585,9 @@ public final class Character: SKNode {
     ///   is a decision rather than a consequence.** [ADR-008 §8] A seat facing
     ///   the camera or away from it draws the standing `idle` row, whose hands
     ///   are in a different place in every frame and for which the pack gives us
-    ///   no anchor at all. The two available answers were to *port* the anchor —
+    ///   no anchor at all. The two available answers were to *port* the anchor,
     ///   which means measuring a hand box per direction per frame and inventing
-    ///   the rest — or to *freeze* the layer where its one measurement holds.
+    ///   the rest, or to *freeze* the layer where its one measurement holds.
     ///   Frozen: `docs/M8-PLAN-face-the-camera.md` §5 already proposed it,
     ///   ADR-006 moved the meaning of *what kind of work* onto the desk object,
     ///   and ADR-005 §8 item 4 prices this channel at 12×10 px inside a 20×16
@@ -596,7 +596,7 @@ public final class Character: SKNode {
     ///   an eyeballed offset dressed as data is what the alternative would have
     ///   been.
     ///
-    /// `questionMark` yields no object at all — see `HeldObject.init(badge:)`.
+    /// `questionMark` yields no object at all: see `HeldObject.init(badge:)`.
     private var heldObject: HeldObject? {
         guard currentBadge.count > 0 else { return nil }
         guard currentState == .working, currentFacing.isSideView else { return nil }
@@ -605,7 +605,7 @@ public final class Character: SKNode {
     }
 
     /// Puts `heldObject` on screen. Called from the two places that can change
-    /// it — the body state machine and the badge — and from nowhere else, so
+    /// it (the body state machine and the badge) and from nowhere else, so
     /// the hands cannot get out of step with either.
     private func refreshHeld() {
         guard let object = heldObject,
@@ -629,8 +629,8 @@ public final class Character: SKNode {
     /// **Whether this character is drawn dimmed**, read off the badge selection
     /// and nowhere else.
     ///
-    /// `BadgeSelection.isDormant` is the *fact* — `WorldDelta.dormancyChanged`,
-    /// which is a subagent's `SubagentStop` — and it rides on every selection
+    /// `BadgeSelection.isDormant` is the *fact*: `WorldDelta.dormancyChanged`,
+    /// which is a subagent's `SubagentStop`, and it rides on every selection
     /// the director emits, so the scene needs no new intent and no second
     /// channel to know it. The dim is keyed to the fact rather than to
     /// `isSleeping`, which is the *slot*: `isSleeping` is `isDormant &&
@@ -643,21 +643,21 @@ public final class Character: SKNode {
     /// **Whether this character's dim also carries the turn.** [ADR-008 §6]
     ///
     /// Set once, at spawn, from the seat's facing, and false for every side-on
-    /// seat — so nothing about the picture this app drew yesterday changes at a
+    /// seat, so nothing about the picture this app drew yesterday changes at a
     /// seat that has not turned.
     ///
     /// **Why a turned seat needs it.** ADR-005 keys posture to the turn: seated
     /// while a turn is in progress, standing between them. A turned seat draws
     /// the standing `idle` row for *both*, because that is the only row it has,
-    /// so the posture channel says nothing there — the two states are the same
+    /// so the posture channel says nothing there: the two states are the same
     /// picture, pixel for pixel. Something else has to carry the fact or the
     /// room has silently stopped telling the truth it was telling before.
     ///
     /// The dim is the cheapest thing that can: it is built, tested and shipped
     /// [ADR-006 §12], it is an instant step rather than a fade so it moves no
     /// pixel and needs no licence from I2, and it already means *this agent is
-    /// not working*. A dormant subagent is by construction out of turn —
-    /// `SubagentStop` is a subagent's turn boundary [ADR-005 §3] — so this is
+    /// not working*. A dormant subagent is by construction out of turn,
+    /// `SubagentStop` is a subagent's turn boundary [ADR-005 §3], so this is
     /// one signal with a wider domain rather than two signals competing.
     ///
     /// **Provisional, pending #77.** Phase 1a settled the in-turn signal as the
@@ -671,7 +671,7 @@ public final class Character: SKNode {
 
     /// Whether this character's agent is in a turn, for the dim above. Seeded
     /// `true` because a character exists at all only because an event arrived,
-    /// and an event arriving means a turn — the same seed
+    /// and an event arriving means a turn: the same seed
     /// `RoomScene.deskScreens` and `SceneDirector` both take, for the same
     /// reason, so the three agree without asking each other.
     private var hasTurn = true
@@ -685,7 +685,7 @@ public final class Character: SKNode {
         refreshDim()
     }
 
-    /// The turn boundary, as the scene already receives it —
+    /// The turn boundary, as the scene already receives it,
     /// `SpriteIntent.setDeskScreen` is `isInTurn && !isDormant`, and both halves
     /// are what the dim is about. Idempotent, and it starts nothing: assigning
     /// the same blend factor twice draws the same frame.
@@ -702,8 +702,8 @@ public final class Character: SKNode {
     ///
     /// Called from `apply(badge:)` and from nowhere else, so the dim cannot get
     /// out of step with the fact that decides it. It is idempotent by
-    /// construction — assigning the same blend factor twice draws the same frame
-    /// — and it starts no action, runs no interpolation and touches no clock:
+    /// construction: assigning the same blend factor twice draws the same frame
+    ///, and it starts no action, runs no interpolation and touches no clock:
     /// I2 licenses motion on a character only inside an open tool call, a
     /// dormant character holds none, and a crossfade is motion. [ADR-006 §12]
     ///
@@ -717,7 +717,7 @@ public final class Character: SKNode {
     /// alone is a matter of not touching them.
     ///
     /// `heldNode` is included because it is a thing in the character's hands,
-    /// not a caption on it — though in practice a dormant character's hands are
+    /// not a caption on it, though in practice a dormant character's hands are
     /// already empty, since `heldObject` requires an open call.
     private func refreshDim() {
         let colour = SKColor(
@@ -738,7 +738,7 @@ public final class Character: SKNode {
     /// The blend factor actually on the body node, so a test can measure what
     /// was applied rather than what was intended.
     var bodyColorBlendFactorForTesting: CGFloat { body.colorBlendFactor }
-    /// The blend factor on the nameplate and the badge — always zero, and
+    /// The blend factor on the nameplate and the badge: always zero, and
     /// asserted rather than assumed.
     var identityColorBlendFactorsForTesting: [CGFloat] {
         [nameplateNode.colorBlendFactor, badgeNode.colorBlendFactor,
@@ -752,7 +752,7 @@ public final class Character: SKNode {
     /// **`currentBadge.badge`, not `currentBadge.drawn.badge`, and the
     /// difference is decided rather than incidental.** `drawn.badge` is `nil`
     /// while `attention` or `sleep` owns the slot, which is why the *hands* go
-    /// empty at a permission gate — an object is a second, larger assertion on
+    /// empty at a permission gate: an object is a second, larger assertion on
     /// top of a glyph the badge layer is correctly refusing to draw.
     ///
     /// The body is not that layer. `SceneDirector.body(for:badge:)` already
@@ -760,7 +760,7 @@ public final class Character: SKNode {
     /// grounds that "the attention glyph is about the *badge*, and the body is
     /// about the work", and the phrase is keyed on the class of the work.
     /// Reading `drawn` here would silently change *how a working body moves* on
-    /// a signal about the slot — and it would put the body and the working-pose
+    /// a signal about the slot, and it would put the body and the working-pose
     /// lookup on two different keys.
     ///
     /// **ADR-005 §7 stops a gated body moving, and it is emphatically not this
@@ -768,8 +768,8 @@ public final class Character: SKNode {
     /// attention bubble is a *badge* state that arrives 6.0 s late and can be
     /// raised on an agent with no gate at all (`idle_prompt`); the gate is a
     /// *fact about the agent* that `WorldDelta.gateChanged` names outright, from
-    /// the instant it opens. So the stillness is keyed on `isGated` — see
-    /// `refreshAmbient` — and this stays what it was, which is why a gated
+    /// the instant it opens. So the stillness is keyed on `isGated`: see
+    /// `refreshAmbient`, and this stays what it was, which is why a gated
     /// character resumes its own class's phrase the moment the human answers.
     private var ambientBadge: ToolBadge? { currentBadge.badge }
 
@@ -783,7 +783,7 @@ public final class Character: SKNode {
     ///
     /// It comes off the badge selection because the selection already carries
     /// it: `count` is the size of the open-call set, exactly, on every value
-    /// `SceneDirector` emits — it is what the `×N` chip annotates, it is `0` for
+    /// `SceneDirector` emits: it is what the `×N` chip annotates, it is `0` for
     /// every frame of an ADR-003 closing beat, and it is unaffected by
     /// `attention` or `sleep` taking the slot. So the scene needs no new intent
     /// and no second channel to know it.
@@ -795,7 +795,7 @@ public final class Character: SKNode {
     private var openCallCount: Int { currentBadge.count }
 
     /// **The gate opened or closed on this character.** While it is open the
-    /// body holds `settled` and plays no phrase — it is blocked on a human and
+    /// body holds `settled` and plays no phrase: it is blocked on a human and
     /// getting nothing done, and the busiest animation in the room was the one
     /// it used to play. [ADR-005 §7]
     ///
@@ -870,7 +870,7 @@ public final class Character: SKNode {
             height: nameplateNode.size.height)
     }
 
-    /// The badge slot's rectangle in the parent's coordinates — whatever
+    /// The badge slot's rectangle in the parent's coordinates: whatever
     /// picture is in it, at that picture's own size. Read by the tests that
     /// check the slot clears the head, the body and the neighbours.
     public var badgeRect: CGRect {
@@ -898,7 +898,7 @@ public final class Character: SKNode {
     }
 
     /// Accumulated depth of the nameplate and of the body. The first must
-    /// always exceed every character's second — see `Layer`.
+    /// always exceed every character's second: see `Layer`.
     public var nameplateDepth: CGFloat { zPosition + nameplateNode.zPosition }
     public var badgeDepth: CGFloat { zPosition + badgeNode.zPosition }
     public var bodyDepth: CGFloat { zPosition + body.zPosition }
@@ -919,13 +919,13 @@ public final class Character: SKNode {
         apply(state: state, facing: facing)
     }
 
-    /// The whole state machine. Same state and facing means no work — the
+    /// The whole state machine. Same state and facing means no work: the
     /// running animation keeps running rather than restarting from frame zero.
     public func apply(state: BodyState, facing: Facing, startingAt start: TimeInterval? = nil) {
         // **The art row and the state are two questions now.** `working` at a
         // side-on seat is the sit row, and `working` at a seat turned toward or
         // away from the camera is the standing `idle` row with the seat's own
-        // occluder in front of it — `BodyState.artState(facing:)` is the whole
+        // occluder in front of it: `BodyState.artState(facing:)` is the whole
         // of the mapping and the argument. `Facing.seated`'s fold onto the side
         // views is still the honest handling of a sit row with no front or back
         // art, and it now applies only where that row is what is being drawn.
@@ -966,7 +966,7 @@ public final class Character: SKNode {
             bodyFrameCount: textures.count)
         for (index, node) in costumeNodes.enumerated() {
             guard index < costumeFrames.count, let textures = costumeFrames[index] else {
-                // A layer this costume does not draw for this state — or one
+                // A layer this costume does not draw for this state, or one
                 // whose frame count disagreed with the body's. Hidden, so the
                 // character is simply undressed for that layer rather than
                 // wearing a coat from another pose.
@@ -992,7 +992,7 @@ public final class Character: SKNode {
         return max(0.2, distance / walkSpeed)
     }
 
-    /// Walk in. `spawn` is the walk cycle by construction — the pack ships no
+    /// Walk in. `spawn` is the walk cycle by construction: the pack ships no
     /// spawn animation and inventing one is not worth the cost.
     /// [04-ART-DIRECTION]
     ///
@@ -1014,7 +1014,7 @@ public final class Character: SKNode {
     /// The `SubagentStop` beat: step into the aisle, walk to the anchor, hand
     /// the report over, walk back and sit down again.
     ///
-    /// The one dramatisation the event model licenses — and it is licensed
+    /// The one dramatisation the event model licenses, and it is licensed
     /// because the underlying event genuinely happened. No dialogue, no bubble
     /// with content, nothing about what was said. [I1]
     ///
@@ -1054,7 +1054,7 @@ public final class Character: SKNode {
     /// The report beat, truncated into an exit: walk to the anchor, hand the
     /// report over, then leave instead of going home.
     ///
-    /// Only for a character that reported **and** departed in the same frame —
+    /// Only for a character that reported **and** departed in the same frame,
     /// a `SessionEnd` landing on top of a `SubagentStop`. Both facts are real,
     /// so the character plays the beat it earned and then goes.
     /// The report beat, truncated into an exit: walk the route out, hand the
@@ -1113,7 +1113,7 @@ public final class Character: SKNode {
                 apply(
                     state: state,
                     // Both axes, because this room's walks are overwhelmingly
-                    // vertical — see `Facing.forTravel`. A character walking up
+                    // vertical: see `Facing.forTravel`. A character walking up
                     // its own column now draws `walk_up` rather than whichever
                     // side view it happened to be wearing.
                     facing: Facing.forTravel(
@@ -1151,7 +1151,7 @@ public final class Character: SKNode {
         now = time
 
         // A step can finish and the next one can also finish inside a single
-        // call — a large time step, or the very short beats of a script. The
+        // call: a large time step, or the very short beats of a script. The
         // loop drains them; the bound is a guard against a script that somehow
         // never consumes time.
         var beats = 0
@@ -1171,9 +1171,9 @@ public final class Character: SKNode {
                 beginCurrentStep(at: finishedAt)
             case .play:
                 // The *sequence*'s length, not the frame array's. They are equal
-                // for every state a `.play` step can carry — only `working` has
+                // for every state a `.play` step can carry: only `working` has
                 // a phrase and `deliver` is the only state ever played this way
-                // — but reading the thing the clock below actually walks is what
+                //, but reading the thing the clock below actually walks is what
                 // keeps the two from disagreeing if that ever stops being true.
                 let length = Double(max(frameSequence.count, 1)) / framesPerSecond
                 guard now - stateStartedAt >= length else { break stepping }

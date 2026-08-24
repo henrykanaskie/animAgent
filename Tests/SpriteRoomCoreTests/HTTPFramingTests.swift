@@ -5,7 +5,7 @@ import Testing
 
 /// The framing layer sits in front of everything. A hook POST blocks the
 /// session that sent it until this replies, so a listener that traps takes down
-/// every Claude Code session pointed at it — the failure is not a missing room,
+/// every Claude Code session pointed at it: the failure is not a missing room,
 /// it is the user's own work stopping. These are the malformed-input cases,
 /// none of which had any coverage.
 @Suite struct HTTPFramingTests {
@@ -32,7 +32,7 @@ import Testing
 
     /// **This traps against the old code rather than failing.** `Content-Length`
     /// was read as `Int(value) ?? 0`, which accepts a negative, which puts
-    /// `bodyEnd` before `bodyStart` — and slicing `Data` with a reversed range
+    /// `bodyEnd` before `bodyStart`, and slicing `Data` with a reversed range
     /// is a fatal error, not a thrown one. One malformed header from anything
     /// that can reach the port would end the process.
     @Test func aNegativeContentLengthDoesNotTakeTheProcessDown() throws {
@@ -81,7 +81,7 @@ import Testing
     // MARK: the real ceiling
 
     /// The largest POST measured in a live session is 5.7 MB, from a 5.5 MB
-    /// `Edit` — a hook payload carries the whole `tool_input`. It has to frame
+    /// `Edit` (a hook payload carries the whole `tool_input`). It has to frame
     /// intact, and nothing covered it.
     @Test func aMultiMegabyteEditStillFramesExactly() throws {
         let body = String(repeating: "a", count: 5_700_000)

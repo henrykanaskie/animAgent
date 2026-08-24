@@ -22,7 +22,7 @@ struct ThemeSceneTests {
         }
     }
 
-    // MARK: §8 item 6 — the station is stored, and never rewritten
+    // MARK: §8 item 6 - the station is stored, and never rewritten
 
     /// The station lands in the presentation record beside `variant`, `seat` and
     /// the nameplate, and it is decided from `agent_id` and `agent_type` alone.
@@ -44,7 +44,7 @@ struct ThemeSceneTests {
 
     /// **§6 rule 2, mechanically.** `agentAppeared` can arrive again for a
     /// character already on screen, carrying an `agent_type` we did not have the
-    /// first time — and it updates the nameplate's copy of it. The station must
+    /// first time, and it updates the nameplate's copy of it. The station must
     /// not follow, because rewriting a character's furniture under the user's
     /// eye changes its identity at exactly the moment the room got busy and they
     /// are looking at it.
@@ -86,7 +86,7 @@ struct ThemeSceneTests {
 
     /// A typed subagent in a theme that *does* declare numbered stations lands
     /// on one, and two agents of the same type land on the same one. The shipped
-    /// manifest declares none, so this drives the fixture theme — see
+    /// manifest declares none, so this drives the fixture theme: see
     /// `ThemeFixtures.stationed`.
     @Test func typedSubagentsOfOneKindShareAStation() throws {
         let manifest = try SceneFixtures.manifest()
@@ -105,14 +105,14 @@ struct ThemeSceneTests {
         #expect(director.station(cast[1]) != ThemeSelector.mainStationID)
     }
 
-    // MARK: §8 item 7 / §6 rule 5 — pose changes ≤ badge changes
+    // MARK: §8 item 7 / §6 rule 5 - pose changes ≤ badge changes
 
     /// **The same assertion the badge has, on the body.** [§6 rule 5, §12 item 4]
     ///
     /// M4 established the badge-change count must equal the open-call-change
     /// count and caught a real spurious change with it. The pose gets the
-    /// identical shape of assertion, and it gets it **at real time** — a fixed
-    /// 1/60 step rather than a step per batch — because compressing the event
+    /// identical shape of assertion, and it gets it **at real time** (a fixed
+    /// 1/60 step rather than a step per batch) because compressing the event
     /// stream against a slower clock manufactures coincidences a real replay
     /// could not produce.
     ///
@@ -125,14 +125,14 @@ struct ThemeSceneTests {
     /// the reason it was written rather than by luck. Rule 3 refused a dwell
     /// that makes the *body* assert a tool class the badge above it says has
     /// ended; ADR-003's beat only ever runs while the open set is empty, so the
-    /// body is `idle` for every frame of it and the pose lookup — which
-    /// `SceneDirector.body(for:badge:)` reaches only from `working` — is not
+    /// body is `idle` for every frame of it and the pose lookup (which
+    /// `SceneDirector.body(for:badge:)` reaches only from `working`) is not
     /// entered at all. A lingering `magnifier` cannot move the pose because the
     /// pose follows the body, not the badge. [ADR-003 §2]
     ///
     /// Idle is not a pose. A character leaving its seat has not changed which
     /// seated pose it uses, so `.idle` does not count and does not reset the
-    /// memory — otherwise this would measure the open-call set twice and forbid
+    /// memory, otherwise this would measure the open-call set twice and forbid
     /// the one thing §6 rule 5 permits.
     @Test func poseChangesNeverOutnumberBadgeChangesAtRealTime() async throws {
         let manifest = try SceneFixtures.manifest()
@@ -191,7 +191,7 @@ struct ThemeSceneTests {
 
     /// The table is empty in the shipped manifest, so every badge class resolves
     /// to the one seated pose the pack ships. **That is the correct answer, not a
-    /// missing feature** — §5b item 2 says in as many words that a single usable
+    /// missing feature**: §5b item 2 says in as many words that a single usable
     /// sit row makes this half inert with no code path to delete.
     ///
     /// What is asserted is that the *lookup* is live: it is total over every
@@ -226,7 +226,7 @@ struct ThemeSceneTests {
         #expect(director.bodyState(agent) == .deliver, "the default entry was not read")
     }
 
-    // MARK: §6 rule 1 — the room does not change with activity, at all
+    // MARK: §6 rule 1 - the room does not change with activity, at all
 
     /// **Zero prop-node rebuilds across every fixture replay.** [§8 tests, last
     /// bullet but one]
@@ -266,20 +266,20 @@ struct ThemeSceneTests {
         }
     }
 
-    // MARK: §8 item 5 — the theme dresses the room and nothing else
+    // MARK: §8 item 5 - the theme dresses the room and nothing else
 
     /// **A theme change rebuilds the prop nodes; it does not touch characters'
     /// seats, plates, variants or badges.** [§8 item 5]
     ///
     /// Two scenes rather than one mutated in place, because that is how a theme
     /// actually changes: §6 rule 4 says a theme change is a rebuild, not a
-    /// transition — no cross-fade, no prop animating in, the room is simply the
+    /// transition: no cross-fade, no prop animating in, the room is simply the
     /// other room. What has to hold is that the same deltas put the same
     /// characters in the same places in both.
     ///
     /// **"Redresses" is asserted, not assumed.** This test used to check only
-    /// that the characters were identical and that the *count* of props matched
-    /// — which a `RoomScene` that ignored `themeID` altogether would pass, since
+    /// that the characters were identical and that the *count* of props matched,
+    /// which a `RoomScene` that ignored `themeID` altogether would pass, since
     /// it would draw the same room every time. The count check is right and
     /// stays. What was missing is the other half: the props' *art* must differ,
     /// or the theme did nothing. Both halves are needed, and neither implies the
@@ -311,15 +311,15 @@ struct ThemeSceneTests {
     ///
     /// ## Amended again: the *count* is per mechanism now, and there are two
     ///
-    /// The split above left one blanket line standing — every theme drew the
-    /// same *number* of props, whatever plan it was on — and that survived
+    /// The split above left one blanket line standing (every theme drew the
+    /// same *number* of props, whatever plan it was on) and that survived
     /// ADR-007 because a plan moved the bands without changing how many of them
     /// there were. A plan may now place its dressing **by hand**, and then the
     /// four scenery bands and the board/plant lattice do not run at all: the
     /// count is the plan's own placement count, not 20 anchors and 7 columns.
     ///
     /// So the count is asserted **per theme against its own mechanism's
-    /// number** — both numbers derived, neither typed — and the cross-theme
+    /// number** (both numbers derived, neither typed) and the cross-theme
     /// comparison survives narrowed to the themes that share a mechanism, with
     /// the other case asserted as an inequality. Two themes on two mechanisms
     /// drawing the same number of props means the hand placement reached
@@ -384,7 +384,7 @@ struct ThemeSceneTests {
             // **The depth is deliberately not compared, and ADR-008 is why.** A
             // camera-facing desk stands `deskInkHeight − 1 − deskCutAboveFeet`
             // downstage of its occupant, so that its top edge lands on the same
-            // row of the *body* whatever the theme's desk happens to be — 11 px
+            // row of the *body* whatever the theme's desk happens to be: 11 px
             // for the four 24 px desks, 23 for `mission_control`'s 36 and 31 for
             // `library`'s 44. A constant there fails every theme in one
             // direction or the other [docs/M8-MEASUREMENTS-phase1c.md §2]. The
@@ -394,16 +394,16 @@ struct ThemeSceneTests {
             // **And the desk's x is no longer theme-independent either**, for
             // exactly the reason its y is not. [ADR-009] An away-facing desk
             // stands beside its occupant while it is too narrow to be centred on
-            // and centres once it is wide enough to carry a kit slot either side
-            // — `RoomLayout.awayDeskOffsetX(metrics:)`, which is ADR-008 §7's own
+            // and centres once it is wide enough to carry a kit slot either side:
+            // `RoomLayout.awayDeskOffsetX(metrics:)`, which is ADR-008 §7's own
             // condition as arithmetic. `office` is 64 px and centres; the other
             // five are 32 or 40 and do not. So a desk is compared against **the
             // layout's own answer for its own theme** below, and what is compared
             // across themes is the furniture whose point is genuinely the seat's:
             // the chair, and the station prop beside it.
             // **A piece is named by the role it came from, not by its file.** A
-            // role may be drawn with any of its `variants` — the office pod's
-            // desktop stock is four objects and its rig four rigs — so the
+            // role may be drawn with any of its `variants` (the office pod's
+            // desktop stock is four objects and its rig four rigs) so the
             // basename of what was drawn is `desk_kit_2`, and classifying on that
             // would put a stocked role in the theme-independent bucket below and
             // compare a picture across themes that do not have it.
@@ -447,7 +447,7 @@ struct ThemeSceneTests {
                     }
                 }
                 // One entry per desktop slot, at that slot's own object's
-                // measured ink — the slot decides the column, but whether an
+                // measured ink: the slot decides the column, but whether an
                 // object may stand there at all is a function of its height.
                 for slot in RoomLayout.PodKitSlot.drawOrder {
                     guard let kit = room.prop(RoomScene.deskKitRole) else { break }
@@ -484,7 +484,7 @@ struct ThemeSceneTests {
         // stopped being true when the walls subfile every theme already indexes
         // turned out to carry the pack's floor-plan line, and all six gained a
         // plan. Failing here would mean keeping one room on a flat wall to
-        // satisfy a test — the third time this suite has been able to decide the
+        // satisfy a test, the third time this suite has been able to decide the
         // art, after a pinned board/plant count and an alphabetical "the plan".
         //
         // `RoomPlan.open` is still the fallback for a theme whose builder cannot
@@ -501,8 +501,8 @@ struct ThemeSceneTests {
         // **How many props a room draws is a function of its dressing
         // mechanism, and there are two.** [M8]
         //
-        // The lattice's number is arithmetic — one prop per scenery anchor plus
-        // one per decoration column — and it is derived here rather than typed,
+        // The lattice's number is arithmetic (one prop per scenery anchor plus
+        // one per decoration column) and it is derived here rather than typed,
         // for the reason `decorationPlacements` exists at all: a transcription
         // checked against a transcription is not a check. A hand-placed room
         // runs neither of those two loops, so its number is its own placement
@@ -514,7 +514,7 @@ struct ThemeSceneTests {
             .reduce(0) { $0 + layout.sceneryAnchors($1).count }
             + layout.decorationColumns.count
         #expect(lattice == 27, Comment(rawValue:
-            "the lattice draws \(lattice) props — 20 scenery anchors and 7 decoration"
+            "the lattice draws \(lattice) props: 20 scenery anchors and 7 decoration"
             + " columns is what every banded theme is pinned to"))
         func expectedPropCount(_ plan: RoomPlan) -> Int {
             plan.dressing.isEmpty ? lattice : plan.dressing.count
@@ -547,15 +547,15 @@ struct ThemeSceneTests {
                 + " places \(expectedPropCount(other.plan))"))
             // **Two banded themes must agree; two composed ones need not.**
             //
-            // The lattice is theme-independent — the same eight columns and
-            // four depths whatever art fills them — so two themes on it drawing
+            // The lattice is theme-independent (the same eight columns and
+            // four depths whatever art fills them) so two themes on it drawing
             // different counts means one of them dropped a prop, and that is
             // worth catching. A composition is the opposite: it is the whole
             // point that `office` places 37 and `library` 43, and asserting
             // they match would be asserting nobody composed anything.
             //
-            // What binds a composed theme is the line above — it drew exactly
-            // what its own dressing list places — which is the stronger claim
+            // What binds a composed theme is the line above (it drew exactly
+            // what its own dressing list places) which is the stronger claim
             // and the one that would catch a dropped placement. Comparing two
             // compositions to each other adds nothing and, once the second
             // theme was composed, was simply false.
@@ -575,10 +575,10 @@ struct ThemeSceneTests {
             } else {
                 #expect(other.props != first.props, Comment(rawValue:
                     "theme \(id) is drawn on a different floor plan from \(ids[0]) and"
-                    + " placed every prop identically anyway — the plan reached nothing"))
+                    + " placed every prop identically anyway: the plan reached nothing"))
             }
             #expect(other.art != first.art, Comment(rawValue:
-                "theme \(id) drew exactly the art theme \(ids[0]) drew — the room was not"
+                "theme \(id) drew exactly the art theme \(ids[0]) drew: the room was not"
                 + " redressed, so `themeID` reached nothing"))
             // And every slot is redressed, not just one of them: two themes
             // sharing a desk while differing in a board would satisfy the line
@@ -595,7 +595,7 @@ struct ThemeSceneTests {
     /// than described.
     ///
     /// The heuristic accepts a tile only if it is fully opaque *and* a single
-    /// flat colour, which a patterned floor can never be — so under it every
+    /// flat colour, which a patterned floor can never be, so under it every
     /// theme would draw a flat field, and the six themes would differ only in
     /// which flat colour. The declaration is a measurement recorded at import
     /// time, so reading it is not the filename dependency the manifest exists to
@@ -623,7 +623,7 @@ struct ThemeSceneTests {
             // ever find the flat one.
             let searched = store.flatBuilderTiles()
             #expect(searched.first?.path != declared, Comment(rawValue:
-                "theme \(id) declares the same floor the search would have found —"
+                "theme \(id) declares the same floor the search would have found:"
                 + " reading the declaration bought nothing here"))
         }
 
@@ -641,7 +641,7 @@ struct ThemeSceneTests {
     /// number in `04-ART-DIRECTION.md` cannot quietly stop being true: **the
     /// heuristic accepts 2 of the room's 141 builder tiles.**
     ///
-    /// That is not a bug in the heuristic — a floor with a pattern in it is not
+    /// That is not a bug in the heuristic: a floor with a pattern in it is not
     /// a single flat colour, so no amount of art was ever going to widen this.
     /// It is the reason the declaration exists.
     @Test(.enabled(if: SceneArt.isAvailable))

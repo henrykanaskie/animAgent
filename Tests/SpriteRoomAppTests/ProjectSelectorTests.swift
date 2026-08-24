@@ -51,7 +51,7 @@ struct ProjectSelectorTests {
         #expect(picked == ["/work/beta"])
     }
 
-    /// [I8] — pointer-only. A key equivalent anywhere in this menu would be a
+    /// [I8]: pointer-only. A key equivalent anywhere in this menu would be a
     /// keyboard path into the app, which is the thing the invariant forbids
     /// designing.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
@@ -147,7 +147,7 @@ struct ProjectSelectorTests {
     }
 
     /// Greying must not cost the user the ability to switch away from an ended
-    /// project — switching away is what unpins it and lets it leave the menu.
+    /// project: switching away is what unpins it and lets it leave the menu.
     @Test(.enabled(if: NotchPanelTests.hasWindowServer))
     func anEndedProjectCanStillBePicked() throws {
         let selector = Self.selector()

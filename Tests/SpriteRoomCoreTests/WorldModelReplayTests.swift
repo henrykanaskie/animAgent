@@ -7,7 +7,7 @@ import Testing
 /// assertions; a red one here is information, not something to soften.
 @Suite struct WorldModelReplayTests {
 
-    // MARK: single-agent-simple — the baseline a regression breaks first
+    // MARK: single-agent-simple - the baseline a regression breaks first
 
     @Test func singleAgentSimpleProducesTheExpectedDeltaSequence() async throws {
         let (model, deltas, _) = try await Fixtures.replay("single-agent-simple")
@@ -59,13 +59,13 @@ import Testing
         })
     }
 
-    // MARK: UserPromptSubmit — the agent that is thinking
+    // MARK: UserPromptSubmit - the agent that is thinking
 
     /// A turn that produces no tool call must still draw somebody.
     ///
     /// Before this event was consumed the main character appeared at the
-    /// session's first *tool call*, so an agent that was thinking was invisible
-    /// — a real hole in a product whose one sentence is "you glance at the
+    /// session's first *tool call*, so an agent that was thinking was invisible:
+    /// a real hole in a product whose one sentence is "you glance at the
     /// notch and know what your agents are doing." The character it draws is
     /// idle, which is exactly what is happening. [I2]
     @Test func userPromptSubmitAloneCreatesTheSessionAndItsMainCharacter() async throws {
@@ -132,7 +132,7 @@ import Testing
     // MARK: the parent→child link
 
     /// `tool_response.agentId` on the `Agent` tool's `PostToolUse` is the only
-    /// place the link exists — there is no `parent_agent_id` field.
+    /// place the link exists: there is no `parent_agent_id` field.
     @Test func agentDispatchCarriesTheChildAgentIDInItsToolResponse() throws {
         let entries = try Fixtures.entries("three-subagents")
         let spawned = entries.compactMap { entry -> String? in
@@ -201,13 +201,13 @@ import Testing
     }
 
     /// A subagent whose link we never saw carries no parent. The fallback is
-    /// documented — it anchors to the main agent — and inventing a parent to
+    /// documented (it anchors to the main agent), and inventing a parent to
     /// fill the hole would be fiction. [I1]
     @Test func aSubagentWithNoObservedLinkHasNoParent() async throws {
         let entries = try Fixtures.entries("three-subagents")
         let withoutLinks = WorldModel()
         let withLinks = WorldModel()
-        // Everything up to the last `Agent` dispatch's close — by then all
+        // Everything up to the last `Agent` dispatch's close: by then all
         // three children exist and all three links have been seen, and none of
         // them has departed yet.
         let cut = try #require(entries.lastIndex { entry in
@@ -235,7 +235,7 @@ import Testing
         #expect(linked.allSatisfy { $0.parent == .mainThread })
     }
 
-    // MARK: parallel-tools — I3
+    // MARK: parallel-tools - I3
 
     /// Five concurrent `tool_use_id`s on one agent, closing in a different
     /// order from the one they opened in. Any model holding a single current
@@ -277,7 +277,7 @@ import Testing
         #expect(opened != closed, "the fixture's whole point is that the orders differ")
     }
 
-    // MARK: three-subagents — identity and the async spawn
+    // MARK: three-subagents - identity and the async spawn
 
     @Test func threeSubagentsAreThreeCharactersKeyedByAgentID() async throws {
         let (model, deltas, _) = try await Fixtures.replay("three-subagents")
@@ -344,8 +344,8 @@ import Testing
     ///
     /// **This is also the check that the main agent needs no dormancy of its
     /// own.** `SubagentStop` had to stop departing its character; `Stop` never
-    /// departed one. It sets no lifecycle and touches no call — asserted here by
-    /// diffing the snapshot field by field — and the only caller of `depart` is
+    /// departed one. It sets no lifecycle and touches no call (asserted here by
+    /// diffing the snapshot field by field), and the only caller of `depart` is
     /// `endSession`, reached by `SessionEnd` and the idle sweep. So the main
     /// character stays in the room across a turn boundary, which is the whole of
     /// what dormancy buys a subagent. Marking it dormant would also be the
@@ -354,8 +354,8 @@ import Testing
     /// **The one thing it now changes is `hasTurn`,** and that is ADR-005 §3's
     /// closer arriving at last. Before it, every `Stop` in the corpus drew
     /// nothing at all and the main character sat from its first event until it
-    /// left. This test used to assert exactly that — `deltas.isEmpty` and an
-    /// unchanged snapshot — so it is the test the change had to come through.
+    /// left. This test used to assert exactly that: `deltas.isEmpty` and an
+    /// unchanged snapshot, so it is the test the change had to come through.
     @Test func stopEndsTheTurnAndChangesNothingElse() async throws {
         let entries = try Fixtures.entries("three-subagents")
         let stops = entries.filter { $0.event?.kind.name == "Stop" }
@@ -380,7 +380,7 @@ import Testing
                 #expect(after.agents.map(\.ref) == before.agents.map(\.ref),
                         "a Stop added or removed a character")
                 #expect(after.agents.map(\.lifecycle) == before.agents.map(\.lifecycle),
-                        "a Stop moved a lifecycle — it is not a death and not a dormancy")
+                        "a Stop moved a lifecycle: it is not a death and not a dormancy")
                 #expect(after.agents.map(\.openCalls) == before.agents.map(\.openCalls),
                         "a Stop touched tool state; it is not a close path and not a reap trigger")
                 #expect(after.agents.map(\.attention) == before.agents.map(\.attention),
@@ -394,7 +394,7 @@ import Testing
         #expect(ended == 4, "the four Stops before SessionEnd are the point of this test")
     }
 
-    // MARK: four-subagents — four of one type, and the resume cycle
+    // MARK: four-subagents - four of one type, and the resume cycle
 
     /// **The regression for "only one subagent shows up though there are four".**
     ///
@@ -402,8 +402,8 @@ import Testing
     /// `agent_type`: two of its three are `Explore` and one is `general-purpose`,
     /// so a model that merged by type would still draw two characters and look
     /// nearly right. This fixture is four subagents **of one type**, so anything
-    /// keyed on the type — or on a truncated id, or on a display string derived
-    /// from one — collapses all four into a single character and fails here by
+    /// keyed on the type (or on a truncated id, or on a display string derived
+    /// from one) collapses all four into a single character and fails here by
     /// three.
     @Test func fourSameTypedSubagentsAreFourCharacters() async throws {
         let (_, deltas, _) = try await Fixtures.replay("four-subagents")
@@ -424,7 +424,7 @@ import Testing
         #expect(suffixes.count == 4)
     }
 
-    /// All four are in the room **at the same time** — the claim a per-agent
+    /// All four are in the room **at the same time**, the claim a per-agent
     /// count cannot make on its own, because agents that never overlapped would
     /// satisfy it too.
     @Test func allFourSubagentsAreInTheRoomTogether() async throws {
@@ -447,7 +447,7 @@ import Testing
     /// `SubagentStart` anywhere.**
     ///
     /// Creation is lazy on the first *consumed* event, so nothing waits on a
-    /// lifecycle event it may never see — the app attaching mid-session misses
+    /// lifecycle event it may never see, the app attaching mid-session misses
     /// every `SubagentStart` that already fired, and `SessionStart` is
     /// unreachable over HTTP for the same family of reasons. This drops the
     /// `SubagentStart`s rather than rewriting them: what is left is the real
@@ -475,20 +475,20 @@ import Testing
 
     /// A background subagent is stopped and **resumed** by its parent. It goes
     /// dormant on `SubagentStop` and is **revived in place** by the second
-    /// `SubagentStart` that a `SendMessage` produces — one character, not two.
+    /// `SubagentStart` that a `SendMessage` produces: one character, not two.
     ///
     /// This test used to be `aBackgroundSubagentDepartsAndComesBack` and it used
     /// to assert `appearances == 2` for the two resumed agents. That assertion
     /// was a faithful description of behaviour that was wrong: a second
     /// `agentAppeared` is a second character, a second seat and a second
     /// spawn-walk for an agent that never left the room. It is not softened
-    /// here, it is inverted — **exactly once each, and four departures, all at
+    /// here, it is inverted: **exactly once each, and four departures, all at
     /// `SessionEnd`.**
     ///
     /// The capture's own numbers are unchanged and still pinned: four distinct
     /// ids, six `SubagentStart`s and twelve `SubagentStop`s. The six extra stops
     /// are the TUI suggestion helper's phantoms, which name agents that never
-    /// started and must stay no-ops — six of them here, which is the volume a
+    /// started and must stay no-ops, six of them here, which is the volume a
     /// model that spawned a character in order to walk it off would have to
     /// survive. [I1]
     @Test func aBackgroundSubagentGoesDormantAndIsRevivedInPlace() async throws {
@@ -513,7 +513,7 @@ import Testing
             }
         }
         // Six starts, four characters. Two of them were revived, and revival
-        // emits nothing at all — the character is already in its seat.
+        // emits nothing at all: the character is already in its seat.
         #expect(appearances.count == 4)
         #expect(Set(appearances.values) == [1])
         // The report beat is untouched and still fires per turn, so the two
@@ -522,7 +522,7 @@ import Testing
         #expect(reports.values.reduce(0, +) == 6)
         #expect(reports.values.filter { $0 == 2 }.count == 2)
         // Every departure belongs to an agent we had, and there is exactly one
-        // each — `SessionEnd`, the path that means gone. [I4]
+        // each: `SessionEnd`, the path that means gone. [I4]
         #expect(Set(departures.keys) == Set(appearances.keys))
         #expect(Set(departures.values) == [1])
     }
@@ -572,8 +572,8 @@ import Testing
         // assert `deltas.isEmpty`, on the grounds that dormant and idle drew
         // identically so there was nothing to say. `badges.states.sleep` made
         // that false: a revived character has to lose the `Z` it was wearing.
-        // Everything the old assertion was really guarding — no second
-        // character, no second seat, no re-spawn walk — is the three
+        // Everything the old assertion was really guarding (no second
+        // character, no second seat, no re-spawn walk) is the three
         // expectations below, and they are unchanged.
         #expect(deltas == [.dormancyChanged(agent: ref, isDormant: false)],
                 "reviving a character already on screen emitted \(deltas)")
@@ -584,7 +584,7 @@ import Testing
         #expect(await model.snapshot().agent(ref)?.lifecycle != .spawning)
     }
 
-    /// **[I4] — dormancy is reapable, path one: `SessionEnd`.**
+    /// **[I4] - dormancy is reapable, path one: `SessionEnd`.**
     ///
     /// All four are dormant when the session ends at t=172.402, 85 s after the
     /// last of them stopped. A dormant character that outlived its session would
@@ -610,11 +610,11 @@ import Testing
         #expect(await model.snapshot().agents.isEmpty)
     }
 
-    /// **[I4] — dormancy is reapable, path two: the session-idle sweep.**
+    /// **[I4] - dormancy is reapable, path two: the session-idle sweep.**
     ///
     /// Injected instant, never `sleep`. The stream is fed without its
-    /// `SessionEnd` — the shape of an app that was watching when the session
-    /// died — and the four dormant characters are gone at the timeout and not a
+    /// `SessionEnd` (the shape of an app that was watching when the session
+    /// died), and the four dormant characters are gone at the timeout and not a
     /// second before it.
     @Test func theIdleSweepDepartsEveryDormantSubagent() async throws {
         let entries = try Fixtures.entries("four-subagents")
@@ -628,7 +628,7 @@ import Testing
         }
         #expect(await model.snapshot().agents.filter { $0.lifecycle == .dormant }.count == 4)
 
-        // Just short of it, still there — and that is true, because dormancy
+        // Just short of it, still there, and that is true, because dormancy
         // carries no deadline of its own and nothing has happened.
         #expect(await model.sweep(at: last.addingTimeInterval(reaper.sessionIdleTimeout - 1))
             .isEmpty)
@@ -645,8 +645,8 @@ import Testing
     /// **The maintainer's bug, expressed as an assertion.**
     ///
     /// "Only one subagent registered even though there should be 4." Nothing was
-    /// lost — identity, seats, the queue and the transport were each refuted with
-    /// data at `a6b33ff` — and the room still showed one. The reason is the whole
+    /// lost (identity, seats, the queue and the transport were each refuted with
+    /// data at `a6b33ff`), and the room still showed one. The reason is the whole
     /// of it: `SubagentStop` is a **turn boundary** for a background subagent,
     /// not its death, and departing on it made the room assert *this agent is
     /// gone* from data that only says *this agent finished a turn*. This capture
@@ -654,7 +654,7 @@ import Testing
     /// each resume emitting a second `SubagentStart`.
     ///
     /// So the count is the assertion. From the instant the fourth subagent
-    /// exists — t=7.398 — to `SessionEnd` at t=172.402, the parent holds four
+    /// exists (t=7.398) to `SessionEnd` at t=172.402, the parent holds four
     /// agents and the room must hold four characters. Under the departing
     /// lifecycle this fails hard: the capture drops to two for 7.3 s and to one
     /// for 6.7 s inside that window. [I1, and the product's one sentence]
@@ -707,7 +707,7 @@ import Testing
         #expect(await model.unhandledTotal == 0)
     }
 
-    // MARK: tool-failure — the two non-PostToolUse close paths
+    // MARK: tool-failure - the two non-PostToolUse close paths
 
     /// Must reach zero open calls *without* the reaper. If the sweep is needed,
     /// a close path is wrong.
@@ -718,7 +718,7 @@ import Testing
             if case let .callClosed(_, _, _, outcome) = delta { return outcome }
             return nil
         }
-        // One close by PostToolUseFailure, one by PostToolBatch alone — the
+        // One close by PostToolUseFailure, one by PostToolBatch alone, the
         // permission-denied call, whose only close that is.
         #expect(outcomes == [.failed, .reconciled])
         #expect(await model.snapshot().totalOpenCalls == 0)
@@ -730,7 +730,7 @@ import Testing
     /// This is the regression risk in making the replay harness sweep
     /// mid-stream: a sweep that ran too eagerly would close these calls at their
     /// deadlines instead of letting the close paths do it, and the one property
-    /// this fixture exists to prove would be gone — silently, because the
+    /// this fixture exists to prove would be gone, silently, because the
     /// fixture would still finish at zero open calls either way.
     ///
     /// It cannot happen, and here is why rather than just that: no call in this
@@ -748,9 +748,9 @@ import Testing
     /// with the clock advancing.** Same deltas, same order.
     ///
     /// The guarantee the mid-stream sweep had to keep. None of them holds a
-    /// deadline that falls inside its own stream — `killed-session`'s orphan
+    /// deadline that falls inside its own stream (`killed-session`'s orphan
     /// expires at t=909 in a 9.2 s capture, `permission-prompt`'s shortened one
-    /// at t=117.5 in a stream that ends at t=103.5 — so stepping the clock
+    /// at t=117.5 in a stream that ends at t=103.5), so stepping the clock
     /// across them must be a no-op, and if one ever gains such a deadline this
     /// is the test that says so instead of a diff nobody reads.
     ///
@@ -762,7 +762,7 @@ import Testing
     /// opposite of what it exists to prove. Its positive assertion lives in
     /// `PermissionGateTests.theShortenedDeadlineFiresInsideTheStreamWithTheSessionStillWorking`.
     ///
-    /// This list is therefore *not* `Fixtures.required` minus nothing — if a
+    /// This list is therefore *not* `Fixtures.required` minus nothing: if a
     /// future fixture legitimately gains an in-stream deadline, add it here
     /// with its own positive test, and do not silence this one.
     @Test(arguments: Fixtures.required.filter { $0 != "denial-then-work" })
@@ -790,7 +790,7 @@ import Testing
                 "an id was closed twice: \(closedIDs)")
     }
 
-    /// Present across every fixture, not just the one that named it — and
+    /// Present across every fixture, not just the one that named it, and
     /// "every fixture" means all eighteen, which is what `Fixtures.all` is for.
     @Test func noToolUseIDIsEverClosedTwice() async throws {
         for name in Fixtures.all {
@@ -861,14 +861,14 @@ import Testing
         #expect(counts[HookEvent.missingEventName] == 1)
     }
 
-    // MARK: expected delta sequences — the M1 exit criterion, spelled out
+    // MARK: expected delta sequences - the M1 exit criterion, spelled out
 
     /// The exact, ordered delta stream each fixture produces. Written down
     /// rather than derived, so a change in behaviour has to be argued for
     /// instead of absorbed.
     static let expectedSequences: [String: [String]] = [
         // The main character now appears on `UserPromptSubmit`, before any
-        // tool call — so `populationChanged` precedes the first `callOpened`
+        // tool call, so `populationChanged` precedes the first `callOpened`
         // rather than trailing it. A turn that calls no tool still draws
         // somebody, and that somebody is idle. [I2]
         "single-agent-simple": [
@@ -888,7 +888,7 @@ import Testing
             "agentDeparted", "populationChanged",
         ],
         // Three `Agent` dispatches, each opening and closing in milliseconds
-        // around a `SubagentStart` — the subagents outlive them by seconds.
+        // around a `SubagentStart`, the subagents outlive them by seconds.
         //
         // Each `agentLinked` lands immediately after the `callClosed` of the
         // `Agent` call that carried it, and *after* the child's
@@ -902,19 +902,19 @@ import Testing
         //
         // 1. The `agentDeparted`/`populationChanged` pair that used to follow
         //    each of the three `reportDelivered`s is **gone**. The report beat
-        //    itself is untouched — three `reportDelivered`, on the same three
+        //    itself is untouched: three `reportDelivered`, on the same three
         //    events, in the same three places. What is gone is the claim that
         //    followed it, that the agent had left. It had not; it had finished a
         //    turn. `four-subagents` is the capture that proves those are
         //    different facts, and here the three subagents stay in their seats,
         //    dormant, for the 12.7 s between the last stop and `SessionEnd`.
         // 2. The four departures now land **together at `SessionEnd`**, in
-        //    `AgentRef` order — main thread first, then the three subagents.
+        //    `AgentRef` order: main thread first, then the three subagents.
         //    That is `endSession` closing everything under the session, which is
         //    the path that genuinely means gone. [I4]
         // 3. There is **one** trailing `populationChanged`, not four. It is
-        //    emitted once per ingested event whose count moved, and one event —
-        //    the `SessionEnd` — now empties the room. The three stops no longer
+        //    emitted once per ingested event whose count moved, and one event
+        //    (the `SessionEnd`) now empties the room. The three stops no longer
         //    move the population at all, which is the whole point: the parent
         //    had three agents assigned across that window and the room now says
         //    so.
@@ -946,7 +946,7 @@ import Testing
             "reportDelivered", "dormancyChanged",   // first subagent goes dormant
             // The main thread's own boundaries, interleaved with the subagents'.
             // Each pair is the `UserPromptSubmit` that ends a standing interval
-            // — 9.60 s, 5.37 s and 10.14 s after the `Stop` before it — and the
+            // (9.60 s, 5.37 s and 10.14 s after the `Stop` before it), and the
             // next `Stop`, 1.80 / 2.33 / 5.23 s later. A subagent finishing
             // wakes the main thread as a synthetic prompt, which is why the two
             // casts' boundaries arrive together and why "several `Stop`s in one
@@ -976,7 +976,7 @@ import Testing
             "agentDeparted", "populationChanged",
         ],
         // Two gates: one denied, one approved. The denied `Bash` opens and is
-        // never closed by anything in the stream — its `callAbandoned` at the
+        // never closed by anything in the stream: its `callAbandoned` at the
         // end is `SessionEnd` doing it, 101 s later. That is the shape ADR-001
         // is about.
         //
@@ -1006,8 +1006,8 @@ import Testing
             "gateChanged",                          // the approving close disarms the mark
             "callClosed",
             // The `Stop` at the end of the approved turn. It arrives with the
-            // *denied* call still open — nothing in this stream ever closes one
-            // — and ends the turn anyway: that call is dead and standing the
+            // *denied* call still open (nothing in this stream ever closes one)
+            // and ends the turn anyway: that call is dead and standing the
             // character up is the truer picture. [ADR-005 §3]
             "turnChanged",
             "callAbandoned",                        // the denied call, at SessionEnd
@@ -1019,18 +1019,18 @@ import Testing
         // Read the position of `callAbandoned`: it is second from last, after
         // every other call has opened and closed. That is the *unstepped*
         // replay, where the denied `Bash` survives to `SessionEnd` at t=252.06.
-        // Step the clock and it moves to t=94.98, ahead of three later calls —
+        // Step the clock and it moves to t=94.98, ahead of three later calls,
         // which is the whole reason this fixture is in the required set, and
         // why it is the one exclusion from
         // `advancingTheClockChangesNothingInTheRequiredFixtures`.
         //
         // The six `attentionChanged` are three raise/clear pairs: two
         // permission gates and one idle stretch. `idle_prompt` fires per
-        // stretch, not per session — this fixture is the capture that refuted
+        // stretch, not per session, this fixture is the capture that refuted
         // the "exactly once" claim.
         // The two `gateChanged` bracket the denial: armed 13 ms after the
         // `PreToolUse` at t=3.138, cleared by the user's next prompt at
-        // t=34.984 — which is also what shortens the orphan's deadline. The
+        // t=34.984, which is also what shortens the orphan's deadline. The
         // character is still for those 31.8 s and moves again at the answer,
         // 60 s before the reaper closes the call it was blocked on.
         "denial-then-work": [
@@ -1079,7 +1079,7 @@ import Testing
 
     /// `killed-session`'s sweep must do exactly one thing.
     ///
-    /// It is **not** the only sweep in `fixtures/` that does work — this comment
+    /// It is **not** the only sweep in `fixtures/` that does work, this comment
     /// used to say it was, and there are three: `concurrent-permission-gates`
     /// and `denied-batch-cancel` end at a dialog nobody answered and hold an
     /// orphan of their own. Their sweeps are asserted, derived rather than
@@ -1095,14 +1095,14 @@ import Testing
         #expect(swept.map(\.tag) == ["callAbandoned"])
     }
 
-    // MARK: every fixture — M6's three-orphan rule
+    // MARK: every fixture - M6's three-orphan rule
 
     /// **Exactly three fixtures hold an orphan at end of stream, and they are
     /// exactly the three with no `SessionEnd`.**
     ///
     /// M6's first exit criterion, and until this test it was asserted nowhere.
     /// What stood here was `onlyKilledSessionLeavesAnOrphanAtEndOfStream`
-    /// iterating `Fixtures.required` — eight of the eighteen captures, holding
+    /// iterating `Fixtures.required`, eight of the eighteen captures, holding
     /// exactly one of the three. Its name and its comment were true within that
     /// eight and false across `fixtures/`, so it was arranged such that it could
     /// not produce the failure it named. `spriteroom-replay --all` prints these
@@ -1122,8 +1122,8 @@ import Testing
     /// **It moved from three to four on 2026-08-14, and this is the paper
     /// trail.** `authoring-subagents` is the eighteenth capture and the first
     /// taken from a real working session rather than a sandbox scenario [#72].
-    /// It has no `SessionEnd` because the session it recorded did not end — the
-    /// recorder was stopped while the session carried on — and it orphans one
+    /// It has no `SessionEnd` because the session it recorded did not end (the
+    /// recorder was stopped while the session carried on), and it orphans one
     /// `Bash` call whose `PostToolUse` never arrived for that same reason. That
     /// is a genuine shape, not an artefact: it is what every capture of a live
     /// session that outlives its recorder will look like. `docs/05-MILESTONES.md`
@@ -1176,7 +1176,7 @@ import Testing
     /// The other half of the same criterion, and the half that is about close
     /// paths rather than about captures. `SessionEnd` force-closes everything in
     /// its session [I4], so a fixture carrying one has no business leaving work
-    /// for the harness's closing sweep — if it does, an event-stream close path
+    /// for the harness's closing sweep: if it does, an event-stream close path
     /// is missing and the sweep is hiding it.
     ///
     /// Asserted twice over: nothing open when the stream runs out, *and* a
@@ -1184,8 +1184,8 @@ import Testing
     /// sweep" actually means; the first alone would pass on a fixture whose
     /// calls the mid-stream reaper had quietly taken.
     ///
-    /// The stricter form of this — zero **without the reaper at all**, not one
-    /// `callAbandoned` anywhere — belongs to `tool-failure` alone and lives in
+    /// The stricter form of this (zero **without the reaper at all**, not one
+    /// `callAbandoned` anywhere) belongs to `tool-failure` alone and lives in
     /// `toolFailureClosesEverythingWithoutTheReaper` and
     /// `toolFailureNeedsNoReaperEvenWithTheClockAdvancing`. It cannot be
     /// generalised: `parallel-denial` and `denial-then-work` hold an
@@ -1206,7 +1206,7 @@ import Testing
             let swept = await model.sweep(
                 at: last.addingTimeInterval(Reaper.longestDeadlineInterval + 1))
             #expect(!swept.contains { $0.tag == "callAbandoned" }, """
-                \(name): the closing sweep had work to do — \(swept.map(\.tag)) — \
+                \(name): the closing sweep had work to do (\(swept.map(\.tag))) \
                 so a close path in the event stream is missing
                 """)
         }

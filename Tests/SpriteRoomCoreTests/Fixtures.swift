@@ -18,7 +18,7 @@ enum Fixtures {
     /// doc set for it: it is the fixture that proves the interactive-denial fix,
     /// so from the moment there is a fix it is required coverage. Like
     /// `killed-session` it does **not** replay to zero open calls without the
-    /// reaper, by nature — a user clicking "No" produces a call nothing in the
+    /// reaper, by nature: a user clicking "No" produces a call nothing in the
     /// stream ever closes. What changed is the number: 900 s became 60 s.
     static let required = [
         "single-agent-simple",
@@ -29,9 +29,9 @@ enum Fixtures {
         "unknown-events",
         "permission-prompt",
         // Joined at the maintainer's decision after ADR-001 shipped. It is the
-        // only fixture whose shortened deadline falls *inside* its own stream —
+        // only fixture whose shortened deadline falls *inside* its own stream:
         // the orphan is reaped at t=94.98 and 157 s of real session activity
-        // follows — so it is the only one that can demonstrate the fix rather
+        // follows, so it is the only one that can demonstrate the fix rather
         // than merely be consistent with it. `parallel-denial` was considered
         // and left out: it proves the TUI serialises a batch, which is a
         // finding, not a rule this layer has to keep.
@@ -43,7 +43,7 @@ enum Fixtures {
     ///
     /// `required` is the eight the ingest layer is *signed off* against; it is
     /// not the corpus. There are eighteen files, and M6 gates on
-    /// `spriteroom-replay --all` over all of them — so a rule stated over "every
+    /// `spriteroom-replay --all` over all of them, so a rule stated over "every
     /// fixture" has to be iterated over this list, not that one. Derived from
     /// the directory on purpose: a capture added tomorrow joins every such rule
     /// on its next run instead of escaping it until somebody remembers a name.
@@ -64,7 +64,7 @@ enum Fixtures {
     ///
     /// The discriminator behind M6's three-orphan rule: a fixture that reaches
     /// `SessionEnd` has every open call force-closed by it [I4], and one that
-    /// does not — a `kill -9`, a driver timing out at a dialog — legitimately
+    /// does not (a `kill -9`, a driver timing out at a dialog) legitimately
     /// ends with a call nothing in the stream will ever close.
     static func reachesSessionEnd(_ name: String) throws -> Bool {
         try entries(name).contains { $0.event?.kind.name == "SessionEnd" }
@@ -90,7 +90,7 @@ enum Fixtures {
     }
 
     /// The same walk as `replay(_:)`, except the model's clock is **advanced to
-    /// each event on the way** rather than jumping there — `WorldModel.advance(to:)`
+    /// each event on the way** rather than jumping there: `WorldModel.advance(to:)`
     /// sweeps at every deadline that falls in the gap between two captured
     /// events, at the deadline's own instant.
     ///
@@ -128,7 +128,7 @@ enum Fixtures {
     ///
     /// The one sanctioned way to make a synthetic event in this target. Every
     /// field it does not name stays exactly as captured, so what comes out is
-    /// still a real payload shape with real values — no hand-written event has
+    /// still a real payload shape with real values: no hand-written event has
     /// ever been allowed in here and none is now.
     ///
     /// Two uses, both of them about a fact that no single capture can contain:
@@ -140,8 +140,8 @@ enum Fixtures {
     ///   attention tests below put a genuine `Notification` payload into
     ///   `three-subagents`, which is the only capture with concurrent subagent
     ///   traffic and the only way to test that such traffic does not clear the
-    ///   main thread's badge. The alternative — a live capture of a permission
-    ///   prompt raised while three subagents run — needs a human at a dialog
+    ///   main thread's badge. The alternative (a live capture of a permission
+    ///   prompt raised while three subagents run) needs a human at a dialog
     ///   and three agents in flight at the same moment.
     static func rewriting(_ payload: Data, _ changes: [String: String]) -> HookEvent? {
         guard var object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any]

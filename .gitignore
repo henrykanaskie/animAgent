@@ -3,7 +3,7 @@
 #
 # Note this ignores the *contents*, not the directory. `assets/` on its own
 # excludes the directory wholesale, and git cannot re-include a file inside an
-# excluded directory — the negation below would silently do nothing.
+# excluded directory; the negation below would silently do nothing.
 assets/*
 
 # ...except the manifest, which is the contract the scene builds against. It
@@ -24,7 +24,7 @@ __pycache__/
 
 # Markdown is local-only. Only the root README is published: the design record
 # in docs/, the running log in notes.md, CLAUDE.md and the agent definitions all
-# stay on this machine. Nothing is deleted — `git rm --cached` untracks a file
+# stay on this machine. Nothing is deleted: `git rm --cached` untracks a file
 # and leaves it on disk, and these are still the working copies.
 #
 # `!/README.md` is anchored to the repository root on purpose. An unanchored

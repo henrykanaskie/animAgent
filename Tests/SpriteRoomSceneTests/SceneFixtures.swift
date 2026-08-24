@@ -8,7 +8,7 @@ import SpriteRoomScene
 /// `assets/` is gitignored: it holds three purchased LimeZu packs whose licence
 /// permits use but not redistribution. Only `assets/manifest.json` is tracked,
 /// because it is the contract the scene builds against and it holds filenames
-/// and numbers rather than artwork. So a fresh clone — and every CI job — holds
+/// and numbers rather than artwork. So a fresh clone, and every CI job, holds
 /// the contract and none of the art it names.
 ///
 /// The tests that read pixels are doing exactly their job when they fail in
@@ -19,8 +19,8 @@ import SpriteRoomScene
 /// session.
 ///
 /// **This asks whether the manifest's declared art *resolves*, not whether an
-/// `assets/` directory exists.** A half-populated `assets/` — an interrupted
-/// copy, a partial `git-lfs` fetch, a pack unzipped to the wrong level — is the
+/// `assets/` directory exists.** A half-populated `assets/` (an interrupted
+/// copy, a partial `git-lfs` fetch, a pack unzipped to the wrong level) is the
 /// case that would otherwise produce a scattering of confusing individual
 /// failures instead of one clear "the art is not here".
 ///
@@ -33,7 +33,7 @@ import SpriteRoomScene
 /// that verified the art.
 ///
 /// **Override.** Set `SPRITE_ROOM_REQUIRE_ART=1` on a machine that is supposed
-/// to have the art — a release build, a packaging step, the machine cutting M5 —
+/// to have the art (a release build, a packaging step, the machine cutting M5)
 /// and missing art becomes a hard failure in `ArtAvailabilityTests` instead of a
 /// skip. The gate itself still reports the truth about the disk, so the failure
 /// is one legible error naming the missing files rather than N art tests
@@ -46,7 +46,7 @@ enum SceneArt {
         ///
         /// The set rather than just its size, so a test can ask *which* paths
         /// the walk found. The count alone cannot distinguish a walk that
-        /// covers the manifest from one that covers most of it — which is
+        /// covers the manifest from one that covers most of it, which is
         /// exactly what happened to the animation frames: `role.file` is frame
         /// 0 and is always present, so a survey that collected only `file`
         /// declared a plausible number and left frames 1..N out of the set. Art
@@ -96,7 +96,7 @@ enum SceneArt {
         declared.formUnion(manifest.room.builderTiles)
         declared.formUnion(manifest.room.propFiles)
         // The floor plan's tiles. Every one is also in `builderTiles` today, so
-        // this adds nothing to the set — and it is here anyway, because "it is
+        // this adds nothing to the set, and it is here anyway, because "it is
         // covered by another walk" is exactly what was true of the animation
         // frames until it was not. [ADR-007]
         declared.formUnion(manifest.room.plan.declaredPaths)
@@ -143,8 +143,8 @@ enum SceneArt {
     /// naming a number that stopped being true.
     ///
     /// Counts the trait annotation, which means it is only correct while every
-    /// gate is written per-test. Both scene suites are *mixed* — `ManifestTests`
-    /// has two tests that need no art at all and `RoomSceneTests` has fifteen —
+    /// gate is written per-test. Both scene suites are *mixed*: `ManifestTests`
+    /// has two tests that need no art at all and `RoomSceneTests` has fifteen,
     /// so there is no suite-level gate to miss. If a wholly art-dependent suite
     /// is ever added and gated at `@Suite`, teach this to count its tests too.
     static let gatedTestCount: Int = {
@@ -168,22 +168,22 @@ enum SceneArt {
     /// 20 as of M5b: `ManifestTests.everyBadgeFileIsExactlyTheDeclaredCanvas`
     /// opens the badge PNGs, so it has to be gated like the rest.
     /// 24 as of M6c: the report round trip added four tests that play real
-    /// animations — the beat itself, the whole cast leaving in one frame, a
+    /// animations: the beat itself, the whole cast leaving in one frame, a
     /// leaver caught in the aisle, and the delivery station held across the
     /// return leg. Each of them reads `Character.state`, which is `nil` without
     /// frames on disk.
     /// 31 with ADR-002's themed rooms: seven tests that need theme art. Three
-    /// check the theme contract — every theme binds every role the scene draws,
+    /// check the theme contract: every theme binds every role the scene draws,
     /// every theme resolves a floor and a wall of its own declared tile size,
     /// and every named pose state exists with `right` and `left`. Four check
-    /// what reaches the screen — no prop node rebuilt across any fixture replay,
+    /// what reaches the screen: no prop node rebuilt across any fixture replay,
     /// a theme change that redresses the room and moves no character, the
     /// declared floor being the one drawn, and the measurement behind why the
     /// declaration exists at all (the flat-tile search accepts 2 of 141).
-    /// 35 with the `sleep` badge: two tests open the badge PNGs — that the
+    /// 35 with the `sleep` badge: two tests open the badge PNGs: that the
     /// dormant glyph loads and is neither a tool badge nor `attention`, and that
     /// a `Character` swaps to it and gives the slot up to `attention`.
-    /// 39 with the animated prop: four tests that need the frames on disk — the
+    /// 39 with the animated prop: four tests that need the frames on disk: the
     /// room plays them while an unanimated theme stays still, the animated
     /// prop's node is never rebuilt across a fixture replay, the animation is
     /// identical with and without a delta stream, and no `SpriteIntent` can move
@@ -193,24 +193,24 @@ enum SceneArt {
     /// that is a claim about pixels, so it opens the character PNGs.
     /// 49 when the station finally reached the room: nine tests that need the
     /// art because they are about the picture rather than about the ids. Five
-    /// are `StationSceneTests` — two agents of different `agent_type` differing
+    /// are `StationSceneTests`: two agents of different `agent_type` differing
     /// in pixels at their seats, a station changing the seat it is drawn at, a
     /// seat whose station names nothing keeping the theme's own furniture, a
     /// station going up at spawn and coming down at retirement, and the fixture
     /// sweep down the branch that actually draws one. Three are `CostumeTests`
-    /// — a manifest with no wardrobe dressing nobody, a costume drawn on every
+    /// : a manifest with no wardrobe dressing nobody, a costume drawn on every
     /// state the body plays, and a layer whose frame count disagrees not being
     /// drawn. One is `CostumeContractTests`, which opens every frame a declared
     /// costume names.
     /// 50 when the stations became real art: `StationContractTests
     /// .everyDeclaredStationFrameIsOnDisk` opens every file the eleven declared
     /// stations name, in every theme. The other five station contract checks are
-    /// **not** gated and must not become so — they ask what the manifest
+    /// **not** gated and must not become so: they ask what the manifest
     /// declares, which is the half of this feature a fresh clone can still
     /// check.
     /// 58 with the held-object layer: eight tests in `HeldObjectTests` that
     /// need the seated frames on disk. Seven are `HeldObjectSceneTests`, which
-    /// build a real `Character` — a `Character` with no art never enters a body
+    /// build a real `Character`: a `Character` with no art never enters a body
     /// state at all, so every rule about what is in its hands would pass
     /// vacuously without the pack. The eighth is
     /// `HeldObjectArtTests.theSeatedHandBoxIsWhereTheArtSaysItIs`, which
@@ -222,7 +222,7 @@ enum SceneArt {
     /// 59 with the two-row seat lattice: `RoomSceneTests
     /// .decorationIsSpreadAcrossTheRoomAndStandsAtTwoDepths` asks where the
     /// room's decorative props were *placed*, and a prop with no art on disk is
-    /// never placed at all — so without the pack it would assert an empty list
+    /// never placed at all, so without the pack it would assert an empty list
     /// and pass having checked nothing. The other new composition tests
     /// (`theSeatsAlternateDepthAlongXWithoutMovingAnyColumn` and the two new
     /// blocks in `theAisleIsGuaranteedClearAtTheStationsAndNotBetweenThem`) are
@@ -230,19 +230,19 @@ enum SceneArt {
     /// a fresh clone can and should still check.
     /// 65 with the ambient motion channel: six tests that need the seated frames
     /// on disk. Five are `AmbientMotionSceneTests`, which build real
-    /// `Character`s — a `Character` with no art never enters a body state at
+    /// `Character`s: a `Character` with no art never enters a body state at
     /// all, so every rule about *how* it moves would pass vacuously without the
     /// pack. The sixth is
     /// `AmbientMotionArtTests.theSeatedLoopHoldsExactlyTwoPositions`, which
     /// re-derives from the shipped PNGs the measurement the whole channel stands
     /// on: the seated loop holds two positions, not three.
-    /// `AmbientMotionPolicyTests` is deliberately **not** gated — the phrase
+    /// `AmbientMotionPolicyTests` is deliberately **not** gated: the phrase
     /// table and the question-mark rule are this repository's own, so a fresh
     /// clone can and should still check them.
     ///
     /// 66 with `RoomSceneTests.anIdleCharacterPutsOneTextureOnScreenForever`.
-    /// The logic half of that claim — `AmbientMotionTests.anIdleBodyHoldsOneFrame`
-    /// — is ungated and always runs; the gated one is the same claim read off the
+    /// The logic half of that claim (`AmbientMotionTests.anIdleBodyHoldsOneFrame`
+    /// ) is ungated and always runs; the gated one is the same claim read off the
     /// texture the node is actually wearing, which needs the pack. The defect it
     /// pins was found in pixels, so one assertion of it lives near the pixels.
     /// `SleepBadgeTests.theDormancyTabIsNotABubble` is **not** gated for the
@@ -254,10 +254,10 @@ enum SceneArt {
     /// landed, which is `nil`-bodied without frames on disk; the third derives
     /// the cast's widest silhouette from the shipped PNGs, because the manifest
     /// records one head-top number per variant and the slot has to clear every
-    /// frame of every state. The other two are arithmetic —
+    /// frame of every state. The other two are arithmetic:
     /// `theSlotTopIsOnePixelAboveTheHighestHeadInTheCast` reads the manifest and
     /// `theSlotAndTheCountChipStayOutOfTheNeighbouringColumn` reads `RoomLayout`
-    /// — so a fresh clone still checks the number this change exists to produce.
+    /// , so a fresh clone still checks the number this change exists to produce.
     ///
     /// 71 when the desks stopped covering faces: two of `SeatedHeadOcclusionTests`'s
     /// three need the pack, because where a seated head ends is a fact about the
@@ -273,15 +273,15 @@ enum SceneArt {
     /// blocked character is wearing, sixty times a second for a second. Without
     /// the pack a `Character` never enters a body state at all, so it would
     /// assert one held frame about a character that was holding none. The rule
-    /// itself — the third condition in `AmbientMotion.sequence` — is checked
+    /// itself (the third condition in `AmbientMotion.sequence`) is checked
     /// ungated in `AmbientMotionPolicyTests`, which a fresh clone still runs.
     ///
     /// 77 with the report walk: five of `ReportDeliveryTests`' ten drive real
     /// characters through a real beat and read where they were standing when they
     /// played `deliver`. Without the pack a `Character` never enters `deliver` at
     /// all, so all five would assert something about a beat that never ran. The
-    /// other five are arithmetic on `RoomLayout` and `DeliveryFloor` — including
-    /// the whole of the collision argument and the whole of the [I4] argument —
+    /// other five are arithmetic on `RoomLayout` and `DeliveryFloor` (including
+    /// the whole of the collision argument and the whole of the [I4] argument),
     /// so a fresh clone still checks everything this change has to prove.
     ///
     /// 80 with ADR-006's desk-top object declarations: three of
@@ -292,8 +292,8 @@ enum SceneArt {
     /// (130-134) really do exceed the derived width bound, so `running`'s
     /// abstention is checked against pixels rather than trusted from prose; one
     /// confirms the three declared silhouettes do not coincide pixel for pixel.
-    /// The other six in that file — the declarations themselves, that `running`
-    /// has no role, and the 28px bound re-derived from `RoomLayout` — are data
+    /// The other six in that file (the declarations themselves, that `running`
+    /// has no role, and the 28px bound re-derived from `RoomLayout`) are data
     /// and arithmetic, so a fresh clone still checks them.
     ///
     /// 83 with `running`'s authored monitor (`DeskMonitorArt`): three new gated
@@ -303,26 +303,26 @@ enum SceneArt {
     /// `pad`'s own processed pixels to confirm the monitor's three colours
     /// really are sampled from them, rather than trusted from the doc comment
     /// that says so. One opens the same three roles' pixels to prove none of
-    /// them has the interior waist the monitor's own row profile does —
+    /// them has the interior waist the monitor's own row profile does:
     /// the silhouette-family claim, checked against the shapes it is
     /// contrasted with rather than only against itself. One re-derives
     /// `SeatedHead.clearance` at the monitor's own near edge against the real
     /// seated cast, closing this task's explicit "does not reach the head at
     /// either desk-surface height" obligation. The rest of
-    /// `DeskMonitorArtTests` — the palette band, the palette's closed set, the
+    /// `DeskMonitorArtTests` (the palette band, the palette's closed set, the
     /// 2x2 grid, the width bound, the row-profile waist on the monitor's own
-    /// bitmap, and that a desk-surface height never moves the near-edge x —
+    /// bitmap, and that a desk-surface height never moves the near-edge x)
     /// are pure bitmap and `RoomLayout` arithmetic over art this repository
     /// draws itself, so a fresh clone still checks them, the same reasoning
     /// `HeldObjectArtTests` uses for its own four ungated tests.
     ///
     /// 89 when the desk-top object was bound to a work kind: six tests in
     /// `DeskObjectSceneTests`, all of them about what is on screen rather than
-    /// about the rule. Three are placement — the near edge, the far edge and the
+    /// about the rule. Three are placement: the near edge, the far edge and the
     /// surface height in scene pixels at every seat of every theme; the depth
     /// against the desk the object stands on; and every theme drawing every kind
     /// despite no theme declaring the three sourced roles itself. Three are the
-    /// node — a bare desk being a hidden node rather than a missing one, no
+    /// node: a bare desk being a hidden node rather than a missing one, no
     /// desk-object node rebuilt across any fixture replay (the per-character
     /// analogue of `noPropNodeIsEverRebuiltAcrossAnyFixtureReplay`, which cannot
     /// see this slot), and a departed character taking its object with it. Each
@@ -330,8 +330,8 @@ enum SceneArt {
     /// without the gate they would assert about an empty room and pass.
     ///
     /// The rest of that change is deliberately **not** gated and must not become
-    /// so: `DeskObjectCorpusTests` — the measurement the whole design is judged
-    /// on — reads the director rather than the scene, and `WorkKindTests`,
+    /// so: `DeskObjectCorpusTests` (the measurement the whole design is judged
+    /// on) reads the director rather than the scene, and `WorkKindTests`,
     /// `WorkKindLexiconTests`, `WorkTallyTests` and `DeskObjectDirectorTests` are
     /// this repository's own arithmetic. A fresh clone still checks every number
     /// in ADR-006 §3.
@@ -339,7 +339,7 @@ enum SceneArt {
     /// **Still 89 after the palette lint was wired in, and that is a known
     /// under-count of exactly one.** `PaletteLintTests.theI7PaletteLintPasses`
     /// is art-gated, but its trait reads
-    /// `.enabled(if: SceneArt.isAvailable && PaletteLintTests.hasPython)` — a
+    /// `.enabled(if: SceneArt.isAvailable && PaletteLintTests.hasPython)`, a
     /// compound condition, because a machine with no `python3` has not broken
     /// the palette and should skip rather than fail. `gatedTestCount` matches
     /// the literal one-condition spelling, so it cannot see that test.
@@ -347,17 +347,17 @@ enum SceneArt {
     /// Left as 89 rather than taught to parse expressions: the scan's value is
     /// that it is dumb and therefore trustworthy, and a regex that understood
     /// `&&` would be one more thing to be subtly wrong. Recorded here instead,
-    /// which is the honest trade — the notice under-reports by one, and this is
+    /// which is the honest trade: the notice under-reports by one, and this is
     /// the paragraph that says so.
     ///
     /// 97 with ADR-006 §12's dormancy signal: eight tests in
     /// `DormancySignalTests`, all of them measurements that need real pixels or
-    /// a real node. Two are `CharacterDimTests` — the factor re-derived against
+    /// a real node. Two are `CharacterDimTests`: the factor re-derived against
     /// the two saturation thresholds over every colour the shipped cast draws,
     /// and the contrast direction re-measured against every theme's own mean, so
     /// the claim that dimming *raises* I7's tightest number is checked against
     /// the art rather than against this file. Three are `CharacterDimSceneTests`
-    /// — a `Character` with no art never enters a body state, so the dim, its
+    /// : a `Character` with no art never enters a body state, so the dim, its
     /// stillness over 60 frames and its precedence against an attention bubble
     /// would all pass vacuously without the pack. Three are
     /// `DeskScreenSceneTests`, which need a real `RoomScene`: it places nothing
@@ -365,7 +365,7 @@ enum SceneArt {
     ///
     /// The rest of that change is deliberately **not** gated and must not become
     /// so: `DeskScreenArtTests` is bitmap arithmetic over art this repository
-    /// draws itself — the one layer `scripts/lint-palette.py` cannot see — and
+    /// draws itself (the one layer `scripts/lint-palette.py` cannot see) and
     /// `DeskScreenDirectorTests` is the keying, which is this repository's own
     /// policy. A fresh clone still checks every number in the ADR's own table.
     ///
@@ -373,7 +373,7 @@ enum SceneArt {
     /// which need the pack because they are about the frames. One walks a real
     /// character in and reads the direction it drew; the other asserts the four
     /// walk directions are four *distinct* textures rather than one sheet
-    /// pointed at four times — which is precisely the defect M0 found in the
+    /// pointed at four times, which is precisely the defect M0 found in the
     /// `sit` row, so it is checked rather than assumed for the rows this change
     /// starts using. The six arithmetic tests in `TravelFacingTests` are
     /// deliberately ungated: the travel rule and `RoomLayout`'s route geometry
@@ -382,57 +382,57 @@ enum SceneArt {
     ///
     /// 106 with ADR-009's desk pod: **one**, and the ratio is the point.
     /// `DeskPodTests` is eight tests and seven of them are arithmetic over the
-    /// shipped `assets/manifest.json`, which is tracked — whether a desk is wide
+    /// shipped `assets/manifest.json`, which is tracked (whether a desk is wide
     /// enough to carry a rig either side of its occupant, where the two kit slots
-    /// fall, how far a 64 px desk reaches toward the next seat's lane — so a
+    /// fall, how far a 64 px desk reaches toward the next seat's lane), so a
     /// fresh clone still checks every number ADR-009 argues from. The gated one is
     /// `theRoomDrawsAScreenRigAtEveryAwayFacingSeatOfThePodAndNowhereElse`, which
     /// needs a real `RoomScene`: it places nothing without the pack, so the nodes
     /// it reads would not exist and the check would pass having compared two
     /// empty lists.
     /// 108 with the hand-placed room dressing: **two**, both in
-    /// `SceneryContractTests`, and both gated for the same reason — they read
+    /// `SceneryContractTests`, and both gated for the same reason: they read
     /// the nodes the scene actually built, and a scene with no art on disk
     /// places nothing, so each would compare two empty lists and pass.
     /// `theHandPlacedRoomDrawsEveryPlacementAtItsAuthoredPoint` walks the plan's
     /// 37 authored points through `dressingPlacements` to the nodes; its twin
     /// `theBandThemesStillStandEveryPropOnAnAnchorAndKeepTheirSevenDecorations`
-    /// is the other half of an all-or-nothing switch — that the mechanism the
+    /// is the other half of an all-or-nothing switch: that the mechanism the
     /// five untouched themes still take is still running, asserted as itself
     /// rather than inferred from nothing else going red.
     ///
     /// The rest of that change is deliberately **not** gated and must not become
-    /// so: the four new `RoomPlanTests` — the shipped composition against
+    /// so: the four new `RoomPlanTests` (the shipped composition against
     /// `RoomPlan.dressingViolations`, and the three that make that validator
-    /// fail on purpose — read `assets/manifest.json`, which is tracked, and the
+    /// fail on purpose) read `assets/manifest.json`, which is tracked, and the
     /// question whose wrong answer is a plant standing in a corridor is one a
     /// fresh clone can and should still answer.
     /// 112 with the pod's desktop stock: **four**, and all four are gated on a
     /// measurement the manifest does not carry. A role declares `variants` as
     /// file paths and one `content_box`, so where the office `desk_kit`'s folder,
     /// clipboard and mug stand can only be answered by measuring those three
-    /// files — which is what `SceneFixtures.inkBox` does and what a fresh clone
+    /// files, which is what `SceneFixtures.inkBox` does and what a fresh clone
     /// cannot do.
     ///
-    /// - `everyObjectTheShippedStockPutsOnADesktopClearsTheFace` — the four
+    /// - `everyObjectTheShippedStockPutsOnADesktopClearsTheFace`: the four
     ///   objects at their own ink against the desk's own band.
-    /// - `variantZeroSMeasuredBoxIsTheOneTheManifestDeclares` — the measurement
+    /// - `variantZeroSMeasuredBoxIsTheOneTheManifestDeclares`: the measurement
     ///   tied to the manifest's own declaration on the one file both can see.
     /// - `everyCameraFacingSeatCarriesTheWholeStockAndTwoSeatsArrangeItDifferently`
-    ///   and `theSameSeatDrawsTheSameStockWhoeverIsSittingInIt` — a real
+    ///   and `theSameSeatDrawsTheSameStockWhoeverIsSittingInIt`: a real
     ///   `RoomScene`, which places nothing without the pack.
-    /// - `aWorkKindObjectStandsInFrontOfItsSlotsRigAndNeverInPlaceOfIt` — **the
+    /// - `aWorkKindObjectStandsInFrontOfItsSlotsRigAndNeverInPlaceOfIt`: **the
     ///   +1 at M8**, and gated for the same reason as the two above: it seats a
     ///   cast in a real `RoomScene` and reads back what the desktop drew, which
     ///   on a fresh clone is nothing. Its companion,
     ///   `aTurnedSeatTakesAChairOnlyIfOneFitsUnderItsOwnNameplate`, is
-    ///   deliberately **un**gated — the window and the chair's height are both
+    ///   deliberately **un**gated: the window and the chair's height are both
     ///   manifest numbers, so the measurement that took the away-facing chair
     ///   away is checked on a machine with no art at all.
     ///
     /// The rest is deliberately **not** gated, and it is the larger half: that a
     /// role with no stock still draws `file`, that a malformed list degrades to
-    /// it, that the wrap is total, and — through `deskKitLift` — that *no* object
+    /// it, that the wrap is total, and (through `deskKitLift`) that *no* object
     /// of *any* height can rise above its own desk's back edge. A fresh clone
     /// still checks the whole rule; what it cannot check is the four files.
     static let expectedGatedTestCount = 113
@@ -447,7 +447,7 @@ enum SceneArt {
     /// `PanelFixtures.notice(survey:gated:required:)` idiom for idiom, because
     /// the two gates are meant to read the same way.
     ///
-    /// Rendering a branch is not the same as proving the skip it describes —
+    /// Rendering a branch is not the same as proving the skip it describes:
     /// see `theAbsentNoticeSaysTheRunVerifiedNothing`, which is a text test and
     /// says so.
     static func notice(survey: Survey, gated: Int, required: Bool) -> String {
@@ -455,17 +455,17 @@ enum SceneArt {
         var lines = [rule]
 
         if let error = survey.manifestError {
-            lines.append("SPRITE ROOM ART: NO MANIFEST — \(error)")
+            lines.append("SPRITE ROOM ART: NO MANIFEST: \(error)")
             lines.append("  assets/manifest.json is TRACKED, so this is a broken checkout, not")
             lines.append("  the expected missing-art state. Expect further failures below.")
         } else if survey.isAvailable {
             lines.append(
-                "SPRITE ROOM ART: PRESENT — all \(survey.declaredPaths) declared asset paths"
+                "SPRITE ROOM ART: PRESENT: all \(survey.declaredPaths) declared asset paths"
                 + " resolve on disk.")
             lines.append("  \(gated) art-dependent tests RAN. The art was verified.")
         } else {
             lines.append(
-                "SPRITE ROOM ART: ABSENT — \(survey.missingPaths.count) of"
+                "SPRITE ROOM ART: ABSENT: \(survey.missingPaths.count) of"
                 + " \(survey.declaredPaths) declared asset paths are missing.")
             lines.append(
                 "  \(gated) art-dependent tests were SKIPPED."
@@ -474,7 +474,7 @@ enum SceneArt {
             lines.append("  packs, not redistributable); only assets/manifest.json is tracked.")
             if let first = survey.missingPaths.first { lines.append("  First missing: \(first)") }
             // The notice has to know which mode it is in, exactly as
-            // `PanelFixtures.notice(survey:gated:required:)` does — the two
+            // `PanelFixtures.notice(survey:gated:required:)` does: the two
             // gates mirror each other idiom for idiom. Printing "set this to
             // make it a failure" directly above the failure that variable has
             // just caused is the kind of line that teaches people to stop
@@ -496,7 +496,7 @@ enum SceneArt {
     ///
     /// **The two unavailable states report separately, and that is the fix.**
     /// They shared one message until now, so a broken `assets/manifest.json`
-    /// failed with "0 of 0 paths missing" — both counts are zero precisely
+    /// failed with "0 of 0 paths missing", both counts are zero precisely
     /// because nothing parsed to declare a path to look for. `manifest.json` is
     /// tracked while the rest of `assets/` is gitignored, so the two states need
     /// opposite instructions: buy and place the art, versus repair a checkout.
@@ -526,7 +526,7 @@ struct ArtAvailabilityTests {
         let gated = SceneArt.gatedTestCount
         print(SceneArt.notice(survey: survey, gated: gated, required: SceneArt.isRequired))
 
-        // Never a failure for absent art — that is the whole point. These two
+        // Never a failure for absent art: that is the whole point. These two
         // are about the gate's own integrity.
         let drift = "\(gated) tests carry the art gate but"
             + " \(SceneArt.expectedGatedTestCount) were expected; update"
@@ -539,9 +539,9 @@ struct ArtAvailabilityTests {
         // art means all 1052 missing paths in one unreadable line.
         //
         // **The two unavailable states are reported separately.** They used to
-        // share one message, so a broken `assets/manifest.json` — which is
+        // share one message, so a broken `assets/manifest.json` (which is
         // tracked, and so is a corrupt checkout rather than the expected
-        // missing-art state — failed with "0 of 0 paths missing": both counts
+        // missing-art state) failed with "0 of 0 paths missing": both counts
         // are zero precisely because nothing could be parsed to declare a path.
         // That sentence sends a reader looking for absent files when the file
         // that is wrong is the one in the repository.
@@ -557,7 +557,7 @@ struct ArtAvailabilityTests {
     /// `role.file` is always frame 0 and is always present, so a survey that
     /// collected only `file` produced a plausible declared-path count, an
     /// `isAvailable` that said yes, and a `SPRITE_ROOM_REQUIRE_ART=1` run that
-    /// passed — with frames 1..N of an animated prop free to be absent from
+    /// passed: with frames 1..N of an animated prop free to be absent from
     /// disk. The failure mode of a gate that under-counts is not a red test; it
     /// is a green one, which is why the coverage has to be asserted rather than
     /// inferred from the count.
@@ -588,7 +588,7 @@ struct ArtAvailabilityTests {
                     found = declared.contains(path)
                     #expect(found, Comment(rawValue:
                         "the survey declared \(declared.count) paths and \(path) is not one of"
-                        + " them — an animated role's frames are art like any other"))
+                        + " them, an animated role's frames are art like any other"))
                 }
                 // `file` is frame 0 by construction, which is why an
                 // animation-blind reader draws something correct and why
@@ -627,7 +627,7 @@ enum SceneFixtures {
     /// `RoomLayout` takes these as a required argument because a default would
     /// put a camera-facing desk *upstage* of the character it is supposed to be
     /// in front of, silently. Tests that only care about a side-on seat still
-    /// have to pass something, so they pass the room's own — read out of the
+    /// have to pass something, so they pass the room's own, read out of the
     /// manifest here, once, rather than written down at thirty call sites.
     static func seatMetrics(_ manifest: Manifest, theme: String? = nil) -> RoomLayout.SeatMetrics {
         seatMetrics(
@@ -635,7 +635,7 @@ enum SceneFixtures {
             manifest: manifest)
     }
 
-    /// **One art file's opaque bounding box, measured here** — the same thing a
+    /// **One art file's opaque bounding box, measured here**, the same thing a
     /// `content_box` records, read off the pixels rather than out of the
     /// manifest. `nil` when the art is not on disk, so every caller is gated on
     /// `SceneArt.isAvailable`.
@@ -644,7 +644,7 @@ enum SceneFixtures {
     /// manifest declares one `content_box` for the role, so the only way to check
     /// where the scene stands entry 3 of the office `desk_kit` stock is to
     /// measure entry 3. **Written out here rather than calling
-    /// `TextureStore.inkBox`**, which is the function under test — a
+    /// `TextureStore.inkBox`**, which is the function under test, a
     /// transcription checked against itself is not a check, which is the lesson
     /// `decorationPlacements` and `scripts/preview-theme.py` both carry. The two
     /// are tied together at variant 0, where the manifest's own declaration is a
@@ -665,7 +665,7 @@ enum SceneFixtures {
             x: left, y: top, width: right - left + 1, height: bottom - top + 1)
     }
 
-    /// The same, for a caller that already holds the room — the theme walk in
+    /// The same, for a caller that already holds the room: the theme walk in
     /// `StationContractTests` iterates `(id, Manifest.Room)` pairs and has no
     /// theme id for the default. One body, so a test cannot be measuring
     /// different metrics from the scene by taking the other door. [ADR-009]
@@ -750,7 +750,7 @@ enum SceneFixtures {
     /// This is the same loop the offscreen render harness runs, and it is the
     /// only honest way to test anything phrased as "at real time": compressing
     /// the event stream against a slower animation clock manufactures
-    /// coincidences — two characters in one spot — that could not happen in a
+    /// coincidences (two characters in one spot) that could not happen in a
     /// real replay, and then fails on them.
     ///
     /// `tail` keeps stepping after the last event so exit walks finish.
@@ -804,7 +804,7 @@ extension SceneDirector {
     /// `apply` takes a clock now. Most tests in this suite are about seats,
     /// variants, stations, costumes, nameplates or props and have nothing to say
     /// about time; giving each of them a hand-rolled clock would be noise, and
-    /// giving them `Date()` would make them flaky — a beat armed inside a test
+    /// giving them `Date()` would make them flaky: a beat armed inside a test
     /// that happens to take longer than 500 ms would expire, and one inside a
     /// faster test would not.
     ///
@@ -812,7 +812,7 @@ extension SceneDirector {
     /// to switch the beat off: a beat armed under a frozen clock is armed, and
     /// stays up, so any test whose expectations ADR-003 actually changed fails
     /// loudly rather than quietly keeping its old answer. Tests that are *about*
-    /// the beat — and every test that measures badge changes over a fixture —
+    /// the beat (and every test that measures badge changes over a fixture)
     /// call `apply(_:at:)` with a real, advancing instant.
     static let frozenTestInstant = Date(timeIntervalSinceReferenceDate: 0)
 
@@ -823,7 +823,7 @@ extension SceneDirector {
 }
 
 /// One `WorldModel` per scene, for the replay helper above. The scene never
-/// reaches into it — the model is driven by the test and only deltas cross.
+/// reaches into it: the model is driven by the test and only deltas cross.
 @MainActor
 private var replayModels: [ObjectIdentifier: WorldModel] = [:]
 

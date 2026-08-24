@@ -1,7 +1,7 @@
 import Foundation
 
 // Whether the panel should be down. Pointer position and time in, desired
-// state out — no AppKit types anywhere in the signature, so the milestone's
+// state out: no AppKit types anywhere in the signature, so the milestone's
 // "diagonal paths do not cause oscillation" criterion is a unit test over
 // synthesised paths rather than a claim about something someone watched.
 //
@@ -15,7 +15,7 @@ import Foundation
 //     `graceToRetract` before it goes back up. A fast crossing never dwells.
 //   * **Spatial hysteresis.** The rectangle you must stay inside to keep the
 //     panel down is strictly larger than the one you must enter to bring it
-//     down — and once the panel is down it grows again to include the panel
+//     down, and once the panel is down it grows again to include the panel
 //     itself, because the pointer travelling into the room must not dismiss it.
 //
 // The result is a floor on how often the panel can change state: a retract can
@@ -24,7 +24,7 @@ import Foundation
 // minimumVisible)`. That floor is the anti-oscillation guarantee, and it is
 // asserted directly over random walks in the tests.
 
-/// What the panel is doing. `arming` and `retracting` are the waiting states —
+/// What the panel is doing. `arming` and `retracting` are the waiting states:
 /// the panel has not moved yet and may not.
 public enum PanelPhase: Sendable, Hashable, CustomStringConvertible {
     /// Up. Pointer is elsewhere.
@@ -55,7 +55,7 @@ public enum PanelPhase: Sendable, Hashable, CustomStringConvertible {
 }
 
 /// The one thing the policy ever asks for. `nil` from `update` means "no
-/// change" — the overwhelmingly common answer.
+/// change", the overwhelmingly common answer.
 public enum PanelTransition: Sendable, Hashable, CustomStringConvertible {
     case reveal
     case retract
@@ -89,7 +89,7 @@ public struct RevealPolicy: Sendable {
         /// the panel at all, however slow it is.
         public var exitMargin: Double
         /// Samples further apart than this are treated as a gap in observation
-        /// — a laptop lid, a stalled main thread — and reset the timers rather
+        /// (a laptop lid, a stalled main thread) and reset the timers rather
         /// than instantly satisfying them.
         public var maximumSampleGap: TimeInterval
 
@@ -157,7 +157,7 @@ public struct RevealPolicy: Sendable {
     }
 
     /// Feed one pointer sample. `pointer` is `nil` when the pointer is not on
-    /// any display we track — treat that exactly like being outside.
+    /// any display we track: treat that exactly like being outside.
     ///
     /// `now` is a monotonic seconds value. Time going backwards is treated as a
     /// gap, not as a negative duration.
@@ -196,7 +196,7 @@ public struct RevealPolicy: Sendable {
             return nil
 
         case .arming:
-            // Leaving the *trigger* cancels arming outright — no grace on the
+            // Leaving the *trigger* cancels arming outright: no grace on the
             // way up, because nothing has moved on screen yet and there is
             // nothing to flicker.
             guard insideTrigger else {
@@ -213,7 +213,7 @@ public struct RevealPolicy: Sendable {
 
         case .retracting:
             // Coming back inside cancels the retract silently. The panel never
-            // moved, so there is nothing to undo — this is the case that makes
+            // moved, so there is nothing to undo: this is the case that makes
             // an overshoot free.
             if insideKeepOpen {
                 phase = .revealed

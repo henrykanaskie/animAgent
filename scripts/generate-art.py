@@ -4,7 +4,7 @@
 Renamed at M5c from `generate-placeholders.py`, because four of the six badges
 it draws stopped being placeholders. **No further art packs will be bought.**
 M5b proved exhaustively that no pack we own contains a magnifier, a terminal, a
-globe or a plug — every 32px cell of three UI sheets rendered and inspected (337
+globe or a plug: every 32px cell of three UI sheets rendered and inspected (337
 distinct masks on Style 1, 283 on Style 2, 28 straddling components), plus a
 filename sweep of all 52726 PNGs in the three packs returning exactly one hit, a
 Christmas snow globe. That investigation is finished. Its conclusion is not
@@ -12,12 +12,12 @@ Christmas snow globe. That investigation is finished. Its conclusion is not
 
 So these four are **authored final art**, not scaffolding:
 
-  * `magnifier`, `terminal`, `globe`, `plug` — `provenance: "authored"` in the
+  * `magnifier`, `terminal`, `globe`, `plug`: `provenance: "authored"` in the
     manifest, with the search that led here recorded beside it so nobody repeats
     it or goes shopping.
 
 Authoring them is not an I1 violation. I1 forbids the room asserting *data* the
-hooks did not give us — a character walking when nothing said it walked, a badge
+hooks did not give us: a character walking when nothing said it walked, a badge
 invented for a tool we did not recognise. It says nothing about who drew the
 pixels. `PixelFont.standard` is the precedent: written here rather than sourced,
 licence-clean by construction, and M5 judged it good enough to close the blocker
@@ -32,8 +32,8 @@ What still ships as a genuine placeholder:
     it exists so a missing pack degrades to something that renders.
 
 **How the badges are drawn, and why it looks like that.** A badge is the pack's
-own empty speech bubble — the same 692-pixel component `question_mark` is cut
-from — with a glyph composited into it by the same arithmetic
+own empty speech bubble (the same 692-pixel component `question_mark` is cut
+from) with a glyph composited into it by the same arithmetic
 scripts/process-assets.py uses for the pack's own icons. The glyphs are drawn on
 the pack's grid and in the pack's palette, both measured rather than guessed:
 
@@ -44,9 +44,9 @@ the pack's grid and in the pack's palette, both measured rather than guessed:
   * Their ink is exactly four colours, recovered by differencing `document` and
     `checklist` against the empty bubble: saturation 0.252-0.345, value
     0.420-0.694. PALETTE is those four values. Matching a palette claims no
-    provenance — the manifest says who drew the shape.
+    provenance: the manifest says who drew the shape.
 
-Python 3 stdlib only. Idempotent — same inputs, byte-identical outputs.
+Python 3 stdlib only. Idempotent: same inputs, byte-identical outputs.
 """
 
 import argparse
@@ -72,7 +72,7 @@ PLACEHOLDER = os.path.join(REPO, "assets", "placeholder")
 BADGE_CANVAS = (24, 34)
 
 # The pack's empty speech bubble, written out by scripts/process-assets.py from
-# UI_32x32.png (164,16,24,34) — the same 692-pixel component the question_mark
+# UI_32x32.png (164,16,24,34): the same 692-pixel component the question_mark
 # badge is cut from, with no glyph in it. Read rather than re-measured, so that
 # rectangle is written down in exactly one place.
 BUBBLE = os.path.join(REPO, "assets", "processed", "badges", "32x32",
@@ -84,7 +84,7 @@ BUBBLE = os.path.join(REPO, "assets", "processed", "badges", "32x32",
 BUBBLE_INTERIOR = (2, 2, 20, 24)
 
 # The badges drawn here. Names are exactly the badge names in the
-# docs/03-EVENT-MODEL.md table — that table is the contract and this file does
+# docs/03-EVENT-MODEL.md table: that table is the contract and this file does
 # not get to rename anything in it.
 BADGES = ("document", "magnifier", "terminal", "globe", "checklist", "plug")
 
@@ -97,15 +97,15 @@ AUTHORED_BADGES = ("magnifier", "terminal", "globe", "plug")
 # colours and no others. Saturation 0.252-0.345, value 0.420-0.694.
 #
 # Used verbatim rather than approximated. A palette is a set of numbers, not
-# artwork — matching it is what "stylistically of a piece" means, and the
+# artwork: matching it is what "stylistically of a piece" means, and the
 # manifest is where provenance is claimed. An earlier draft of these glyphs used
 # a deliberately off-hue slate ramp so a reviewer could spot which four were
 # ours; that was the right instinct while they were placeholders and the wrong
 # one for final art, whose whole job is not to announce itself.
-DARK = (0x6B, 0x50, 0x52, 255)    # s 0.252 v 0.420 — outlines and main strokes
-MID = (0x91, 0x66, 0x62, 255)     # s 0.324 v 0.569 — secondary strokes
-HALF = (0x9C, 0x78, 0x6B, 255)    # s 0.314 v 0.612 — fills
-LIGHT = (0xB1, 0x8A, 0x74, 255)   # s 0.345 v 0.694 — highlights
+DARK = (0x6B, 0x50, 0x52, 255)    # s 0.252 v 0.420: outlines and main strokes
+MID = (0x91, 0x66, 0x62, 255)     # s 0.324 v 0.569: secondary strokes
+HALF = (0x9C, 0x78, 0x6B, 255)    # s 0.314 v 0.612: fills
+LIGHT = (0xB1, 0x8A, 0x74, 255)   # s 0.345 v 0.694: highlights
 
 # Measured off the pack's bubble: interior RGB(235,225,246) at value 0.965 and
 # the darkest border step RGB(53,53,86) at value 0.337. Used only to draw the
@@ -121,7 +121,7 @@ def _pack_bubble():
 
     Read from assets/processed/, which scripts/process-assets.py writes from the
     Modern Interiors UI sheet. Reading it is what makes a placeholder badge the
-    *same* bubble as a real one rather than a lookalike — same border weight,
+    *same* bubble as a real one rather than a lookalike: same border weight,
     same interior colour, same silhouette, same tail on the same anchor.
     """
     if not os.path.exists(BUBBLE):
@@ -147,7 +147,7 @@ def _fallback_bubble(w, h):
     pnglite.fill_rect(buf, w, h, 0, 1, w, body_h - 2, BORDER)
     pnglite.fill_rect(buf, w, h, 3, 2, w - 6, body_h - 4, PAPER)
     pnglite.fill_rect(buf, w, h, 2, 3, w - 4, body_h - 6, PAPER)
-    # tail, bottom-centre — this is the anchor edge
+    # tail, bottom-centre: this is the anchor edge
     for i in range(6):
         pnglite.fill_rect(buf, w, h, w // 2 - 3 + i // 2, body_h - 2 + i, 6 - i, 1, BORDER)
         if 6 - i > 2:
@@ -158,14 +158,14 @@ def _fallback_bubble(w, h):
 # --- glyphs ----------------------------------------------------------------
 #
 # Authored on the pack's own grid. The Modern UI icons on the 32x sheet are a 2x
-# scale-up of a 16px design — dump `document` or `checklist` pixel by pixel and
-# every feature in them is a 2x2 block — so a glyph drawn here at 1px line weight
+# scale-up of a 16px design (dump `document` or `checklist` pixel by pixel and
+# every feature in them is a 2x2 block) so a glyph drawn here at 1px line weight
 # reads as a different hand at any size. Each design below is therefore a
 # half-resolution grid, doubled on the way out. One design pixel is two screen
 # pixels, exactly like the pack's.
 #
 # That constraint is the good kind. The bubble interior is 20x24, so a design is
-# at most 10x12 cells, which forces the simple silhouette that survives 1x —
+# at most 10x12 cells, which forces the simple silhouette that survives 1x:
 # docs/04-ART-DIRECTION.md's "if a sprite stops reading when scaled down, the fix
 # is a simpler silhouette, never more outline detail".
 #
@@ -181,7 +181,7 @@ def _fallback_bubble(w, h):
 #     large ring centred with two latitude bands across it.
 #
 # Three designs were thrown out on legibility before these stuck, all failing the
-# same way — detail this grid cannot carry. Recorded so they are not retried:
+# same way: detail this grid cannot carry. Recorded so they are not retried:
 # a `terminal` whose prompt was one cell thick read as a *picture frame with a
 # squiggle* (fixed by fattening the ">" to two cells per stroke and pulling it a
 # cell clear of the border, which is what stops it merging with the corner); a
@@ -190,7 +190,7 @@ def _fallback_bubble(w, h):
 # as a *goblet* (fixed by hollowing the body).
 #
 #   D outline / main stroke   M secondary stroke   H fill   L highlight
-#   .  transparent — the bubble's own interior shows through
+#   .  transparent: the bubble's own interior shows through
 #
 # H and L are unused by the designs below and kept deliberately: they are two of
 # the pack's four icon colours, and a glyph that needs a fill or a highlight
@@ -233,7 +233,7 @@ DESIGN = {
         "..D..",
         "..D..",
     ),
-    # Fallbacks only — the manifest prefers the pack's own cut of these two
+    # Fallbacks only: the manifest prefers the pack's own cut of these two
     # whenever assets/processed/ has it.
     "document": (
         "DDDDD",
@@ -285,7 +285,7 @@ def _compose(bubble, name):
     scripts/process-assets.py: find the glyph's bounding box, centre that box in
     BUBBLE_INTERIOR, blit skipping transparent pixels. An authored badge is the
     same construction as a pack one, differing only in where the glyph came
-    from — which is the fact the manifest records.
+    from, which is the fact the manifest records.
     """
     cw, _ch = BADGE_CANVAS
     buf = bytearray(bubble)
@@ -336,14 +336,14 @@ def make_badges(scale, quiet):
         made.append(p)
     if not quiet:
         fallback = [n for n in BADGES if n not in AUTHORED_BADGES]
-        print("  badges/%s: %d drawn — %d authored final art (%s), %d fallback "
+        print("  badges/%s: %d drawn: %d authored final art (%s), %d fallback "
               "behind pack art (%s)"
               % (size, len(made), len(AUTHORED_BADGES), ", ".join(AUTHORED_BADGES),
                  len(fallback), ", ".join(fallback)))
         print("    bubble: %s"
               % ("the pack's own empty frame, %s"
                  % os.path.relpath(BUBBLE, REPO) if _pack_bubble() is not None
-                 else "FALLBACK hand-drawn frame — the pack is not on disk"))
+                 else "FALLBACK hand-drawn frame: the pack is not on disk"))
         print("    glyph boxes (screen px, %dx design cells): " % DESIGN_SCALE
               + ", ".join("%s %dx%d" % (n, boxes[n][0], boxes[n][1])
                           for n in BADGES))
@@ -446,22 +446,22 @@ def main(argv=None):
     # The pack's empty bubble is the whole premise of these four badges: they are
     # "drawn in the pack's own bubble and colours", which is what
     # `provenance: "authored"` claims and what M6 gated. Without it this script
-    # silently substitutes the hand-drawn fallback — heavier border, different
-    # weight — and exits 0, so a newcomer following the README order before
+    # silently substitutes the hand-drawn fallback (heavier border, different
+    # weight) and exits 0, so a newcomer following the README order before
     # unpacking gets four badges that do not match the two real ones and nothing
     # says so. `assets/` is gitignored, so `git status` stays clean too.
     #
     # This is `build-manifest.py`'s lesson applied here: a script that writes
     # into `assets/` must refuse rather than produce something plausible.
     # `--allow-fallback-bubble` is the way to ask for it on purpose, which is
-    # what the fallback exists for — a checkout with no packs at all, where the
+    # what the fallback exists for: a checkout with no packs at all, where the
     # point is to see *something* rather than to ship it.
     if _pack_bubble() is None and not args.allow_fallback_bubble:
         print("error: the pack's speech bubble is not on disk, so the four "
               "authored badges cannot be drawn in it.", file=sys.stderr)
         print("       Expected: %s" % os.path.relpath(BUBBLE, REPO),
               file=sys.stderr)
-        print("       Run scripts/process-assets.py first — it writes that file "
+        print("       Run scripts/process-assets.py first: it writes that file "
               "out of Modern Interiors.", file=sys.stderr)
         print("       Pass --allow-fallback-bubble to draw them in a hand-drawn "
               "lookalike instead; the result is NOT what provenance 'authored' "

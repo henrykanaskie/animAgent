@@ -2,7 +2,7 @@
 """Writes human names onto catalogue entries, so a prop can be found by meaning.
 
 `import-catalogue.py` makes 12,389 props *available*. It does not make them
-*findable*: the theme and office singles are numbered, not named — the office set
+*findable*: the theme and office singles are numbered, not named: the office set
 is `Modern_Office_Singles_32x32_137.png` and nothing else. Only the 619 animated
 objects ship with descriptive filenames.
 
@@ -24,7 +24,7 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX = os.path.join(REPO, "assets", "catalogue.json")
 
-# (first, last, name) — inclusive, over the Modern Office singles numbering.
+# (first, last, name), inclusive, over the Modern Office singles numbering.
 # Identified from contact sheets office_p0..p5 at 3x, 60 per sheet.
 OFFICE = [
     (1, 40, "desk_wood"),
@@ -92,7 +92,7 @@ OFFICE = [
 # inclusive ranges over the pack's own numbering, and a name here means a
 # contact sheet was rendered and looked at.
 #
-# Progress is tracked in THEMES_DONE below — this is a long pass and it is meant
+# Progress is tracked in THEMES_DONE below: this is a long pass and it is meant
 # to survive being interrupted, so an absent theme means "not yet looked at"
 # rather than "nothing there".
 THEMES = {
@@ -641,14 +641,14 @@ THEMES = {
         (478, 480, "picture_framed"),
         # 481-504 are two-tier vendor stands with folded linens and hung garments;
         # 505-507 the same frame with an awning and produce crates. The agent that
-        # identified these flagged the group as its least certain call — an
+        # identified these flagged the group as its least certain call: an
         # alternative reading of 481-504 is a linen display shelf.
         (481, 507, "market_stall"),
         (508, 512, "figurine"), (513, 536, "wardrobe"), (537, 538, "bookcase_tall"),
         (539, 539, "cabinet"), (540, 550, "table_lamp"), (551, 555, "light_glow"),
     ],
     # Hospital is not purely a ward: 372-494 is a children's play area and
-    # 501-519 a morgue/autopsy block. Much of the set is colour-variant runs —
+    # 501-519 a morgue/autopsy block. Much of the set is colour-variant runs:
     # 1-35 is five colourways of seven bed sprites, 72-101 five colours by six
     # office-chair poses, 428-457 six colours by five child-chair poses.
     "interiors/hospital": [
@@ -797,7 +797,7 @@ def office_name(index):
 
 def main():
     if not os.path.exists(INDEX):
-        print("no catalogue.json — run scripts/import-catalogue.py first")
+        print("no catalogue.json: run scripts/import-catalogue.py first")
         return 1
     with open(INDEX) as fh:
         index = json.load(fh)
@@ -815,7 +815,7 @@ def main():
                     entry["identified_by"] = "rendered and inspected by eye, office_p0..p5"
                     named += 1
         elif entry["group"] in ("roombuilder", "ui/sheets", "ui/modern"):
-            # These ship with descriptive filenames — Room_Builder_3d_walls,
+            # These ship with descriptive filenames: Room_Builder_3d_walls,
             # Modern_UI_Style_1, UI_thinking_emotes_animation. Stripping the
             # boilerplate is all the naming they need, and it is honest about
             # where the name came from.

@@ -11,7 +11,7 @@ import Testing
 /// unchecked.
 ///
 /// These are text tests. Rendering the ABSENT branch does not prove 49 tests
-/// skip — nothing here can prove that on a machine that has the art. What it
+/// skip: nothing here can prove that on a machine that has the art. What it
 /// proves is that when that branch is reached, it says the true thing. The
 /// counterpart is `PanelNoticeTests` on the window-server gate.
 @Suite struct ArtNoticeTests {
@@ -40,13 +40,13 @@ import Testing
         #expect(!notice.contains("VERIFIED NOTHING"))
     }
 
-    // MARK: ABSENT — the fresh-clone state, unreachable on a machine with art
+    // MARK: ABSENT - the fresh-clone state, unreachable on a machine with art
 
     @Test func theAbsentNoticeSaysTheRunVerifiedNothing() {
         let notice = SceneArt.notice(
             survey: Self.survey(paths: ["a.png", "b.png", "c.png"], missing: ["b.png", "c.png"]),
             gated: 49, required: false)
-        #expect(notice.contains("SPRITE ROOM ART: ABSENT — 2 of 3 declared asset paths"))
+        #expect(notice.contains("SPRITE ROOM ART: ABSENT: 2 of 3 declared asset paths"))
         #expect(notice.contains("49 art-dependent tests were SKIPPED"))
         #expect(notice.contains("THIS RUN VERIFIED NOTHING ABOUT THE ART."))
         #expect(notice.contains("First missing: b.png"))
@@ -68,18 +68,18 @@ import Testing
         #expect(!enforcing.contains("Set SPRITE_ROOM_REQUIRE_ART=1 to make this"))
     }
 
-    // MARK: NO MANIFEST — a corrupt checkout, not a missing-art state
+    // MARK: NO MANIFEST - a corrupt checkout, not a missing-art state
 
     /// **A broken manifest used to report itself as missing art.** `assets/` is
     /// gitignored but `assets/manifest.json` is tracked, so a manifest that will
     /// not parse is a corrupt checkout and needs a different instruction than a
     /// fresh clone does. The counts are the tell: both are zero, because nothing
-    /// parsed to declare a path — and "0 of 0 paths missing" sends a reader
+    /// parsed to declare a path, and "0 of 0 paths missing" sends a reader
     /// hunting for absent files when the wrong file is the one in the repo.
     @Test func aBrokenManifestIsNotReportedAsMissingArt() {
         let notice = SceneArt.notice(
             survey: Self.survey(error: "dataCorrupted at themes.sets"), gated: 49, required: false)
-        #expect(notice.contains("SPRITE ROOM ART: NO MANIFEST — dataCorrupted at themes.sets"))
+        #expect(notice.contains("SPRITE ROOM ART: NO MANIFEST: dataCorrupted at themes.sets"))
         #expect(notice.contains("is TRACKED, so this is a broken checkout"))
 
         // The wording that would send the reader the wrong way.
@@ -96,11 +96,11 @@ import Testing
         let notice = SceneArt.notice(
             survey: Self.survey(paths: ["a.png"], missing: ["a.png"], error: "unexpected EOF"),
             gated: 49, required: false)
-        #expect(notice.contains("NO MANIFEST — unexpected EOF"))
+        #expect(notice.contains("NO MANIFEST: unexpected EOF"))
         #expect(!notice.contains("ABSENT"))
     }
 
-    // MARK: the required-mode failure — where the "0 of 0" defect actually was
+    // MARK: the required-mode failure - where the "0 of 0" defect actually was
 
     /// **This is the regression the notice tests above do not cover.** The
     /// notice always branched on `manifestError` first and so always said NO

@@ -1,11 +1,11 @@
-"""Minimal PNG decode/encode. Python 3 stdlib only — zlib + struct.
+"""Minimal PNG decode/encode. Python 3 stdlib only: zlib + struct.
 
 Exists because the art pipeline must run with no pip install (see
 docs/04-ART-DIRECTION.md: the palette pass is a committed script, so it has to
 work on a clean checkout with nothing but python3).
 
 Scope is deliberately narrow: 8-bit-per-channel, non-interlaced PNGs, which is
-what every file in the LimeZu packs is (verified at M0 — all 1047 PNGs are
+what every file in the LimeZu packs is (verified at M0: all 1047 PNGs are
 bit depth 8, colour type 6, interlace 0). Anything else raises rather than
 guessing, because a silently mis-decoded sprite is worse than a crash.
 
@@ -179,7 +179,7 @@ def save(path, width, height, rgba):
 
     Filter 0 (None) on every scanline and a fixed zlib level, so the same
     pixels always produce the same bytes. That byte-determinism is what makes
-    the import pass idempotent — rerunning it must not churn the working tree.
+    the import pass idempotent: rerunning it must not churn the working tree.
     """
     if len(rgba) != width * height * 4:
         raise PNGError("pixel buffer is %d bytes, expected %d" % (len(rgba), width * height * 4))
@@ -207,7 +207,7 @@ def put(buf, width, x, y, rgba):
 
 
 def fill_rect(buf, width, height, x0, y0, w, h, rgba):
-    """Clipped axis-aligned rectangle fill. Clipping is the point — the
+    """Clipped axis-aligned rectangle fill. Clipping is the point: the
     placeholder generator draws shapes by arithmetic and must not raise when a
     shape runs off canvas."""
     px = bytes(rgba)

@@ -2,23 +2,23 @@ import Foundation
 import Testing
 @testable import SpriteRoomScene
 
-/// ADR-006 SS1, SS2c, SS2d — the desk-top object *declarations*.
+/// ADR-006 SS1, SS2c, SS2d: the desk-top object *declarations*.
 ///
 /// **The step this file was written for drew nothing and bound nothing**; the
-/// step after it does both — `WorkKind.propRole` names these roles and
+/// step after it does both: `WorkKind.propRole` names these roles and
 /// `RoomScene` draws them, and `DeskObjectSceneTests` is where *placement* is
 /// checked. Everything here is still about the declarations themselves: the
 /// measurements, the width bound and the silhouettes, which is the half that
 /// has to keep holding whatever draws them. What exists after it is
 /// three more entries in `room.props.roles`, in the same `{file, content_box}`
 /// shape `desk`/`chair`/`board`/`plant` already have, plus the deliberate
-/// *absence* of a fourth — `running`'s desk monitor has no candidate single that
+/// *absence* of a fourth: `running`'s desk monitor has no candidate single that
 /// fits the SS2c width bound, so none is declared. [I1: wrong is worse than
 /// missing]
 ///
 /// Every test here either reads the manifest as data (no art required) or
 /// re-derives a number from `RoomLayout`/`SeatedHead` against the real pixels
-/// (gated on `SceneArt.isAvailable`, same as the rest of this suite) — nothing
+/// (gated on `SceneArt.isAvailable`, same as the rest of this suite), nothing
 /// is transcribed from ADR-006's own tables and trusted, because the brief this
 /// task ran against was explicit that a previous inventory in this exact band
 /// (85-101, "workbenches") was wrong when checked against the pixels.
@@ -31,7 +31,7 @@ struct DeskTopObjectTests {
         "coordinating": "pad",
     ]
 
-    // MARK: The declarations themselves — no art needed
+    // MARK: The declarations themselves - no art needed
 
     @Test func threeOfTheFourWorkKindsHaveADeclaredDeskTopRole() throws {
         let manifest = try SceneFixtures.manifest()
@@ -70,7 +70,7 @@ struct DeskTopObjectTests {
     /// None of the three is bound to anything: `everyPropRoleTheSceneDrawsIsOne
     /// TheManifestNames` (`RoomSceneTests`) already proves the scene draws
     /// nothing the manifest does not name, which is the half that matters. This
-    /// is the other half — the manifest naming something nobody reads yet is
+    /// is the other half: the manifest naming something nobody reads yet is
     /// legal, and the three roles are not among the two the room actually
     /// falls back to (`desk`, `chair`) or draws unconditionally (`board`,
     /// `plant`).
@@ -89,8 +89,8 @@ struct DeskTopObjectTests {
     }
 
     /// A weak but cheap silhouette-distinctness pin: no two of the three share
-    /// both dimensions of their content box. The real silhouette check —
-    /// distinct outlines at `1x`, from the actual pixels — is
+    /// both dimensions of their content box. The real silhouette check
+    /// (distinct outlines at `1x`, from the actual pixels) is
     /// `theDeclaredSinglesInkFootprintsAreDistinctSilhouettesAtOnex` below,
     /// gated on the art. This one runs on a fresh clone and catches the coarse
     /// version of the same mistake (two roles pointing at the same box shape).
@@ -113,9 +113,9 @@ struct DeskTopObjectTests {
     ///
     /// ADR-006 SS2c's placement rule is: an object's near (left) edge stands at
     /// the first scene column strictly outside the seated character's own
-    /// canvas — which `SeatedHead.clearance(nearEdgeX:)` treats as unbounded
+    /// canvas, which `SeatedHead.clearance(nearEdgeX:)` treats as unbounded
     /// starting at `nearEdgeX == canvasWidth / 2` (`theSS2cSixteenPxThreshold...`
-    /// below proves that arithmetic against the real cast) — and its right edge
+    /// below proves that arithmetic against the real cast), and its right edge
     /// stays inside the desk's own footprint, or the object reads as floating
     /// past the desk rather than standing on it. Both edges come from numbers
     /// this file can ask `RoomLayout` and `Manifest` for directly:
@@ -135,8 +135,8 @@ struct DeskTopObjectTests {
         // the camera now and its desk is centred on its own column, so
         // `deskPosition(0).x - seatPosition(0).x` is 0 there. The bound this
         // computes is a property of the arrangement where the desk stands
-        // beside the occupant — which is the side-on seat's and the away-facing
-        // seat's — so it names that offset instead.
+        // beside the occupant, which is the side-on seat's and the away-facing
+        // seat's, so it names that offset instead.
         let deskRightEdge = layout.sideOnDeskOffsetX + Double(desk.contentBox.width) / 2
         return deskRightEdge - nearEdgeX
     }
@@ -180,7 +180,7 @@ struct DeskTopObjectTests {
     /// for this cast). Proven here against every seated frame the pack ships,
     /// not read off `RoomScene`'s own doc comment: `clearance` is unbounded
     /// (equal to the canvas height) at exactly that edge, and strictly bounded
-    /// one pixel inside it — otherwise `16` would not be the real threshold and
+    /// one pixel inside it, otherwise `16` would not be the real threshold and
     /// `deskTopWidthBound` above would be computing the wrong number.
     @Test(.enabled(if: SceneArt.isAvailable))
     func theSeatedHeadClearanceThresholdMatchesWhatTheWidthBoundAssumes() throws {
@@ -202,7 +202,7 @@ struct DeskTopObjectTests {
     /// prose: every single in the pack's desk monitor family (130-134, none
     /// bound to any manifest role) really does measure wider than the derived
     /// bound, and the three roles this task did declare really do fit inside
-    /// it — recomputed from the files on disk, not read back from
+    /// it: recomputed from the files on disk, not read back from
     /// `content_box`, so a future edit to the manifest that drifts from the art
     /// is caught here rather than trusted.
     @Test(.enabled(if: SceneArt.isAvailable))
@@ -258,7 +258,7 @@ struct DeskTopObjectTests {
         }
         // The fourth family, extended into the same comparison: `running`'s
         // monitor has no manifest entry (it is authored, `DeskMonitorArt`, not
-        // a pack single — see that file for why), but it belongs in exactly
+        // a pack single, see that file for why), but it belongs in exactly
         // this check, because the claim under test is "four kinds, four
         // silhouettes" and only three of them have ever been run through it.
         let monitorBitmap = DeskMonitorArt.bitmap()
@@ -281,7 +281,7 @@ struct DeskTopObjectTests {
 }
 
 /// **The fourth desk-top object: `running`'s monitor, authored rather than
-/// sourced.** `DeskMonitorArt` — see that file for the full derivation. These
+/// sourced.** `DeskMonitorArt`: see that file for the full derivation. These
 /// tests check the three things `HeldObjectArtTests` checks of its own
 /// authored objects, plus the two ADR-006 SS2c/height obligations this task's
 /// brief named specifically: the width bound (already exercised above for the
@@ -293,12 +293,12 @@ struct DeskMonitorArtTests {
     // MARK: Room ceiling, not the character floor [I7]
     //
     // This object stands on the desk, in the room, not in a character's hands
-    // — unlike `HeldObjectArt`, which is checked against the *cast's* darkest
+    // unlike `HeldObjectArt`, which is checked against the *cast's* darkest
     // value because it is drawn on a character. The applicable numbers are
     // `04-ART-DIRECTION.md`'s room band: saturation under 25%, value inside
     // `[0.55, 0.92]`. `scripts/lint-palette.py` cannot see this object because
     // it reads `assets/manifest.json` and this object has no entry there (see
-    // `DeskMonitorArt`'s doc comment for why) — so this is the test that closes
+    // `DeskMonitorArt`'s doc comment for why), so this is the test that closes
     // that gap, the same way `HeldObjectArtTests` closes it for the held layer.
 
     static func value(_ colour: Bitmap.RGBA) -> Double {
@@ -330,9 +330,9 @@ struct DeskMonitorArtTests {
         }
         #expect(sawInk, "the monitor has no opaque pixels")
         // The screen is the loudest thing this object draws and it still does
-        // not reach the room's own ceiling — see `DeskMonitorArt.screen`'s doc
+        // not reach the room's own ceiling: see `DeskMonitorArt.screen`'s doc
         // comment for the 0.183-precedent this measures against.
-        #expect(brightest > darkest, "no value range at all — reads as a flat swatch")
+        #expect(brightest > darkest, "no value range at all: reads as a flat swatch")
     }
 
     /// Pinned as exact bytes, not described, so a future edit cannot drift the
@@ -359,7 +359,7 @@ struct DeskMonitorArtTests {
     /// pixels rather than taken from the doc comment.** All three colours were
     /// sampled from `laptop`/`papers`/`pad`/`desk`'s own processed singles;
     /// this opens those files and confirms each of the three bytes is really
-    /// there. Gated because it needs the pack on disk — the palette test above
+    /// there. Gated because it needs the pack on disk: the palette test above
     /// does not, and is deliberately not gated, because the claim "these three
     /// bytes and no others" is this repository's own and checkable on a fresh
     /// clone.
@@ -400,7 +400,7 @@ struct DeskMonitorArtTests {
         }
     }
 
-    // MARK: SS2c — the width bound, re-derived exactly as the sourced three are
+    // MARK: SS2c - the width bound, re-derived exactly as the sourced three are
 
     @Test func theMonitorFitsInsideTheDerivedWidthBound() throws {
         let manifest = try SceneFixtures.manifest()
@@ -409,7 +409,7 @@ struct DeskMonitorArtTests {
         let box = try #require(DeskTopObjectTests.inkBoundingBox(DeskMonitorArt.bitmap()))
         #expect(Double(box.w) <= bound,
                 "the monitor is \(box.w)px wide, over the \(bound)px SS2c bound")
-        // "Comfortably under it" — the brief's own instruction — checked as a
+        // "Comfortably under it" (the brief's own instruction) checked as a
         // real margin rather than a near miss: 20px against a 28px bound, six
         // whole pixels of slack, more than `laptop`'s own 26px declaration
         // leaves.
@@ -417,7 +417,7 @@ struct DeskMonitorArtTests {
         #expect(box.w == DeskMonitorArt.canvasWidth, "ink does not fill the declared canvas width")
     }
 
-    // MARK: The waist — the structural claim, not just "the pixels differ"
+    // MARK: The waist - the structural claim, not just "the pixels differ"
 
     /// Per-row ink-column count for a bitmap: `profile[y]` is how many opaque
     /// columns row `y` has. The shape signature a silhouette comparison should
@@ -431,20 +431,20 @@ struct DeskMonitorArtTests {
 
     /// **A waist, defined so that a tapered edge does not count as one.** A
     /// silhouette that only narrows monotonically towards its own top or
-    /// bottom row — a wedge's corner, a slab's angled edge — is not "an
+    /// bottom row (a wedge's corner, a slab's angled edge) is not "an
     /// upright rectangle on a stalk"; it is one shape with a pointed end. What
     /// "waist" has to mean is an **interior** row that is markedly narrower
-    /// than the widest row *on both sides of it* — two separate shoulders with
+    /// than the widest row *on both sides of it*: two separate shoulders with
     /// a valley between them, which a single monotonic taper cannot produce
     /// because one of its two flanks is always the boundary itself.
     ///
     /// `left_max`/`right_max` at row `i` are the widest rows strictly before
     /// and strictly after it; a waist row is under half of *both*. First
     /// verified in Python against real profiles read off the shipped pixels
-    /// before this was written in Swift — `laptop`'s own profile is a single
+    /// before this was written in Swift: `laptop`'s own profile is a single
     /// unimodal hump (ramps to 26, ramps back down to 2, no interior dip with
     /// two shoulders), `papers` the same shape shorter, and `pad` is flat at
-    /// 24 with one monotonic taper at a single end (24 → 8) — so this
+    /// 24 with one monotonic taper at a single end (24 → 8), so this
     /// predicate is `false` for all three real siblings and `true` for the
     /// monitor's own screen(20)–stalk(4)–base(16) profile.
     static func hasInteriorWaist(_ widths: [Int]) -> Bool {
@@ -471,7 +471,7 @@ struct DeskMonitorArtTests {
     /// **None of the three sourced siblings has this feature**, measured off
     /// their real pixels rather than assumed from "they are singles, not
     /// stalked shapes". A silhouette family claim should survive being checked
-    /// against the thing it is being contrasted with — and a naive
+    /// against the thing it is being contrasted with, and a naive
     /// narrowest-over-widest ratio does not survive it: `laptop`'s wedge
     /// corner tapers to a single pixel (ratio 0.077, `papers`'s angled edge to
     /// 0.18), both *tighter* than the monitor's own 0.2, despite neither
@@ -491,12 +491,12 @@ struct DeskMonitorArtTests {
         }
     }
 
-    // MARK: Height — does not reach the head at either desk-surface convention
+    // MARK: Height - does not reach the head at either desk-surface convention
 
     /// **The near edge does not move when the surface height does.**
     /// `RoomLayout.deskSurfacePosition(seat:surfaceHeightAboveFloor:)` only
     /// changes `y`; `x` is `deskPosition(_:).x` in both the 24px-surface case
-    /// (five themes) and the 36px-surface case (`library`, `mission_control` —
+    /// (five themes) and the 36px-surface case (`library`, `mission_control`,
     /// 84be10f). So whatever `SeatedHead.clearance` proves at this near edge
     /// holds for both conventions identically, and this checks that arithmetic
     /// directly rather than assuming it from the formula's shape.
@@ -514,10 +514,10 @@ struct DeskMonitorArtTests {
     }
 
     /// **The head-clearance argument, at the monitor's own near edge, proven
-    /// against the real cast — the check the brief asked for by name.**
+    /// against the real cast: the check the brief asked for by name.**
     /// `theDeskTopWidthBoundIsTwentyEightPixels` fixes the near edge at
     /// `canvasWidth / 2` (16px); this confirms `SeatedHead.clearance` there is
-    /// unbounded — `== canvasHeight` — which is ADR-006 §2c's own reading of
+    /// unbounded (`== canvasHeight`), which is ADR-006 §2c's own reading of
     /// what "cannot cover a head pixel at any height whatsoever" means. Because
     /// the near edge does not move with the surface height (the test above),
     /// this one proof covers both the 24px and the 36px case: there is no

@@ -90,7 +90,7 @@ struct HookRecorderTests {
         #expect(entries.map { $0.event?.sessionID } == (0..<50).map { "s\($0)" })
     }
 
-    /// An empty body is not an event and must not become a line — the listener
+    /// An empty body is not an event and must not become a line: the listener
     /// frames a bodyless request as empty `Data`, and a `{"payload": }` line
     /// would make the whole capture unparseable from that point on.
     @Test func anEmptyBodyIsNotRecorded() throws {
@@ -107,8 +107,8 @@ struct HookRecorderTests {
     /// property that matters and is deliberately not a string comparison.
     ///
     /// `ISO8601DateFormatter` writes a UTC offset as `Z`, not `+00:00`, even
-    /// with `.withColonSeparatorInTimeZone` — that option governs a *numeric*
-    /// offset. The existing fixtures were written by a different logger and
+    /// with `.withColonSeparatorInTimeZone` (that option governs a *numeric*
+    /// offset). The existing fixtures were written by a different logger and
     /// carry `+00:00`. Both are ISO 8601 and `HookLog.date(from:)` accepts
     /// either, so a capture is replayable either way; an earlier version of this
     /// test asserted the `+00:00` spelling and was wrong about the code rather

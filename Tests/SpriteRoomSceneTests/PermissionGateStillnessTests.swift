@@ -3,13 +3,13 @@ import Testing
 import SpriteRoomCore
 @testable import SpriteRoomScene
 
-/// **ADR-005 §7 — a blocked character stops moving.**
+/// **ADR-005 §7: a blocked character stops moving.**
 ///
 /// The defect this was written against, stated as the room stating the opposite
 /// of the truth: an agent stopped at a permission prompt is *genuinely blocked*,
 /// waiting on a human, and it played the busiest animation in the room. A gated
-/// `Bash` is still an open call, so `AmbientMotion` handed it `terminal` — `S R`,
-/// a 250 ms period, the fastest schedule the 8 fps grid allows — and the stuck
+/// `Bash` is still an open call, so `AmbientMotion` handed it `terminal` (`S R`,
+/// a 250 ms period, the fastest schedule the 8 fps grid allows) and the stuck
 /// agent read as the hardest-working one.
 ///
 /// Measured on `fixtures/concurrent-permission-gates.jsonl`, which is the whole
@@ -24,7 +24,7 @@ import SpriteRoomCore
 /// > While an agent has an open permission-gate mark, its body holds the
 /// > `settled` position and plays no phrase.
 ///
-/// The badge layer already got this right — ADR-003 §1 says in as many words
+/// The badge layer already got this right: ADR-003 §1 says in as many words
 /// that a gated `Bash` "is not running", so drawing `terminal` over it "asserts
 /// work that is not happening". This is that sentence applied to the body, in
 /// the one channel M7c measured as the only one that survives `1x`.
@@ -39,7 +39,7 @@ struct PermissionGateStillnessTests {
     /// and a long one" is the design's premise rather than a hope.
     static let unreleasedGate = "a7298874eca5a457d"
 
-    /// One second of fixture time in the middle of both blocks — 8 animation
+    /// One second of fixture time in the middle of both blocks: 8 animation
     /// steps at the manifest's 8 fps, which is four complete `terminal` bars.
     /// Any residual phrase shows up as a second frame index inside it.
     static let window = 20.0...21.0
@@ -51,7 +51,7 @@ struct PermissionGateStillnessTests {
     /// the one it is named for, because a character with no art, no body state or
     /// no open call also holds one frame:
     ///
-    /// - each of them is `working` — seated, in a turn, at its desk;
+    /// - each of them is `working`: seated, in a turn, at its desk;
     /// - each of them holds exactly one open call, and it is a `terminal` one, so
     ///   the badge layer is offering the body precisely the phrase it used to
     ///   play;
@@ -103,7 +103,7 @@ struct PermissionGateStillnessTests {
                     "\(agent)'s call is not the `terminal` one this defect was measured on")
             #expect(indices.count == 1, Comment(rawValue:
                 "\(agent) drew \(indices.sorted()) over a second while stopped at a permission"
-                + " gate — the body is asserting work that is not happening [ADR-005 §7]"))
+                + " gate: the body is asserting work that is not happening [ADR-005 §7]"))
         }
 
         // The control, so the assertion above is about the gate rather than

@@ -3,30 +3,30 @@
 
 CLAUDE.md, I7: "The room is desaturated and low-contrast. Characters own the
 saturation and the darkest values. At small sizes silhouette and value contrast
-are what read — not detail. Enforced by lint over the asset manifest, not by
+are what read, not detail. Enforced by lint over the asset manifest, not by
 good intentions."
 
-Four checks on colour, exactly the thresholds in docs/04-ART-DIRECTION.md —
+Four checks on colour, exactly the thresholds in docs/04-ART-DIRECTION.md,
 **amended for pack-value themes at ADR-010/ADR-011 and the M8 palette-pass
 task**, see below:
 
-  1. Every room pixel is under 25% saturation — **except a theme
+  1. Every room pixel is under 25% saturation: **except a theme
      `scripts/process-assets.py` declares a per-theme saturation override for
      (`office` as of ADR-010, `briefing` and `library` as of the M8
      palette-pass task), which is checked against that theme's OWN
      `prop_sat_scale`/`prop_sat_target` applied to the pack's own saturation
-     instead — not necessarily the raw pack figure; see "Per-theme saturation
+     instead, not necessarily the raw pack figure; see "Per-theme saturation
      policy" below.
   2. Every character carries at least one colour above 55% saturation.
   3. At least 40% value contrast between a character's darkest pixel and the
-     mean room value — **except `office` and `briefing`, each individually
+     mean room value: **except `office` and `briefing`, each individually
      measured against 0.35 instead; see `THEME_MIN_VALUE_CONTRAST`.** Every
-     other theme is unweakened, at the same 40% floor as before — including
+     other theme is unweakened, at the same 40% floor as before: including
      `library`, which restores saturation (check 1) without moving its value
      band, and so was never measured against a weaker number than everyone
      else on this axis.
   4. **Added at the M8 palette-pass task.** `room`'s own mean saturation, and
-     each theme's, must stay under the CAST's mean saturation — pooled over
+     each theme's, must stay under the CAST's mean saturation: pooled over
      every variant's every frame. This is the half of I7's sentence check 1
      never verified: a theme can pass check 1 (its own declared scale/target
      applied correctly) and still be louder than the characters if the scale
@@ -41,23 +41,23 @@ And, added after ADR-002 §14b admitted animated props, one check on motion:
 
 ---
 
-### Per-theme saturation policy — ADR-010, extended at the M8 palette-pass task
+### Per-theme saturation policy: ADR-010, extended at the M8 palette-pass task
 
 I7 bundled two claims under one sentence: "characters own the saturation and
 the darkest values." ADR-010 separates them for `office`: its props are
 restored to the pack's own saturation (`prop_sat_scale`/`prop_sat_target` in
-`scripts/process-assets.py`'s `THEMES["office"]`), while the value band —
-`VALUE_FLOOR`/`VALUE_CEIL`, check 3 above — is untouched **for `office`
+`scripts/process-assets.py`'s `THEMES["office"]`), while the value band
+(`VALUE_FLOOR`/`VALUE_CEIL`, check 3 above) is untouched **for `office`
 itself**, which instead widens ITS OWN value band separately
 (`prop_value_floor`/`prop_value_ceil`, ADR-011) for a reason specific to it:
 a maintainer-built reference composite. That second, value-axis move is NOT
-part of what "join this policy" means — it is `office`'s own further step,
+part of what "join this policy" means: it is `office`'s own further step,
 `briefing` followed it (see `THEME_MIN_VALUE_CONTRAST` below), and `library`
 deliberately did not (see `THEMES["library"]`'s own comment in
 scripts/process-assets.py for why: a real conflict with an unrelated Swift
 test). The M8 palette-pass task measured all five non-`office` themes against
 the `office`/`briefing` VALUE package and found only `library` could clear it
-on a re-tile — `broadcast`, `mission_control` and `stage` cannot on any tile
+on a re-tile: `broadcast`, `mission_control` and `stage` cannot on any tile
 their own sheet offers, full stop; see `THEME_MIN_VALUE_CONTRAST` below for
 the numbers. So `office`, `briefing` and `library` all join THIS check
 (saturation), and only `office` and `briefing` join check 3's weakened
@@ -65,21 +65,21 @@ threshold. Every theme not in this saturation policy keeps check 1 exactly as
 it has always run, at the literal 0.25 ceiling.
 
 **`prop_sat_scale`/`prop_sat_target` are NOT always identity, and check 1
-does not assume they are.** `office` and `library` both run at `(1.0, 1.0)` —
+does not assume they are.** `office` and `library` both run at `(1.0, 1.0)`:
 the pack's own saturation, unscaled. `briefing` does not: the M8 palette-pass
 task found it at `(1.0, 1.0)` measuring 0.411 mean saturation against the
-cast's own 0.332 (check 4 below), so it now runs at `(0.75, 1.0)` — 75% of
+cast's own 0.332 (check 4 below), so it now runs at `(0.75, 1.0)`: 75% of
 the pack's own colour, not the pack's own colour outright. `pack_saturation_
 cross_check()` re-reads the *untouched* pack PNGs `scripts/process-assets.py`
 cuts a theme's roles, scenery, floor and wall from and computes, per file,
-`min(raw_pack_saturation * prop_sat_scale, prop_sat_target)` — the theme's OWN
+`min(raw_pack_saturation * prop_sat_scale, prop_sat_target)`: the theme's OWN
 declared transform, not an assumption that it is 1.0. A pack-value theme's
 *processed* peak saturation must land within `SAT_BASELINE_TOLERANCE` of THAT
 number: not below it, which would mean the declared scale was not actually
 applied; not above it, which would mean something more saturated than the
 theme's own declared band is on screen. Every other theme is measured on the
-flat 0.25 ceiling exactly as before, and `room` — which ADR-002 §14a
-establishes *is* the resolved default theme (`themes.default`) — inherits
+flat 0.25 ceiling exactly as before, and `room`, which ADR-002 §14a
+establishes *is* the resolved default theme (`themes.default`), inherits
 whichever policy that theme carries, because `room.props.scenery` and
 `themes.sets.office.props.scenery` are the same bytes on disk and a check that
 disagreed with itself about them would be checking nothing.
@@ -89,7 +89,7 @@ questions: check 1 asks "does this file match what the theme's OWN scale
 implies", check 4 asks "does the RESULT still recede behind the cast". A
 theme could declare `(1.0, 1.0)`, pass check 1 on every file by construction,
 and still fail check 4 if the pack's own art is simply louder than the
-characters — which is exactly what `briefing` did before check 4 existed to
+characters, which is exactly what `briefing` did before check 4 existed to
 catch it. Picking a lower scale is how a theme satisfies check 4; check 1 is
 what proves that scale was actually applied, file by file, rather than
 adjusted in the table and left unverified in the art.
@@ -97,14 +97,14 @@ adjusted in the table and left unverified in the art.
 Why a fourth check exists at all: in this product **motion means an agent is
 working**. It is the one signal a glance actually reads. So a prop that
 out-moves the characters is the time-axis equivalent of a room element owning
-the darkest pixel on screen — the thing checks 1-3 exist to forbid — and until
+the darkest pixel on screen (the thing checks 1-3 exist to forbid) and until
 §14b it was unguarded. §14b recorded the gap in as many words: `old_tv` "would
 have passed the lint, because the lint says nothing about motion". It does now,
 and `old_tv` is what it was tested against.
 
 Exits non-zero on any violation, naming the file and the measured value. It runs
 over the manifest rather than over a directory so that it checks what the scene
-will actually load — art sitting on disk but absent from the manifest is not in
+will actually load: art sitting on disk but absent from the manifest is not in
 the build, and art in the manifest but absent from disk is caught earlier, by
 scripts/build-manifest.py.
 
@@ -141,7 +141,7 @@ MIN_VALUE_CONTRAST = 0.40
 # `output/01-engineering-office.png` is the composed reference the maintainer
 # built with `scripts/compose-scene.py` straight off the untouched pack, and it
 # is the picture this app was asked to reproduce. Measured over its own pixels
-# it runs at a mean value of 0.667 against the cast's darkest ink at 0.314 —
+# it runs at a mean value of 0.667 against the cast's darkest ink at 0.314:
 # **0.353 of contrast**, which is under the 0.40 this file has always demanded.
 # So 0.40 was never a property of the medium or of the pack; it was a property
 # of the value transform, which lifted every room pixel into [0.55, 0.92] and
@@ -151,20 +151,20 @@ MIN_VALUE_CONTRAST = 0.40
 # is measured against the reference instead: **0.35**, the reference's own
 # 0.353 rounded down to two places. A theme that reads worse than the picture
 # this one is copying still fails. The other five themes are untouched at 0.40,
-# and `room` — which is `office`'s own bytes — takes office's floor for the
+# and `room`, which is `office`'s own bytes, takes office's floor for the
 # same aliasing reason `override_prefixes` exists.
 #
 # What did NOT move, and it is the half of I7 that matters at 1x: **characters
 # still own the darkest pixel on screen.** The cast's darkest ink is 0.314; the
 # darkest pixel anywhere in the office room is 0.361, because
 # `prop_value_floor` is 0.10 rather than 0.0. Identity on the value axis was
-# tried and measured at 0.290 — the room owning the darkest pixel outright —
+# tried and measured at 0.290 (the room owning the darkest pixel outright)
 # and rejected for exactly that reason. The 0.10 floor costs nothing visible
 # and keeps the sentence true.
 #
 # **A second theme, added by the same rule, not by a second reference.**
 # [M8 palette-pass task] `briefing`'s props, scenery, floor and wall now run on
-# the identical `office` knobs — floor 0.10, ceiling 1.0, identity saturation —
+# the identical `office` knobs (floor 0.10, ceiling 1.0, identity saturation)
 # because both packs share the SAME 0.314 outline ink: measured at the identity
 # transform (floor 0.0), the darkest pixel across every `briefing` role,
 # scenery item, floor and wall tile is exactly 0.314, tied with the cast rather
@@ -172,31 +172,31 @@ MIN_VALUE_CONTRAST = 0.40
 # to re-use rather than re-derive. What is NOT re-used is the 0.35 itself:
 # `briefing` has no reference composite of its own, so 0.35 is applied here
 # only because `briefing`'s own measured contrast (0.372, mean 0.686 against
-# the cast's 0.314) already clears it on the untuned office floor — the floor
+# the cast's 0.314) already clears it on the untuned office floor: the floor
 # was not raised to reach this number, the number is what the office floor
 # happened to produce. `broadcast`, `library`, `mission_control` and `stage`
 # were measured against the SAME office floor and none of them clear 0.35
-# (0.289, 0.322, 0.299, 0.308) — see the per-theme comments beside
+# (0.289, 0.322, 0.299, 0.308); see the per-theme comments beside
 # `THEMES["briefing"]` in scripts/process-assets.py for the full table.
 #
 # **`library` is NOT a third theme on this table, and that is a deliberate
 # result rather than an oversight.** At the M8 palette-pass task, `library`'s
-# own Room Builder sheet turned out to carry a floor and wall tile — `(9, 1)`
+# own Room Builder sheet turned out to carry a floor and wall tile (`(9, 1)`
 # in place of the old `(16, 0)` wood plank, `(6, 5)` in place of the old
-# `(6, 4)` wall — bright enough that the SAME `office`/`briefing` value
+# `(6, 4)` wall) bright enough that the SAME `office`/`briefing` value
 # package (`prop_value_floor` 0.10) would clear 0.35 there too: mean 0.672,
 # darkest 0.384, contrast 0.358, measured on a manifest built with that
 # package declared. It was tried and pulled back, because
 # `Tests/SpriteRoomSceneTests/PropAnimationTests.swift`'s `animatedTheme(_:)`
 # picks the first theme (alphabetically) carrying a playable animated role,
-# which is `library`'s own `pendulum_clock` whenever `library` has one — and
+# which is `library`'s own `pendulum_clock` whenever `library` has one, and
 # `Importer.animated()` cuts that clock "on the target theme's own prop
 # band", so widening `library`'s value band widens the clock's too, and a
 # real run of `swift test` with that package in found
 # `theAnimatedPropIsNeverRebuiltAcrossAFixtureReplay` failing, for a reason
 # that has nothing to do with this theme's own colour and everything to do
 # with which theme the test suite happened to be measuring. `library`'s own
-# baseline contrast — standard band, no pack-value package — was already
+# baseline contrast (standard band, no pack-value package) was already
 # 0.456, comfortably over even the UNweakened 0.40 floor, so there was
 # nothing to buy on the value axis by moving it here in the first place; see
 # `THEMES["library"]`'s own comment in scripts/process-assets.py. `library`
@@ -207,7 +207,7 @@ MIN_VALUE_CONTRAST = 0.40
 #
 # `broadcast`, `mission_control` and `stage` were searched the same way as
 # `library` and none of them clear 0.35 on any tile their sheet offers at
-# all, value package or not — see the comment beside each of their own
+# all, value package or not; see the comment beside each of their own
 # `THEMES[...]` entries for the numbers. They are deliberately left off both
 # the pack-value transform and this table: raising a theme's own floor
 # further, past 0.10, until its number cleared 0.35 would be tuning the art
@@ -222,7 +222,7 @@ def min_value_contrast(theme_name=None):
 
 # How far a sat-override theme's *processed* peak saturation may drift from the
 # *pack's own* peak saturation, measured independently off the untouched pack
-# PNGs — see "Per-theme saturation policy" above. The transform is the identity
+# PNGs; see "Per-theme saturation policy" above. The transform is the identity
 # operation on hue and saturation for these themes (`prop_sat_scale == 1.0`,
 # `prop_sat_target == 1.0`), so the only expected difference is 8-bit rounding
 # through the HSV round trip `scripts/process-assets.py`'s `room_colour` still
@@ -256,8 +256,8 @@ MIN_ACCENT_VALUE = 0.60
 # Three quantities were candidates and this is the one that governs, for
 # reasons that are measurements rather than preferences:
 #
-#   - `moving_px / visible_px` — a prop's own moving fraction, the figure §14b
-#     quotes (pendulum_clock 3.1%, old_tv 27.9%) — is **not** governed. It says
+#   - `moving_px / visible_px`, a prop's own moving fraction, the figure §14b
+#     quotes (pendulum_clock 3.1%, old_tv 27.9%), is **not** governed. It says
 #     what proportion of an object is restless, not how much of the view
 #     changes, and it is not comparable between props: a prop ten times larger
 #     with the same 364 moving pixels scores 3.1% instead of 31.5% and costs the
@@ -276,7 +276,7 @@ MIN_ACCENT_VALUE = 0.60
 #     with, not a model of the room.
 #
 # **The number is the cast's, not a prop's.** I7's other thresholds are
-# relative — the room must be *under* the characters — so this one is too, and
+# relative (the room must be *under* the characters) so this one is too, and
 # for the same reason: a fixed pixel count picked from the two props we happen
 # to own would be taste with a decimal point on it. The ceiling is measured at
 # lint time as the **quietest looping animation any shipped variant plays**, in
@@ -293,7 +293,7 @@ MIN_ACCENT_VALUE = 0.60
 # less than a working character does" is the literal time-axis reading of I7,
 # and any factor below 1.0 is a safety margin chosen by feel. The four objects
 # in the pack's animated folder land at 0.15, 0.57, 3.21 and 9.49 of the
-# ceiling — nothing between 0.57 and 3.21 — so **this data cannot distinguish a
+# ceiling (nothing between 0.57 and 3.21) so **this data cannot distinguish a
 # share of 0.6 from a share of 1.0**, and picking the smaller one would be
 # asserting a precision the measurements do not support.
 #
@@ -374,11 +374,11 @@ def mean_saturation(path):
     Separate from `scan()` rather than folded into it, so the ~10 existing
     `scan()` call sites (cross-checks, per-file ceilings) do not all have to
     be touched to carry a sum nothing there needs. `hsv()` is memoised by RGB
-    triple, so this second pass over an already-`scan()`ed file is cheap — it
+    triple, so this second pass over an already-`scan()`ed file is cheap: it
     is re-reading `_hsv_cache`, not re-computing `colorsys.rgb_to_hsv`.
 
     Backs the "room stays under the cast on saturation, not just on value"
-    check added at the M8 palette-pass task — see that check's own comment,
+    check added at the M8 palette-pass task; see that check's own comment,
     below the character rows loop, for why it exists.
     """
     w, h, px = load_png(path)
@@ -477,7 +477,7 @@ def sat_override_themes(mod):
     """Theme names `scripts/process-assets.py` gives their own saturation band.
 
     A theme is in this set purely by *declaring* `prop_sat_scale` or
-    `prop_sat_target` in its `THEMES[...]` entry — the same "declared vs.
+    `prop_sat_target` in its `THEMES[...]` entry: the same "declared vs.
     default" test `scripts/process-assets.py` itself uses
     (`theme.get("prop_sat_scale", PROP_SAT_SCALE_DEFAULT)`). So adding a second
     theme to that override in `process-assets.py` moves it onto this policy
@@ -494,23 +494,23 @@ def pack_saturation_cross_check(mod, theme_name, size="32x32"):
 
     Precise rather than aggregate, and that precision is the point: comparing
     the *file* `process-assets.py` wrote against the *raw* pack PNG it was cut
-    from — one role or scenery entry at a time — is what a bug in one prop's
+    from (one role or scenery entry at a time) is what a bug in one prop's
     treatment cannot hide inside a scope average. It is the same discipline the
     motion budget already applies (`scripts/lint-palette.py`'s own cross-check
     of `moving_px`/`visible_px`/`transition_px` against a fresh measurement),
     turned onto ADR-010's saturation restoration.
 
     The destination path is computed with the exact naming
-    `Importer.themes()` uses — `singles/<role>.png`,
-    `scenery/%02d_%s.png % (i, band)` — rather than read out of the manifest,
+    `Importer.themes()` uses (`singles/<role>.png`,
+    `scenery/%02d_%s.png % (i, band)`) rather than read out of the manifest,
     so this check does not depend on the manifest having been regenerated
     correctly; it is one more thing verifying the manifest, not trusting it.
 
     Returns a list of `(label, dst_relpath, processed_max_sat, src_path,
     source_max_sat, expected_max_sat)` for every role and scenery entry that
     could be measured on both sides. `expected_max_sat` is `source_max_sat`
-    run through the theme's OWN declared `prop_sat_scale`/`prop_sat_target` —
-    `min(source_max_sat * scale, target)` — not `source_max_sat` itself.
+    run through the theme's OWN declared `prop_sat_scale`/`prop_sat_target`
+    (`min(source_max_sat * scale, target)`) not `source_max_sat` itself.
     For `office` and (on the value axis only) `briefing`'s original entry
     those two knobs are `(1.0, 1.0)`, the identity operation, so
     `expected_max_sat == source_max_sat` and this generalisation changes
@@ -520,7 +520,7 @@ def pack_saturation_cross_check(mod, theme_name, size="32x32"):
     pack's own saturation and still be checked precisely, rather than this
     cross-check assuming "pack-saturation theme" always means "identical to
     the pack" and failing every file of a theme that deliberately does not.
-    An entry missing on either side is silently skipped here — a missing
+    An entry missing on either side is silently skipped here: a missing
     *processed* file is caught elsewhere (`scripts/build-manifest.py`
     re-stats every path, and this lint's own "missing asset" check), and a
     missing *source* file means the pack is not on this machine, which every
@@ -541,7 +541,7 @@ def pack_saturation_cross_check(mod, theme_name, size="32x32"):
     # walked only `roles`, so seven files entered the manifest with nothing
     # checking their saturation against the pack. They were verified by hand
     # once, which is exactly the thing this cross-check exists so that nobody
-    # has to do — a check that does not cover new art is not a check, it is a
+    # has to do: a check that does not cover new art is not a check, it is a
     # check-shaped record of the art that existed when it was written.
     for role, variants in sorted(theme.get("role_variants", {}).items()):
         for n, spec in enumerate(variants, start=1):
@@ -558,12 +558,12 @@ def pack_saturation_cross_check(mod, theme_name, size="32x32"):
     # **The floor and wall tile, on the same terms as a role.** [M8 palette-pass
     # task] `scripts/process-assets.py`'s `themes()` puts a theme's floor and
     # wall tile on this same pack-value/pack-saturation policy whenever the
-    # theme has declared `prop_sat_scale`/`prop_sat_target` — the office builder
+    # theme has declared `prop_sat_scale`/`prop_sat_target`: the office builder
     # sheet already had its own cross-check (`builder_pack_cross_check` below),
     # but that one is hardcoded to `Room_Builder_Office_*.png`, which only
     # `office` is cut from. A second theme's floor and wall come from the
     # Modern Interiors `Room_Builder_Floors_*`/`Room_Builder_Walls_*` subfiles
-    # instead — a different sheet at a different address — so it needs its own
+    # instead (a different sheet at a different address) so it needs its own
     # pairing, not a re-use of office's. Skipped (not failed) if the theme
     # draws no plan (`theme["floor"] is None`, `office`'s own case) or the pack
     # sheet is not on this machine, the same "unverifiable, not failed" rule
@@ -604,7 +604,7 @@ def pack_saturation_cross_check(mod, theme_name, size="32x32"):
                         min(s_s * scale, target)))
     # **`flat_floor.png`/`flat_wall.png` are not cross-checked here, and that is
     # deliberate rather than a gap.** They are `Importer.themes()`'s per-pixel
-    # MEAN of the already-recoloured `floor.png`/`wall.png` array — a pure
+    # MEAN of the already-recoloured `floor.png`/`wall.png` array: a pure
     # function of pixels this cross-check just verified, with no further pack
     # source behind them to compare against. A flat that disagreed with its own
     # tile's mean would be a bug in `_mean_colour`, not a saturation-policy
@@ -636,8 +636,8 @@ def builder_pack_cross_check(mod, size="32x32"):
     to within 3 pp, tile by tile". A transform that quietly re-saturated the
     floor would pass the first and fail this.
 
-    The slice arithmetic is `Importer.room_builder`'s own — row-major over a
-    sheet that divides exactly — and the filename carries `(row, column)`, so
+    The slice arithmetic is `Importer.room_builder`'s own (row-major over a
+    sheet that divides exactly) and the filename carries `(row, column)`, so
     the pairing is recovered from the name rather than re-derived. Tiles the
     importer dropped for being mostly transparent have no processed file and
     are skipped; a missing pack sheet means the download is not on this
@@ -666,7 +666,7 @@ def builder_pack_cross_check(mod, size="32x32"):
                 buf[di:di + 4] = px[si:si + 4]
         # **A distinct path per tile, and that is load-bearing.** `load_png` is
         # memoised on the absolute path, so a single reused scratch filename
-        # makes every tile read the first one — which is exactly how the first
+        # makes every tile read the first one, which is exactly how the first
         # draft of this check reported 27.5% for all 156 of them, a number the
         # sheet carries nowhere near the floors.
         cut = os.path.join(tempfile.gettempdir(),
@@ -677,8 +677,8 @@ def builder_pack_cross_check(mod, size="32x32"):
         s_s, _smn, _st, s_n, _sw = scan(cut)
         if p_n == 0 or s_n == 0:
             continue
-        # `office`'s own builder tiles are always cut at (1.0, 1.0) — the
-        # ADR-011 identity transform this function exists to check — so the
+        # `office`'s own builder tiles are always cut at (1.0, 1.0) (the
+        # ADR-011 identity transform this function exists to check) so the
         # expected figure is the raw pack figure itself. See
         # `pack_saturation_cross_check`'s docstring for the general case.
         out.append(("builder:%s" % name[:-4], dst_rel, p_s,
@@ -693,12 +693,12 @@ def animated_pack_cross_check(mod, sat_themes, size="32x32"):
     from under `ROOM_MAX_SAT` for those themes; this is what replaces it, on the
     same terms as the role, scenery and builder cross-checks. Peak saturation of
     the cut frames against peak saturation of the untouched spritesheet, run
-    through the OWNING theme's own `prop_sat_scale`/`prop_sat_target` — see
+    through the OWNING theme's own `prop_sat_scale`/`prop_sat_target`; see
     `pack_saturation_cross_check`'s docstring for why that is `expected`, not
     `raw`, since `briefing`'s M8 palette-pass task scale of 0.75.
     `Importer.animated()` cuts each object on "the target theme's own prop
     band" (that method's own docstring), which is `spec["for"]`, not
-    necessarily the theme this call was asked about — an object could in
+    necessarily the theme this call was asked about: an object could in
     principle be `for` one sat-override theme while this function is walking
     another's cross-check, so the scale/target are read off `spec["for"]`'s
     own THEMES entry, not off `sat_themes`.
@@ -708,9 +708,9 @@ def animated_pack_cross_check(mod, sat_themes, size="32x32"):
     exemption exempts nothing. `library`'s own `pendulum_clock` was tried at
     the M8 palette-pass task and withdrawn from `ANIMATED_ADOPTED` for an
     unrelated reason (its own dark casing failing `library`'s value-contrast
-    floor once cut on the wide pack-value band — see the comment beside
+    floor once cut on the wide pack-value band; see the comment beside
     `ANIMATED_ADOPTED` in scripts/process-assets.py), so this still checks
-    nothing today. That is exactly when a check is worth writing — the
+    nothing today. That is exactly when a check is worth writing: the
     alternative is discovering it is absent on the day something first
     depends on it, which is what happened to `override_prefixes` above the
     day `library` first joined `sat_themes`: missing the `<size>/` segment in
@@ -762,13 +762,13 @@ def role_placements(theme=None):
 
     **Imported from `scripts/preview-theme.py` rather than transcribed**, because
     a prop placed four times costs four times as much and that count is the one
-    number in this check the manifest cannot supply — it is scene geometry, not
+    number in this check the manifest cannot supply: it is scene geometry, not
     art. `preview-theme.py` owns the transcription of RoomLayout.swift and draws
     the real panel with it.
 
     **What vouches for that number changed at M6f, and it matters.** It used to
-    be that the preview tool asserted its own census against its own `render()`
-    — two transcriptions of one layout, which at M6e were found agreeing with
+    be that the preview tool asserted its own census against its own `render()`:
+    two transcriptions of one layout, which at M6e were found agreeing with
     each other about a foreground row of seven plants the scene had demolished
     two commits earlier. They now come from one list, and that list is checked
     against the real `RoomScene` pixel for pixel by `scene_agreement()` below.
@@ -776,7 +776,7 @@ def role_placements(theme=None):
     good as the renderer it is compared with.
 
     Returns `{}` if the preview tool is unreadable, and the caller fails rather
-    than guessing — an assumed placement count is a budget wrong by a factor.
+    than guessing: an assumed placement count is a budget wrong by a factor.
     """
     mod = preview_module()
     fn = getattr(mod, "role_placements", None) if mod else None
@@ -786,7 +786,7 @@ def role_placements(theme=None):
     # **The plan too, not just the metrics.** A theme whose plan places its
     # dressing by hand draws a different number of boards and plants from the
     # one the band lattice would, and this census is what the motion budget
-    # multiplies by — a census taken without the plan is the M6e defect again,
+    # multiplies by: a census taken without the plan is the M6e defect again,
     # a count vouched for by the wrong copy of the layout.
     dressing_of = getattr(mod, "dressing_of", None)
     plan = dressing_of(theme) if (theme and dressing_of) else None
@@ -799,7 +799,7 @@ def scene_agreement(sets, names):
     """Check the preview's room against the room the product actually draws.
 
     The motion budget above is priced on `role_placements()`, and the placement
-    census has been wrong twice — once about *where* a prop goes (M6b, ~80 px)
+    census has been wrong twice: once about *where* a prop goes (M6b, ~80 px)
     and once about *how many* there are (M6e, 3.3x). Both survived because the
     only thing checking the transcription was another copy of it. This runs the
     real `RoomScene` through the real `SKRenderer` offscreen
@@ -811,7 +811,7 @@ def scene_agreement(sets, names):
     app built and the art on disk, so it cannot run in a checkout without either.
     A missing binary is a *visible skip* naming the themes it did not check, not
     a silent pass, and `SPRITE_ROOM_REQUIRE_SCENE=1` turns that skip into a
-    failure — the same arrangement `SPRITE_ROOM_REQUIRE_ART` gives the pixel
+    failure: the same arrangement `SPRITE_ROOM_REQUIRE_ART` gives the pixel
     tests. It adds a couple of seconds per theme.
     """
     mod = preview_module()
@@ -835,7 +835,7 @@ def character_motion_floor(variants):
     Returns `(rate, "variant/state/direction", frame_count, fps)` or None.
 
     This is the whole of the motion threshold's derivation. I7's other numbers
-    are relative — the room must be under the characters — and this one is the
+    are relative (the room must be under the characters) and this one is the
     same sentence on the time axis, so the ceiling is not a constant in this file
     but a measurement of the cast that is actually shipping.
     """
@@ -885,13 +885,13 @@ def collect(node, out, prose=None):
     """Pull every loadable asset path out of an arbitrary manifest subtree.
 
     A .png-suffixed string counts as art if it resolves to a file on disk. That
-    test, rather than a path prefix, is what decides — an earlier version
+    test, rather than a path prefix, is what decides: an earlier version
     required the path to start with "assets/" and therefore skipped anything
     stored elsewhere in complete silence, and silently skipping art is the exact
     failure mode a lint exists to prevent.
 
     A string that does not resolve is either a missing asset (declared under
-    assets/ — a hard error, raised by the caller) or a human-readable provenance
+    assets/, a hard error, raised by the caller) or a human-readable provenance
     note like "Modern Office / Room_Builder_Office_32x32.png". Those are
     collected separately so they are visible rather than quietly discarded.
     """
@@ -910,7 +910,7 @@ def main(argv=None):
     ap.add_argument("--verbose", action="store_true", help="print per-variant measurements")
     ap.add_argument("--no-scene", action="store_true",
                     help="skip the comparison against `spriteroom --render`. For "
-                         "iterating on colour only — it leaves the placement "
+                         "iterating on colour only: it leaves the placement "
                          "census unchecked, and it says so in the output")
     args = ap.parse_args(argv)
 
@@ -938,15 +938,15 @@ def main(argv=None):
             % (ROOM_MAX_SAT * 100))
     sat_themes = sat_override_themes(pa_mod)
     # A path prefix, not a theme-scope check, because `room` and
-    # `themes.sets.office` alias the SAME bytes for scenery — ADR-002 §14a's
-    # "`room` IS the resolved default theme" — so the policy has to travel with
+    # `themes.sets.office` alias the SAME bytes for scenery (ADR-002 §14a's
+    # "`room` IS the resolved default theme") so the policy has to travel with
     # the *file*, wherever a manifest scope happens to collect it from.
     override_prefixes = tuple(sorted(
         ["assets/processed/themes/%s/" % n for n in sat_themes]
         # **And the builder tiles, which are `office`'s alone.** [ADR-011]
         # `assets/processed/room/` is referenced by exactly one theme in the
-        # shipped manifest — `office`, which is also the resolved default and
-        # the only theme that draws a plan — so its floors and walls run on the
+        # shipped manifest (`office`, which is also the resolved default and
+        # the only theme that draws a plan) so its floors and walls run on the
         # same pack-saturation policy as its props. Verified against the
         # manifest rather than asserted: `builder_pack_cross_check` below
         # measures every one of them against the untouched Room Builder sheet,
@@ -955,31 +955,31 @@ def main(argv=None):
         # **And the animated objects belonging to a sat-override theme.**
         # `assets/processed/animated/<id>/` is keyed by object, and each object
         # names its theme in `ANIMATED[id]["for"]`, so the exemption is built
-        # per object rather than as one flat prefix — an animated prop in a
+        # per object rather than as one flat prefix: an animated prop in a
         # standard-band theme stays on ROOM_MAX_SAT exactly as before.
         #
         # This was a hole rather than a policy: `office` and `briefing` run at
         # the pack's own saturation [ADR-010, ADR-011] and every other file of
         # theirs is checked against the pack, but an animated one was still
-        # measured against the flat 25% ceiling. The consequence was total —
+        # measured against the flat 25% ceiling. The consequence was total:
         # the quietest-saturation object in the whole 310-sheet folder measures
         # 27.5%, so **no animated prop could ship into either theme at all**,
         # and the reason looked like "the pack has nothing quiet enough".
         #
         # **The size segment is load-bearing and was missing until the M8
         # palette-pass task.** `Importer.animated()` writes
-        # `assets/processed/animated/<size>/<id>/frame_NN.png` — `office` and
+        # `assets/processed/animated/<size>/<id>/frame_NN.png`: `office` and
         # `briefing` never exercised this branch (`ANIMATED_ADOPTED` held only
         # `pendulum_clock` (library) and `control_room_server`
         # (mission_control), both standard-band themes at the time, so this
-        # comprehension was provably empty — the exact case
+        # comprehension was provably empty: the exact case
         # `animated_pack_cross_check`'s own docstring names as "worth writing
         # ... the alternative is discovering it is absent on the day something
         # first depends on it"). The day was `library` joining `sat_themes` at
         # the M8 palette-pass task: without `<size>/`, `assets/processed/
         # animated/pendulum_clock/` never matched the real
         # `assets/processed/animated/32x32/pendulum_clock/frame_00.png`, so
-        # every frame fell through to the flat 25% ceiling and failed loudly —
+        # every frame fell through to the flat 25% ceiling and failed loudly,
         # which is how this was caught, not by inspection.
         + ["assets/processed/animated/%s/%s/" % (size, name)
            for size in ("32x32",)
@@ -1000,7 +1000,7 @@ def main(argv=None):
             failures.append(
                 "saturation policy: assets/processed/room/ is on office's "
                 "pack-saturation policy (ADR-011) but not one of its builder "
-                "tiles could be cross-checked against the Room Builder sheet — "
+                "tiles could be cross-checked against the Room Builder sheet: "
                 "the override is unverifiable, which is a failure and not a "
                 "silent pass")
         pack_cross_checks["office"] = pack_cross_checks["office"] + builder
@@ -1009,7 +1009,7 @@ def main(argv=None):
             failures.append(
                 "saturation policy: theme %s declares a saturation override but "
                 "not one of its role/scenery files could be cross-checked against "
-                "its own pack source — the override is unverifiable, which ADR-010 "
+                "its own pack source: the override is unverifiable, which ADR-010 "
                 "treats as a failure rather than a silent pass" % name)
         for label, dst_rel, p_s, src, s_s, expected_s in checks:
             drift = p_s - expected_s
@@ -1017,17 +1017,17 @@ def main(argv=None):
                 failures.append(
                     "saturation policy: theme %s %s (%s) measures %.1f%% saturation "
                     "but its own untouched pack source (%s, %.1f%% raw) implies "
-                    "%.1f%% at this theme's own prop_sat_scale/prop_sat_target — "
+                    "%.1f%% at this theme's own prop_sat_scale/prop_sat_target: "
                     "%.1f pp of drift, outside the %.0f pp tolerance. This theme "
                     "runs its props at a declared fraction of the pack's own "
                     "saturation, not an arbitrary one; %s"
                     % (name, label, dst_rel, p_s * 100,
                        os.path.relpath(src, REPO), s_s * 100, expected_s * 100,
                        drift * 100, SAT_BASELINE_TOLERANCE * 100,
-                       "it went darker/less saturated than expected — the "
+                       "it went darker/less saturated than expected: the "
                        "scale/target may not be applied"
                        if drift < 0 else
-                       "it went more saturated than expected — check for a "
+                       "it went more saturated than expected: check for a "
                        "stray transform or the wrong source file"))
 
     # --- room -------------------------------------------------------------
@@ -1056,7 +1056,7 @@ def main(argv=None):
         if p.startswith(override_prefixes):
             # ADR-010: this file's ceiling is the per-item pack cross-check
             # above, run once per theme rather than once per scope that
-            # happens to collect it — `room`'s own scenery is these same bytes.
+            # happens to collect it: `room`'s own scenery is these same bytes.
             continue
         if s >= ROOM_MAX_SAT:
             failures.append(
@@ -1076,8 +1076,8 @@ def main(argv=None):
     #
     # **Except saturation, for a theme ADR-010 names.** `sat_themes` above is
     # exactly the "SAME thresholds" exception: those themes are still measured
-    # here — mean value, darkest value, and the value-contrast pass below are
-    # all untouched — but their saturation ceiling was already checked, per
+    # here (mean value, darkest value, and the value-contrast pass below are
+    # all untouched) but their saturation ceiling was already checked, per
     # file, against the pack rather than against `ROOM_MAX_SAT`.
     themes = m.get("themes", {}).get("sets", {})
     theme_stats = {}
@@ -1164,7 +1164,7 @@ def main(argv=None):
         if contrast < MIN_VALUE_CONTRAST:
             failures.append(
                 "value contrast: variant %s darkest pixel is value %.3f against a mean "
-                "room value of %.3f — %.1f%% contrast, needs %.0f%%; darkest is in %s"
+                "room value of %.3f: %.1f%% contrast, needs %.0f%%; darkest is in %s"
                 % (name, vmin_v, room_mean_val, contrast * 100,
                    MIN_VALUE_CONTRAST * 100, dark_file))
 
@@ -1184,7 +1184,7 @@ def main(argv=None):
             if c < min_value_contrast(tname):
                 failures.append(
                     "theme %s value contrast: variant %s darkest pixel is value %.3f "
-                    "against a theme mean of %.3f — %.1f%% contrast, needs %.0f%%; "
+                    "against a theme mean of %.3f: %.1f%% contrast, needs %.0f%%; "
                     "darkest is in %s"
                     % (tname, name, vmin_v, tmean, c * 100,
                        min_value_contrast(tname) * 100, dark_file))
@@ -1193,19 +1193,19 @@ def main(argv=None):
     # --- room/theme saturation vs. the cast ---------------------------------
     #
     # Added at the M8 palette-pass task. I7 has always said BOTH halves of one
-    # sentence — "characters own the saturation and the darkest values" — and
+    # sentence ("characters own the saturation and the darkest values") and
     # until now only the second half was a lint check (the value-contrast pass
     # above). The first half was carried in prose only, and prose is not a
     # check: `briefing` shipped at pure pack-identity saturation (ADR-011)
-    # measuring **0.411** mean saturation, against the cast's own **0.332** —
+    # measuring **0.411** mean saturation, against the cast's own **0.332**:
     # louder than the characters it sits behind, for months, because nothing
     # ever compared the two numbers. Found by the maintainer looking at the
     # rendered room, not by this lint, which is the argument for writing it
     # down as one.
     #
     # `cast_mean_sat` is the same aggregate the value-contrast check already
-    # takes for granted on the value axis — pooled across every variant's
-    # every frame, not a per-variant figure — because I7's claim is about the
+    # takes for granted on the value axis (pooled across every variant's
+    # every frame, not a per-variant figure) because I7's claim is about the
     # cast as a whole being the loudest thing on screen, not about any one
     # variant individually. `room` and every theme are held to it separately,
     # for the same reason the value-contrast check runs `room` and each theme
@@ -1214,7 +1214,7 @@ def main(argv=None):
     #
     # This is NOT folded into `pack_saturation_cross_check`'s per-item ceiling
     # above. That check asks "does this file match what this theme's own
-    # `prop_sat_scale`/`prop_sat_target` implies" — a theme could pass it at
+    # `prop_sat_scale`/`prop_sat_target` implies": a theme could pass it at
     # ANY scale, including 1.0, and still end up louder than the cast, which
     # is exactly what happened. This check asks the question ADR-010 always
     # implied and never verified: whatever scale a theme picked, does the
@@ -1228,7 +1228,7 @@ def main(argv=None):
         if room_mean_sat >= cast_mean_sat:
             failures.append(
                 "room saturation vs cast: room mean saturation %.3f is not under "
-                "the cast's own mean saturation %.3f — the room is as loud or "
+                "the cast's own mean saturation %.3f: the room is as loud or "
                 "louder than the characters, which I7 forbids on the saturation "
                 "axis as plainly as it forbids the room owning the darkest pixel "
                 "on the value axis"
@@ -1238,7 +1238,7 @@ def main(argv=None):
             if tmean_sat >= cast_mean_sat:
                 failures.append(
                     "theme %s saturation vs cast: theme mean saturation %.3f is not "
-                    "under the cast's own mean saturation %.3f — the room is as loud "
+                    "under the cast's own mean saturation %.3f: the room is as loud "
                     "or louder than the characters, which I7 forbids on the "
                     "saturation axis as plainly as it forbids the room owning the "
                     "darkest pixel on the value axis"
@@ -1253,7 +1253,7 @@ def main(argv=None):
     #
     # A costume is drawn **on** the character, which owns the darkest and most
     # saturated pixels in the room [I7]. So the axis that matters is not the
-    # room's ceiling — it is the cast's own floor: a garment darker than the
+    # room's ceiling: it is the cast's own floor: a garment darker than the
     # darkest character pixel moves the darkest thing on screen onto a piece of
     # clothing, and the value-contrast figure this lint prints stops describing
     # what is rendered.
@@ -1288,14 +1288,14 @@ def main(argv=None):
         if cmin_v < cast_floor - 1e-9:
             failures.append(
                 "costume darkness: %s has a pixel at value %.3f, below the cast's "
-                "darkest at %.3f — a garment cannot be the darkest thing on screen "
+                "darkest at %.3f: a garment cannot be the darkest thing on screen "
                 "[I7]; darkest is in %s" % (cname, cmin_v, cast_floor, dark_file))
     # The I1 half, checked here as well as in CostumeContractTests, because this
     # script runs on a machine with the art and that one runs on a fresh clone.
     for cid in wardrobe.get("assignable", []):
         if costume_sets.get(cid, {}).get("asserts"):
             failures.append(
-                "costume pool: %s asserts and is assignable — a hash would be making "
+                "costume pool: %s asserts and is assignable: a hash would be making "
                 "a claim about an agent_type nobody anticipated [I1]" % cid)
 
     # --- accents ----------------------------------------------------------
@@ -1316,10 +1316,10 @@ def main(argv=None):
         h, s, v = hsv(r, g, b)
         if s < MIN_ACCENT_SAT:
             failures.append("accent: variant %s accent %s is only %.0f%% saturated "
-                            "(needs %.0f%%) — it will not read as an accent at 1x"
+                            "(needs %.0f%%): it will not read as an accent at 1x"
                             % (name, hexes, s * 100, MIN_ACCENT_SAT * 100))
         if v < MIN_ACCENT_VALUE:
-            failures.append("accent: variant %s accent %s has value %.2f (needs %.2f) — "
+            failures.append("accent: variant %s accent %s has value %.2f (needs %.2f): "
                             "too dark to read against the nameplate plate"
                             % (name, hexes, v, MIN_ACCENT_VALUE))
 
@@ -1336,7 +1336,7 @@ def main(argv=None):
             if d < MIN_ACCENT_HUE_SEPARATION:
                 failures.append(
                     "accent separation: variants %s (%s) and %s (%s) are %.1f degrees "
-                    "apart in hue, under the %.0f degree floor — they do not separate"
+                    "apart in hue, under the %.0f degree floor: they do not separate"
                     % (a, accents[a][0], b, accents[b][0], d, MIN_ACCENT_HUE_SEPARATION))
 
     # --- motion budget ----------------------------------------------------
@@ -1344,12 +1344,12 @@ def main(argv=None):
     # I7 on the time axis. See MAX_ROOM_MOTION_SHARE above for why this is the
     # quantity and why the number comes from the cast.
     #
-    # **Recomputed here, and cross-checked against the manifest — not read.**
+    # **Recomputed here, and cross-checked against the manifest, not read.**
     # That is a deliberate choice between the two the maintainer offered. Reading
     # the declared `moving_px`/`visible_px` would make the gate a tautology: the
     # same code that wrote the figure would be the only thing vouching for it,
     # and a generator with a bug would grade its own homework. Nothing else in
-    # this lint reads a number out of the manifest either — the room's saturation
+    # this lint reads a number out of the manifest either: the room's saturation
     # is measured off the PNGs, not looked up. It also means the check works on a
     # prop the manifest has *not* adopted, which is the case §14b's refusals were
     # all about. So: measure the pixels, then assert the manifest agrees, and
@@ -1357,7 +1357,7 @@ def main(argv=None):
     # became 27.9%; two sources that are *compared* is how that gets caught.
     # **Censused on the default theme, not on no theme at all.** The room the
     # panel actually draws is `themes.default`, and since ADR-009 the count is a
-    # property of that theme's art rather than of the layout alone — a pod puts
+    # property of that theme's art rather than of the layout alone: a pod puts
     # four objects on a camera-facing desktop where a flat desk puts none. Asking
     # for the census with no theme returned the lattice's numbers for a room that
     # has not drawn a lattice since ADR-011.
@@ -1393,7 +1393,7 @@ def main(argv=None):
         # **The census is per scope, because it stopped being a fact about the
         # layout alone.** ADR-009 gave the office theme a desk wide enough to
         # carry a screen rig either side of its occupant, so how many copies of
-        # `monitor` the room draws is a property of that theme's *art* — four
+        # `monitor` the room draws is a property of that theme's *art*: four
         # where the desk is a pod and none where it is not. A single census
         # applied to every theme would price an animated rig in a theme that
         # draws none of it, and would miss one in a theme that draws four.
@@ -1407,7 +1407,7 @@ def main(argv=None):
             if len(frames) < 2 or not fps:
                 failures.append(
                     "motion: %s role %s declares an `animation` with %d frame(s) at "
-                    "%s fps — not a loop, and not measurable (%s)"
+                    "%s fps: not a loop, and not measurable (%s)"
                     % (sname, role_name, len(frames), fps, where))
                 continue
             if anim.get("loop") is not True:
@@ -1429,7 +1429,7 @@ def main(argv=None):
             try:
                 mv, vis, trans = measure_loop([os.path.join(REPO, p) for p in frames])
             except ValueError as exc:
-                failures.append("motion: %s role %s — %s" % (sname, role_name, exc))
+                failures.append("motion: %s role %s: %s" % (sname, role_name, exc))
                 continue
 
             # The cross-check. Each of these is the manifest disagreeing with the
@@ -1447,8 +1447,8 @@ def main(argv=None):
                 if not agrees:
                     failures.append(
                         "motion cross-check: %s role %s declares %s = %r but the "
-                        "frames measure %r. Regenerate with scripts/build-manifest.py "
-                        "— a transcribed motion figure is how 10.4%% became 27.9%% "
+                        "frames measure %r. Regenerate with scripts/build-manifest.py: "
+                        "a transcribed motion figure is how 10.4%% became 27.9%% "
                         "(%s)" % (sname, role_name, key, declared, measured, where))
 
             n = scope_placements.get(role_name)
@@ -1471,7 +1471,7 @@ def main(argv=None):
             worst = max(contributors, key=lambda c: c[3])
             failures.append(
                 "motion budget: %s changes %.0f px/s of the panel against a ceiling "
-                "of %.0f px/s — %.2fx. The ceiling is the quietest looping animation "
+                "of %.0f px/s: %.2fx. The ceiling is the quietest looping animation "
                 "in the cast (%s, %.0f px/s) and the room has to come in under it, "
                 "because in this product motion is what says an agent is working. "
                 "The largest contributor is role %s (%s, %d copies x %.0f px/s, %.1f%% "
@@ -1498,13 +1498,13 @@ def main(argv=None):
         print("            max saturation   %.3f  (ceiling %.2f)  %s"
               % (room_max_sat[0], ROOM_MAX_SAT, room_max_sat[1] or ""))
     else:
-        print("            max saturation   %.3f  (policy: %s — files under %s "
+        print("            max saturation   %.3f  (policy: %s: files under %s "
               "checked per-item against the pack instead, see below)  %s"
               % (room_max_sat[0], room_sat_policy,
                  ", ".join(sorted(override_prefixes)) or "-", room_max_sat[1] or ""))
     print("            darkest value    %.3f  %s" % (room_min_val[0], room_min_val[1] or ""))
     if theme_stats:
-        print("themes:     %d, each measured on the same thresholds — except "
+        print("themes:     %d, each measured on the same thresholds: except "
               "saturation for %s [ADR-010]"
               % (len(theme_stats), ", ".join(sorted(sat_themes)) or "none"))
         print("            %-16s %-7s %-9s %-9s %-9s %-9s %-16s %-16s %s"
@@ -1519,7 +1519,7 @@ def main(argv=None):
             bad = (not standard_sat_ok
                    or not under_cast
                    # The same per-theme floor the failure above is raised
-                   # against — this flag used to read the global constant, so
+                   # against: this flag used to read the global constant, so
                    # `office` printed FAIL beside a contrast the lint had
                    # already accepted. A summary that disagrees with the
                    # failure list is worse than no summary. [ADR-011]
@@ -1547,7 +1547,7 @@ def main(argv=None):
                      expected_s, s_s))
     print("characters: %d variants" % len(rows))
     print("            mean saturation  %.3f  (pooled over every variant's "
-          "every frame — the floor `room` and each theme are held under)"
+          "every frame: the floor `room` and each theme are held under)"
           % cast_mean_sat)
     if args.verbose or failures:
         print("            %-6s %-10s %-10s %s" % ("var", "max sat", "darkest", "contrast"))
@@ -1563,7 +1563,7 @@ def main(argv=None):
               % (worst_con[5], worst_con[0], MIN_VALUE_CONTRAST))
     # Costumes. Printed even when there are none, because "the wardrobe is
     # empty" is a claim somebody made this run rather than an absence nobody
-    # noticed — the same reason `register_summary()` prints on every preview.
+    # noticed: the same reason `register_summary()` prints on every preview.
     if costume_rows:
         under = [r for r in costume_rows if r[1] <= CHAR_MIN_SAT]
         print("costumes:   %d declared (%d asserting), cast darkness floor %.3f"
@@ -1580,7 +1580,7 @@ def main(argv=None):
               % (min(r[2] for r in costume_rows), cast_floor, len(under),
                  CHAR_MIN_SAT, (": " + ", ".join(r[0] for r in under)) if under else ""))
     else:
-        print("costumes:   none declared — the manifest dresses nobody, "
+        print("costumes:   none declared: the manifest dresses nobody, "
               "which is a legal state")
     print("accents:    %d assigned" % len(accents))
     if worst_pair is not None:
@@ -1593,7 +1593,7 @@ def main(argv=None):
                   % (name, accents[name][0], h * 360, s, v))
 
     # Motion. Printed for every scope including the ones that animate nothing,
-    # because "0 of 1461" is the statement that the check ran — a motion budget
+    # because "0 of 1461" is the statement that the check ran: a motion budget
     # that silently skips every still room is a motion budget nobody has watched
     # do anything.
     if motion_floor is not None:
@@ -1618,18 +1618,18 @@ def main(argv=None):
                       % (role_name, ident, n, own, placed, frac * 100))
 
     # Scene agreement. Last, because it is the only check here that leaves this
-    # process — and printed whatever it finds, including "skipped", because a
+    # process, and printed whatever it finds, including "skipped", because a
     # gate whose absence looks exactly like a pass is the gate this project has
     # already been bitten by twice.
     if not args.no_scene:
         print("scene:      the preview room vs `spriteroom --render`, per theme")
         failures.extend(scene_agreement(themes, sorted(themes)))
     else:
-        print("scene:      NOT CHECKED — --no-scene. The placement census the "
+        print("scene:      NOT CHECKED: --no-scene. The placement census the "
               "motion budget uses is unverified in this run.")
 
     if failures:
-        print("\nI7 palette lint FAILED — %d violation(s):" % len(failures), file=sys.stderr)
+        print("\nI7 palette lint FAILED: %d violation(s):" % len(failures), file=sys.stderr)
         for f in failures:
             print("  - " + f, file=sys.stderr)
         print("\nThe thresholds are not the bug.", file=sys.stderr)
@@ -1641,7 +1641,7 @@ def main(argv=None):
                   "it, or take one that moves less, or put it in a slot the room "
                   "draws fewer times. A theme may carry at most one animated prop and "
                   "only in `board` (ADR-002 §14b), and the ceiling is the cast's own "
-                  "quietest loop — lowering it would be saying the room may out-move "
+                  "quietest loop: lowering it would be saying the room may out-move "
                   "the characters, which is exactly what I7 forbids.", file=sys.stderr)
         return 1
 

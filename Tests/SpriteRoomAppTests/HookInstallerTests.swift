@@ -4,7 +4,7 @@ import Testing
 @testable import SpriteRoomApp
 
 /// The installer edits the user's live Claude Code configuration. A bad write
-/// here does not break our app — it breaks every session on the machine at
+/// here does not break our app; it breaks every session on the machine at
 /// once, including ones already running. So every one of these tests is about
 /// what the file looks like *afterwards*, not about what the installer
 /// returned.
@@ -191,7 +191,7 @@ struct HookInstallerTests {
     }
 
     /// First run on a machine that has never had a settings file. We created
-    /// it, so putting things back means it is gone again — not left behind
+    /// it, so putting things back means it is gone again, not left behind
     /// empty.
     @Test func installingIntoNothingAndRemovingLeavesNothing() throws {
         let sandbox = Sandbox()
@@ -230,7 +230,7 @@ struct HookInstallerTests {
         #expect(try sandbox.installer().state() == .absent)
     }
 
-    /// Recognition is by shape, so a hand-edited file still cleans up — and a
+    /// Recognition is by shape, so a hand-edited file still cleans up, and a
     /// hook that merely looks similar is left alone.
     @Test func recognitionIsByShapeAndDoesNotOverreach() {
         func entry(_ hook: [String: Any]) -> [String: Any] { ["hooks": [hook]] }
@@ -248,7 +248,7 @@ struct HookInstallerTests {
             "type": "command", "command": "curl 127.0.0.1:8787/hook"])))
         #expect(!installer.isOurs(entry([
             "type": "http", "url": "http://127.0.0.1:8787/other"])))
-        // Not loopback — not ours, and not something to delete on a user's
+        // Not loopback, not ours, and not something to delete on a user's
         // behalf.
         #expect(!installer.isOurs(entry([
             "type": "http", "url": "http://example.com:8787/hook"])))

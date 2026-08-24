@@ -12,8 +12,8 @@ import SpriteRoomCore
 ///
 /// They were right, and it was a regression with a price tag on it. M6f deleted
 /// the reporter's lateral leg to buy back the 96 px of delivery row that leg
-/// needed — one row per ring, because three same-side reporters can walk at once
-/// — and took `contentBand` from 300 to 170. What was left is a character that
+/// needed (one row per ring, because three same-side reporters can walk at once
+) and took `contentBand` from 300 to 170. What was left is a character that
 /// stands up, steps to the front of the room, turns, and mimes a hand-over into
 /// empty floor. The beat *depicts* a transfer between two characters and only one
 /// of them is there, which is a picture asserting something no arrangement of the
@@ -31,10 +31,10 @@ import SpriteRoomCore
 ///    there is no schedule. `DeliveryFloor` grants a claim on a **stretch of the
 ///    row**, and a reporter refused one plays the in-place beat immediately.
 ///    Nothing waits, so there is no queue to bound and nothing to reap but the
-///    claim — see `aRefusedReporterPlaysTheInPlaceBeatInTheSameFrame` and
+///    claim: see `aRefusedReporterPlaysTheInPlaceBeatInTheSameFrame` and
 ///    `theDeliveryRowComesBackWhenTheBeatEndsAndWhenItsCharacterLeaves`.
 /// 2. *"It puts a lateral corridor back across the one row every arrival steps
-///    through."* It does not, because the corridor is not on that row —
+///    through."* It does not, because the corridor is not on that row:
 ///    `theRoomsOneLateralCorridorMeetsNoOtherRoute`. The objection was written
 ///    when arrivals began one seat pitch outward *along the walkway*; M6f itself
 ///    deleted that, so the reason had expired before the trade was refused.
@@ -75,7 +75,7 @@ struct ReportDeliveryTests {
 
     /// **The reporter ends up beside the character it is reporting to.**
     ///
-    /// Stated the way the maintainer's complaint states it — as a fact about who
+    /// Stated the way the maintainer's complaint states it: as a fact about who
     /// is next to whom at the moment of the hand-over, not as a fact about a
     /// coordinate. At the instant the reporter plays `deliver`:
     ///
@@ -89,9 +89,9 @@ struct ReportDeliveryTests {
     ///
     /// | reporter | to its anchor | to the nearest character |
     /// |---|---:|---:|
-    /// | seats 1, 2 | 101.2 px | 101.2 px — a tie with the next ring out |
-    /// | seats 3, 4 | 194.6 px | 135.8 px — a stranger |
-    /// | seats 5, 6 | 289.8 px | 101.2 px — a stranger |
+    /// | seats 1, 2 | 101.2 px | 101.2 px, a tie with the next ring out |
+    /// | seats 3, 4 | 194.6 px | 135.8 px, a stranger |
+    /// | seats 5, 6 | 289.8 px | 101.2 px, a stranger |
     ///
     /// Reports are fired one at a time and waited out, so the delivery row is free
     /// every time and this measures the geometry rather than the contention.
@@ -145,7 +145,7 @@ struct ReportDeliveryTests {
         print("WHERE THE REPORT LANDS\n" + measured.joined(separator: "\n"))
     }
 
-    /// The layout half of the same claim, over every anchor and every reporter —
+    /// The layout half of the same claim, over every anchor and every reporter,
     /// including the nested parents `agentLinked` can produce, which the scene
     /// test above cannot reach without a fixture that has them.
     @Test func everyDeliveryPointIsADeliveryGapFromItsAnchorOnTheReportersOwnSide() {
@@ -169,7 +169,7 @@ struct ReportDeliveryTests {
         }
     }
 
-    // MARK: Objection 2 — the corridor
+    // MARK: Objection 2 - the corridor
 
     /// **The one row a character travels along meets no other route in the room.**
     ///
@@ -188,7 +188,7 @@ struct ReportDeliveryTests {
     ///
     /// and only the last reaches the row at all. So a reporter walking sideways
     /// meets nobody's corridor: there is nobody else's corridor there to meet.
-    /// The walkway *is* crossed — twice, on the way down and on the way back —
+    /// The walkway *is* crossed (twice, on the way down and on the way back)
     /// and both crossings are inside the reporter's own seat column, which is
     /// the property every other route in the room already rests on.
     ///
@@ -213,7 +213,7 @@ struct ReportDeliveryTests {
                  layout.homeRoute(forSeat: seat, fromY: layout.aisleY)),
             ]
             for anchor in 0..<layout.seatCapacity where anchor != seat {
-                routes.append(("report to \(anchor) — home",
+                routes.append(("report to \(anchor), home",
                                layout.homeRoute(forSeat: seat, fromY: layout.deliveryRowY)))
             }
             for (name, route) in routes {
@@ -228,7 +228,7 @@ struct ReportDeliveryTests {
 
         // 2. Every leg of a report is either vertical inside the reporter's own
         //    column, or lateral on the delivery row. Nothing else, and in
-        //    particular no diagonal — a corner cut here would drag a plate
+        //    particular no diagonal: a corner cut here would drag a plate
         //    across three rows.
         for seat in 0..<layout.seatCapacity {
             let column = layout.seatPosition(seat).x
@@ -248,7 +248,7 @@ struct ReportDeliveryTests {
             }
         }
 
-        // 3. Nothing the room *places* is on the row either, in any theme — the
+        // 3. Nothing the room *places* is on the row either, in any theme: the
         //    placements are asked of the scene, not copied.
         for placement in RoomScene.decorationPlacements(layout: layout) {
             #expect(placement.point.y > layout.deliveryRowY, Comment(rawValue:
@@ -273,7 +273,7 @@ struct ReportDeliveryTests {
     ///
     /// `DeliveryFloor` refuses a claim that comes within `clearance` of a live
     /// one, and a claim covers every x its beat occupies from the moment it drops
-    /// onto the row to the moment it leaves — so the separation is a property of
+    /// onto the row to the moment it leaves, so the separation is a property of
     /// the two intervals rather than of the phase either beat happens to be in.
     /// The clearance is one plate plus the lattice's own margin, which is the
     /// unrounded seat pitch: the delivery row separates two reporters by exactly
@@ -310,7 +310,7 @@ struct ReportDeliveryTests {
                     } else {
                         refused += 1
                         // A refusal is only ever because the two overlap or come
-                        // within the clearance — never a policy about who is
+                        // within the clearance, never a policy about who is
                         // allowed to walk.
                         let gap = max(a.lowerBound - b.upperBound, b.lowerBound - a.upperBound)
                         #expect(gap < clearance)
@@ -323,8 +323,8 @@ struct ReportDeliveryTests {
         print("DELIVERY ROW PAIRS: \(granted) granted, \(refused) refused")
 
         // Opposite sides of one anchor is the pairing that must always be
-        // granted, because it is the common one — the room's two halves both
-        // reporting to the main agent — and it is granted by the lattice: the two
+        // granted, because it is the common one (the room's two halves both
+        // reporting to the main agent) and it is granted by the lattice: the two
         // delivery points are one seat pitch apart.
         let left = layout.deliveryCorridor(anchorSeat: 0, reporterSeat: 2)
         let right = layout.deliveryCorridor(anchorSeat: 0, reporterSeat: 1)
@@ -335,7 +335,7 @@ struct ReportDeliveryTests {
         #expect(tookRight, "the two halves of the room cannot report at the same time")
     }
 
-    // MARK: Objection 1 — the scheduler that is not one
+    // MARK: Objection 1 - the scheduler that is not one
 
     /// **A reporter that cannot have the row does not wait for it.** It plays the
     /// beat that shipped before the row existed, in the same frame, in its own
@@ -375,7 +375,7 @@ struct ReportDeliveryTests {
         #expect(firstY == layout.deliveryRowY, Comment(rawValue:
             "the first reporter delivered at y=\(where1), not on the delivery row"))
         #expect(secondY == layout.aisleY, Comment(rawValue:
-            "the second reporter delivered at y=\(where2) — it should have been"
+            "the second reporter delivered at y=\(where2): it should have been"
             + " refused the row and used the walkway"))
         // Both delivered, and neither is still holding anything.
         #expect(!first.isScripted && !second.isScripted)
@@ -405,7 +405,7 @@ struct ReportDeliveryTests {
         Self.run(scene, from: &time, seconds: 16)
         #expect(scene.deliveryRowHoldersForTesting.isEmpty, Comment(rawValue:
             "the row is still held by \(scene.deliveryRowHoldersForTesting) after the"
-            + " beat ended — every later report in this session would be refused"))
+            + " beat ended: every later report in this session would be refused"))
 
         scene.apply(director.apply([.reportDelivered(agent: cast[3])]))
         let third = try #require(scene.character(for: cast[3]))
@@ -438,7 +438,7 @@ struct ReportDeliveryTests {
     ///
     /// A subagent goes dormant on the same event that starts its report, so it is
     /// immediately the longest-dormant character in the room and its seat is the
-    /// first one a new agent can be given — while it is still several seconds
+    /// first one a new agent can be given, while it is still several seconds
     /// from the end of its walk. Keyed by seat, the newcomer's own report would
     /// overwrite a claim whose holder is standing in the corridor, and the two
     /// would walk through each other.
@@ -483,12 +483,12 @@ struct ReportDeliveryTests {
             }
         }
         #expect(deliveredAt == layout.aisleY, Comment(rawValue:
-            "the newcomer delivered at y=\(deliveredAt.map { "\($0)" } ?? "never") — it"
+            "the newcomer delivered at y=\(deliveredAt.map { "\($0)" } ?? "never"): it"
             + " took the delivery row from a character that was still standing on it"))
     }
 
     /// **And the reaper of last resort**, on the floor itself, because the
-    /// condition it guards against — a claim whose release never runs — cannot be
+    /// condition it guards against (a claim whose release never runs) cannot be
     /// produced through the scene by construction.
     ///
     /// A claim's clock starts at the first `reap` after it rather than at the
@@ -525,7 +525,7 @@ struct ReportDeliveryTests {
     /// > the 99th-percentile inter-arrival time of its own trigger, per agent**,
     /// > measured on `fixtures/`.
     ///
-    /// ADR-005 §8 ran that against `deliver` alone — 1.25 s of animation — and
+    /// ADR-005 §8 ran that against `deliver` alone (1.25 s of animation) and
     /// passed it easily. What this change lengthens is the whole beat around it:
     /// a report used to be one tile down, the hand-over, one tile back, and it is
     /// now a walk to the anchor and back. So the rule is re-run against the beat
@@ -534,8 +534,8 @@ struct ReportDeliveryTests {
     /// playing.
     ///
     /// **The numbers, measured rather than estimated.** A report to the main
-    /// agent — which is every report in `fixtures/` and every report from a
-    /// subagent whose parent has gone — runs **6.1 s** from ring 1, **7.0 s** from
+    /// agent (which is every report in `fixtures/` and every report from a
+    /// subagent whose parent has gone) runs **6.1 s** from ring 1, **7.0 s** from
     /// ring 2 and **11.5 s** from ring 3. The absolute worst case the layout can
     /// produce is **19.5 s**: a far-ring seat reporting to a nested parent on the
     /// *opposite* far ring, which is a walk across the whole room and back.
@@ -547,21 +547,21 @@ struct ReportDeliveryTests {
     ///
     /// **The 19.5 s case is not capped, and that is a decision.** Capping it
     /// means either a threshold nobody can derive, or refusing the walk to a
-    /// distant anchor — which is the defect this whole change exists to fix,
+    /// distant anchor, which is the defect this whole change exists to fix,
     /// reintroduced for the case where the two characters are hardest to
     /// associate by eye. The length of the walk is how far apart the two agents
     /// are sitting, which is a true fact about the room. What it costs is that
     /// one beat holds most of the delivery row for those 19.5 s, so a report
     /// landing inside that window gets the in-place beat.
     ///
-    /// This is not a collision guard — a second report for one agent restarts
+    /// This is not a collision guard: a second report for one agent restarts
     /// that agent's own beat and `DeliveryFloor` re-grants it its own claim, so
     /// nothing breaks if the bound is ever exceeded. It is the tripwire that
     /// makes lengthening the beat again a decision somebody takes on purpose.
     @Test func theLongestReportBeatIsWellInsideOneAgentsOwnReportingGap() throws {
         let manifest = try SceneFixtures.manifest()
         let layout = RoomLayout()
-        // The `deliver` animation, from the manifest — the same number
+        // The `deliver` animation, from the manifest, the same number
         // `RoomScene` puts in the claim's budget.
         var deliverSeconds = 0.0
         for variant in manifest.characters.variants.values {
@@ -603,7 +603,7 @@ struct ReportDeliveryTests {
         let shortestOwnGap = 29.14
         #expect(longest.seconds < shortestOwnGap, Comment(rawValue:
             "the longest report beat is \(longest.seconds) s and one agent has"
-            + " reported twice \(shortestOwnGap) s apart in fixtures/ — the beat"
+            + " reported twice \(shortestOwnGap) s apart in fixtures/: the beat"
             + " would still be playing when its own trigger came round again"))
         // The case the room actually produces, kept separate from the worst case
         // the layout can produce, because they are 8 s apart and only the first
@@ -614,7 +614,7 @@ struct ReportDeliveryTests {
             "a report to the main agent from the furthest seat is \(toMain) s,"
             + " against a \(shortestOwnGap) s gap between one agent's own reports"))
         #expect(longest.seconds < 20, Comment(rawValue:
-            "the longest beat the layout can produce is \(longest.seconds) s — it"
+            "the longest beat the layout can produce is \(longest.seconds) s, it"
             + " was 19.47, and it is a character walking the width of the room"))
     }
 
@@ -624,7 +624,7 @@ struct ReportDeliveryTests {
     ///
     /// The cost of the fallback is that the same report can look different on two
     /// occasions, and the only honest way to state that cost is to measure how
-    /// often it is paid. Two fixtures carry report beats — `three-subagents` and
+    /// often it is paid. Two fixtures carry report beats: `three-subagents` and
     /// `four-subagents`, the latter with twelve `SubagentStop`s and a minimum gap
     /// of 1.26 s between two of them.
     ///
@@ -683,7 +683,7 @@ struct ReportDeliveryTests {
 
             walked += here.walk
             inPlace += here.place
-            rows.append("  \(name): \(reports) reports — \(here.walk) walked to the"
+            rows.append("  \(name): \(reports) reports, \(here.walk) walked to the"
                         + " anchor, \(here.place) delivered in place")
         }
 
@@ -696,11 +696,11 @@ struct ReportDeliveryTests {
         // real, proved by `aRefusedReporterPlaysTheInPlaceBeatInTheSameFrame`, and
         // no capture this project holds reaches it.
         #expect(inPlace == 0, Comment(rawValue:
-            "\(inPlace) of \(walked + inPlace) reports fell back to the in-place beat"
-            + " — the corpus used to reach it zero times, so either the beat got"
+            "\(inPlace) of \(walked + inPlace) reports fell back to the in-place beat:"
+            + " the corpus used to reach it zero times, so either the beat got"
             + " longer or the claim is not being given back"))
         #expect(walked > inPlace, Comment(rawValue:
-            "only \(walked) of \(walked + inPlace) reports walked to their anchor —"
+            "only \(walked) of \(walked + inPlace) reports walked to their anchor:"
             + " the fallback has become the common case, which is the fix not"
             + " landing"))
     }

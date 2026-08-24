@@ -13,7 +13,7 @@ Hairstyles,Accessories}/32x32/` are ordinary PNGs on the premade sheet's own
 geometry. Compositing them is `pnglite` and an alpha blend.
 
 That makes casting a *design* problem again, and this repo's rule for a design
-problem is that you render it and look at it — the rule that caught the `sleep`
+problem is that you render it and look at it: the rule that caught the `sleep`
 row, the second sit row and the `Books` folder. 132 outfits and 200 hairstyles
 is too many to look at one at a time, so this is that pass, committed and
 re-runnable.
@@ -121,7 +121,7 @@ def frame(path, row, col):
 
     Indexing is by the *sheet's own* width, which matters: Outfits, Hairstyles
     and Eyes are 1792 wide, Bodies and four of the Accessories are 1854. Both
-    are 56 columns of 32 px starting at x=0 — the extra 62 px is trailing pad —
+    are 56 columns of 32 px starting at x=0 (the extra 62 px is trailing pad)
     so a frame address is the same in both and registration needs no offset.
     """
     w, h, px = sheet(path)
@@ -170,7 +170,7 @@ def premade(who="06"):
 
 
 def dressed(spec, pose=SEATED, who="06"):
-    """One premade wearing one costume — the picture the scene composes.
+    """One premade wearing one costume: the picture the scene composes.
 
     Composited here rather than layered because a still image cannot have
     z-order, and this is what `Character` draws: the body sprite with the
@@ -223,7 +223,7 @@ def hsv(r, g, b):
 
 
 def palette(px):
-    """(max saturation, darkest value, opaque pixel count) — the two numbers I7
+    """(max saturation, darkest value, opaque pixel count): the two numbers I7
     is about, on one frame."""
     ms, dv, n = 0.0, 1.0, 0
     for i in range(0, len(px), 4):
@@ -318,8 +318,8 @@ def mode_coverage(out, quiet=False):
                         if not any(px[i] for i in range(3, len(px), 4)):
                             gaps.append((os.path.basename(f), state, d, k))
             # A whole row with no ink anywhere is worth naming separately: it is
-            # what `sleep` looks like on an outfit sheet — row 3 is a head on a
-            # pillow and has no body to dress — and it is not a defect.
+            # what `sleep` looks like on an outfit sheet (row 3 is a head on a
+            # pillow and has no body to dress) and it is not a defect.
             for row in range(ROWS):
                 if not any(any(frame(f, row, c)[i]
                                for i in range(3, FW * FH * 4, 4))
@@ -353,7 +353,7 @@ def mode_coverage(out, quiet=False):
 def mode_outfits(out, all_colours=False, roles_only=False, scale=6, per_page=12):
     """Contact sheets of the outfit layers, front-facing and seated.
 
-    Drawn **on a premade**, because that is what the scene does — a costume is
+    Drawn **on a premade**, because that is what the scene does: a costume is
     an overlay on the cast, not a character of its own, and an outfit judged on
     a bare bald body is judged in a situation that never occurs. Front-facing
     because that is where a garment is identifiable; seated because that is the
@@ -407,8 +407,8 @@ def mode_costumes(out, costumes, order, scale=6):
     """Every costume on a seated premade at 4x and at 1x, with its numbers.
 
     1x is the gate: `04-ART-DIRECTION.md` says design at 2x and accept at 1x.
-    The label carries the costume's title and whether it asserts anything —
-    orange for the pool, white for a role — so the sheet is reviewable without
+    The label carries the costume's title and whether it asserts anything
+    (orange for the pool, white for a role) so the sheet is reviewable without
     this file open beside it.
     """
     cw = FW * scale + FW + 28
@@ -460,7 +460,7 @@ def mode_room(out, costumes, order, theme="office", panel=(720, 400), who=None):
 
     `preview-theme.py --verify` holds that tool against `RoomScene` at zero
     differing pixels in all six themes, so this is not a third opinion about the
-    room — it is the room, with dressed characters in the seats. The bodies are
+    room: it is the room, with dressed characters in the seats. The bodies are
     the shipped cast in manifest order, so what varies between seats is the
     costume and only the costume.
 
@@ -519,7 +519,7 @@ def mode_measure(out, costumes, order, quiet=False):
     """The numbers a costume set lives or dies by, against the shipped cast.
 
     **Silhouette**, by M0's own arithmetic, on the pose the room draws *and* on
-    the front-facing idle frame M0 used — because a set that only looks
+    the front-facing idle frame M0 used, because a set that only looks
     separable on the friendlier pose has not been measured, it has been framed.
     The comparison is between *dressed* characters, since that is what is on
     screen, and the premade row is the same six bodies undressed.
@@ -689,7 +689,7 @@ def mode_select(costumes, order, quiet=False):
     """Re-derive the assignable pool's colourways from the value axis.
 
     **Value, not hue, and not silhouette.** Hue is already the nameplate
-    accent's channel — six hues 60 degrees apart, assigned at M5 — and spending
+    accent's channel (six hues 60 degrees apart, assigned at M5) and spending
     it twice buys nothing. Silhouette is not on offer: an outfit adds 0-16 px of
     outline to a seated body, so a pool chosen for outline would be six
     identically-shaped people. What is left is the value of the block the outfit
@@ -725,7 +725,7 @@ def mode_select(costumes, order, quiet=False):
         vs = [hsv(px[k], px[k + 1], px[k + 2])[2] for k in idx]
         # **Saturation is reported, not filtered.** A costume covers whatever
         # the body carried underneath it, so a desaturated garment takes its
-        # wearer under `CHAR_MIN_SAT` — and the two garments the value spread
+        # wearer under `CHAR_MIN_SAT`, and the two garments the value spread
         # exists for, the lightest and the darkest, are exactly the two with no
         # saturation to give. Filtering them out costs half the span (0.447
         # down to 0.223), so the pick is made knowing the trade rather than
@@ -759,7 +759,7 @@ def mode_select(costumes, order, quiet=False):
     return best
 
 
-# Outfit families with no role vocabulary — plain tees, jumpers and buttoned
+# Outfit families with no role vocabulary: plain tees, jumpers and buttoned
 # shirts. Everything else in the pack says something: a coat, a hi-vis top, an
 # apron, dungarees, a suit, a hood, chef's whites, a towel. Derived by rendering
 # all 33 and looking at them; the contact sheets are what this list is arguing

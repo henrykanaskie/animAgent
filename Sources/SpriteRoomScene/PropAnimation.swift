@@ -23,13 +23,13 @@ import SpriteKit
 ///   output is a pure function of the clock, the frame list and the frame rate,
 ///   all three of which are fixed at construction from the manifest.
 /// - **`RoomScene` calls it from `advance(to:)` and from nowhere else.** In
-///   particular `apply(_ intent:)` — the only place a delta's consequences reach
-///   the scene at all — does not touch it, and a test applies one of every
+///   particular `apply(_ intent:)` (the only place a delta's consequences reach
+///   the scene at all) does not touch it, and a test applies one of every
 ///   `SpriteIntent` case and asserts no prop texture moved.
 ///
 /// **It is not a per-frame rebuild.** [§6 rule 1] The node is built once, when
 /// the room is; this swaps its `texture` and touches nothing else, so the
-/// zero-prop-node-rebuild assertion that replays every fixture is unaffected —
+/// zero-prop-node-rebuild assertion that replays every fixture is unaffected:
 /// node *identity* is what that test compares, and identity is what this
 /// deliberately does not disturb.
 @MainActor
@@ -38,8 +38,8 @@ final class PropAnimation {
     private let node: SKSpriteNode
     private let frames: [SKTexture]
     private let framesPerSecond: Double
-    /// Always `true` for the one prop that ships — §14b says `loop` has no other
-    /// value — but honoured rather than assumed, so a manifest that ever says
+    /// Always `true` for the one prop that ships (§14b says `loop` has no other
+    /// value) but honoured rather than assumed, so a manifest that ever says
     /// otherwise is drawn as it reads instead of silently looped.
     private let loops: Bool
 
@@ -56,12 +56,12 @@ final class PropAnimation {
     /// **What was drawn, not what would be drawn.** Two rooms in the same theme
     /// hold two texture caches, so their `SKTexture`s for one frame are
     /// different objects and cannot be compared across scenes; this can. It is
-    /// also the only honest thing for the equivalence test to read — asking
+    /// also the only honest thing for the equivalence test to read: asking
     /// `frameIndex(at:)` on both would compare a pure function against itself
     /// and pass however the drawing was actually driven.
     private(set) var currentFrame: Int?
 
-    /// - Returns: `nil` when there is nothing to play — one frame, or no rate.
+    /// - Returns: `nil` when there is nothing to play: one frame, or no rate.
     ///   A still prop then takes the ordinary path, which is what a role with no
     ///   `animation` key does anyway.
     init?(node: SKSpriteNode, frames: [SKTexture], fps: Double, loops: Bool) {

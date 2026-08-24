@@ -7,8 +7,8 @@ import Testing
 ///
 /// An `NSPanel` cannot be constructed without a logged-in GUI session, so the
 /// 26 tests that assert on a real panel are gated on `isAvailable` and skip on
-/// any headless runner — a CI container, an `ssh` session, a `launchd` job, any
-/// process outside the Aqua session.
+/// any headless runner (a CI container, an `ssh` session, a `launchd` job, any
+/// process outside the Aqua session).
 ///
 /// This mirrors `SceneArt` in `Tests/SpriteRoomSceneTests/SceneFixtures.swift`
 /// deliberately, idiom for idiom, because the two gates answer the same shape of
@@ -17,8 +17,8 @@ import Testing
 ///
 /// **The gate alone was the dishonesty.** Until this type existed the window
 /// server gate had the art gate's shape and none of its honesty: 26 tests,
-/// no notice, no pinned count. On a headless runner all 26 skipped — *including
-/// every I8 assertion* — `swift test` exited 0, and the summary was
+/// no notice, no pinned count. On a headless runner all 26 skipped (*including
+/// every I8 assertion*) `swift test` exited 0, and the summary was
 /// indistinguishable from a run that had verified them. That matters more here
 /// than for the art, because I8 ("the panel never steals focus") is the
 /// invariant that was verified by hand with a stopwatch before these tests
@@ -29,8 +29,8 @@ import Testing
 /// of the two runs actually happened.
 ///
 /// **Override.** Set `SPRITE_ROOM_REQUIRE_WINDOW_SERVER=1` on a machine that is
-/// supposed to have a GUI session — a developer's laptop, a self-hosted runner
-/// with a real login session, the machine cutting a release — and an absent
+/// supposed to have a GUI session (a developer's laptop, a self-hosted runner
+/// with a real login session, the machine cutting a release) and an absent
 /// window server becomes a hard failure in `PanelAvailabilityTests` instead of a
 /// skip. Named to match `SPRITE_ROOM_REQUIRE_ART` and parsed identically.
 enum PanelWindowServer {
@@ -79,12 +79,12 @@ enum PanelWindowServer {
         /// holds. Reported as a failure rather than absorbed.
         var gatedSuites: [String] = []
         /// `file:line` for a gate on a line that declares neither. Either the
-        /// annotation was split across lines — which would undercount — or
+        /// annotation was split across lines (which would undercount) or
         /// something copied a whole gate string into prose. This is the trap
         /// that bit `SceneArt`'s author: a scanner written the obvious way
         /// counts *itself*. Nothing here can, because the needles below are
-        /// assembled at runtime and no literal gate string exists in this file
-        /// — but if one ever lands here it fails loudly instead of inflating
+        /// assembled at runtime and no literal gate string exists in this file,
+        /// but if one ever lands here it fails loudly instead of inflating
         /// the count by one and looking correct.
         var unattributed: [String] = []
         /// Sources actually read. Zero means the scan found nothing to scan,
@@ -99,7 +99,7 @@ enum PanelWindowServer {
     /// Diverges from `SceneArt.gatedTestCount` in one way, on purpose: it counts
     /// per *line* and requires the line to declare a `@Test`, where `SceneArt`
     /// counts occurrences anywhere in the file. That is what lets the two holes
-    /// above — a suite-level gate, a gate the scanner cannot attribute — be
+    /// above (a suite-level gate, a gate the scanner cannot attribute) be
     /// reported instead of silently mis-counted.
     ///
     /// Both spellings are counted. The 26 gates are written
@@ -150,12 +150,12 @@ enum PanelWindowServer {
     /// All four build real AppKit objects.
     ///
     /// Was 26 before `hidingTakesThePanelOffTheScreenFromTheRevealedState` and
-    /// `hidingIsSafeToDoTwiceAndFromTheHiddenState` — the two that assert the
+    /// `hidingIsSafeToDoTwiceAndFromTheHiddenState`: the two that assert the
     /// panel is actually off the screen after teardown, which needs a real
     /// window to be off it.
     ///
     /// Was 28 before the room picker learned to write. `ThemeMenuTests` gained
-    /// nine — two that the **Room** item names the room on screen, six for the
+    /// nine: two that the **Room** item names the room on screen, six for the
     /// **Automatic** item that takes a pick back, and
     /// `noItemAnywhereInTheMenuTreeHasAKeyEquivalent`, the I8 tripwire that
     /// walks every submenu in every state the menu has. `ThemePickTests` is new
@@ -167,7 +167,7 @@ enum PanelWindowServer {
 
     /// The notice, as a pure function of what was surveyed, so the branch this
     /// machine cannot reach can still be rendered and asserted on. Rendering it
-    /// is not the same as proving the 26 skip — see
+    /// is not the same as proving the 26 skip: see
     /// `theAbsentNoticeSaysTheRunVerifiedNothing`, which is a text test and says
     /// so.
     static func notice(survey: Survey, gated: Int, required: Bool) -> String {
@@ -176,7 +176,7 @@ enum PanelWindowServer {
 
         if survey.isAvailable {
             lines.append(
-                "SPRITE ROOM WINDOW SERVER: PRESENT — this process is in a logged-in"
+                "SPRITE ROOM WINDOW SERVER: PRESENT: this process is in a logged-in"
                 + " GUI session.")
             lines.append(
                 "  \(gated) window-server-dependent tests RAN, including all three I8"
@@ -184,12 +184,12 @@ enum PanelWindowServer {
             lines.append("  I8 was checked against a real NSPanel, not argued for in a comment.")
         } else {
             lines.append(
-                "SPRITE ROOM WINDOW SERVER: ABSENT —"
+                "SPRITE ROOM WINDOW SERVER: ABSENT:"
                 + " CGSessionCopyCurrentDictionary() returned nil.")
             lines.append("  \(gated) window-server-dependent tests were SKIPPED.")
             lines.append("  THIS RUN VERIFIED NOTHING ABOUT THE PANEL.")
             lines.append(
-                "  I8 — \"the panel never steals focus\" — was NOT checked by this run.")
+                "  I8 (\"the panel never steals focus\") was NOT checked by this run.")
             for name in invariant8TestNames { lines.append("    did not execute: \(name)") }
             lines.append("  Expected on a headless runner: a CI container, an ssh session, any")
             lines.append("  process outside the Aqua session. An NSPanel cannot be built without")
@@ -223,7 +223,7 @@ struct PanelAvailabilityTests {
         print(PanelWindowServer.notice(
             survey: survey, gated: gated, required: PanelWindowServer.isRequired))
 
-        // Never a failure for an absent window server — that is the whole point.
+        // Never a failure for an absent window server: that is the whole point.
         // Everything below is about the gate's own integrity.
         let drift = "\(gated) tests carry the window-server gate but"
             + " \(PanelWindowServer.expectedGatedTestCount) were expected; update"
@@ -249,7 +249,7 @@ struct PanelAvailabilityTests {
         }
     }
 
-    /// The absent branch, rendered and asserted on this machine — which has a
+    /// The absent branch, rendered and asserted on this machine, which has a
     /// window server and so can never reach it for real.
     ///
     /// This proves the *text*. It does not prove that the 26 skip; only a
@@ -300,7 +300,7 @@ struct PanelAvailabilityTests {
 
 /// A pointer path, played into a `RevealPolicy` at a fixed sample rate.
 ///
-/// Samples at 120 Hz by default — four times what the real controller uses —
+/// Samples at 120 Hz by default (four times what the real controller uses)
 /// so a path that survives this has seen more chances to chatter than it ever
 /// will in the app.
 struct Simulation {

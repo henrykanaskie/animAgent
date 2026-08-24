@@ -3,7 +3,7 @@ import Testing
 
 @testable import SpriteRoomCore
 
-/// I4 — every open state is reapable. A character that types forever is the
+/// I4: every open state is reapable. A character that types forever is the
 /// signature bug of this project, so all three close paths are tested here:
 /// the per-call deadline, `SessionEnd`, and the idle session.
 ///
@@ -31,7 +31,7 @@ import Testing
         #expect(Reaper.deadlineInterval(forTool: "SomeToolShippedTomorrow") == 5 * 60)
     }
 
-    // MARK: killed-session — the deadline path
+    // MARK: killed-session: the deadline path
 
     /// The fixture ends on a `Bash` `PreToolUse` with no close of any kind: no
     /// `PostToolUse`, no `PostToolBatch`, no `Stop`, no `SessionEnd`. Nothing
@@ -112,8 +112,8 @@ import Testing
         // `UserPromptSubmit` used to serve here; it is consumed now, and
         // `killed-session` contains no other unconsumed event. The payload is
         // this session's own, with `hook_event_name` rewritten to
-        // `UserPromptExpansion` — a name 2.1.224 really emits and we really do
-        // not handle. Synthetic in the same, necessary sense as the tail of
+        // `UserPromptExpansion` (a name 2.1.224 really emits and we really do
+        // not handle). Synthetic in the same, necessary sense as the tail of
         // `unknown-events.jsonl`: the fixture cannot be made to contain an
         // event the capture did not produce.
         let last = try #require(entries.last)
@@ -167,14 +167,14 @@ import Testing
     /// Belt and braces: the harness's own end-of-run sweep must leave nothing
     /// open in any fixture.
     ///
-    /// **"Every fixture" is all eighteen.** It iterated `Fixtures.required` —
-    /// eight — while saying every, which is the same overclaim the orphan rule
+    /// **"Every fixture" is all eighteen.** It iterated `Fixtures.required`
+    /// (eight) while saying every, which is the same overclaim the orphan rule
     /// carried: the three captures that actually need this sweep are
     /// `killed-session`, `concurrent-permission-gates` and
     /// `denied-batch-cancel`, and only the first was in the eight.
     ///
     /// The sweep is also required to abandon **exactly** the calls that were
-    /// open when the stream ran out — no fewer, which would be a call surviving
+    /// open when the stream ran out: no fewer, which would be a call surviving
     /// it, and no more, which would mean it invented one. That is where the
     /// other two fixtures' sweeps are asserted;
     /// `killedSessionSweepAbandonsExactlyOneCall` keeps the named claim for the
