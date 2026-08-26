@@ -468,7 +468,9 @@ def desk_depth_bias(desk_height, near_edge_x=None, manifest=None):
 # chair under an occupant has to clear the head band at feet +22
 # (`SeatedHeadOcclusionTests`) and stay above the nameplate at feet -13
 # (`RoomScene.seatedPlateDrop`), which leaves 36 px, and `chair_back` is 46. Ten
-# px too tall and no standoff exists. `side_on` keeps its entry because the rule
+# px too tall and no standoff exists. **ADR-014 seats the front row side-on, so
+# `side_on`'s entry is live again and three seats draw a chair.** `side_on` keeps
+# its entry because the rule
 # is about the art and not about the facing (a suite with a back view under
 # 36 px would bring the chair straight back) but the shipped lattice has no
 # side-on seat, so in practice this map is empty.
@@ -486,8 +488,22 @@ AWAY_DESK_UPSTAGE = TILE / 4
 
 
 def seat_facing(index):
-    """`RoomLayout.seatFacing(_:)`."""
-    return "away_from_camera" if seat_ring(index) % 2 else "toward_camera"
+    """`RoomLayout.seatFacing(_:)`.
+
+    **The front row is `side_on` as of ADR-014**, not `toward_camera`: the pack
+    ships no front- or back-facing sit art, so a turned seat drew the standing
+    `idle` row and the camera-facing desk stood downstage only to cut it at the
+    waist. A side-on seat draws the real sit row, needs no occluder, and takes
+    a chair again.
+
+    **This transcription lagged the scene for one commit and the gate did not
+    catch it**, which is worth recording here rather than in a commit message:
+    `lint-palette.py`'s scene agreement shells out to whatever `spriteroom`
+    binary is on disk, and the release binary was stale, so a stale tool was
+    compared against a stale scene and they agreed. Rebuild the binary before
+    trusting a green scene check.
+    """
+    return "away_from_camera" if seat_ring(index) % 2 else "side_on"
 
 
 def away_chair_standoff(chair_height, costume_top):
@@ -539,7 +555,20 @@ def pod_slot_offset_x(metrics):
 def away_desk_offset_x(metrics):
     """`RoomLayout.awayDeskOffsetX(metrics:)`: 0 for a pod, seven eighths of a
     tile for every desk narrow enough that its occupant cannot be centred on it."""
-    return 0.0 if is_desk_pod(metrics) else TILE * 0.875
+    return 0.0 if is_desk_pod(metrics) else side_on_desk_offset_x(metrics)
+
+
+def side_on_desk_offset_x(metrics):
+    """`RoomLayout.sideOnDeskOffsetX(metrics:)`: the preferred seven eighths of
+    a tile, clamped so a desk stays inside its own seat's prop lane. [ADR-014]
+
+    The bare offset was chosen when no seat was side-on and was never measured
+    against a desk wider than the narrow ones it suited; `office`'s 64 px pod
+    reaches 12 px into the neighbour at 28 px of offset.
+    """
+    desk_w = metrics[3]
+    lane_limit = SEAT_SPACING_TILES * TILE - TILE - TILE / 2 - desk_w / 2
+    return min(TILE * 0.875, max(0.0, lane_limit))
 
 
 def desk_point(index, metrics):
@@ -552,7 +581,7 @@ def desk_point(index, metrics):
     if facing == "away_from_camera":
         return (seat_x(index) + away_desk_offset_x(metrics),
                 seat_y(index) + AWAY_DESK_UPSTAGE)
-    return (seat_x(index) + TILE * 0.875, seat_y(index))
+    return (seat_x(index) + side_on_desk_offset_x(metrics), seat_y(index))
 
 
 def seat_metrics(theme=None):

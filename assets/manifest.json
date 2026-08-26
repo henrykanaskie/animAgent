@@ -15,7 +15,7 @@
   },
   "credit": {
     "required": true,
-    "text": "Pixel art by LimeZu \u2014 limezu.itch.io",
+    "text": "Pixel art by LimeZu: limezu.itch.io",
     "url": "https://limezu.itch.io",
     "note": "Three packs, one author, so one credit line still covers all of them: Modern Interiors and Modern User Interface both state credits required; Modern Office says credits are appreciated. The strictest term governs. Ships in the About panel.",
     "packs": [
@@ -23,7 +23,7 @@
       "Modern Office (Revamped)",
       "Modern User Interface"
     ],
-    "restrictions": "All three forbid resale and redistribution and permit editing. Modern User Interface additionally forbids NFT minting \u2014 a clause neither other pack carries, and the only licence term in this project that restricts a use rather than a distribution. Nothing here mints anything, but the clause travels with the art, so any future use of these badges inherits it."
+    "restrictions": "All three forbid resale and redistribution and permit editing. Modern User Interface additionally forbids NFT minting: a clause neither other pack carries, and the only licence term in this project that restricts a use rather than a distribution. Nothing here mints anything, but the clause travels with the art, so any future use of these badges inherits it."
   },
   "characters": {
     "canvas": {
@@ -48,10 +48,10 @@
       "down"
     ],
     "frame_rate": 8,
-    "accent_note": "accent_hex is assigned, not sampled. The art's own most saturated pixels do not separate \u2014 all six selected premades land inside a 30 degree hue arc and two of them are hue-identical (measured at M2). These six are 60 degrees apart. The accent is drawn by the scene as the nameplate border; it is not a claim about any pixel in the sprite. scripts/lint-palette.py checks the separation.",
+    "accent_note": "accent_hex is assigned, not sampled. The art's own most saturated pixels do not separate: all six selected premades land inside a 30 degree hue arc and two of them are hue-identical (measured at M2). These six are 60 degrees apart. The accent is drawn by the scene as the nameplate border; it is not a claim about any pixel in the sprite. scripts/lint-palette.py checks the separation.",
     "unsourceable_states": {
       "read": "no 'read a book' animation exists in Modern Interiors; docs/04-ART-DIRECTION.md permits dropping it",
-      "attention": "badge only, by design \u2014 no honest body animation exists [I1]"
+      "attention": "badge only, by design: no honest body animation exists [I1]"
     },
     "variants": {
       "06": {
@@ -1550,7 +1550,7 @@
       }
     },
     "costumes": {
-      "note": "Two tiers. `roles` is keyed on the exact agent_type string and may translate it \u2014 a test-engineer in a lab coat is the room repeating a name the user chose. `assignable` is the pool an unrecognised type is hashed over and nothing in it asserts, which is the question_mark rule on the character layer. [I1]",
+      "note": "Two tiers. `roles` is keyed on the exact agent_type string and may translate it: a test-engineer in a lab coat is the room repeating a name the user chose. `assignable` is the pool an unrecognised type is hashed over and nothing in it asserts, which is the question_mark rule on the character layer. [I1]",
       "sets": {
         "apron": {
           "title": "studio apron",
@@ -4273,7 +4273,7 @@
           "title": "engineer's dungarees",
           "asserts": true,
           "reads": "blue bib dungarees with a brass buckle; block colour (93,137,222)",
-          "assertion": "this agent is an engineer. Translating the word `engineer`, which is the whole of what `ingest-`, `scene-` and `ui-engineer` have in common. **Three types share this one costume on purpose** \u2014 same costume means same kind of worker, which is ADR-002 4's ratified reading of four identical desks. Manufacturing three costumes for three names that differ only in their prefix would be decoration pretending to be information.",
+          "assertion": "this agent is an engineer. Translating the word `engineer`, which is the whole of what `ingest-`, `scene-` and `ui-engineer` have in common. **Three types share this one costume on purpose**: same costume means same kind of worker, which is ADR-002 4's ratified reading of four identical desks. Manufacturing three costumes for three names that differ only in their prefix would be decoration pretending to be information.",
           "layers": [
             {
               "source": "Modern Interiors / Character_Generator/Outfits/32x32/Outfit_19_32x32_01.png",
@@ -4570,7 +4570,7 @@
     },
     "provenance": "pack",
     "processed_by": "scripts/process-assets.py",
-    "note": "Desaturated and value-compressed at import [I7]. Never edit these by hand \u2014 they are regenerated whenever the pack updates.",
+    "note": "Desaturated and value-compressed at import [I7]. Never edit these by hand: they are regenerated whenever the pack updates.",
     "builder": {
       "source": "Modern Office / Room_Builder_Office_32x32.png",
       "note": "floors and walls, sliced on the sheet's exact 32px grid",
@@ -4725,8 +4725,8 @@
         "h": 96
       },
       "identified": true,
-      "note": "The pack names singles by index only \u2014 no filenames, no layer or slice names in its .ase, no tags. The 8 roles below were identified by rendering the singles and looking at them; the other 331 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b] `laptop`, `papers` and `pad` are desk-top object declarations for ADR-006 SS1/SS2c \u2014 measured content_box only, not yet placed by any scene code. A fourth kind, a desk monitor with a lit screen for `running`, is deliberately not declared: every candidate single in the pack's desk-scale band (130-134, 30-32px wide) exceeds the SS2c desk-top width bound of 28px, so no compliant art exists for it. `scenery` points into processed/themes/office/, not into the folder above: `room` IS the resolved default theme [ADR-002 SS14a] and its dressing has to be byte-identical to themes.sets.office's or the same room would be two rooms. Six of the office scenery props come from the Hospital set \u2014 the only bins, filing cabinets, wall clocks and schedule boards in either pack \u2014 and the room singles folder holds the Office set only, so it could not carry them at all.",
-      "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
+      "note": "The pack names singles by index only: no filenames, no layer or slice names in its .ase, no tags. The 8 roles below were identified by rendering the singles and looking at them; the other 331 files stay unidentified and are listed for completeness only. An object is placed by putting its measured content_box bottom-centre on a named point, because the singles are not bottom-aligned in their canvas. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top: the two disagree wherever something is drawn standing on the desk. [ADR-006 SS2b] `laptop`, `papers` and `pad` are desk-top object declarations for ADR-006 SS1/SS2c: measured content_box only, not yet placed by any scene code. A fourth kind, a desk monitor with a lit screen for `running`, is deliberately not declared: every candidate single in the pack's desk-scale band (130-134, 30-32px wide) exceeds the SS2c desk-top width bound of 28px, so no compliant art exists for it. `scenery` points into processed/themes/office/, not into the folder above: `room` IS the resolved default theme [ADR-002 SS14a] and its dressing has to be byte-identical to themes.sets.office's or the same room would be two rooms. Six of the office scenery props come from the Hospital set : the only bins, filing cabinets, wall clocks and schedule boards in either pack, and the room singles folder holds the Office set only, so it could not carry them at all.",
+      "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not : printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation`: the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
       "roles": {
         "board": {
           "file": "assets/processed/room/32x32/singles/Modern_Office_Singles_32x32_171.png",
@@ -4857,7 +4857,7 @@
           "single_index": 266,
           "provenance": "pack",
           "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
-          "what": "blue planning board \u2014 the Hospital set's, because the Office set has no wall board that is not on a floor stand",
+          "what": "blue planning board: the Hospital set's, because the Office set has no wall board that is not on a floor stand",
           "content_box": {
             "x": 6,
             "y": 46,
@@ -4902,7 +4902,7 @@
           "single_index": 333,
           "provenance": "pack",
           "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
-          "what": "wall clock \u2014 neither pack draws one in the Office set",
+          "what": "wall clock: neither pack draws one in the Office set",
           "content_box": {
             "x": 20,
             "y": 48,
@@ -5127,7 +5127,7 @@
           "single_index": 256,
           "provenance": "pack",
           "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
-          "what": "waste bin, mixed rubbish \u2014 a third bin art so the band does not read as one bin copy-pasted across the floor",
+          "what": "waste bin, mixed rubbish: a third bin art so the band does not read as one bin copy-pasted across the floor",
           "content_box": {
             "x": 18,
             "y": 46,
@@ -5698,7 +5698,7 @@
       }
     },
     "plan": {
-      "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own grid, y up; a space's `h` includes the two rows its north wall eats. `doorways` are absolute tile columns cut clean through that wall \u2014 nothing is drawn in one, the space's own floor is already there. `line_edge`/`line_fill` are measured off the cap tile and are what a partition is drawn from, because every plain wall run in the sheet is a 12-14 px stripe on an otherwise empty tile and the import pass drops anything under 60%% opaque. Route geometry is not in here and never may be: RoomPlan.routeViolations(in:) is the assertion that this plan stands in nobody's way.",
+      "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own grid, y up; a space's `h` includes the two rows its north wall eats. `doorways` are absolute tile columns cut clean through that wall: nothing is drawn in one, the space's own floor is already there. `line_edge`/`line_fill` are measured off the cap tile and are what a partition is drawn from, because every plain wall run in the sheet is a 12-14 px stripe on an otherwise empty tile and the import pass drops anything under 60%% opaque. Route geometry is not in here and never may be: RoomPlan.routeViolations(in:) is the assertion that this plan stands in nobody's way.",
       "surfaces": {
         "carpet": {
           "floor": "assets/processed/room/32x32/builder/tile_r07_c14.png",
@@ -6130,7 +6130,7 @@
       ],
       "note": "bottom-centre; the bubble tail points down at the head"
     },
-    "note": "Badge colour is intentionally left unprocessed. A badge floats above the room rather than being part of it, so the I7 room saturation ceiling does not apply to it. Re-derived at M5c over every badge including the four authored ones, not just the two checked at M5b: no badge owns the darkest pixel on screen (every badge bottoms out at value 0.337 against the characters' 0.314), and the six that are drawn or composited here top out at saturation 0.384, which is the bubble's own border. The two emotes cut whole from the pack, question_mark (0.710) and attention (0.770), are the loud ones and always were \u2014 they are pack art, high-value rather than heavy, and they sit under the most saturated character pixel (1.000). Every badge is over the 0.25 room ceiling, which is why the exemption exists rather than being decorative.",
+    "note": "Badge colour is intentionally left unprocessed. A badge floats above the room rather than being part of it, so the I7 room saturation ceiling does not apply to it. Re-derived at M5c over every badge including the four authored ones, not just the two checked at M5b: no badge owns the darkest pixel on screen (every badge bottoms out at value 0.337 against the characters' 0.314), and the six that are drawn or composited here top out at saturation 0.384, which is the bubble's own border. The two emotes cut whole from the pack, question_mark (0.710) and attention (0.770), are the loud ones and always were: they are pack art, high-value rather than heavy, and they sit under the most saturated character pixel (1.000). Every badge is over the 0.25 room ceiling, which is why the exemption exists rather than being decorative.",
     "frame": {
       "source": "Modern Interiors / 4_User_Interface_Elements/UI_32x32.png",
       "rect": [
@@ -6139,7 +6139,7 @@
         24,
         34
       ],
-      "note": "Every badge shares this bubble, the four authored ones included as of M5c \u2014 before that they drew a hand-made lookalike with a heavier border and read louder in the room than the pack art beside them. It is the same 692-pixel component the question_mark badge is cut from with no glyph in it, so a swap cannot change the badge silhouette."
+      "note": "Every badge shares this bubble, the four authored ones included as of M5c: before that they drew a hand-made lookalike with a heavier border and read louder in the room than the pack art beside them. It is the same 692-pixel component the question_mark badge is cut from with no glyph in it, so a swap cannot change the badge silhouette."
     },
     "map": {
       "document": {
@@ -6156,7 +6156,7 @@
           22
         ],
         "composed": "Modern User Interface icon inside Modern Interiors' own empty speech bubble, which is pixel-identical to the frame the question_mark badge already uses",
-        "cut_by": "32px cell on a sheet that divides exactly, then the bounding box inside that cell \u2014 the pack pads icons into their cell at no fixed offset",
+        "cut_by": "32px cell on a sheet that divides exactly, then the bounding box inside that cell: the pack pads icons into their cell at no fixed offset",
         "frame_rect": [
           164,
           16,
@@ -6172,21 +6172,21 @@
         "provenance": "authored",
         "authored_because": "no magnifier, loupe or search glyph exists in Modern User Interface (all three sheets inspected cell by cell at M5b). The closest shape is an RPG hand mirror at Style_1 cell (14,9), which is a mirror.",
         "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
-        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
+        "drawn_by": "scripts/generate-art.py: authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "terminal": {
         "file": "assets/authored/badges/32x32/terminal.png",
         "provenance": "authored",
-        "authored_because": "no console, prompt or shell glyph exists. The only screen in the pack is a monitor at Style_1 cell (19,3), and it sits inside the pack's media strip beside monitor-with-cursor, phone, image and speaker \u2014 so the pack's own semantics for it are 'display', not 'shell'. Rejected on that ground alone and not on legibility: composited into the badge frame it measures glyph IoU 0.31 against document and 0.43 against checklist, which is no worse than pairs already shipping. A display standing in for a shell is the cog-and-hammer rule. Overruling this is one line \u2014 add \"terminal\": (\"style1\", 19, 3, ...) to MUI_BADGE_ICONS in scripts/process-assets.py and rebuild.",
+        "authored_because": "no console, prompt or shell glyph exists. The only screen in the pack is a monitor at Style_1 cell (19,3), and it sits inside the pack's media strip beside monitor-with-cursor, phone, image and speaker, so the pack's own semantics for it are 'display', not 'shell'. Rejected on that ground alone and not on legibility: composited into the badge frame it measures glyph IoU 0.31 against document and 0.43 against checklist, which is no worse than pairs already shipping. A display standing in for a shell is the cog-and-hammer rule. Overruling this is one line: add \"terminal\": (\"style1\", 19, 3, ...) to MUI_BADGE_ICONS in scripts/process-assets.py and rebuild.",
         "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
-        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
+        "drawn_by": "scripts/generate-art.py: authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "globe": {
         "file": "assets/authored/badges/32x32/globe.png",
         "provenance": "authored",
         "authored_because": "no globe, world or planet glyph exists in any of the three packs. Modern Interiors' only match on the name is animated_Christmas_snowball_globe, a snow globe.",
         "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
-        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
+        "drawn_by": "scripts/generate-art.py: authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "checklist": {
         "file": "assets/processed/badges/32x32/checklist.png",
@@ -6202,7 +6202,7 @@
           18
         ],
         "composed": "Modern User Interface icon inside Modern Interiors' own empty speech bubble, which is pixel-identical to the frame the question_mark badge already uses",
-        "cut_by": "32px cell on a sheet that divides exactly, then the bounding box inside that cell \u2014 the pack pads icons into their cell at no fixed offset",
+        "cut_by": "32px cell on a sheet that divides exactly, then the bounding box inside that cell: the pack pads icons into their cell at no fixed offset",
         "frame_rect": [
           164,
           16,
@@ -6218,7 +6218,7 @@
         "provenance": "authored",
         "authored_because": "no plug, socket, outlet, cable or connector glyph exists in any of the three packs.",
         "searched": "Modern Interiors, Modern Office and Modern User Interface, every 32px cell of all three UI sheets rendered and inspected at M5b; filename sweep of all 52726 PNGs in the three packs. The search is closed, not paused.",
-        "drawn_by": "scripts/generate-art.py \u2014 authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
+        "drawn_by": "scripts/generate-art.py: authored on the pack's own 2x design grid and in the pack's own four-colour icon palette, composited into the pack's own empty speech bubble"
       },
       "question_mark": {
         "file": "assets/processed/badges/32x32/question_mark.png",
@@ -6238,22 +6238,22 @@
       "attention": {
         "file": "assets/processed/badges/32x32/attention.png",
         "provenance": "pack",
-        "note": "for Notification. Badge only \u2014 docs/04-ART-DIRECTION.md rules out a body animation here [I1]."
+        "note": "for Notification. Badge only: docs/04-ART-DIRECTION.md rules out a body animation here [I1]."
       },
       "sleep": {
         "file": "assets/processed/badges/32x32/sleep.png",
         "provenance": "pack",
-        "note": "for a dormant subagent \u2014 one that stopped a turn, kept its seat, and may be revived by a later event. Badge only, and that is a finding rather than a shortcut: the pack's own `sleep` body row is a head on a pillow drawn from above, to be composited onto a top-down bed, so it cannot be worn by a character sitting side-on in an office chair. Measured at M6b \u2014 see docs/04-ART-DIRECTION.md. This says exactly what the model knows and nothing more. [I1]"
+        "note": "for a dormant subagent: one that stopped a turn, kept its seat, and may be revived by a later event. Badge only, and that is a finding rather than a shortcut: the pack's own `sleep` body row is a head on a pillow drawn from above, to be composited onto a top-down bed, so it cannot be worn by a character sitting side-on in an office chair. Measured at M6b: see docs/04-ART-DIRECTION.md. This says exactly what the model knows and nothing more. [I1]"
       }
     }
   },
   "themes": {
     "default": "office",
-    "note": "Each entry has the same shape as `room`, which is the resolved default. The four role names are placement slots, not object nouns: `plant` is the repeated back-wall and walkway accent, and a theme fills it with whatever plays that part \u2014 a console terminal, a bookcase, a stage curtain. Selection mechanism is docs/ADR-002.",
+    "note": "Each entry has the same shape as `room`, which is the resolved default. The four role names are placement slots, not object nouns: `plant` is the repeated back-wall and walkway accent, and a theme fills it with whatever plays that part: a console terminal, a bookcase, a stage curtain. Selection mechanism is docs/ADR-002.",
     "sets": {
       "briefing": {
         "title": "Briefing Room",
-        "what": "a lectern facing a wall of hanging curtain \u2014 reads as a hall rather than a workspace",
+        "what": "a lectern facing a wall of hanging curtain: reads as a hall rather than a workspace",
         "assignable": true,
         "tile": {
           "w": 32,
@@ -6284,7 +6284,7 @@
             "assets/processed/themes/briefing/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
-          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored': a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
           "authored_tiles": [
             "wall",
             "floor_flat"
@@ -6301,10 +6301,10 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
-          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct \u2014 the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
-          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved: checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top: bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event: ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct: the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not : printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation`: the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/briefing/32x32/singles/board.png",
@@ -6312,7 +6312,7 @@
               "single_index": 50,
               "provenance": "pack",
               "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
-              "what": "flip chart \u2014 a white pad on a tripod easel",
+              "what": "flip chart: a white pad on a tripod easel",
               "content_box": {
                 "x": 18,
                 "y": 20,
@@ -6562,7 +6562,7 @@
           ]
         },
         "plan": {
-          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose: it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
           "surfaces": {
             "briefing": {
               "floor": "assets/processed/themes/briefing/32x32/builder/floor.png",
@@ -6888,7 +6888,7 @@
       },
       "broadcast": {
         "title": "Broadcast Studio",
-        "what": "tripods everywhere \u2014 film cameras and softbox lights, a silhouette no other theme has",
+        "what": "tripods everywhere: film cameras and softbox lights, a silhouette no other theme has",
         "assignable": true,
         "tile": {
           "w": 32,
@@ -6919,7 +6919,7 @@
             "assets/processed/themes/broadcast/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
-          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored': a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
           "authored_tiles": [
             "wall",
             "floor_flat"
@@ -6936,10 +6936,10 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
-          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct \u2014 the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
-          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved: checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top: bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event: ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct: the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not : printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation`: the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/broadcast/32x32/singles/board.png",
@@ -7197,7 +7197,7 @@
           ]
         },
         "plan": {
-          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose: it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
           "surfaces": {
             "broadcast": {
               "floor": "assets/processed/themes/broadcast/32x32/builder/floor.png",
@@ -7523,7 +7523,7 @@
       },
       "library": {
         "title": "Reading Room",
-        "what": "floor-to-ceiling bookcases and a chalkboard \u2014 the maintainer's 'classroom', built from the Classroom and Library set",
+        "what": "floor-to-ceiling bookcases and a chalkboard: the maintainer's 'classroom', built from the Classroom and Library set",
         "assignable": true,
         "tile": {
           "w": 32,
@@ -7545,16 +7545,20 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/library/32x32/builder/flat_floor.png",
+            "assets/processed/themes/library/32x32/builder/flat_floor_stacks.png",
+            "assets/processed/themes/library/32x32/builder/flat_floor_study.png",
             "assets/processed/themes/library/32x32/builder/flat_plan_body.png",
             "assets/processed/themes/library/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/library/32x32/builder/flat_wall.png",
             "assets/processed/themes/library/32x32/builder/floor.png",
+            "assets/processed/themes/library/32x32/builder/floor_stacks.png",
+            "assets/processed/themes/library/32x32/builder/floor_study.png",
             "assets/processed/themes/library/32x32/builder/plan_body.png",
             "assets/processed/themes/library/32x32/builder/plan_cap.png",
             "assets/processed/themes/library/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
-          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored': a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
           "authored_tiles": [
             "wall",
             "floor_flat"
@@ -7571,10 +7575,10 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
-          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct \u2014 the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
-          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved: checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top: bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event: ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct: the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not : printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation`: the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/animated/32x32/pendulum_clock/frame_00.png",
@@ -7602,7 +7606,7 @@
                   48,
                   32
                 ],
-                "measured_on": "the shipped frames, by scripts/build-manifest.py. `moving_px` is the union over the loop against frame 0 and `visible_px` the union of visible pixels; `transition_px` is the pixels that change on each step of the loop, wrapping, and is what scripts/lint-palette.py's motion budget is computed from \u2014 mean(transition_px) * fps * how many times the room draws this role. The lint recomputes all three off the same PNGs and fails if they disagree with these."
+                "measured_on": "the shipped frames, by scripts/build-manifest.py. `moving_px` is the union over the loop against frame 0 and `visible_px` the union of visible pixels; `transition_px` is the pixels that change on each step of the loop, wrapping, and is what scripts/lint-palette.py's motion budget is computed from: mean(transition_px) * fps * how many times the room draws this role. The lint recomputes all three off the same PNGs and fails if they disagree with these."
               },
               "source_set": "Modern Interiors 3_Animated_objects",
               "source_sheet": "animated_pendulum_clock_32x32.png",
@@ -7838,10 +7842,40 @@
           ]
         },
         "plan": {
-          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose: it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
           "surfaces": {
             "library": {
               "floor": "assets/processed/themes/library/32x32/builder/floor.png",
+              "cap": "assets/processed/themes/library/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/library/32x32/builder/plan_body.png",
+              "line_edge": [
+                128,
+                128,
+                170
+              ],
+              "line_fill": [
+                232,
+                232,
+                232
+              ]
+            },
+            "library_stacks": {
+              "floor": "assets/processed/themes/library/32x32/builder/floor_stacks.png",
+              "cap": "assets/processed/themes/library/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/library/32x32/builder/plan_body.png",
+              "line_edge": [
+                128,
+                128,
+                170
+              ],
+              "line_fill": [
+                232,
+                232,
+                232
+              ]
+            },
+            "library_study": {
+              "floor": "assets/processed/themes/library/32x32/builder/floor_study.png",
               "cap": "assets/processed/themes/library/32x32/builder/plan_cap.png",
               "body": "assets/processed/themes/library/32x32/builder/plan_body.png",
               "line_edge": [
@@ -7880,12 +7914,28 @@
               "surface": "library"
             },
             {
-              "name": "back",
+              "name": "stacks",
               "x": 2,
               "y": 9,
-              "w": 21,
+              "w": 8,
+              "h": 3,
+              "surface": "library_stacks"
+            },
+            {
+              "name": "back",
+              "x": 10,
+              "y": 9,
+              "w": 6,
               "h": 3,
               "surface": "library"
+            },
+            {
+              "name": "study",
+              "x": 16,
+              "y": 9,
+              "w": 7,
+              "h": 3,
+              "surface": "library_study"
             }
           ],
           "partitions": [
@@ -7898,6 +7948,16 @@
               "x": 23,
               "y": -6,
               "h": 18
+            },
+            {
+              "x": 10,
+              "y": 9,
+              "h": 3
+            },
+            {
+              "x": 16,
+              "y": 9,
+              "h": 3
             }
           ],
           "dressing": [
@@ -8164,7 +8224,7 @@
       },
       "mission_control": {
         "title": "Mission Control",
-        "what": "a two-tier screen wall over a console row \u2014 the closest thing to a launch control room that the packs we own can build",
+        "what": "a two-tier screen wall over a console row: the closest thing to a launch control room that the packs we own can build",
         "assignable": true,
         "tile": {
           "w": 32,
@@ -8195,7 +8255,7 @@
             "assets/processed/themes/mission_control/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
-          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored': a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
           "authored_tiles": [
             "wall",
             "floor_flat"
@@ -8212,10 +8272,10 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
-          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct \u2014 the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
-          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved: checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top: bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event: ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct: the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not : printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation`: the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/animated/32x32/control_room_server/frame_00.png",
@@ -8241,7 +8301,7 @@
                   52,
                   80
                 ],
-                "measured_on": "the shipped frames, by scripts/build-manifest.py. `moving_px` is the union over the loop against frame 0 and `visible_px` the union of visible pixels; `transition_px` is the pixels that change on each step of the loop, wrapping, and is what scripts/lint-palette.py's motion budget is computed from \u2014 mean(transition_px) * fps * how many times the room draws this role. The lint recomputes all three off the same PNGs and fails if they disagree with these."
+                "measured_on": "the shipped frames, by scripts/build-manifest.py. `moving_px` is the union over the loop against frame 0 and `visible_px` the union of visible pixels; `transition_px` is the pixels that change on each step of the loop, wrapping, and is what scripts/lint-palette.py's motion budget is computed from: mean(transition_px) * fps * how many times the room draws this role. The lint recomputes all three off the same PNGs and fails if they disagree with these."
               },
               "source_set": "Modern Interiors 3_Animated_objects",
               "source_sheet": "animated_control_room_server_32x32.png",
@@ -8507,7 +8567,7 @@
           ]
         },
         "plan": {
-          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose: it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
           "surfaces": {
             "mission_control": {
               "floor": "assets/processed/themes/mission_control/32x32/builder/floor.png",
@@ -8833,7 +8893,7 @@
       },
       "office": {
         "title": "Open Plan Office",
-        "what": "the room as it shipped through M5 \u2014 the Modern Office pack",
+        "what": "the room as it shipped through M5: the Modern Office pack",
         "assignable": true,
         "tile": {
           "w": 32,
@@ -8997,7 +9057,7 @@
             "assets/processed/room/32x32/builder/tile_r12_c15.png"
           ],
           "source": "Modern Office / Room_Builder_Office_32x32.png",
-          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored': a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
           "authored_tiles": [
             "wall",
             "floor_flat"
@@ -9010,10 +9070,10 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
-          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct \u2014 the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
-          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved: checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top: bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event: ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct: the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not : printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation`: the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/office/32x32/singles/board.png",
@@ -9150,7 +9210,7 @@
               "single_index": 266,
               "provenance": "pack",
               "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
-              "what": "blue planning board \u2014 the Hospital set's, because the Office set has no wall board that is not on a floor stand",
+              "what": "blue planning board: the Hospital set's, because the Office set has no wall board that is not on a floor stand",
               "content_box": {
                 "x": 6,
                 "y": 46,
@@ -9195,7 +9255,7 @@
               "single_index": 333,
               "provenance": "pack",
               "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
-              "what": "wall clock \u2014 neither pack draws one in the Office set",
+              "what": "wall clock: neither pack draws one in the Office set",
               "content_box": {
                 "x": 20,
                 "y": 48,
@@ -9420,7 +9480,7 @@
               "single_index": 256,
               "provenance": "pack",
               "identified_by": "named in assets/catalogue.json by scripts/name-catalogue.py, then rendered at 6x with its content box drawn and looked at before the index was written into scripts/process-assets.py; the packs ship no names for their singles",
-              "what": "waste bin, mixed rubbish \u2014 a third bin art so the band does not read as one bin copy-pasted across the floor",
+              "what": "waste bin, mixed rubbish: a third bin art so the band does not read as one bin copy-pasted across the floor",
               "content_box": {
                 "x": 18,
                 "y": 46,
@@ -9431,7 +9491,7 @@
           ]
         },
         "plan": {
-          "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own grid, y up; a space's `h` includes the two rows its north wall eats. `doorways` are absolute tile columns cut clean through that wall \u2014 nothing is drawn in one, the space's own floor is already there. `line_edge`/`line_fill` are measured off the cap tile and are what a partition is drawn from, because every plain wall run in the sheet is a 12-14 px stripe on an otherwise empty tile and the import pass drops anything under 60%% opaque. Route geometry is not in here and never may be: RoomPlan.routeViolations(in:) is the assertion that this plan stands in nobody's way.",
+          "note": "An authored floor plan [ADR-007]. Tile units on RoomLayout's own grid, y up; a space's `h` includes the two rows its north wall eats. `doorways` are absolute tile columns cut clean through that wall: nothing is drawn in one, the space's own floor is already there. `line_edge`/`line_fill` are measured off the cap tile and are what a partition is drawn from, because every plain wall run in the sheet is a 12-14 px stripe on an otherwise empty tile and the import pass drops anything under 60%% opaque. Route geometry is not in here and never may be: RoomPlan.routeViolations(in:) is the assertion that this plan stands in nobody's way.",
           "surfaces": {
             "carpet": {
               "floor": "assets/processed/room/32x32/builder/tile_r07_c14.png",
@@ -9880,7 +9940,7 @@
             "assets/processed/themes/stage/32x32/builder/wall.png"
           ],
           "source": "Modern Interiors / Room_Bulder_subfiles_32x32",
-          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored' \u2014 a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
+          "note": "`floor` and `wall` are the two tiles this theme draws. `floor` is cut from the pack. `wall` is provenance 'authored': a flat field of the mean tone of the pack tile recorded in `wall_pattern_source`, because every wall tile in that sheet carries vertical trim and seams every 32px when repeated across a 25-tile room. `floor_flat` is the same treatment of the floor, and is what the scene's current single-colour-tile heuristic will pick until it is told to read `floor` and `wall`.",
           "authored_tiles": [
             "wall",
             "floor_flat"
@@ -9897,10 +9957,10 @@
             "h": 96
           },
           "identified": true,
-          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved \u2014 checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top \u2014 bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
-          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event \u2014 ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
-          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct \u2014 the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
-          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not \u2014 printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` \u2014 `wall`, `wall_line`, `back_floor`, `mid_floor` \u2014 and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived \u2014 docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation` \u2014 the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
+          "note": "Every prop is padded bottom-centred into one 64x96 canvas at import so that a single `canvas` covers them all. The theme sorter singles arrive on tight per-sprite canvases and are NOT bottom-aligned in them, so a prop is placed by putting its measured content_box bottom-centre on a named point. The canvas widened from 64 to 128 at M6c to admit a 128px-wide animated prop; padding is bottom-centred and placement is by content_box, so nothing moved: checked in pixels against a before/after render of all six themes, not in arithmetic. The `desk` role additionally carries `surface_y`: how many px above the floor its top surface sits, measured by the topmost row of an 80%-of-box-width ink run rather than by the box's own top: bottom-centred padding does not move it, since it is computed from the box's own coordinates. [ADR-006 SS2b]",
+          "animation_note": "A role may carry an `animation` object beside `file`. `file` is frame 0 and stays first, so a reader that knows nothing about animation draws it and is correct. `animation.fps` comes from the pack's own GIF of the object, `loop` is always true, and the prop never reacts to an event: ADR-002 \u00a76 rule 1 and \u00a79. `moving_px`/`visible_px`/`transition_px` are I7's numbers for a moving prop and are measured on these frames; the motion budget in scripts/lint-palette.py is a budget on mean(transition_px) * fps, summed over every copy the room draws, against the quietest looping animation in the cast.",
+          "variants_note": "A role may carry `variants` beside `file`: an ordered list of file paths, `file` first, so a reader that knows nothing about `variants` draws `file` and is correct: the same contract `animation` states for `frames`, in the same voice. What indexes it is the seat, at build time, identically for every agent: \u00a76 rule 1 says the room does not change with activity at all, so nothing in the delta stream may reach this list after the room is built [ADR-002 SS6 rule 1, I1].",
+          "scenery_note": "`scenery` is the room's dressing: everything the four roles above are not : printers, cabinets, bins, coolers, wall boards. An ordered list, not a map, because the order is what maps a prop onto an anchor. Each entry carries a `band` (`wall`, `wall_line`, `back_floor`, `mid_floor`) and that is the ONLY placement fact here: which column and which y is scene geometry and lives in RoomLayout.sceneryAnchors(_:), so the art swaps with no code change. The band is hand-authored in scripts/process-assets.py, because it cannot be derived: docs/PLACEMENT-BANDS.md is the measured negative result. A band the scene does not know draws nothing rather than guessing. Scenery is chosen by theme, decided at build time and identical for every agent; nothing in the delta stream reaches it, and none of it may ever carry an `animation`: the motion budget is priced on the four roles. [ADR-002 SS6 rule 1, SS14b, I1]",
           "roles": {
             "board": {
               "file": "assets/processed/themes/stage/32x32/singles/board.png",
@@ -9908,7 +9968,7 @@
               "single_index": 37,
               "provenance": "pack",
               "identified_by": "rendered with scripts/contact-sheet.py and inspected by eye, then confirmed at 4x with --pick; the packs ship no names for their singles",
-              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands",
+              "what": "drum kit: kick, snare, toms, two cymbals on stands",
               "content_box": {
                 "x": 8,
                 "y": 34,
@@ -10158,7 +10218,7 @@
           ]
         },
         "plan": {
-          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose \u2014 it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
+          "note": "An authored floor plan [ADR-007], one surface [M8 face-the-camera]. Same shape as office's own ROOM_PLAN with the interior partitions and its three back-room surfaces dropped to one: this theme's sheet carries a single floor/cap/body set rather than five that agree. `back` is undressed and un-doored on purpose: it exists only to give RoomPlan.topRow() a second wall face, upstage of the one this theme's own dressing is hung on, which is what closes the empty floor below the seat row the same way office's own back rooms do. RoomPlan.routeViolations(in:) is the assertion that it still stands in nobody's way.",
           "surfaces": {
             "stage": {
               "floor": "assets/processed/themes/stage/32x32/builder/floor.png",
@@ -10261,19 +10321,19 @@
               "role": "board",
               "x": 400,
               "y": 224,
-              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands"
+              "what": "drum kit: kick, snare, toms, two cymbals on stands"
             },
             {
               "role": "board",
               "x": 150,
               "y": 224,
-              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands"
+              "what": "drum kit: kick, snare, toms, two cymbals on stands"
             },
             {
               "role": "board",
               "x": 650,
               "y": 224,
-              "what": "drum kit \u2014 kick, snare, toms, two cymbals on stands"
+              "what": "drum kit: kick, snare, toms, two cymbals on stands"
             },
             {
               "scenery": 5,

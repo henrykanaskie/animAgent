@@ -694,6 +694,21 @@ THEMES = {
         # reading-room floor (see the longer note this used to carry, in the
         # M8 palette-pass task's own history, for the material trade-off).
         "floor": (9, 1),         # light cream checker tile, pack mean 0.907
+        # [M9 Phase 2] Two more finishes off the same sheet for the back rooms.
+        #
+        # **Separation is the point, so these are not neighbours of `floor`.** A
+        # first pass took (8,0) and (8,2), 0.017 apart in mean value from this
+        # tile's 0.907, and rendered: the partitions read and the floors did
+        # not, because a 0.017 step is invisible at 1x. These are a warm family
+        # with real steps in it, all inside hue 32-58 so the three rooms are one
+        # building: 0.907 cream here, 0.810 for the study, 0.686 planks for the
+        # stacks.
+        #
+        # Saturation is checked, not hoped: `library` declares
+        # `prop_sat_scale` 0.90, so the plank tile's 0.583 pack saturation lands
+        # at 0.52 and the theme's mean rises about 0.008 to ~0.288, still under
+        # the cast's 0.332, which is the check `briefing` failed at 0.411.
+        "floors_extra": {"stacks": (12, 1), "study": (10, 2)},
         "wall": (6, 5),          # warm off-white, pack mean 0.941
         # **`prop_sat_scale` is 0.90, not identity, and the reason is the same
         # shape as `briefing`'s 0.75: see that theme's own comment.** Unlike
@@ -2584,6 +2599,25 @@ class Importer:
                     else (VALUE_FLOOR, VALUE_CEIL, SAT_SCALE, SAT_TARGET))
                 cuts = [("floor", floors_p, theme["floor"]),
                         ("wall", walls_p, theme["wall"])]
+                # **Extra floor finishes, so a theme can have more than one
+                # room.** [M9 Phase 2] `build_wall_band_plan` gave every
+                # non-office theme a single surface for the whole plan, and
+                # said why in as many words: "this theme's sheet carries a
+                # single floor/cap/body set rather than five that agree." That
+                # is a fact about what was *cut*, not about the sheet: the
+                # sheet has forty rows. A theme naming `floors_extra` gets one
+                # more cut per entry, `floor_<key>.png`, from the same sheet,
+                # through the identical transform, so the tones agree by
+                # construction rather than by luck.
+                #
+                # The picks are measured, not eyeballed: each is within 0.06
+                # mean value and 25 degrees of hue of the theme's own `floor`,
+                # so the sub-rooms read as rooms in one building rather than as
+                # a collision of two palettes. They share the theme's single
+                # `plan_cap`/`plan_body`, which is correct: a building has many
+                # floors and one wall.
+                for key, addr in sorted(theme.get("floors_extra", {}).items()):
+                    cuts.append(("floor_%s" % key, floors_p, addr))
                 # **The plan wall-band pair.** [M8 face-the-camera] Cut from
                 # `Room_Builder_Walls`, the same sheet `wall` itself already
                 # comes from, not the combined `Room_Builder_32x32.png`

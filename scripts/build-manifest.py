@@ -922,6 +922,35 @@ WALL_BAND_PARTITIONS = [
     {"x": 23, "y": -6, "h": 18},
 ]
 
+# **The back band, subdivided.** [M9 Phase 2]
+#
+# `build_wall_band_plan` gave every non-office theme one surface across the
+# whole plan, and its docstring said why: "this theme's sheet carries a single
+# floor/cap/body set rather than five that agree." That was a fact about what
+# had been *cut*, not about the sheet, which has forty rows. A theme naming
+# `floors_extra` in `scripts/process-assets.py`'s `THEMES` now gets one more
+# floor per entry off that same sheet, through the identical transform.
+#
+# **Why this matters more than another prop.** Measured 2026-08-26: five of the
+# six shipped themes had byte-identical plans, a walkway over an open floor over
+# one undivided back band. Rendered side by side they differed only in floor
+# colour and prop set, which is the measurable form of "they all look like the
+# same office". `office` was the only room that read as a *building*, and the
+# only difference was that its back band is three rooms with three finishes.
+#
+# The geometry is office's own, unchanged: partitions at tiles 10 and 16, which
+# `ROOM_PLAN` already argues are the two boundaries no prop stands on, and both
+# well clear of the seat columns (3, 6, 9, 12, 15, 18, 21). `y = 9` is above
+# every row a character walks, so `RoomPlan.routeViolations` is untouched by
+# construction; it is still the check, not this comment.
+#
+# `(surface_key, x, w)`. A `None` key keeps the theme's own base surface, so the
+# middle room reads as continuous with the floor in front of it and the two
+# flanking rooms as somewhere else.
+BACK_ROOMS = {
+    "library": [("stacks", 2, 8), (None, 10, 6), ("study", 16, 7)],
+}
+
 
 def build_wall_band_plan(name, builder_tiles, dressing):
     """A one-surface wall band for a theme with no combined builder sheet.
@@ -954,7 +983,36 @@ def build_wall_band_plan(name, builder_tiles, dressing):
             "line_edge": inks[0], "line_fill": inks[1],
         },
     }
-    spaces = [dict(s, surface=name) for s in WALL_BAND_SPACES]
+    # Every extra floor this theme cut becomes a surface of its own, sharing the
+    # one cap and body: a building has many floors and one wall. [M9 Phase 2]
+    for tile_name, path in sorted(have.items()):
+        if not tile_name.startswith("floor_") or not tile_name.endswith(".png"):
+            continue
+        key = tile_name[len("floor_"):-len(".png")]
+        surfaces["%s_%s" % (name, key)] = {
+            "floor": path, "cap": have["plan_cap.png"],
+            "body": have["plan_body.png"],
+            "line_edge": inks[0], "line_fill": inks[1],
+        }
+    rooms = BACK_ROOMS.get(name)
+    spaces = []
+    partitions = [dict(p) for p in WALL_BAND_PARTITIONS]
+    for space in WALL_BAND_SPACES:
+        if rooms is None or space["name"] != "back":
+            spaces.append(dict(space, surface=name))
+            continue
+        # The back band becomes N rooms, each on its own finish where it has
+        # one. A room whose surface was never cut falls back to the theme's
+        # base surface rather than being dropped: a missing tile must not put
+        # a hole in the floor.
+        for key, x, w in rooms:
+            surface = "%s_%s" % (name, key) if key else name
+            if surface not in surfaces:
+                surface = name
+            spaces.append({"name": key or "back", "x": x, "y": space["y"],
+                           "w": w, "h": space["h"], "surface": surface})
+            if x != space["x"]:
+                partitions.append({"x": x, "y": space["y"], "h": space["h"]})
     return {
         "note": "An authored floor plan [ADR-007], one surface [M8 "
                 "face-the-camera]. Same shape as office's own ROOM_PLAN with the "
@@ -968,7 +1026,7 @@ def build_wall_band_plan(name, builder_tiles, dressing):
                 "is the assertion that it still stands in nobody's way.",
         "surfaces": surfaces,
         "spaces": spaces,
-        "partitions": [dict(p) for p in WALL_BAND_PARTITIONS],
+        "partitions": partitions,
         "dressing": [dict(d) for d in (dressing or [])],
     }
 
