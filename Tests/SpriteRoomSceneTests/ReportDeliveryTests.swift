@@ -624,9 +624,27 @@ struct ReportDeliveryTests {
     ///
     /// The cost of the fallback is that the same report can look different on two
     /// occasions, and the only honest way to state that cost is to measure how
-    /// often it is paid. Two fixtures carry report beats: `three-subagents` and
+    /// often it is paid. Three fixtures carry report beats: `three-subagents` and
     /// `four-subagents`, the latter with twelve `SubagentStop`s and a minimum gap
-    /// of 1.26 s between two of them.
+    /// of 1.26 s between two of them, and `authoring-subagents`.
+    ///
+    /// **`authoring-subagents` is here because complaint #1 named this beat.**
+    /// The maintainer, watching the shipped app: *"Sprites never animated when
+    /// they finished. They stayed at their desks with the sleeping signal."*
+    /// This test ran over two sandbox captures for its whole life and neither
+    /// could answer that, because the complaint is about a real session and both
+    /// of them were scripted. The eighteenth fixture is a real one, it holds
+    /// three subagents that finish, and all three walk: the beat fires on real
+    /// data and the complaint does not reproduce here. What is left of it is an
+    /// observation about the shipped panel that this measurement cannot make.
+    ///
+    /// It also carries an ordering the sandbox captures do not. In both of
+    /// those, `agentLinked` lands 10-30 s *before* the report; in this one it
+    /// lands 1.9 s *after* it, every time, so the reporter has no known parent
+    /// at the instant it reports and `anchorSeat` takes its seat-0 fallback.
+    /// That fallback resolves to the main agent, which is the parent, so the
+    /// walk is correct by luck rather than by lookup. It is the only case in
+    /// the corpus that exercises the fallback at all.
     ///
     /// The measurement is on the **picture**: which row the character was standing
     /// on when it played `deliver`. It does not ask the bookkeeping, so it cannot
@@ -639,7 +657,7 @@ struct ReportDeliveryTests {
         var inPlace = 0
         var rows: [String] = []
 
-        for name in ["three-subagents", "four-subagents"] {
+        for name in ["three-subagents", "four-subagents", "authoring-subagents"] {
             let scene = RoomScene(manifest: manifest)
             scene.setViewport(Self.panel)
             var seen: Set<ObjectIdentifier> = []
@@ -689,10 +707,12 @@ struct ReportDeliveryTests {
 
         print("REPORT BEATS OVER fixtures/\n" + rows.joined(separator: "\n"))
         #expect(walked + inPlace > 0, "no report beat was observed; this measures nothing")
-        // **Nine of nine, as the corpus stands.** The captures never put two
-        // same-side reports close enough together to contend: the shortest gap
-        // between any two `SubagentStop`s in `fixtures/` is 1.26 s, and both of
-        // that pair are on opposite sides of the main agent. So the fallback is
+        // **Twelve of twelve, as the corpus stands.** It was nine of nine over
+        // two captures; `authoring-subagents` added three and none of them
+        // contended either. The captures never put two same-side reports close
+        // enough together to contend: the shortest gap between any two
+        // `SubagentStop`s in `fixtures/` is 1.26 s, and both of that pair are on
+        // opposite sides of the main agent. So the fallback is
         // real, proved by `aRefusedReporterPlaysTheInPlaceBeatInTheSameFrame`, and
         // no capture this project holds reaches it.
         #expect(inPlace == 0, Comment(rawValue:
