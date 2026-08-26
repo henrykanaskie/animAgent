@@ -925,7 +925,8 @@ public final class RoomScene: SKScene {
     nonisolated static func surfaceNearEdgeX(
         of prop: Manifest.PropRole, layout: RoomLayout
     ) -> Double {
-        layout.sideOnDeskOffsetX - Double(prop.contentBox.width) / 2
+        layout.sideOnDeskOffsetX(deskInkWidth: Double(prop.contentBox.width))
+            - Double(prop.contentBox.width) / 2
     }
 
     /// The theme-wide desk and chair drawn at each seat at build time.

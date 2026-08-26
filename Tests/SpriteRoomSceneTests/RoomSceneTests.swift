@@ -558,7 +558,7 @@ struct RoomSceneTests {
         // measurement rather than a remark: the whole point of ADR-008 is that
         // the room turned, and a lattice that quietly left a seat side-on would
         // draw a held object at it and nothing would fail.
-        #expect(seen == [.towardCamera, .awayFromCamera])
+        #expect(seen == [.awayFromCamera, .sideOn])
     }
 
     /// **A seat gets a chair exactly when one would fit between its occupant's

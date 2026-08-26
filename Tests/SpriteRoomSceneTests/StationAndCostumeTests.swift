@@ -532,11 +532,12 @@ struct StationContractTests {
 
         // The gap a prop has to live in, from the layout itself.
         let propCentre = layout.stationPropPosition(0).x - layout.seatPosition(0).x
-        // **The side-on offset by name.** [ADR-008] Seat 0 faces the camera and
-        // its desk is centred on its own column; the lane arithmetic below is
+        // **The side-on offset by name.** [ADR-008] The lane arithmetic below is
         // about the arrangement where the desk stands beside the occupant, and
-        // that is the widest a seat ever gets.
-        let deskCentre = layout.sideOnDeskOffsetX
+        // that is the widest a seat ever gets, so it takes the *unclamped*
+        // preference: ADR-014's clamp only ever moves a desk **inward**, so the
+        // preference is still the bound this wants.
+        let deskCentre = layout.preferredSideOnDeskOffsetX
         let maximumPropWidth = 2 * (propCentre - (deskCentre - pitch))
         #expect(maximumPropWidth >= 32)
 
@@ -1297,7 +1298,16 @@ struct SeatedHeadOcclusionTests {
         // room could have vanished without this failing. This one is tight against
         // its own count, so a piece disappearing for any other reason fails here.
         #expect(piecesChecked >= 118, "only \(piecesChecked) pieces of furniture were examined")
-        #expect(inFrontChecked >= 30, """
+        // **12 as of ADR-014, down from 30.** The camera-facing desk was the
+        // room's main piece drawn *in front of* a body, and it existed to cut a
+        // standing sprite at the waist. The front row is side-on now: it draws
+        // the real sit row, needs no occluder, and its chair stands **behind**
+        // the body. So the population this walk can examine is genuinely
+        // smaller, and the floor moves with it rather than being quietly
+        // dropped. What the assertion still protects is unchanged: if the
+        // remaining in-front pieces vanish too, the near-edge cue is gone and
+        // this fails.
+        #expect(inFrontChecked >= 12, """
             only \(inFrontChecked) pieces were drawn in front of a body. Either the \
             walk found nothing, or every desk in the product has gone behind the \
             character and the near-edge cue is gone.

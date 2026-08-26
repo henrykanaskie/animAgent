@@ -534,7 +534,19 @@ struct ThemeSceneTests {
                 cuts.insert(Int(desk.y + metrics.deskInkHeight - 1 - layout.seatRowY(seat)))
             }
         }
-        #expect(cuts == [Int(layout.deskCutAboveFeet)], Comment(rawValue:
+        // **Empty as of ADR-014**, because no seat faces the camera and the cut
+        // is a property of that facing alone. The rule is kept rather than
+        // deleted: a camera-facing seat returning must still cut every theme's
+        // body on one row, and this is where that is measured. The run says
+        // out loud that it measured nothing, so a green tick here is not read
+        // as the rule having been checked.
+        if cuts.isEmpty {
+            print("NOTICE: no camera-facing seat exists [ADR-014], so the desk cut"
+                  + " at \(Int(layout.deskCutAboveFeet))px above the feet is"
+                  + " UNCHECKED across the themes. Restore a camera-facing seat"
+                  + " and this measures it again.")
+        }
+        #expect(cuts.isEmpty || cuts == [Int(layout.deskCutAboveFeet)], Comment(rawValue:
             "a camera-facing desk cuts the body at \(cuts.sorted()) across the themes;"
             + " it must land on one row of the body in all of them"))
 

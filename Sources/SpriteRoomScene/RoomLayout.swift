@@ -485,10 +485,10 @@ public struct RoomLayout: Sendable, Hashable {
         /// `idle_up`, with the **chair back** downstage of the feet and the desk
         /// upstage. You see the back of the head and the shoulders.
         case awayFromCamera = "away_from_camera"
-        /// The sit row, which is a real seated pose and needs no occluder. **No
-        /// seat in the shipped lattice takes it** (see `seatFacing(_:)`) and
-        /// `theShippedLatticeTurnsEverySeat` is that as a measurement rather
-        /// than as a remark. It is kept because it is the only facing with true
+        /// The sit row, which is a real seated pose and needs no occluder. **The front row takes it as of
+        /// M9** (see `seatFacing(_:)`, ADR-014); it was unused before that, and
+        /// `RoomSceneTests.everySeatedCharacterFacesADirectionThePackDrew` is that
+        /// as a measurement rather than as a remark. It is kept because it is the only facing with true
         /// seated art, because the sit row, `Facing.seated`, the desk's
         /// near-edge cue and the held-object hand anchor are all *about* it, and
         /// because a room that ever seats a row side-on again needs no new code
@@ -601,18 +601,68 @@ public struct RoomLayout: Sendable, Hashable {
     /// row has 64 px and the chair lands in the middle of it.
     /// [docs/M8-MEASUREMENTS-phase1c.md §3]
     ///
-    /// A toward-camera seat needs 11 px of floor downstage for its desk, which
-    /// both rows have, so the front row takes the facing that fits and the back
-    /// row takes the one that needs the room.
-    ///
     /// **The result is the reference composition, for free.** Seats fill outward
     /// in pairs and ring parity puts them in a checkerboard, so in x order the
-    /// rows run back, front, back, front, … and the facings therefore alternate
-    /// up, down, up, down, … across the whole room, which is exactly what
-    /// `Office_Design_2` and `scripts/compose-scene.py`'s own office do, and it
-    /// is not arranged here, it falls out of `isBackRow(seat:)`.
+    /// rows run back, front, back, front, and the facings therefore alternate
+    /// across the whole room, which is exactly what `Office_Design_2` and
+    /// `scripts/compose-scene.py`'s own office do, and it is not arranged here,
+    /// it falls out of `isBackRow(seat:)`.
+    /// **M9 amends this: the front row is `.sideOn`, not `.towardCamera`.**
+    /// [ADR-014]
+    ///
+    /// The maintainer, looking at the shipped room: *"only sitting front. You
+    /// could probably be sitting sideways."* They are right twice over, and the
+    /// second one is not about seating at all:
+    ///
+    /// 1. **Nothing in the shipped room was drawn seated.** `working` is
+    ///    side-only art, so both turned facings resolve to the standing `idle`
+    ///    row [`BodyState.artState(facing:)`]. Seven seats, seven standing
+    ///    sprites, and `showsPosture` false at every one of them.
+    /// 2. **The camera-facing desk was the reason bodies walked through
+    ///    furniture.** It stands `deskDepth` *downstage* of its occupant
+    ///    precisely to cut a standing sprite at the waist, and
+    ///    `entranceRoute(forSeat:)` is a 32 px leg of which 25 are inside that
+    ///    desk's own ink. `RouteFurnitureTests` exempts the piece by name
+    ///    because with a standing sprite the occluder is load-bearing.
+    ///
+    /// A side-on seat needs **no occluder**: it draws the real sit row, its desk
+    /// stands *beside* it at `sideOnDeskOffsetX` on the seat's own row, and its
+    /// chair stands on the seat's own point behind the body. So one change
+    /// answers both, which is why ADR-014 supersedes ADR-008 §12 on this point.
+    ///
+    /// **Why the front row and not all seven.** ADR-008 §12 refused a mixed room
+    /// for want of a principled rule picking which seats turn. There is one now,
+    /// and it is the same floor argument this comment already made: **the
+    /// occluder is a property of the camera-facing seat alone.** Replace exactly
+    /// the seats that had one. The back row keeps `.awayFromCamera`, which keeps
+    /// ADR-009's monitor rigs (`monitorPosition` gates on it) and ADR-012's pod,
+    /// so the workstation survives intact where it was actually built.
+    ///
+    /// **And the front row is the row that can afford it.** The comment below
+    /// records that an away-facing chair needs 30 px downstage and the front row
+    /// has only 32 px before `aisleY`. A side-on chair needs **zero**: it stands
+    /// on the seat's own point [`chairPosition`]. The facing that fits the front
+    /// row's floor is the one that asks nothing of it.
+    ///
+    /// The alternation survives: in x order the rows still run back, front,
+    /// back, front, so the room now reads up, side, up, side rather than up,
+    /// down, up, down. Three of seven seats are side-on at a full room; at the
+    /// common four-agent peak it is two of four.
+    ///
+    /// ---
+    ///
+    /// **Which way seat `index` faces: the back row away from the camera, the
+    /// front row toward it.**
+    ///
+    /// It is keyed on the row, and the row decides it because the *floor*
+    /// decides it. An away-facing seat needs its chair 30 px downstage of the
+    /// occupant's feet (`awayChairStandoff`), and the front row has 32 px of
+    /// floor between it and `aisleY`: the one row every character in the room
+    /// walks across. A chair there would stand 2 px off the walkway. The back
+    /// row has 64 px and the chair lands in the middle of it.
+    /// [docs/M8-MEASUREMENTS-phase1c.md §3]
     public func seatFacing(_ index: Int) -> SeatFacing {
-        isBackRow(seat: index) ? .awayFromCamera : .towardCamera
+        isBackRow(seat: index) ? .awayFromCamera : .sideOn
     }
 
     /// Which way the *body* faces at a seat.
@@ -1086,7 +1136,43 @@ public struct RoomLayout: Sendable, Hashable {
     /// it needs it for a seat it may not be able to ask about: the near-edge cue
     /// is a property of the side-on arrangement, not of whichever seat happens
     /// to be seat 0.
-    public var sideOnDeskOffsetX: Double { Double(tile) * 0.875 }
+    /// The offset a side-on desk *wants*: seven eighths of a tile to the
+    /// occupant's right. `sideOnDeskOffsetX(metrics:)` is what it gets.
+    public var preferredSideOnDeskOffsetX: Double { Double(tile) * 0.875 }
+
+    /// **How far to a side-on occupant's right its desk is centred, clamped so
+    /// the desk stays inside its own seat's prop lane.** [ADR-014]
+    ///
+    /// The bare `preferredSideOnDeskOffsetX` was written when no seat was
+    /// side-on, so it was never measured against a desk wider than the narrow
+    /// ones it was chosen for. ADR-014 seats the front row side-on and
+    /// `office`'s pod is **64 px**, which at 28 px of offset reaches 12 px into
+    /// the next seat's lane. `everyStationFitsTheSeatItIsDrawnAt` caught it, and
+    /// its own comment had already published the arithmetic that predicts it:
+    /// side-on desks reach **-4** at 32 px of art and **0** at
+    /// `mission_control`'s 40 px, while the 64 px pod reaches **-16** only
+    /// because at its two turned facings it is *centred* on the column.
+    ///
+    /// The lane starts at `seat.x + pitch - tile - halfCanvas`, so a desk of
+    /// width `w` centred at `seat.x + d` stays inside it while
+    /// `d <= pitch - tile - halfCanvas - w/2`. That is the whole rule: **a desk
+    /// stands beside its occupant, as far over as its own lane allows.**
+    ///
+    /// It changes nothing for the two desks that fit: 32 px art clamps at 32 and
+    /// keeps its 28, `mission_control`'s 40 clamps at 28 and keeps its 28. Only
+    /// the pod moves, to 16.
+    public func sideOnDeskOffsetX(metrics: SeatMetrics) -> Double {
+        sideOnDeskOffsetX(deskInkWidth: metrics.deskInkWidth)
+    }
+
+    /// The same clamp, from the desk's own ink width, for the callers that hold
+    /// the prop rather than a `SeatMetrics`.
+    public func sideOnDeskOffsetX(deskInkWidth: Double) -> Double {
+        let halfCanvas = Double(tile) / 2
+        let laneLimit = Double(seatSpacingTiles * tile) - Double(tile) - halfCanvas
+            - deskInkWidth / 2
+        return min(preferredSideOnDeskOffsetX, max(0, laneLimit))
+    }
 
     /// **How far to an away-facing occupant's right its desk is centred: `0` for
     /// a pod.** [ADR-009]
@@ -1106,14 +1192,14 @@ public struct RoomLayout: Sendable, Hashable {
     /// because `SeatMetrics.isDeskPod` is false for every other theme and this
     /// returns exactly what it returned before.
     public func awayDeskOffsetX(metrics: SeatMetrics) -> Double {
-        metrics.isDeskPod ? 0 : sideOnDeskOffsetX
+        metrics.isDeskPod ? 0 : sideOnDeskOffsetX(metrics: metrics)
     }
 
     public func deskPosition(_ index: Int, metrics: SeatMetrics) -> ScenePoint {
         let seat = seatPosition(index)
         switch seatFacing(index) {
         case .sideOn:
-            return ScenePoint(x: seat.x + sideOnDeskOffsetX, y: seat.y)
+            return ScenePoint(x: seat.x + sideOnDeskOffsetX(metrics: metrics), y: seat.y)
         case .towardCamera:
             return ScenePoint(x: seat.x, y: seat.y - deskDepth(metrics: metrics))
         case .awayFromCamera:

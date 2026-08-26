@@ -116,7 +116,17 @@ import SpriteRoomCore
         #expect(kits == (0..<layout.seatCapacity)
             .filter { layout.seatFacing($0) == .towardCamera })
         #expect(Set(rigs).isDisjoint(with: kits), "a seat carries one or the other")
-        #expect(!rigs.isEmpty && !kits.isEmpty, "the lattice exercises neither branch")
+        #expect(!rigs.isEmpty, "the lattice exercises no rig branch at all")
+        // **The kit branch is unreachable as of ADR-014, and that is stated
+        // rather than silently tolerated.** `deskKitPosition` gates on
+        // `.towardCamera` and the front row is `.sideOn` now, so no seat in any
+        // theme draws the stock. The gate is kept, not deleted: it is where the
+        // stock stands if a seat ever faces the camera again, exactly as
+        // ADR-012 kept `chairPosition`'s away arm and its two chair roles bound
+        // and unread. `theDeskKitStockIsBoundAndUnread` is the standing notice.
+        #expect(kits.isEmpty, Comment(rawValue:
+            "seats \(kits) carry desk kit, but no seat faces the camera;"
+            + " if a seat does again, restore the paired assertions here"))
 
         // And a theme that is not a pod carries neither, at any seat.
         for (name, id) in Self.everyRoom(manifest) {
@@ -288,7 +298,20 @@ import SpriteRoomCore
                 }
             }
         }
-        #expect(checked > 0, "no seat drew any of the stock, so this checked nothing")
+        // **Zero as of ADR-014, and the run says so out loud.** No seat faces the
+        // camera, so `deskKitPosition` returns nil everywhere and the per-slot
+        // geometry above is measured against nothing. This is the project's
+        // standard for a check whose precondition it does not control: the skip
+        // is visible in the output rather than hidden behind a green tick.
+        if checked == 0 {
+            print("NOTICE: the desk-kit stock drew nothing, because ADR-014 leaves"
+                  + " no camera-facing seat. Its per-slot geometry is UNCHECKED"
+                  + " while that holds. Restore a camera-facing seat and this"
+                  + " test measures it again.")
+        }
+        #expect(checked == 0, Comment(rawValue:
+            "\(checked) stock objects drew; ADR-014 expects none, so either a"
+            + " seat faces the camera again or the gate moved"))
 
         // The reference's own lift for the folder, stated as the thing that was
         // refused rather than left as a silence.
@@ -313,7 +336,7 @@ import SpriteRoomCore
     ///
     /// **Which object stands there is the seat's**, so the paper stack itself
     /// holds this slot at seat 0 and rotates out of it at seat 2:
-    /// `everyCameraFacingSeatCarriesTheWholeStockAndTwoSeatsArrangeItDifferently`
+    /// `theStockIsUnreadWhileEveryAwayFacingSeatStillVariesItsOwnRig`
     /// is where that is stated. What does not move is the geometry.
     @Test func theSlotThisRoomAlreadyDrewAKitInIsExactlyWhereItWas() throws {
         let manifest = try SceneFixtures.manifest()
@@ -351,7 +374,8 @@ import SpriteRoomCore
         for (name, id) in Self.everyRoom(manifest) {
             let metrics = Self.metrics(manifest, theme: id)
             let offset = layout.awayDeskOffsetX(metrics: metrics)
-            #expect(offset == (metrics.isDeskPod ? 0 : layout.sideOnDeskOffsetX),
+            #expect(offset == (metrics.isDeskPod
+                                ? 0 : layout.sideOnDeskOffsetX(metrics: metrics)),
                     "\(name): away desk offset \(offset)")
             for seat in 0..<layout.seatCapacity
             where layout.seatFacing(seat) == .awayFromCamera {
@@ -412,11 +436,16 @@ import SpriteRoomCore
         #expect(laneLeft(0)
                 == layout.stationPropPosition(1).x
                     - Double(manifest.characters.canvas.width) / 2)
-        // Seat 0 faces the camera, seat 1 faces away: one of each, and the two
-        // are a pitch apart so the lane arithmetic is the same shape at both.
-        #expect(layout.seatFacing(0) == .towardCamera)
+        // Seat 0 is side-on, seat 1 faces away: one of each, and the two are a
+        // pitch apart so the lane arithmetic is the same shape at both. **Seat 0
+        // faced the camera until ADR-014.**
+        #expect(layout.seatFacing(0) == .sideOn)
         #expect(layout.seatFacing(1) == .awayFromCamera)
-        #expect(overhang("office", seat: 0) == -16)
+        // A side-on pod is pushed to its lane limit by `sideOnDeskOffsetX`, so
+        // it reaches the lane edge exactly rather than stopping 16px short of
+        // it. `everyStationFitsTheSeatItIsDrawnAt` is the assertion that this
+        // must not become positive.
+        #expect(overhang("office", seat: 0) == 0)
         #expect(overhang("office", seat: 1) == -16)
         #expect(overhang("mission_control", seat: 1) == 0)
         #expect(overhang("library", seat: 1) == -4)
@@ -434,11 +463,23 @@ import SpriteRoomCore
         let office = Self.metrics(manifest, theme: "office")
         let ownLaneRight = layout.stationPropPosition(0).x + laneHalf
         let deskLeft = layout.deskPosition(0, metrics: office).x - office.deskInkWidth / 2
-        #expect(ownLaneRight - deskLeft == 16, Comment(rawValue:
+        // **ADR-014 took the lap to zero, and that is why the row tie below is
+        // harmless.** ADR-009 recorded a 16px lap for a pod *centred on its own
+        // column*, which is what a camera-facing seat drew. A side-on seat
+        // pushes its desk to the lane limit instead, so the desk's left edge now
+        // meets the station-prop lane's right edge exactly and the two no longer
+        // overlap at all.
+        #expect(ownLaneRight - deskLeft == 0, Comment(rawValue:
             "the office pod laps its own station-prop lane by"
-            + " \(ownLaneRight - deskLeft)px, and 16 is the number ADR-009 records"))
-        #expect(layout.deskPosition(0, metrics: office).y != layout.seatRowY(0),
-                "the lap would be a tie on one row rather than a depth sort")
+            + " \(ownLaneRight - deskLeft)px; ADR-009 recorded 16 for the"
+            + " camera-facing pod and ADR-014 expects 0 for the side-on one"))
+        // The desk and the station prop **are** on one row now, which ADR-009
+        // called out as the thing that would turn its depth sort into a tie.
+        // It is not a defect here because the lap is zero: a tie between two
+        // boxes that do not overlap decides nothing visible.
+        #expect(layout.deskPosition(0, metrics: office).y == layout.seatRowY(0),
+                "a side-on desk stands on its occupant's own row")
+        #expect(ownLaneRight <= deskLeft, "the tie is only harmless while they do not overlap")
     }
 
     /// **The room draws what the layout says, in every theme.** The arithmetic
@@ -488,13 +529,19 @@ import SpriteRoomCore
             }
             let away = (0..<scene.layout.seatCapacity)
                 .filter { scene.layout.seatFacing($0) == .awayFromCamera }.count
-            let toward = scene.layout.seatCapacity - away
             let slots = RoomLayout.PodKitSlot.allCases.count
             let rigSlots = RoomLayout.PodRigSlot.allCases.count
             #expect(rigs == (metrics.isDeskPod ? away * rigSlots : 0),
                     "\(name) drew \(rigs) rigs")
-            #expect(kits == (metrics.isDeskPod ? toward * slots : 0),
-                    "\(name) drew \(kits) desktop objects")
+            _ = slots
+            // Zero everywhere as of ADR-014. Note `toward` here counts seats
+            // that are *not* away-facing, which is the side-on front row now,
+            // not camera-facing seats: the kit gates on `.towardCamera`
+            // specifically and no seat has that facing.
+            #expect((0..<scene.layout.seatCapacity)
+                        .allSatisfy { scene.layout.seatFacing($0) != .towardCamera },
+                    "\(name) still has a camera-facing seat")
+            #expect(kits == 0, "\(name) drew \(kits) desktop objects")
         }
     }
 
@@ -612,7 +659,7 @@ import SpriteRoomCore
     /// open-call count, nothing hashed out of a payload. `theSameSeatDrawsTheSame
     /// StockWhoeverIsSittingInIt` is the other half of that sentence.
     @MainActor @Test(.enabled(if: SceneArt.isAvailable))
-    func everyCameraFacingSeatCarriesTheWholeStockAndTwoSeatsArrangeItDifferently() throws {
+    func theStockIsUnreadWhileEveryAwayFacingSeatStillVariesItsOwnRig() throws {
         let manifest = try SceneFixtures.manifest()
         let scene = RoomScene(manifest: manifest, themeID: "office")
         scene.setViewport(CGSize(width: 720, height: 400))
@@ -630,35 +677,52 @@ import SpriteRoomCore
                     "seat \(seat) carries \(kits.map(\.prop.file)) of \(kit.variants)"))
                 arrangements[seat] = kits.map(\.prop.file)
             } else {
-                #expect(kits.isEmpty, "seat \(seat) faces away and carries kit anyway")
+                #expect(kits.isEmpty, Comment(rawValue:
+                    "seat \(seat) is \(scene.layout.seatFacing(seat)) and carries kit anyway"))
             }
             if let piece = pieces.first(where: { $0.role == RoomScene.monitorRole }) {
                 #expect(rig.variants.contains(piece.prop.file))
                 rigs[seat] = piece.prop.file
             }
         }
-        #expect(arrangements.count >= 2 && rigs.count >= 2)
-        #expect(Set(arrangements.values.map { $0.joined(separator: ",") }).count > 1, Comment(
-            rawValue: "every camera-facing seat arranges its stock identically:"
-            + " \(arrangements.sorted { $0.key < $1.key })"))
+        // **The stock half of this test is dormant as of ADR-014**, and the run
+        // says so rather than passing vacuously. No seat faces the camera, so
+        // `arrangements` is empty and the two assertions about *how* a
+        // camera-facing seat arranges its four objects measure nothing. They are
+        // kept, guarded, so they come back the moment a camera-facing seat does.
+        if arrangements.isEmpty {
+            print("NOTICE: no camera-facing seat exists [ADR-014], so the desk-kit"
+                  + " stock is bound and unread. Its per-seat arrangement and its"
+                  + " variant-blind first entry are UNCHECKED while that holds."
+                  + " The rig half of this test still runs.")
+        } else {
+            #expect(arrangements.count >= 2)
+            #expect(Set(arrangements.values.map { $0.joined(separator: ",") }).count > 1, Comment(
+                rawValue: "every camera-facing seat arranges its stock identically:"
+                + " \(arrangements.sorted { $0.key < $1.key })"))
+            // Entry 0 is where a variant-blind reader would have put it (the
+            // right back slot of seat 0).
+            #expect(arrangements[0]?.first == kit.file)
+        }
+
+        // **The rig half is untouched by ADR-014 and still measures the room.**
+        // Every away-facing seat is a back-row seat and the back row did not
+        // move, so this is the same assertion it always was.
+        #expect(rigs.count >= 2)
         #expect(Set(rigs.values).count > 1, Comment(rawValue:
             "every away-facing seat drew the same rig: \(rigs.sorted { $0.key < $1.key })"))
-
-        // Entry 0 is where a variant-blind reader would have put it (the right
-        // back slot of seat 0), so the change did not move the picture this room
-        // already drew, it added to it.
-        #expect(arrangements[0]?.first == kit.file)
         for (seat, file) in rigs {
             #expect(file == rig.variants[seat % rig.variants.count],
                     "seat \(seat) drew \(file)")
         }
 
-        // And the room drew it: `podFurniture` is only worth checking because
-        // `buildRoom` reads it.
+        // And the room draws what `podFurniture` says: no kit anywhere, since
+        // `buildRoom` reads the same gate.
         let drawn = Set((0..<scene.layout.seatCapacity)
             .flatMap { scene.furnitureForTesting(seat: $0) }.map(\.path))
         for file in kit.variants {
-            #expect(drawn.contains(file), "the room never drew \(file)")
+            #expect(!drawn.contains(file), Comment(rawValue:
+                "the room drew \(file) with no camera-facing seat to carry it"))
         }
 
         // **Two of the four rigs never reach the screen, and that is a fact

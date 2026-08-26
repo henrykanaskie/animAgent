@@ -418,7 +418,7 @@ enum SceneArt {
     ///   objects at their own ink against the desk's own band.
     /// - `variantZeroSMeasuredBoxIsTheOneTheManifestDeclares`: the measurement
     ///   tied to the manifest's own declaration on the one file both can see.
-    /// - `everyCameraFacingSeatCarriesTheWholeStockAndTwoSeatsArrangeItDifferently`
+    /// - `theStockIsUnreadWhileEveryAwayFacingSeatStillVariesItsOwnRig`
     ///   and `theSameSeatDrawsTheSameStockWhoeverIsSittingInIt`: a real
     ///   `RoomScene`, which places nothing without the pack.
     /// - `aWorkKindObjectStandsInFrontOfItsSlotsRigAndNeverInPlaceOfIt`: **the
@@ -435,7 +435,7 @@ enum SceneArt {
     /// it, that the wrap is total, and (through `deskKitLift`) that *no* object
     /// of *any* height can rise above its own desk's back edge. A fresh clone
     /// still checks the whole rule; what it cannot check is the four files.
-    static let expectedGatedTestCount = 113
+    static let expectedGatedTestCount = 114
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.

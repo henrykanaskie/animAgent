@@ -274,14 +274,36 @@ struct RouteFurnitureTests {
             let pieces = Self.furniture(room: room, manifest: manifest, layout: layout)
             #expect(!pieces.isEmpty, Comment(rawValue: "\(id) draws no furniture at all"))
 
-            // The occluder exemption, applied once: a piece downstage of its own
-            // seat is what that seat is composed behind, and every route to that
-            // seat has to pass it.
-            let solid = pieces.filter { piece in
-                piece.seat.map { piece.point.y >= layout.seatRowY($0) } ?? true
-            }
-
             for seat in 0..<layout.seatCapacity {
+                // Two exemptions, and the second is new at ADR-014.
+                //
+                // 1. **The occluder**, unchanged and still global: a piece
+                //    downstage of its own seat is what that seat is composed
+                //    behind, and every route to that seat has to pass it.
+                // 2. **A seat's own furniture on its own row**, exempt for that
+                //    seat's routes *and no other's*. A side-on occupant starts
+                //    every route sitting **on** its chair, at a desk standing
+                //    beside it on the same row; that is furniture it occupies,
+                //    not furniture it walks through, and no arrangement of a
+                //    chair can be both sat on and cleared. Before ADR-014 no
+                //    seat was side-on, so no piece ever stood on its own seat's
+                //    row and this arm was unreachable.
+                //
+                // **What it deliberately does not exempt.** Anything strictly
+                // upstage of its own seat stays solid for everyone, which is the
+                // whole of the away-facing desk check
+                // (`anAwayFacingSeatsExitIsTheFloorItsOwnDeskLeavesIt` pins the
+                // number this keeps honest). And another seat's chair is solid
+                // even on the same row: `aSeatsOwnChairIsExemptOnlyToItself`
+                // fails if this is ever widened to all seats, which is the
+                // failure mode a filter hoisted out of this loop would have.
+                let solid = pieces.filter { piece in
+                    guard let owner = piece.seat else { return true }
+                    return owner == seat
+                        ? piece.point.y > layout.seatRowY(owner)
+                        : piece.point.y >= layout.seatRowY(owner)
+                }
+
                 for (what, path) in Self.routes(seat: seat, layout: layout, metrics: metrics) {
                     // **One issue per route and piece, not per sample.** A leaver
                     // walking 88 px through a desk is one defect, and reporting
@@ -328,7 +350,7 @@ struct RouteFurnitureTests {
     @Test func anAwayFacingSeatsExitIsTheFloorItsOwnDeskLeavesIt() throws {
         let manifest = try SceneFixtures.manifest()
         let layout = RoomLayout()
-        var away = 0, toward = 0
+        var away = 0, toward = 0, side = 0
 
         for (id, room) in Self.rooms(manifest) {
             let metrics = SceneFixtures.seatMetrics(room: room, manifest: manifest)
@@ -355,14 +377,79 @@ struct RouteFurnitureTests {
                     #expect(exit.y > chair.y, Comment(rawValue:
                         "\(id): seat \(seat) has no floor behind it at all"))
                 case .sideOn:
-                    Issue.record("no seat in the shipped lattice is side-on")
+                    // **Nothing stands upstage of a side-on occupant.** Its desk
+                    // is beside it on its own row and its chair is on its own
+                    // point, so like the camera-facing seat it walks to the wall
+                    // line. [ADR-014]
+                    side += 1
+                    #expect(exit.y == layout.wallBaseY, Comment(rawValue:
+                        "\(id): seat \(seat) is side-on and stops at \(exit.y)"))
+                    let sideDesk = layout.deskPosition(seat, metrics: metrics)
+                    #expect(sideDesk.y == chair.y, Comment(rawValue:
+                        "\(id): seat \(seat)'s side-on desk stands at \(sideDesk.y),"
+                        + " off its occupant's own row \(chair.y)"))
                 }
             }
         }
-        // Four away-facing seats and three camera-facing ones, in each of the
-        // seven rooms: the checkerboard `isBackRow(seat:)` produces.
-        #expect(away == 4 * 7 && toward == 3 * 7, Comment(rawValue:
-            "\(away) away-facing and \(toward) camera-facing seats were measured"))
+        // Four away-facing seats and three side-on ones, in each of the seven
+        // rooms: the checkerboard `isBackRow(seat:)` produces. **It was 4 away
+        // and 3 camera-facing until ADR-014 seated the front row.** No seat
+        // faces the camera now, which is why `toward` is pinned at zero rather
+        // than dropped: a seat drifting back to `.towardCamera` restores the
+        // occluder and the route exemption that hid it, and that should fail
+        // here rather than pass quietly.
+        #expect(away == 4 * 7 && side == 3 * 7 && toward == 0, Comment(rawValue:
+            "\(away) away-facing, \(side) side-on and \(toward) camera-facing"
+            + " seats were measured"))
+    }
+
+    /// **A seat's own chair is exempt to that seat and to nobody else.**
+    /// [ADR-014]
+    ///
+    /// `everyRouteClearsEveryPieceOfTheRoomsFurniture` gained an exemption for a
+    /// seat's own furniture standing on its own row, because a side-on occupant
+    /// sits **on** its chair and cannot be asked to clear it. The failure mode of
+    /// that exemption is being applied to every seat instead of one, which would
+    /// stop the check noticing a character walking through **someone else's**
+    /// chair, and would look exactly like a passing run.
+    ///
+    /// So this asserts the asymmetry directly rather than trusting the filter:
+    /// for a side-on seat, its own chair stands on its own row and is exempt to
+    /// it, while that same chair is solid to every other seat in the room.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aSeatsOwnChairIsExemptOnlyToItself() throws {
+        let manifest = try SceneFixtures.manifest()
+        var checked = 0
+        for (id, room) in Self.rooms(manifest) {
+            let layout = RoomLayout().adopting(plan: room.plan)
+            let pieces = Self.furniture(room: room, manifest: manifest, layout: layout)
+            for owner in 0..<layout.seatCapacity where layout.seatFacing(owner) == .sideOn {
+                let mine = pieces.filter { $0.seat == owner && $0.point.y == layout.seatRowY(owner) }
+                #expect(!mine.isEmpty, Comment(rawValue:
+                    "\(id): side-on seat \(owner) has no furniture on its own row,"
+                    + " so this proves nothing about the exemption"))
+                for piece in mine {
+                    // Exempt to its owner...
+                    #expect(!(piece.point.y > layout.seatRowY(owner)), Comment(rawValue:
+                        "\(id): seat \(owner)'s \(piece.what) is upstage of its own row"))
+                    // ...and solid to everybody else.
+                    for other in 0..<layout.seatCapacity where other != owner {
+                        // The filter exempts a piece from a *foreign* seat's
+                        // routes only when it is strictly downstage of its own
+                        // seat row. Own-row furniture is therefore solid to
+                        // everyone but its owner, which is the asymmetry.
+                        let exemptToOther = piece.point.y < layout.seatRowY(owner)
+                        #expect(!exemptToOther, Comment(rawValue:
+                            "\(id): seat \(owner)'s \(piece.what) is exempt to seat"
+                            + " \(other) as well, so the check would miss a body"
+                            + " walking through it"))
+                    }
+                    checked += 1
+                }
+            }
+        }
+        #expect(checked > 0, "no side-on seat furniture was measured")
+        print("OWN-ROW FURNITURE EXEMPTIONS CHECKED: \(checked)")
     }
 
     /// **A character with no seat stops at the furniture of whatever column it is

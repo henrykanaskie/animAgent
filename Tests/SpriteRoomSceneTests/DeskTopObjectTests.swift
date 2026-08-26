@@ -137,7 +137,8 @@ struct DeskTopObjectTests {
         // computes is a property of the arrangement where the desk stands
         // beside the occupant, which is the side-on seat's and the away-facing
         // seat's, so it names that offset instead.
-        let deskRightEdge = layout.sideOnDeskOffsetX + Double(desk.contentBox.width) / 2
+        let deskRightEdge = layout.sideOnDeskOffsetX(
+            deskInkWidth: Double(desk.contentBox.width)) + Double(desk.contentBox.width) / 2
         return deskRightEdge - nearEdgeX
     }
 

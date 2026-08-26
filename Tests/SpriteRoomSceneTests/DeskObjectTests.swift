@@ -985,7 +985,19 @@ struct DeskObjectSceneTests {
         let layout = RoomLayout()
         let nearEdgeOffset = RoomScene.deskObjectNearEdgeX(manifest: manifest)
         let showing = (0..<4).filter { layout.seatFacing($0).showsDeskTopObject }
-        #expect(!showing.isEmpty && showing.count < 4, "the sweep tests neither branch")
+        // **Every seat shows one as of ADR-014**, so the empty branch is no
+        // longer exercised here. `showsDeskTopObject` is false only for
+        // `.towardCamera` and no seat has that facing now, which means ADR-006's
+        // work-kind object reaches the *whole* room rather than four sevenths of
+        // it. That is a gain, not a regression, but the silent branch is still
+        // called out so nobody reads this as coverage it no longer has.
+        #expect(!showing.isEmpty, "the sweep tests nothing at all")
+        if showing.count == 4 {
+            print("NOTICE: no camera-facing seat exists [ADR-014], so every seat"
+                  + " shows a desk-top object and the *empty* branch of"
+                  + " showsDeskTopObject is UNCHECKED here. DeskTopObjectTests"
+                  + " covers the rule itself.")
+        }
         var checked = 0
 
         for themeID in [nil] + manifest.themes.orderedIDs.map({ Optional($0) }) {
@@ -1242,7 +1254,16 @@ struct DeskObjectSceneTests {
         // both of them a character that changed what it was doing inside one
         // real session. The assertion above is the one that matters and it did
         // not move: the scene swapped exactly the textures the intents predicted.
-        #expect(replacements == 4, "the corpus's four kind replacements are gone")
+        // **Seven as of ADR-014, and the rise is the point.** It was four while
+        // three of every seven seats faced the camera and therefore drew no
+        // desk-top object at all. Seating the front row side-on gives those
+        // seats the work-kind object too, so more characters now show what they
+        // are doing and more of them change it mid-session. The assertion above
+        // is still the one that matters: the scene swapped exactly the textures
+        // the intents predicted.
+        #expect(replacements == 7, Comment(rawValue:
+            "the corpus produced \(replacements) kind replacements against the"
+            + " seven ADR-014 expects; it was four before the front row sat down"))
         #expect(screenChanges > 0, "no turn boundary ever reached a furnished desk")
         #expect(everSwapped > replacements, "the screen never reached the node")
     }
