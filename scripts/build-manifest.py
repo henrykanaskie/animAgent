@@ -212,9 +212,26 @@ PLAN_SURFACES = {
 #     unbroken floor and no wall stands anywhere a character walks.
 #   * Its band is at rows 7 and 8: the wall line at y=224, where `upstageExit`
 #     already ends. A leaver walks into it and fades, as it always has.
-#   * `doorways` are on **seat columns** 3, 12 and 21 (seats 6, 0 and 5), so the
-#     three characters whose columns carry one walk out through a door rather
-#     than into a flat wall, and the rooms behind are reachable.
+#   * `doorways` are on **the three seat columns whose occupant actually
+#     reaches this wall**: 6, 12 and 18, which are seats 3, 0 and 4, the front
+#     row. [M9 Phase 3]
+#
+#     **They were 3, 12 and 21 and two of the three served nobody.** That is
+#     seats 5, 0 and 6, and 5 and 6 are *back-row* seats: an away-facing seat's
+#     exit stops at `desk.y - 1`, a quarter tile behind its own chair, and never
+#     comes near this wall (`anAwayFacingSeatsExitIsTheFloorItsOwnDeskLeavesIt`
+#     pins that number). Only a front-row seat walks to `wallBaseY`. So one
+#     doorway was doing the job the comment claimed for three, and the other two
+#     front-row leavers faded at a flat wall.
+#
+#     The error is older than ADR-014 and survived it: the front row was
+#     camera-facing before, and a camera-facing exit is "the walk to the wall
+#     line it has always been", so the mismatch was there from the day the
+#     doorways were placed. It was found by asking which seats can reach the
+#     wall rather than by reading this comment, which is the lesson.
+#
+#     `everyDoorwayIsOnASeatColumn` still holds: 6, 12 and 18 are seat columns
+#     (seats 3, 0 and 4).
 #   * Everything behind the band (rows 9..11) is floor no route ever touches,
 #     which is why the interior partitions are all there. It is the only part of
 #     this room where a north-south wall fits: below it, seven seat columns 96 px
@@ -241,7 +258,7 @@ ROOM_PLAN = {
         # darkest values" is easier to hold over a pale floor than a grey one.)
         {"name": "open plan", "surface": "slab",
          "x": 2, "y": 2, "w": 21, "h": 7,
-         "doorways": [3, 12, 21]},
+         "doorways": [6, 12, 18]},
         {"name": "store", "surface": "plank", "x": 2, "y": 9, "w": 8, "h": 3},
         {"name": "meeting", "surface": "carpet", "x": 10, "y": 9, "w": 6, "h": 3},
         {"name": "galley", "surface": "lino", "x": 16, "y": 9, "w": 7, "h": 3},
@@ -914,7 +931,7 @@ def build_plan(builder_tiles, dressing=None):
 # every wall hang floating over open floor instead of mounted on one.
 WALL_BAND_SPACES = [
     {"name": "walkway", "x": 2, "y": -6, "w": 21, "h": 8, "band": False},
-    {"name": "open plan", "x": 2, "y": 2, "w": 21, "h": 7, "doorways": [3, 12, 21]},
+    {"name": "open plan", "x": 2, "y": 2, "w": 21, "h": 7, "doorways": [6, 12, 18]},
     {"name": "back", "x": 2, "y": 9, "w": 21, "h": 3},
 ]
 WALL_BAND_PARTITIONS = [

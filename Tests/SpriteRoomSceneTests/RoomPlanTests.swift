@@ -208,6 +208,58 @@ struct RoomPlanTests {
         }
     }
 
+    /// **Every doorway serves a seat that actually reaches this wall, and every
+    /// such seat has one.** [M9 Phase 3]
+    ///
+    /// `everyDoorwayIsOnASeatColumn` above asks the weaker question and passed
+    /// throughout the period this was wrong. The doorways were cut at columns
+    /// 3, 12 and 21 with a comment saying that put one on the column of "the
+    /// three characters whose columns carry one", but 3 and 21 are seats 5 and
+    /// 6, which are **back-row** seats: an away-facing exit stops at
+    /// `desk.y - 1`, a quarter tile behind its own chair, and never approaches
+    /// this wall. So one doorway of three served an exit and the other two
+    /// front-row leavers walked into a flat wall and faded there.
+    ///
+    /// The error predates ADR-014 and survived it, because a camera-facing exit
+    /// also ended at `wallBaseY`. It was found by asking which seats can reach
+    /// the wall, which is what this test asks, in both directions: a doorway
+    /// nobody can use is as wrong as a leaver with no door.
+    @Test func everyDoorwayServesASeatThatReachesTheWallAndEverySuchSeatHasOne() throws {
+        let manifest = try Manifest.load(root: SceneFixtures.repositoryRoot)
+        let plan = try Self.richestPlan()
+        let layout = RoomLayout()
+        // **The real theme's metrics, not a synthetic set.** Which seats reach
+        // the wall is decided by `upstageClearance`, which measures against the
+        // seat's own desk and rigs, so a made-up 24 px desk answers a question
+        // about a room nobody draws: with one, all seven seats "reach" the wall
+        // and the test asserts nothing. The content boxes are in the tracked
+        // manifest, so this needs the manifest and not the art.
+        let themed = manifest.themes.orderedIDs
+            .compactMap { manifest.themes.theme($0) }
+            .first { !$0.room.plan.isEmpty && $0.room.plan.spaces.count == plan.spaces.count }
+        let room = try #require(themed?.room, "no theme carries the richest plan")
+        let metrics = SceneFixtures.seatMetrics(room: room, manifest: manifest)
+
+        func column(ofSeat seat: Int) -> Int {
+            Int(layout.seatPosition(seat).x - Double(layout.tile) / 2) / layout.tile
+        }
+        // "Reaches the wall" is asked of the route function, not of the facing,
+        // so a facing that changes where its exit ends moves this test with it.
+        let reaching = (0..<layout.seatCapacity).filter {
+            layout.upstageExit(forSeat: $0, metrics: metrics).y == layout.wallBaseY
+        }
+        #expect(!reaching.isEmpty, "no seat reaches the wall, so this proves nothing")
+
+        let doorways = Set(plan.doorwayColumns)
+        let reachingColumns = Set(reaching.map(column(ofSeat:)))
+        #expect(doorways == reachingColumns, Comment(rawValue:
+            "doorways at \(doorways.sorted()) against the columns whose seat"
+            + " actually reaches the wall \(reachingColumns.sorted()):"
+            + " a doorway nobody walks through is as wrong as a leaver with no door"))
+        print("DOORWAYS: \(doorways.sorted()) serve seats \(reaching) of"
+              + " \(layout.seatCapacity), which are the only ones that reach the wall")
+    }
+
     // MARK: The dressing the plan places by hand
 
     /// **The shipped composition stands in nobody's way.**
