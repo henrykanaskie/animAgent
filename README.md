@@ -164,7 +164,7 @@ at M6b that had every theme accepted against a wrong picture.
 
 ```sh
 swift build --build-tests -Xswiftc -warnings-as-errors
-swift test                     # 396 tests
+swift test                     # 871 tests in 87 suites
 swift run spriteroom-replay --all
 ```
 
@@ -199,7 +199,7 @@ swift run spriteroom-replay fixtures/three-subagents.jsonl --speed 1000
 always sees fixture time, so a 900 s deadline is still a 900 s deadline.
 
 A passing run ends with `all N fixture(s) replayed with zero open calls after the
-sweep`. **Three** fixtures legitimately hold an orphan at end of stream, and the
+sweep`. **Four** fixtures legitimately hold an orphan at end of stream, and the
 final sweep is what closes each:
 
 | Fixture | Why nothing in the stream closes it |
@@ -207,6 +207,7 @@ final sweep is what closes each:
 | `killed-session` | `kill -9` mid-`Bash`. No `PostToolUse`, no `SessionEnd`, no anything |
 | `concurrent-permission-gates` | a second permission dialog was never answered and the session was killed at the timeout |
 | `denied-batch-cancel` | the gated call was denied at the dialog and the session was killed after |
+| `authoring-subagents` | a real session, still working when the recorder was stopped: the last `Bash` had not returned |
 
 That is I4 demonstrated rather than asserted. **This paragraph used to name
 `killed-session` as the *only* such fixture and to say that any other fixture
@@ -239,6 +240,34 @@ swift run spriteroom                                  # the panel, replaying the
 swift run spriteroom fixtures/three-subagents.jsonl   # a fixture of your choosing
 swift run spriteroom --live                           # bind the listener; real sessions drive it
 ```
+
+### Every day, rather than every experiment
+
+`swift run` re-resolves the package and re-links on each invocation, and it runs
+the debug build. For actually using the thing:
+
+```sh
+scripts/spriteroom-live.sh              # release build if stale, then --live
+scripts/spriteroom-live.sh --check      # run the preflight and stop, opening nothing
+```
+
+It builds `-c release` only when something under `Sources/` or `Package.swift`
+is newer than the binary, and it **checks four things before it opens a
+window**, each of which has cost somebody a confusing failure:
+
+| Check | The failure it prevents |
+|---|---|
+| `~/.claude/settings.json` parses | Claude Code applies **none** of a file it cannot parse, hooks included. A stray object literal made this file invalid on the maintainer's own machine and the panel came up and stayed empty forever, with nothing on screen to say why: the room's whole job is to be still when there is no work, so "no events" and "no agents working" draw identically [I1] |
+| the hook block is in it | from `--hooks-status`, the app's own answer, so the check cannot disagree with the installer |
+| port 8787 is free | a second instance fails to bind, and every session's hooks then post to whichever one won |
+| `assets/manifest.json` exists | a fresh clone has a manifest and no pixels |
+
+It only ever reads. It does not install hooks, write settings, or consent to
+anything: `--install-hooks --yes` stays a separate, deliberate command.
+
+The release binary finds its art from any working directory (it resolves
+relative to the source tree it was built from), so it does not have to be
+started from the repository root, even though the script does.
 
 The panel host is an accessory app: no Dock icon, no app menu, and it never
 activates. Point at the notch to drop the room down; move away and it retracts.
@@ -500,19 +529,29 @@ doc is wrong: say so rather than following it.
 
 ## Status
 
-**M0 through M6 are committed.** M6 landed in twelve commits after the M5
-verification pass, `004b587`..`eedd89c`. `notes.md` records what each milestone
-overturned; `docs/05-MILESTONES.md` carries M6's exit criteria and which of them
-are open. In short, M6 made the room wide at every population, put the
-distinguishing part of a nameplate first and doubled its size, built six themed
-rooms and the Room ▸ picker behind them (ADR-002), stopped a subagent departing
-on a turn boundary, and turned the report walk into a round trip.
+**M0 through M7 are committed, and M8 is one item from done.** `notes.md`
+records what each milestone overturned; `docs/05-MILESTONES.md` carries the exit
+criteria. M6 made the room wide at every population, put the distinguishing part
+of a nameplate first and doubled its size, built six themed rooms and the
+Room ▸ picker behind them (ADR-002), stopped a subagent departing on a turn
+boundary, and turned the report walk into a round trip. M7 made an agent look
+like what it is. **M8 turned the room to face the camera**: both turned facings,
+a seat that declares its own facing and is a workstation rather than a bench, no
+chairs at any facing, a floor plan with an edge and a wall standing at it, and
+six rooms composed by hand from the catalogue instead of a band lattice. Six
+ADRs (008–013) carry the arguments.
 
-Measured at `c0bbffd`. This list said `eedd89c` and was not re-checked while
-work landed; four items below were closed and still listed as open, one of them
-describing code that had been deleted. That is the third time this file has
-drifted, and it is the front door: treat a mismatch here as "re-measure", and
-re-measure when you close something.
+**The one open item in M8 is #77, the naive-observer test**, and no agent can
+close it: it needs a person who does not know this design.
+`docs/M8-NAIVE-OBSERVER-PROTOCOL.md` is the protocol and its ground truth comes
+from `spriteroom-replay` rather than from looking at the pictures.
+
+Measured on **2026-08-26**, by running the gates rather than reading this list:
+build green, `SPRITE_ROOM_REQUIRE_ART=1 swift test` 871 tests in 87 suites all
+passing, `spriteroom-replay --all` 18 fixtures with zero open calls after the
+sweep, `scripts/lint-palette.py` passing on all six themes. This list has now
+drifted three times, and it is the front door: treat a mismatch here as
+"re-measure", and re-measure when you close something.
 
 What is honestly still open:
 
@@ -582,8 +621,17 @@ What is honestly still open:
   refused on measurements. `I7` now has a **motion budget** whose ceiling is the
   quietest looping character animation any variant plays, so scenery is measured
   against the cast on the time axis the same way it already was on colour.
-- **`preview-theme.py`'s geometry is still unchecked, and it has now been wrong
-  twice.** First a placement bug put every prop up to ~80 px out at `1x`, so
+- *`preview-theme.py`'s geometry is no longer unchecked.* `scene_agreement()`
+  in `scripts/lint-palette.py` runs the real `RoomScene` through the real
+  `SKRenderer` offscreen (`spriteroom --render`, never `--panel-render`) and
+  compares that picture to the preview's, per theme, with a known-defect
+  register that is empty. All six themes agree with the scene pixel for pixel.
+  A missing binary or missing art is a **visible skip naming the themes it did
+  not check**, and `SPRITE_ROOM_REQUIRE_SCENE=1` turns that skip into a failure,
+  the same arrangement `SPRITE_ROOM_REQUIRE_ART` gives the pixel tests. The
+  history below is why the check exists and is kept:
+
+  **It had been wrong twice.** First a placement bug put every prop up to ~80 px out at `1x`, so
   every theme accepted at M6 was accepted against a wrong picture. Then its
   placement census kept counting a foreground row of seven plants for two commits
   after the scene stopped drawing them, which made the new motion budget 3.3×
@@ -592,8 +640,8 @@ What is honestly still open:
 
   Both times the script was cross-checked **against itself**: a census compared
   to a `render()` that transcribed the same layout. A transcription checked
-  against a transcription is not a check. Closing this needs a pixel comparison
-  against the real scene, which needs a window server.
+  against a transcription is not a check, which is exactly what the pixel
+  comparison above replaced.
 - **The first-run consent dialog has never been clicked** by a human. All five
   decision branches are unit-tested and were driven end to end via `--consent`,
   but synthesising a click needs Accessibility permission the build environment
