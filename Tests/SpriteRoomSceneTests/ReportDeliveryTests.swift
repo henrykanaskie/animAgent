@@ -12,8 +12,8 @@ import SpriteRoomCore
 ///
 /// They were right, and it was a regression with a price tag on it. M6f deleted
 /// the reporter's lateral leg to buy back the 96 px of delivery row that leg
-/// needed (one row per ring, because three same-side reporters can walk at once
-) and took `contentBand` from 300 to 170. What was left is a character that
+/// needed (one row per ring, because three same-side reporters can walk at once)
+/// and took `contentBand` from 300 to 170. What was left is a character that
 /// stands up, steps to the front of the room, turns, and mimes a hand-over into
 /// empty floor. The beat *depicts* a transfer between two characters and only one
 /// of them is there, which is a picture asserting something no arrangement of the
