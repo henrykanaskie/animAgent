@@ -110,10 +110,12 @@ struct DeskObjectCorpusTests {
         // ADR-006 declares four. `authoring-subagents` closes that: two of its
         // four agents end on `authoring`, and the kind is no longer a claim
         // resting on unit tests of the derivation agreeing with itself.
-        #expect(agents == 31, "the corpus grew or shrank; every number below is measured off it")
-        #expect(furnished == 30)
+        #expect(agents == 34, "the corpus grew or shrank; every number below is measured off it")
+        #expect(furnished == 33)
         #expect(agents - furnished == 1)
-        #expect(byKind == [.running: 14, .research: 10, .coordinating: 4, .authoring: 2])
+        // `two-projects` adds three `running` agents and no other kind: it is two
+        // headless sessions plus the recording one and every call in it is `Bash`.
+        #expect(byKind == [.running: 17, .research: 10, .coordinating: 4, .authoring: 2])
     }
 
     /// **Abstention is still reachable, and it is reachable for exactly one
@@ -220,21 +222,32 @@ struct DeskObjectCorpusTests {
         // redecorates four times where no sandbox character redecorated more
         // than twice. The corpus was not wrong, it was narrow, which is the
         // whole argument for capturing real sessions [#72].
-        #expect(totalChanges == 37)
-        #expect(replacements == 7)
+        #expect(totalChanges == 41)
+        #expect(replacements == 8)
         #expect(worstPerCharacter == 4, "some character redecorated more than the corpus has shown")
         // **The enforced floor held; the comfortable margin did not.** Every gap
         // still cleared `deskObjectDwell`: the per-gap assertion above is the
-        // one that matters and it did not fire, but the measured floor is now
-        // **2.7x** the enforced 4 s, where the sandbox corpus made it look like
-        // an order of magnitude. That sentence used to be in this comment and
-        // was true only of scripted work.
+        // one that matters and it did not fire, but the measured floor keeps
+        // falling as the corpus gets more real, where the sandbox captures made
+        // it look like an order of magnitude. That sentence used to be in this
+        // comment and was true only of scripted work.
+        //
+        // **10.75 s at `authoring-subagents`, 5.59 s at `two-projects`.** The
+        // newest capture is two headless sessions racing a third, which is the
+        // closest thing in the corpus to a busy machine, and it halved the
+        // floor again. The margin over the enforced 4 s is now **1.4x**. If a
+        // future capture takes it under 4 the dwell floor is what will hold,
+        // and that is the point of having one; this number is the warning
+        // light, so move it down when the corpus moves it and do not widen the
+        // assertion to make room.
         //
         // The **enforced** bound is what protects a workload even this capture
         // does not contain: at most one change per character per
         // `deskObjectDwell`, so 15 a minute in the worst case the code can
         // produce, against ADR-005's measured median tool call of 23 ms.
-        #expect(tightestGap > 10)
+        #expect(tightestGap > 5, Comment(rawValue:
+            "the tightest desk-object gap in the corpus is \(tightestGap)s;"
+            + " it was 5.59 at two-projects and the enforced dwell floor is 4"))
     }
 
     /// **Replay is deterministic**: two runs of the same capture produce the same
@@ -1261,9 +1274,10 @@ struct DeskObjectSceneTests {
         // are doing and more of them change it mid-session. The assertion above
         // is still the one that matters: the scene swapped exactly the textures
         // the intents predicted.
-        #expect(replacements == 7, Comment(rawValue:
+        #expect(replacements == 8, Comment(rawValue:
             "the corpus produced \(replacements) kind replacements against the"
-            + " seven ADR-014 expects; it was four before the front row sat down"))
+            + " eight expected: four before ADR-014 seated the front row, seven"
+            + " after it, and eight once two-projects joined the corpus"))
         #expect(screenChanges > 0, "no turn boundary ever reached a furnished desk")
         #expect(everSwapped > replacements, "the screen never reached the node")
     }

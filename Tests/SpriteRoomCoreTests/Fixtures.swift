@@ -67,7 +67,27 @@ enum Fixtures {
     /// does not (a `kill -9`, a driver timing out at a dialog) legitimately
     /// ends with a call nothing in the stream will ever close.
     static func reachesSessionEnd(_ name: String) throws -> Bool {
-        try entries(name).contains { $0.event?.kind.name == "SessionEnd" }
+        try sessionsWithoutEnd(name).isEmpty
+    }
+
+    /// **The sessions in this capture that never reach `SessionEnd`.**
+    ///
+    /// `reachesSessionEnd` used to ask whether *any* entry was a `SessionEnd`,
+    /// which is the same question only while a capture holds one session. Every
+    /// fixture did until `two-projects`, which holds three: two headless
+    /// sessions that end and the recording session, which outlives its own
+    /// recorder exactly as `authoring-subagents` did.
+    ///
+    /// Asked the old way that capture "reaches SessionEnd" and then orphans,
+    /// which reads as a broken close path and is not one: the close path worked
+    /// for both sessions that ended. The unit the rule is really about is the
+    /// **session**, because `SessionEnd` force-closes one session's calls and
+    /// says nothing about any other.
+    static func sessionsWithoutEnd(_ name: String) throws -> [String] {
+        let events = try entries(name).compactMap { $0.event }
+        let all = Set(events.map(\.sessionID))
+        let ended = Set(events.filter { $0.kind.name == "SessionEnd" }.map(\.sessionID))
+        return all.subtracting(ended).sorted()
     }
 
     static func entries(_ name: String) throws -> [HookLogEntry] {

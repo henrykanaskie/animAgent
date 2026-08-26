@@ -1135,8 +1135,8 @@ import Testing
     /// `denial-then-work` have their denied call reaped mid-stream when the
     /// clock is walked and force-closed by `SessionEnd` when it is not.
     @Test func exactlyTheFixturesWithNoSessionEndOrphanAtEndOfStream() async throws {
-        #expect(Fixtures.all.count == 18, """
-            fixtures/ holds \(Fixtures.all.count) captures, not the 18 M6 gates \
+        #expect(Fixtures.all.count == 19, """
+            fixtures/ holds \(Fixtures.all.count) captures, not the 19 M6 gates \
             `spriteroom-replay --all` over: \(Fixtures.all)
             """)
 
@@ -1156,19 +1156,50 @@ import Testing
             if open > 0 { orphaning[name] = open }
         }
 
-        #expect(orphaning.keys.sorted() == withoutSessionEnd, """
-            the orphans at end of stream are not the fixtures with no SessionEnd
-            orphaned:        \(orphaning.sorted { $0.key < $1.key })
-            no SessionEnd:   \(withoutSessionEnd)
-            A fixture that reaches SessionEnd and still orphans has a broken \
-            close path. One with no SessionEnd and no orphan means a capture \
-            stopped proving what it was taken for.
-            """)
+        // **The rule is an implication, not a biconditional, and `two-projects`
+        // is what proved the difference.**
+        //
+        // It read `orphaning == withoutSessionEnd` and held for eighteen
+        // captures. The forward half is the real rule and is unchanged: a
+        // fixture that orphans **must** have a session that never ended, because
+        // `SessionEnd` force-closes everything in its own session, so an orphan
+        // under a fully-ended capture is a broken close path. [I4]
+        //
+        // The reverse half was never a rule, only a property of how the earlier
+        // captures were taken: each was stopped mid-call, so "no SessionEnd"
+        // and "orphans" always coincided. `two-projects` has one session that
+        // never ends (the recording session, which outlives its own recorder)
+        // and **still reaches zero**, because that session's last call happened
+        // to close before the recorder stopped. Nothing is wrong with it. A
+        // capture is allowed to end on a quiet moment.
+        let unended = Set(withoutSessionEnd)
+        for name in orphaning.keys.sorted() {
+            #expect(unended.contains(name), Comment(rawValue:
+                "\(name) orphans \(orphaning[name] ?? 0) call(s) at end of stream"
+                + " and every one of its sessions reached SessionEnd, so a close"
+                + " path is missing rather than a capture being cut short"))
+        }
+        #expect(withoutSessionEnd.count == 5, Comment(rawValue:
+            "five captures hold a session that never ends; this run found"
+            + " \(withoutSessionEnd.count): \(withoutSessionEnd)"))
         #expect(orphaning.count == 4, """
             M6 says exactly four fixtures legitimately orphan at end of stream; \
             this run found \(orphaning.count): \(orphaning.keys.sorted()). \
-            Score the change against M6 rather than editing the criterion.
+            Score the change against M6 rather than editing the criterion. \
+            two-projects is deliberately NOT here: it has an unended session \
+            and still reaches zero.
             """)
+        // **The rule is per session, and `two-projects` is why that had to be
+        // said out loud.** It holds three sessions: two headless ones that end
+        // cleanly and the recording session, which outlives its own recorder.
+        // Asked "does this capture contain a SessionEnd" it answers yes and
+        // then orphans, which reads as a broken close path and is not one.
+        // `Fixtures.sessionsWithoutEnd` asks the question the rule is actually
+        // about, and this pins the one capture where the two answers differ.
+        let unendedInTwoProjects = try Fixtures.sessionsWithoutEnd("two-projects")
+        #expect(unendedInTwoProjects.count == 1, Comment(rawValue:
+            "two-projects should have exactly one session that never ends, the"
+            + " recording one; it has \(unendedInTwoProjects)"))
     }
 
     /// **A fixture that reaches `SessionEnd` reaches zero without the sweep.**
@@ -1211,18 +1242,51 @@ import Testing
                 """)
         }
 
+        // **Still 14, and the fact that it did not move is the point.**
+        // `reachesSessionEnd` now means *every* session in the capture ended,
+        // not *some* event was a `SessionEnd`. `two-projects` ends two of its
+        // three sessions, so it does not qualify and is not checked here, which
+        // is right: this test is about close paths, and a capture holding a
+        // session that is still running has nothing to say about them.
         #expect(checked.count == 14, """
-            14 of the 17 captures reach a SessionEnd; this run found \
+            14 of the 19 captures end every session they contain; this run found \
             \(checked.count): \(checked)
             """)
     }
 
-    /// Every event routes to the sandbox `cwd` it was captured in.
+    /// **Every event carries a `cwd`, and the model buckets by it.**
+    ///
+    /// This asserted `projects.count == 1` per fixture until `two-projects`
+    /// landed, and that was a fact about the *rigs*, not about the model: every
+    /// capture before it was taken in one sandbox, so one `cwd` was all any of
+    /// them could contain. Read as a rule it said the opposite of the truth,
+    /// because `World` has always been `Project(cwd) -> Session -> Agent` and
+    /// has always held every project at once.
+    ///
+    /// What is worth asserting is what the routing key actually promises: every
+    /// event has one, and the model's buckets are exactly the `cwd`s the stream
+    /// carried, no more and no fewer.
     @Test func everyEventRoutesByCWD() async throws {
+        var multi: [String] = []
         for name in Fixtures.all {
             let entries = try Fixtures.entries(name)
-            let projects = Set(entries.compactMap { $0.event?.cwd })
-            #expect(projects.count == 1, "\(name) spans \(projects.count) projects")
+            let events = entries.compactMap { $0.event }
+            let projects = Set(events.map(\.cwd))
+            #expect(!projects.isEmpty, "\(name) has no routable event at all")
+            #expect(!projects.contains(""), "\(name) carries an event with an empty cwd")
+
+            let (model, _, _) = try await Fixtures.replayAdvancingTheClock(name)
+            let seen = Set(await model.snapshot().agents.map(\.ref.project))
+            // A project whose every session ended is removed, so the model's
+            // buckets are a subset of what the stream carried, never a superset:
+            // a bucket the events never named would be one the model invented.
+            #expect(seen.isSubset(of: projects), Comment(rawValue:
+                "\(name): the model holds \(seen.subtracting(projects).sorted())"
+                + " which no event in the capture names"))
+            if projects.count > 1 { multi.append("\(name) (\(projects.count))") }
         }
+        #expect(multi == ["two-projects (2)"], Comment(rawValue:
+            "the multi-project captures are \(multi); two-projects is the only one"
+            + " the corpus has, and Phase 4 is untestable without at least one"))
     }
 }

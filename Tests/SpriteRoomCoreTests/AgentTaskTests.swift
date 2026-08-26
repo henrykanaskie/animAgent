@@ -197,7 +197,7 @@ struct AgentTaskTests {
     /// `tool_input` at all. [I5]
     @Test func onlyTheAgentToolsDescriptionIsRead() async throws {
         let byTool = try Self.descriptionsByTool()
-        #expect(byTool["Bash"]?.count == 88)
+        #expect(byTool["Bash"]?.count == 102)
         #expect(byTool["Monitor"]?.count == 1)
         #expect(byTool["Agent"]?.count == 13)
         let notAgent = Set((byTool["Bash"] ?? []) + (byTool["Monitor"] ?? []))

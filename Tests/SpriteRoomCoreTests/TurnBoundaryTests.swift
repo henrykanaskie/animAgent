@@ -42,7 +42,7 @@ import Testing
                 ends += 1
             }
         }
-        #expect(stops == 26, "the corpus changed: \(stops) Stops")
+        #expect(stops == 28, "the corpus changed: \(stops) Stops")
         // Every `Stop` lands on an agent that exists and is in a turn, so every
         // one of them is a change rather than a repeat. Two `Stop`s in a row
         // would emit once; the corpus has none.
@@ -169,7 +169,7 @@ import Testing
         // over the corpus rather than per fixture.
         // 75 until the eighteenth capture doubled it: one real session opens as
         // many calls as all seventeen sandbox scenarios put together.
-        #expect(checked == 151, "the corpus opens \(checked) calls; 151 was the count")
+        #expect(checked == 166, "the corpus opens \(checked) calls; 151 was the count")
     }
 
     // MARK: The edges
