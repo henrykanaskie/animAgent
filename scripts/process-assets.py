@@ -77,8 +77,8 @@ SHADOW_RGB = (167, 151, 150)
 
 # I7 ceiling is 0.25 saturation. Target below it so 8-bit rounding cannot push a
 # pixel over the line and fail the lint on a technicality.
-SAT_TARGET = 0.18
-SAT_SCALE = 0.35
+SAT_TARGET = 1.0
+SAT_SCALE = 1.0
 
 # Room values are squeezed into this band. Both ends are load-bearing.
 #
@@ -489,7 +489,7 @@ THEMES = {
         # 0.334 mean saturation**, which is the check `lint-palette.py` gained
         # when `briefing` overshot to 0.412. Characters own the saturation; that
         # half of I7 is not being spent here.
-        "prop_sat_scale": 0.85,
+        "prop_sat_scale": 1.0,
         "prop_sat_target": 1.0,
         "title": "Mission Control",
         "what": "a two-tier screen wall over a console row: the closest thing "
@@ -598,7 +598,7 @@ THEMES = {
         # 0.334 mean saturation**, which is the check `lint-palette.py` gained
         # when `briefing` overshot to 0.412. Characters own the saturation; that
         # half of I7 is not being spent here.
-        "prop_sat_scale": 0.85,
+        "prop_sat_scale": 1.0,
         "prop_sat_target": 1.0,
         "title": "Broadcast Studio",
         "what": "tripods everywhere: film cameras and softbox lights, a silhouette "
@@ -725,7 +725,7 @@ THEMES = {
         # (see `ANIMATED_ADOPTED`'s own comment for why it is not withdrawn)
         # means the check has to hold for the theme WITH its animated prop in
         # it, not for the static roles alone.
-        "prop_sat_scale": 0.90,
+        "prop_sat_scale": 1.0,
         "prop_sat_target": 1.0,
         "roles": {
             # **Narrowed from 26 to 8 at M7e.** 26 is the reading desk *with the
@@ -800,7 +800,7 @@ THEMES = {
         # 0.334 mean saturation**, which is the check `lint-palette.py` gained
         # when `briefing` overshot to 0.412. Characters own the saturation; that
         # half of I7 is not being spent here.
-        "prop_sat_scale": 0.85,
+        "prop_sat_scale": 1.0,
         "prop_sat_target": 1.0,
         "title": "Rehearsal Room",
         "what": "a drum kit and a row of mic stands; the only theme whose "
@@ -918,7 +918,7 @@ THEMES = {
         # `scenery`, is 0.897 raw and 0.673 scaled), so it is not doing any
         # clipping: it is left at 1.0 rather than removed so the two knobs
         # keep reading as a pair with `office`'s and `library`'s entries.
-        "prop_sat_scale": 0.75,
+        "prop_sat_scale": 1.0,
         "prop_sat_target": 1.0,
         "prop_value_floor": 0.10,
         "prop_value_ceil": 1.0,

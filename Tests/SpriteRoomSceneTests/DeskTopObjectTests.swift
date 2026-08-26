@@ -315,14 +315,21 @@ struct DeskMonitorArtTests {
 
     @Test func everyPixelClearsTheRoomSaturationCeilingAndSitsInsideTheValueBand() {
         let bitmap = DeskMonitorArt.bitmap()
-        var darkest = 1.0, brightest = 0.0, sawInk = false
+        var darkest = 1.0, brightest = 0.0, loudest = 0.0, sawInk = false
         for y in 0..<bitmap.height {
             for x in 0..<bitmap.width where bitmap.at(x, y).a > 0 {
                 sawInk = true
                 let pixel = bitmap.at(x, y)
                 let sat = Self.saturation(pixel)
                 let val = Self.value(pixel)
-                #expect(sat <= 0.25, "(\(x),\(y)) saturation \(sat) exceeds the room's 25% ceiling")
+                // **The 25% saturation ceiling is gone [ADR-015]**, on the
+                // maintainer's instruction that nothing be desaturated. The
+                // value band below is NOT gone and is the half of I7 that
+                // carries legibility at 32 px, so it is still asserted per
+                // pixel. Saturation is measured and reported rather than
+                // dropped, because "did this object get louder" should stay a
+                // question a run can answer.
+                loudest = max(loudest, sat)
                 #expect(val >= 0.55, "(\(x),\(y)) value \(val) is under the room's 0.55 floor")
                 #expect(val <= 0.92, "(\(x),\(y)) value \(val) is over the room's 0.92 ceiling")
                 darkest = min(darkest, val)
@@ -330,6 +337,9 @@ struct DeskMonitorArtTests {
             }
         }
         #expect(sawInk, "the monitor has no opaque pixels")
+        print(String(format: "DESK MONITOR: loudest pixel saturation %.3f "
+                     + "(no ceiling since ADR-015), value %.3f...%.3f",
+                     loudest, darkest, brightest))
         // The screen is the loudest thing this object draws and it still does
         // not reach the room's own ceiling: see `DeskMonitorArt.screen`'s doc
         // comment for the 0.183-precedent this measures against.
@@ -339,9 +349,15 @@ struct DeskMonitorArtTests {
     /// Pinned as exact bytes, not described, so a future edit cannot drift the
     /// "sampled from the pack" claim without this test noticing.
     @Test func thePaletteIsExactlyThreeColoursAndTheyAreTheOnesDocumented() {
-        #expect(DeskMonitorArt.outline == Bitmap.RGBA(154, 154, 170))
-        #expect(DeskMonitorArt.screen == Bitmap.RGBA(182, 198, 222))
-        #expect(DeskMonitorArt.statusDot == Bitmap.RGBA(159, 159, 175))
+        // **Re-sampled at ADR-015**, which put the room on the pack's own
+        // saturation. Each is the SAME source pixel as the byte it replaced:
+        // identical value and identical hue, differing only in saturation.
+        // `thePaletteIsReallySampledFromTheShippedPackFiles` is what proves
+        // they are really in the pack's processed files; this pins the bytes so
+        // a later edit cannot drift the claim quietly.
+        #expect(DeskMonitorArt.outline == Bitmap.RGBA(123, 123, 170))     // was (154,154,170), v 0.667, hue 240
+        #expect(DeskMonitorArt.screen == Bitmap.RGBA(66, 129, 222))       // was (182,198,222), v 0.871, hue 216
+        #expect(DeskMonitorArt.statusDot == Bitmap.RGBA(130, 130, 175))   // was (159,159,175), v 0.686, hue 240
 
         let allowed: Set<[UInt8]> = [
             DeskMonitorArt.outline, DeskMonitorArt.screen, DeskMonitorArt.statusDot,

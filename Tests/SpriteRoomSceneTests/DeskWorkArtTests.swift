@@ -50,8 +50,13 @@ struct DeskWorkArtTests {
                     let s = Self.saturation(pixel)
                     #expect(v >= Self.valueFloor && v <= Self.valueCeiling,
                             "\(kind.rawValue) at (\(x), \(y)) has value \(v)")
-                    #expect(s <= Self.saturationCeiling,
-                            "\(kind.rawValue) at (\(x), \(y)) has saturation \(s)")
+                    // **The saturation ceiling is retired [ADR-015]**: the
+                    // maintainer asked that nothing be desaturated, so the room
+                    // now runs at the pack's own saturation and authored art
+                    // sampled from it follows. The value band above is the half
+                    // of I7 that was NOT spent, and it is still asserted per
+                    // pixel here, which is the point of keeping this test.
+                    _ = s
                 }
             }
         }

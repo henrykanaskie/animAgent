@@ -1225,24 +1225,40 @@ def main(argv=None):
             "cast saturation: no character pixel could be measured, so there is "
             "nothing to hold the room's own saturation under. Refusing to guess it.")
     else:
+        # **ADR-015 retires this as a failure and keeps it as a measurement.**
+        #
+        # The maintainer, 2026-08-26: *"there should be no desaturation for
+        # anything. everything should be fully saturated."* That is the
+        # saturation half of I7 spent in full, deliberately and by the person it
+        # belongs to. Every theme now runs at the pack's own saturation
+        # (`prop_sat_scale`/`prop_sat_target` are 1.0 everywhere, and so are the
+        # global `SAT_SCALE`/`SAT_TARGET`), and one theme, `briefing` at 0.391
+        # against the cast's 0.334, is louder than the cast as a result.
+        #
+        # **What is NOT spent, and is still enforced above:** the value half.
+        # Characters still own the darkest pixel on screen, cast 0.314 against
+        # the room's 0.361, and `MIN_VALUE_CONTRAST` did not move. That half is
+        # what carries legibility at 32 px, which is the argument I7 was making;
+        # the saturation half was the taste half, and taste is the maintainer's.
+        #
+        # So the numbers are still measured, still printed on every run, and a
+        # theme that goes over is still **named** in the report. It simply no
+        # longer fails the build. Deleting the measurement would have been the
+        # wrong way to do this: the next person to wonder whether the room got
+        # louder than the cast should be able to read the answer, not rediscover
+        # the question.
+        loud = []
         if room_mean_sat >= cast_mean_sat:
-            failures.append(
-                "room saturation vs cast: room mean saturation %.3f is not under "
-                "the cast's own mean saturation %.3f: the room is as loud or "
-                "louder than the characters, which I7 forbids on the saturation "
-                "axis as plainly as it forbids the room owning the darkest pixel "
-                "on the value axis"
-                % (room_mean_sat, cast_mean_sat))
+            loud.append(("room", room_mean_sat))
         for tname in sorted(theme_stats):
-            tmean_sat = theme_stats[tname]["mean_sat"]
-            if tmean_sat >= cast_mean_sat:
-                failures.append(
-                    "theme %s saturation vs cast: theme mean saturation %.3f is not "
-                    "under the cast's own mean saturation %.3f: the room is as loud "
-                    "or louder than the characters, which I7 forbids on the "
-                    "saturation axis as plainly as it forbids the room owning the "
-                    "darkest pixel on the value axis"
-                    % (tname, tmean_sat, cast_mean_sat))
+            if theme_stats[tname]["mean_sat"] >= cast_mean_sat:
+                loud.append((tname, theme_stats[tname]["mean_sat"]))
+        if loud:
+            print("sat vs cast: %d scope(s) at or above the cast's %.3f mean "
+                  "saturation, ALLOWED by ADR-015 (the maintainer asked for full "
+                  "saturation; I7's value half is untouched and still enforced): %s"
+                  % (len(loud), cast_mean_sat,
+                     ", ".join("%s %.3f" % (n, v) for n, v in loud)))
 
     # --- costumes ---------------------------------------------------------
     #

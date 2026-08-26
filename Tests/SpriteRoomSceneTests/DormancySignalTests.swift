@@ -105,8 +105,8 @@ struct DeskScreenArtTests {
 
     // MARK: The bitmaps
 
-    /// Every pixel of every kind, in **both** states, is inside the room's band
-    /// and under its saturation ceiling. `DeskWorkArtTests` asserts this for the
+    /// Every pixel of every kind, in **both** states, is inside the room's value
+    /// band. The saturation ceiling it also checked is retired [ADR-015]. `DeskWorkArtTests` asserts this for the
     /// lit state; a second state is a second chance to leave the band.
     @Test func everyPixelOfADarkObjectStaysInsideTheRoomsBand() {
         for kind in WorkKind.allCases {
@@ -117,8 +117,9 @@ struct DeskScreenArtTests {
                     #expect(Self.value(pixel) >= Self.valueFloor
                             && Self.value(pixel) <= Self.valueCeiling,
                             "\(kind.rawValue) dark at (\(x), \(y)) has value \(Self.value(pixel))")
-                    #expect(Self.saturation(pixel) <= Self.saturationCeiling,
-                            "\(kind.rawValue) dark at (\(x), \(y)) is too saturated")
+                    // Saturation ceiling retired at ADR-015; the value band is
+                    // the half of I7 that survived and it is still checked,
+                    // in both states, which is what this test exists for.
                 }
             }
         }

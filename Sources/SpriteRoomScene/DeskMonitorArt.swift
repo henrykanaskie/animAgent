@@ -74,10 +74,16 @@ enum DeskMonitorArt {
     /// a new invention: it already cleared I7 once, four times over, before
     /// this file existed.
     ///
-    /// Saturation **0.094**, value **0.667**: both well inside the room's
-    /// measured band, `[0.55, 0.92]` value and 25% saturation
+    /// Value **0.667**, inside the room's measured `[0.55, 0.92]` band
     /// (`04-ART-DIRECTION.md`, "The palette rule is now a build step").
-    static let outline = Bitmap.RGBA(154, 154, 170)
+    ///
+    /// **Re-sampled at ADR-015**, which put every theme and the room itself on
+    /// the pack's own saturation. It was `(154, 154, 170)` at saturation 0.094.
+    /// This is the **same source pixel**: identical value 0.667 and identical
+    /// hue 240 deg, at the saturation the pack drew it with, 0.276. The 25%
+    /// saturation ceiling this comment used to cite no longer applies to any
+    /// room art; the value band it also cites is unchanged and still does.
+    static let outline = Bitmap.RGBA(123, 123, 170)
 
     /// The pack's own **lit-screen** ink: sampled from
     /// `Modern_Office_Singles_32x32_135.png` (the declared `laptop` single)
@@ -88,21 +94,31 @@ enum DeskMonitorArt {
     ///
     /// **This is the "lit screen" budget the brief names.** The `laptop`
     /// declaration's own screen measures saturation 0.183 against the room's
-    /// 0.25 ceiling; this colour measures **0.180**: the same pixel, to
-    /// within a rounding step, because it is the same file. Value **0.871**,
-    /// under the room's 0.92 ceiling. A lit screen is the one place this
-    /// object is allowed to be the brightest, most saturated thing it draws,
-    /// and it still does not reach the room's own ceiling, let alone a
-    /// character's.
-    static let screen = Bitmap.RGBA(182, 198, 222)
+    /// **Re-sampled at ADR-015.** It was `(182, 198, 222)` at saturation 0.180,
+    /// chosen when the room ran on a 25% saturation ceiling. This is the same
+    /// source pixel at the pack's own saturation: identical value **0.871**,
+    /// identical hue **216 deg**, saturation **0.703**.
+    ///
+    /// A lit screen is the one place this object is allowed to be the
+    /// brightest thing it draws, and it still sits under the room's 0.92 value
+    /// ceiling. It is no longer under the cast on the saturation axis, and that
+    /// is ADR-015's whole point rather than an oversight: the maintainer asked
+    /// for full saturation, I7's saturation half is spent, and its value half,
+    /// the one that carries legibility at 32 px, is untouched.
+    static let screen = Bitmap.RGBA(66, 129, 222)
 
-    /// A second, slightly darker neutral for the two status dots on the
-    /// screen: `(159, 159, 175)`, also present in `desk`, `laptop`, `papers`
-    /// and `pad`'s own top colours. Saturation **0.091**, value **0.686**.
+    /// A second, slightly darker ink for the two status dots on the screen,
+    /// also present in `desk`, `laptop`, `papers` and `pad`'s own colours.
+    /// Value **0.686**, hue **240 deg**.
+    ///
     /// Its only job is to keep the screen from being one flat rectangle of
     /// `screen`, the way `laptop`'s own single is described in the manifest as
     /// showing "two faint icon dots".
-    static let statusDot = Bitmap.RGBA(159, 159, 175)
+    ///
+    /// **Re-sampled at ADR-015** from `(159, 159, 175)`, saturation 0.091: the
+    /// same source pixel at the pack's saturation, 0.257, with the value and
+    /// hue unmoved.
+    static let statusDot = Bitmap.RGBA(130, 130, 175)
 
     /// **The screen with nothing on it**: `(141, 141, 141)`, saturation
     /// **0.000**, value **0.553**.
