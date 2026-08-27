@@ -435,7 +435,7 @@ enum SceneArt {
     /// it, that the wrap is total, and (through `deskKitLift`) that *no* object
     /// of *any* height can rise above its own desk's back edge. A fresh clone
     /// still checks the whole rule; what it cannot check is the four files.
-    static let expectedGatedTestCount = 116
+    static let expectedGatedTestCount = 120
 
     /// The notice, as a pure function of what was surveyed, so the two branches
     /// this machine cannot reach can still be rendered and asserted on.
