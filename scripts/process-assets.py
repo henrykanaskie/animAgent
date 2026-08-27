@@ -495,6 +495,10 @@ THEMES = {
         "what": "a two-tier screen wall over a console row: the closest thing "
                 "to a launch control room that the packs we own can build",
         "floor": (28, 8),       # fine square grid, cool grey, transformed 0.722
+        # [M9 Phase 2] Two lighter steps rather than one each way: this floor
+        # is already the darkest of the six at 0.463 and its family offers
+        # nothing darker that is not another theme's. 0.652 and 0.566.
+        "floors_extra": {"comms": (16, 9), "plant_room": (11, 13)},
         "wall": (30, 27),       # pale cool grey-blue, 0.909: the screens need
                                 # something bright behind them, and this is the
                                 # only theme whose wall is not warm
@@ -604,6 +608,9 @@ THEMES = {
         "what": "tripods everywhere: film cameras and softbox lights, a silhouette "
                 "no other theme has",
         "floor": (16, 8),       # pale diagonal, 0.788
+        # [M9 Phase 2] 0.805 and 0.494 against this floor's 0.650, same hue
+        # family (248 and 259 against 231).
+        "floors_extra": {"gallery": (5, 2), "green_room": (17, 5)},
         "wall": (2, 5),         # near-white, 0.882: a bright studio
         # **Measured for the office/briefing pack-value policy at the M8
         # palette-pass task, and NOT moved onto it: the only one of the four
@@ -806,6 +813,9 @@ THEMES = {
         "what": "a drum kit and a row of mic stands; the only theme whose "
                 "back wall is not a rectangle",
         "floor": (10, 8),       # herringbone, 0.765
+        # [M9 Phase 2] 0.742 and 0.447 against this floor's 0.586, hues 24 and
+        # 30 against its 20.
+        "floors_extra": {"wings": (11, 2), "store": (17, 13)},
         "wall": (0, 4),         # plain light, 0.863
         # **Measured for the office/briefing pack-value policy at the M8
         # palette-pass task, and NOT moved onto it: the closest of the four,
@@ -854,6 +864,10 @@ THEMES = {
         "what": "a lectern facing a wall of hanging curtain: reads as a hall "
                 "rather than a workspace",
         "floor": (14, 8),       # large block tile, 0.769
+        # [M9 Phase 2] Two more finishes for the back rooms, off the same sheet
+        # and inside 30 degrees of this floor's own hue, one step lighter
+        # and one step darker: pack means 0.743 and 0.447 against 0.592.
+        "floors_extra": {"annex": (36, 10), "store": (19, 13)},
         "wall": (8, 26),        # blue, 0.859
         # ADR-011 amendment, extended to a second theme. `office`'s props and
         # room tiles moved to the pack's own value and saturation because the

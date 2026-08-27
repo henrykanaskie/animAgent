@@ -6275,10 +6275,14 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/briefing/32x32/builder/flat_floor.png",
+            "assets/processed/themes/briefing/32x32/builder/flat_floor_annex.png",
+            "assets/processed/themes/briefing/32x32/builder/flat_floor_store.png",
             "assets/processed/themes/briefing/32x32/builder/flat_plan_body.png",
             "assets/processed/themes/briefing/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/briefing/32x32/builder/flat_wall.png",
             "assets/processed/themes/briefing/32x32/builder/floor.png",
+            "assets/processed/themes/briefing/32x32/builder/floor_annex.png",
+            "assets/processed/themes/briefing/32x32/builder/floor_store.png",
             "assets/processed/themes/briefing/32x32/builder/plan_body.png",
             "assets/processed/themes/briefing/32x32/builder/plan_cap.png",
             "assets/processed/themes/briefing/32x32/builder/wall.png"
@@ -6578,6 +6582,36 @@
                 253,
                 253
               ]
+            },
+            "briefing_annex": {
+              "floor": "assets/processed/themes/briefing/32x32/builder/floor_annex.png",
+              "cap": "assets/processed/themes/briefing/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/briefing/32x32/builder/plan_body.png",
+              "line_edge": [
+                71,
+                71,
+                98
+              ],
+              "line_fill": [
+                253,
+                253,
+                253
+              ]
+            },
+            "briefing_store": {
+              "floor": "assets/processed/themes/briefing/32x32/builder/floor_store.png",
+              "cap": "assets/processed/themes/briefing/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/briefing/32x32/builder/plan_body.png",
+              "line_edge": [
+                71,
+                71,
+                98
+              ],
+              "line_fill": [
+                253,
+                253,
+                253
+              ]
             }
           },
           "spaces": [
@@ -6604,12 +6638,28 @@
               "surface": "briefing"
             },
             {
-              "name": "back",
+              "name": "annex",
               "x": 2,
               "y": 9,
-              "w": 21,
+              "w": 8,
+              "h": 3,
+              "surface": "briefing_annex"
+            },
+            {
+              "name": "back",
+              "x": 10,
+              "y": 9,
+              "w": 6,
               "h": 3,
               "surface": "briefing"
+            },
+            {
+              "name": "store",
+              "x": 16,
+              "y": 9,
+              "w": 7,
+              "h": 3,
+              "surface": "briefing_store"
             }
           ],
           "partitions": [
@@ -6622,6 +6672,16 @@
               "x": 23,
               "y": -6,
               "h": 18
+            },
+            {
+              "x": 10,
+              "y": 9,
+              "h": 3
+            },
+            {
+              "x": 16,
+              "y": 9,
+              "h": 3
             }
           ],
           "dressing": [
@@ -6910,10 +6970,14 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/broadcast/32x32/builder/flat_floor.png",
+            "assets/processed/themes/broadcast/32x32/builder/flat_floor_gallery.png",
+            "assets/processed/themes/broadcast/32x32/builder/flat_floor_green_room.png",
             "assets/processed/themes/broadcast/32x32/builder/flat_plan_body.png",
             "assets/processed/themes/broadcast/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/broadcast/32x32/builder/flat_wall.png",
             "assets/processed/themes/broadcast/32x32/builder/floor.png",
+            "assets/processed/themes/broadcast/32x32/builder/floor_gallery.png",
+            "assets/processed/themes/broadcast/32x32/builder/floor_green_room.png",
             "assets/processed/themes/broadcast/32x32/builder/plan_body.png",
             "assets/processed/themes/broadcast/32x32/builder/plan_cap.png",
             "assets/processed/themes/broadcast/32x32/builder/wall.png"
@@ -7213,6 +7277,36 @@
                 234,
                 234
               ]
+            },
+            "broadcast_gallery": {
+              "floor": "assets/processed/themes/broadcast/32x32/builder/floor_gallery.png",
+              "cap": "assets/processed/themes/broadcast/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/broadcast/32x32/builder/plan_body.png",
+              "line_edge": [
+                123,
+                123,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            },
+            "broadcast_green_room": {
+              "floor": "assets/processed/themes/broadcast/32x32/builder/floor_green_room.png",
+              "cap": "assets/processed/themes/broadcast/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/broadcast/32x32/builder/plan_body.png",
+              "line_edge": [
+                123,
+                123,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
             }
           },
           "spaces": [
@@ -7239,12 +7333,28 @@
               "surface": "broadcast"
             },
             {
-              "name": "back",
+              "name": "gallery",
               "x": 2,
               "y": 9,
-              "w": 21,
+              "w": 8,
+              "h": 3,
+              "surface": "broadcast_gallery"
+            },
+            {
+              "name": "back",
+              "x": 10,
+              "y": 9,
+              "w": 6,
               "h": 3,
               "surface": "broadcast"
+            },
+            {
+              "name": "green_room",
+              "x": 16,
+              "y": 9,
+              "w": 7,
+              "h": 3,
+              "surface": "broadcast_green_room"
             }
           ],
           "partitions": [
@@ -7257,6 +7367,16 @@
               "x": 23,
               "y": -6,
               "h": 18
+            },
+            {
+              "x": 10,
+              "y": 9,
+              "h": 3
+            },
+            {
+              "x": 16,
+              "y": 9,
+              "h": 3
             }
           ],
           "dressing": [
@@ -8246,10 +8366,14 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/mission_control/32x32/builder/flat_floor.png",
+            "assets/processed/themes/mission_control/32x32/builder/flat_floor_comms.png",
+            "assets/processed/themes/mission_control/32x32/builder/flat_floor_plant_room.png",
             "assets/processed/themes/mission_control/32x32/builder/flat_plan_body.png",
             "assets/processed/themes/mission_control/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/mission_control/32x32/builder/flat_wall.png",
             "assets/processed/themes/mission_control/32x32/builder/floor.png",
+            "assets/processed/themes/mission_control/32x32/builder/floor_comms.png",
+            "assets/processed/themes/mission_control/32x32/builder/floor_plant_room.png",
             "assets/processed/themes/mission_control/32x32/builder/plan_body.png",
             "assets/processed/themes/mission_control/32x32/builder/plan_cap.png",
             "assets/processed/themes/mission_control/32x32/builder/wall.png"
@@ -8583,6 +8707,36 @@
                 234,
                 234
               ]
+            },
+            "mission_control_comms": {
+              "floor": "assets/processed/themes/mission_control/32x32/builder/floor_comms.png",
+              "cap": "assets/processed/themes/mission_control/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/mission_control/32x32/builder/plan_body.png",
+              "line_edge": [
+                112,
+                112,
+                154
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            },
+            "mission_control_plant_room": {
+              "floor": "assets/processed/themes/mission_control/32x32/builder/floor_plant_room.png",
+              "cap": "assets/processed/themes/mission_control/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/mission_control/32x32/builder/plan_body.png",
+              "line_edge": [
+                112,
+                112,
+                154
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
             }
           },
           "spaces": [
@@ -8609,12 +8763,28 @@
               "surface": "mission_control"
             },
             {
-              "name": "back",
+              "name": "comms",
               "x": 2,
               "y": 9,
-              "w": 21,
+              "w": 8,
+              "h": 3,
+              "surface": "mission_control_comms"
+            },
+            {
+              "name": "back",
+              "x": 10,
+              "y": 9,
+              "w": 6,
               "h": 3,
               "surface": "mission_control"
+            },
+            {
+              "name": "plant_room",
+              "x": 16,
+              "y": 9,
+              "w": 7,
+              "h": 3,
+              "surface": "mission_control_plant_room"
             }
           ],
           "partitions": [
@@ -8627,6 +8797,16 @@
               "x": 23,
               "y": -6,
               "h": 18
+            },
+            {
+              "x": 10,
+              "y": 9,
+              "h": 3
+            },
+            {
+              "x": 16,
+              "y": 9,
+              "h": 3
             }
           ],
           "dressing": [
@@ -9931,10 +10111,14 @@
         "builder": {
           "tiles": [
             "assets/processed/themes/stage/32x32/builder/flat_floor.png",
+            "assets/processed/themes/stage/32x32/builder/flat_floor_store.png",
+            "assets/processed/themes/stage/32x32/builder/flat_floor_wings.png",
             "assets/processed/themes/stage/32x32/builder/flat_plan_body.png",
             "assets/processed/themes/stage/32x32/builder/flat_plan_cap.png",
             "assets/processed/themes/stage/32x32/builder/flat_wall.png",
             "assets/processed/themes/stage/32x32/builder/floor.png",
+            "assets/processed/themes/stage/32x32/builder/floor_store.png",
+            "assets/processed/themes/stage/32x32/builder/floor_wings.png",
             "assets/processed/themes/stage/32x32/builder/plan_body.png",
             "assets/processed/themes/stage/32x32/builder/plan_cap.png",
             "assets/processed/themes/stage/32x32/builder/wall.png"
@@ -10234,6 +10418,36 @@
                 234,
                 234
               ]
+            },
+            "stage_store": {
+              "floor": "assets/processed/themes/stage/32x32/builder/floor_store.png",
+              "cap": "assets/processed/themes/stage/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/stage/32x32/builder/plan_body.png",
+              "line_edge": [
+                123,
+                123,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
+            },
+            "stage_wings": {
+              "floor": "assets/processed/themes/stage/32x32/builder/floor_wings.png",
+              "cap": "assets/processed/themes/stage/32x32/builder/plan_cap.png",
+              "body": "assets/processed/themes/stage/32x32/builder/plan_body.png",
+              "line_edge": [
+                123,
+                123,
+                170
+              ],
+              "line_fill": [
+                234,
+                234,
+                234
+              ]
             }
           },
           "spaces": [
@@ -10260,12 +10474,28 @@
               "surface": "stage"
             },
             {
-              "name": "back",
+              "name": "wings",
               "x": 2,
               "y": 9,
-              "w": 21,
+              "w": 8,
+              "h": 3,
+              "surface": "stage_wings"
+            },
+            {
+              "name": "back",
+              "x": 10,
+              "y": 9,
+              "w": 6,
               "h": 3,
               "surface": "stage"
+            },
+            {
+              "name": "store",
+              "x": 16,
+              "y": 9,
+              "w": 7,
+              "h": 3,
+              "surface": "stage_store"
             }
           ],
           "partitions": [
@@ -10278,6 +10508,16 @@
               "x": 23,
               "y": -6,
               "h": 18
+            },
+            {
+              "x": 10,
+              "y": 9,
+              "h": 3
+            },
+            {
+              "x": 16,
+              "y": 9,
+              "h": 3
             }
           ],
           "dressing": [

@@ -965,7 +965,19 @@ WALL_BAND_PARTITIONS = [
 # middle room reads as continuous with the floor in front of it and the two
 # flanking rooms as somewhere else.
 BACK_ROOMS = {
-    "library": [("stacks", 2, 8), (None, 10, 6), ("study", 16, 7)],
+    # `(surface_key, x, w)`, on office's own geometry: boundaries at tiles 10
+    # and 16, both clear of every seat column, at `y = 9` which is above every
+    # row a character walks. A `None` key keeps the theme's base surface, so the
+    # middle room reads as continuous with the floor in front of it and the two
+    # flanking rooms as somewhere else.
+    #
+    # The names are the room's, not the mechanism's: they appear in the
+    # manifest's `plan.spaces` and are what a reader sees when they open it.
+    "library":         [("stacks", 2, 8), (None, 10, 6), ("study", 16, 7)],
+    "briefing":        [("annex", 2, 8), (None, 10, 6), ("store", 16, 7)],
+    "broadcast":       [("gallery", 2, 8), (None, 10, 6), ("green_room", 16, 7)],
+    "mission_control": [("comms", 2, 8), (None, 10, 6), ("plant_room", 16, 7)],
+    "stage":           [("wings", 2, 8), (None, 10, 6), ("store", 16, 7)],
 }
 
 
