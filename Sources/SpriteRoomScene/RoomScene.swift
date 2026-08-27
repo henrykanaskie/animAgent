@@ -151,8 +151,52 @@ public final class RoomScene: SKScene {
         world.root.position = CGPoint(x: 0, y: CGFloat(Double(rooms.count) * roomPitch))
         rooms.append((project: project, world: world))
         addChild(world.root)
+        refreshRoomLabels()
         applyScale()
         return world
+    }
+
+    /// **Rooms are labelled only when there is more than one.** [ADR-016]
+    ///
+    /// A single-project run has no "whose room is this" question to answer, so
+    /// it draws no label and its pixels stay exactly what they were. That is
+    /// not a nicety: `lint-palette.py`'s scene agreement compares this scene to
+    /// an independent transcription pixel for pixel, and a caption it does not
+    /// model would fail it, correctly.
+    ///
+    /// The label is set from the display name the app hands over, which is the
+    /// same string the menu bar already shows for that project.
+    private func refreshRoomLabels() {
+        let many = rooms.count > 1
+        for entry in rooms {
+            entry.world.setLabel(many ? (labels[entry.project] ?? Self.tail(entry.project)) : nil)
+        }
+    }
+
+    /// **The last path component, as the fallback when the app has not handed
+    /// over a display name yet.**
+    ///
+    /// A room can be created part-way through a frame, before `RoomHost` has
+    /// recomputed the roster's names, and the first draft fell back to the
+    /// **whole `cwd`**: the panel showed `/USERS/HE...` truncated to a plate's
+    /// width, which is the one thing a label must never be. A full path is
+    /// never the right answer at this size, whoever is asking.
+    ///
+    /// This is not the app's `displayNames`, and deliberately not: that
+    /// function disambiguates *across the roster*, taking as many trailing
+    /// components as it needs to make every name unique, and that is a question
+    /// about the whole set which the scene has no business answering. This is
+    /// only a floor: something readable until the real answer arrives, which is
+    /// on the next frame.
+    nonisolated static func tail(_ project: String) -> String {
+        project.split(separator: "/").last.map(String.init) ?? project
+    }
+
+    /// Display names, by project. Set by the app; the scene never derives one,
+    /// because turning a `cwd` into something short enough to read is a
+    /// question about the whole roster and not about any one room.
+    public var labels: [String: String] = [:] {
+        didSet { refreshRoomLabels() }
     }
 
     /// Which room a project is drawn in, or `nil` if it has never been seen.

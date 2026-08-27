@@ -1772,6 +1772,80 @@ public final class RoomWorld {
         positionOverflowPlate(in: lastCameraFrame)
     }
 
+    // MARK: Whose room this is [M9 Phase 4]
+
+    private var labelNode: SKSpriteNode?
+    private var labelText: String?
+
+    /// What this room is captioned, or `nil` when it draws no caption.
+    var labelForTesting: String? { labelNode?.isHidden == false ? labelText : nil }
+
+    /// **The project's own name, on its own room.**
+    ///
+    /// A stack of rooms answers "how many agents are running" and immediately
+    /// raises the question it did not have to answer before: *whose*. Two
+    /// projects each drawing a main agent both draw a plate reading `MAIN`, and
+    /// without this the two are indistinguishable, which makes the extra room
+    /// worse than useless: it states a population honestly and attributes it to
+    /// nobody.
+    ///
+    /// **It is the `cwd`'s display name and nothing else.** `docs/01-PRD.md`
+    /// permits exactly this and says so in as many words: *"`cwd` is a routing
+    /// key and a display string, nothing else."* No file under it is opened,
+    /// stated or watched to produce this, and the same string already names the
+    /// project in the menu bar.
+    ///
+    /// **`nil` takes it down, and one room passes `nil`.** A single-project run
+    /// has no question to answer, so it draws no label and its pixels are
+    /// exactly what they were: that is what keeps `lint-palette.py`'s
+    /// scene-agreement comparison meaning something.
+    ///
+    /// Drawn in the nameplate band, above every body and every prop, for the
+    /// same reason the overflow plate is: it is lettering about the room rather
+    /// than a thing in it.
+    func setLabel(_ text: String?) {
+        guard let text, !text.isEmpty else {
+            labelText = nil
+            labelNode?.isHidden = true
+            return
+        }
+        labelText = text
+        let bitmap = SceneBitmaps.nameplate(
+            NameplateText(lead: text), accent: SceneBitmaps.nameplatePlate)
+        guard let texture = store.texture(bitmap: bitmap, key: "roomLabel:\(text)") else {
+            labelNode?.isHidden = true
+            return
+        }
+        let node: SKSpriteNode
+        if let existing = labelNode {
+            node = existing
+        } else {
+            node = SKSpriteNode()
+            node.anchorPoint = CGPoint(x: 0, y: 1)
+            node.zPosition = Character.Layer.nameplate
+            root.addChild(node)
+            labelNode = node
+        }
+        node.texture = texture
+        node.size = CGSize(width: bitmap.width, height: bitmap.height)
+        node.isHidden = false
+        // **Top-left of the content band, not of the plan.**
+        //
+        // The plan's own top is the obvious place and it is wrong: the camera
+        // frames the *content band*, so a label at the plan's ceiling is above
+        // the frame on every room but the top one of a stack. The first draft
+        // put it there and the upper room's label was cropped clean off.
+        //
+        // The band's top is inside the frame by construction, and the left edge
+        // is clear by measurement rather than by hope: the plan starts at tile
+        // 2 (x = 64) and the leftmost seat column is x = 112 with a 16 px
+        // half-body, so nothing the cast draws reaches x = 96. The plate is in
+        // the nameplate band in any case, above every prop.
+        let plan = store.room.plan
+        let left = Double((plan.spaces.map(\.x).min() ?? 2) * layout.tile)
+        node.position = CGPoint(x: left + Double(layout.tile) / 2, y: contentBand.top)
+    }
+
     /// Puts the plate on its point, clamped into the camera's frame.
     ///
     /// The point (`RoomLayout.overflowPlatePosition`) is clear of every

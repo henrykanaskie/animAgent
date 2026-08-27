@@ -191,6 +191,27 @@ PROP_ROLES = {
 # A surface is a **finish**, not a room: `concrete` and `slab` name two floors
 # under one wall, because the walkway and the work floor are one room with two
 # materials in it and their shared north wall has to match.
+# **How much floor a room keeps in front of its delivery row.** [M9 Phase 2]
+#
+# It was **six** rows, and five of them were floor nothing ever stands on. The
+# rows a body can occupy are the delivery row (`y = 0`), the aisle (32), the two
+# seat rows (64 and 128) and the wall line a leaver fades at (224). Everything
+# below `y = 0` is apron: the nameplate hangs 13 px under the feet and that is
+# the whole of the claim on it.
+#
+# Two rows is 64 px, which is the plate's 13 with three tiles of margin, and it
+# is the number that makes a room **stackable**. `RoomScene.roomPitch` is the
+# plan's own span, so trimming the plan trims the pitch: 18 rows to 14, 576 px
+# to 448, a 22% cut in what one room costs a panel. Two rooms now want 640 px of
+# viewport where they wanted 768.
+#
+# **The paint follows the plan, which is why this works at all.** Outside a
+# space the room draws void rather than floor, so the plan's span *is* the
+# painted extent and the room above still lands exactly on the wall below.
+# `drawnRows`' overscan is unchanged and irrelevant here: it only paints where a
+# space says there is floor.
+APRON_ROWS = 2
+
 PLAN_SURFACES = {
     # name:      (floor,             cap,                body)
     "concrete":  ("tile_r07_c11.png", "tile_r07_c01.png", "tile_r08_c01.png"),
@@ -251,7 +272,7 @@ ROOM_PLAN = {
         # rule that replaced M5's foreground row is untouched: a floor is what
         # objects stand on, not an object. [ADR-007 §4, ADR-002 §1]
         {"name": "walkway", "surface": "concrete",
-         "x": 2, "y": -6, "w": 21, "h": 8, "band": False},
+         "x": 2, "y": -APRON_ROWS, "w": 21, "h": APRON_ROWS + 2, "band": False},
         # (`concrete` is the grey micro-tile and `slab` the pale one. The
         # walkway takes the darker of the two so the work floor behind it is the
         # lighter field the cast is read against: I7's "characters own the
@@ -282,8 +303,8 @@ ROOM_PLAN = {
         # nobody: the line at tile 2 spans x 57..71 against a leftmost seat body
         # at 96..128. `RoomPlan.routeViolations` is what checks that rather than
         # this comment.
-        {"x": 2, "y": -6, "h": 18},
-        {"x": 23, "y": -6, "h": 18},
+        {"x": 2, "y": -APRON_ROWS, "h": APRON_ROWS + 12},
+        {"x": 23, "y": -APRON_ROWS, "h": APRON_ROWS + 12},
     ],
 }
 
@@ -930,13 +951,14 @@ def build_plan(builder_tiles, dressing=None):
 # it already visually does, at `wallBaseY`, and moving that face would leave
 # every wall hang floating over open floor instead of mounted on one.
 WALL_BAND_SPACES = [
-    {"name": "walkway", "x": 2, "y": -6, "w": 21, "h": 8, "band": False},
+    {"name": "walkway", "x": 2, "y": -APRON_ROWS, "w": 21, "h": APRON_ROWS + 2,
+     "band": False},
     {"name": "open plan", "x": 2, "y": 2, "w": 21, "h": 7, "doorways": [6, 12, 18]},
     {"name": "back", "x": 2, "y": 9, "w": 21, "h": 3},
 ]
 WALL_BAND_PARTITIONS = [
-    {"x": 2, "y": -6, "h": 18},
-    {"x": 23, "y": -6, "h": 18},
+    {"x": 2, "y": -APRON_ROWS, "h": APRON_ROWS + 12},
+    {"x": 23, "y": -APRON_ROWS, "h": APRON_ROWS + 12},
 ]
 
 # **The back band, subdivided.** [M9 Phase 2]

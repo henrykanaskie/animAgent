@@ -272,6 +272,55 @@ import SpriteRoomCore
         #expect(!tall.rooms[1].world.root.isHidden)
     }
 
+    /// **A room says whose it is, and only when that is a question.**
+    ///
+    /// A stack answers "how many agents are running" and immediately raises one
+    /// it did not have to answer before: *whose*. Two projects each drawing a
+    /// main agent both draw a plate reading `MAIN`, so without a room label the
+    /// second room is worse than useless: an honest population attributed to
+    /// nobody.
+    ///
+    /// **One room draws no label**, and that is the assertion that keeps the
+    /// pixel gate honest: `lint-palette.py` compares this scene to an
+    /// independent transcription that knows nothing about captions, so a label
+    /// in a single-project render would fail it, correctly.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aRoomIsLabelledOnlyWhenThereIsMoreThanOne() throws {
+        let scene = try Self.scene()
+        scene.room(for: "/one/alpha", themeID: nil)
+        #expect(scene.rooms[0].world.labelForTesting == nil,
+                "a single room drew a label, which the pixel gate does not model")
+
+        scene.room(for: "/two/beta", themeID: nil)
+        #expect(scene.rooms[0].world.labelForTesting != nil, "room 0 lost its label")
+        #expect(scene.rooms[1].world.labelForTesting != nil, "room 1 never got one")
+    }
+
+    /// **The app's display name wins; the fallback is a tail, never a path.**
+    ///
+    /// A room can be built part-way through a frame, before `RoomHost` has
+    /// recomputed the roster's names. The first draft fell back to the whole
+    /// `cwd` and the panel showed `/USERS/HE...` truncated to a plate's width,
+    /// which is the one thing a label must never be.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func anUnnamedRoomFallsBackToItsLastPathComponent() throws {
+        let scene = try Self.scene()
+        scene.room(for: "/Users/someone/code/alpha", themeID: nil)
+        scene.room(for: "/private/tmp/deeply/nested/beta", themeID: nil)
+
+        #expect(scene.rooms[0].world.labelForTesting == "alpha", Comment(rawValue:
+            "an unnamed room labelled itself"
+            + " \(scene.rooms[0].world.labelForTesting ?? "nil")"))
+        #expect(scene.rooms[1].world.labelForTesting == "beta")
+
+        // And the app's own name, which disambiguates across the whole roster,
+        // takes precedence the moment it arrives.
+        scene.labels = ["/Users/someone/code/alpha": "code/alpha"]
+        #expect(scene.rooms[0].world.labelForTesting == "code/alpha")
+        #expect(scene.rooms[1].world.labelForTesting == "beta",
+                "a name for one room changed another room's")
+    }
+
     /// **Each project's main agent gets seat 0 of its own room.**
     ///
     /// This is the defect `TwoProjectDirectorTests` measured on the shipped

@@ -241,6 +241,10 @@ final class RoomHost {
         // the menu bar is talking about, and it is what a theme pick applies
         // to. It is no longer what the panel is allowed to draw.
         binding.apply(deltas, at: now)
+        // The same display names the menu bar shows. A room only draws one when
+        // there is more than one room, which the scene decides. [ADR-016]
+        binding.scene.labels = ProjectRegistry.displayNames(
+            for: binding.scene.rooms.map(\.project))
         growPanelIfANewRoomAppeared()
         // **Outside the selection, deliberately.** The lamp is about this
         // process, not about the project on screen, so it is drawn on a panel
