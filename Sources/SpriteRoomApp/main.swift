@@ -891,6 +891,12 @@ final class PanelDelegate: NSObject, NSApplicationDelegate {
                 themes: ThemeCatalog.declared(in: manifest),
                 themeStore: themeStore)
             let controller = NotchPanelController(contentView: host.view, size: .room)
+            // The panel grows when a second project appears and never shrinks
+            // below the size one room has always asked for. [ADR-016 §4]
+            host.onViewportWanted = { [weak controller] size in
+                controller?.resize(to: PanelSize(
+                    width: Double(size.width), height: Double(size.height)))
+            }
             let selector = ProjectSelector(
                 credit: manifest.credit.text, creditURL: manifest.credit.url)
             connect(host: host, selector: selector)

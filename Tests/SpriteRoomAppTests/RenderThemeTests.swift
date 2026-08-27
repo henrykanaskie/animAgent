@@ -206,3 +206,69 @@ struct RenderThemeTests {
         #expect(text.contains("derives from the fixture's cwd"))
     }
 }
+
+/// **The panel grows when a second project appears.** [ADR-016 §4]
+///
+/// The height was a taste constant for this app's whole life and one room still
+/// asks for exactly what it always did. What changed is that the room count is
+/// no longer always one, and a stack taller than the frame is counted rather
+/// than drawn, so a panel that never grows means a second project can never be
+/// seen at all.
+@MainActor
+@Suite struct PanelGrowthTests {
+
+    /// Loaded once, the way every other suite in this target does it. The
+    /// manifest is tracked, so it is present on any checkout.
+    static let manifest: Manifest? = try? Manifest.load(root: Manifest.developmentRoot())
+
+    /// A single project asks for nothing new, which is the property that keeps
+    /// every existing panel measurement true.
+    @Test(.enabled(if: PanelWindowServer.isAvailable))
+    func oneProjectAsksForTheHeightItAlwaysAskedFor() throws {
+        let manifest = try #require(Self.manifest)
+        let host = RoomHost(manifest: manifest,
+                            viewport: CGSize(width: 720, height: 400))
+        var asked: [CGSize] = []
+        host.onViewportWanted = { asked.append($0) }
+
+        let agent = AgentRef(project: "/a", session: "s", agent: .mainThread)
+        host.consume([.agentAppeared(agent: agent, agentType: nil, lifecycle: AgentLifecycle.active)],
+                     at: Date())
+        #expect(asked.isEmpty, "a single project resized the panel to \(asked)")
+    }
+
+    /// A second project asks for a taller one, once, and the room reports that
+    /// nothing is being hidden any more.
+    @Test(.enabled(if: PanelWindowServer.isAvailable))
+    func aSecondProjectAsksForATallerPanelExactlyOnce() throws {
+        let manifest = try #require(Self.manifest)
+        let host = RoomHost(manifest: manifest,
+                            viewport: CGSize(width: 720, height: 400))
+        var asked: [CGSize] = []
+        host.onViewportWanted = { asked.append($0) }
+
+        let now = Date()
+        let a = AgentRef(project: "/a", session: "s", agent: .mainThread)
+        let b = AgentRef(project: "/b", session: "t", agent: .mainThread)
+        host.consume([.agentAppeared(agent: a, agentType: nil, lifecycle: AgentLifecycle.active)], at: now)
+        #expect(host.scene.roomsNotShown == 0, "one room did not fit a 400px panel")
+
+        host.consume([.agentAppeared(agent: b, agentType: nil, lifecycle: AgentLifecycle.active)],
+                     at: now.addingTimeInterval(1))
+        #expect(asked.count == 1, "the panel was resized \(asked.count) times for one project")
+        let grew = try #require(asked.first)
+        #expect(grew.height > 400, "the panel did not grow: \(grew)")
+        #expect(grew.width == 720, "the panel changed width, which nothing asked for")
+        #expect(host.scene.roomsNotShown == 0, Comment(rawValue:
+            "after growing to \(grew.height) the panel still hides"
+            + " \(host.scene.roomsNotShown) room(s)"))
+
+        // Idle frames must not keep resizing it: the resize is keyed on the room
+        // count, because the viewport feeds the scale which decides how many
+        // rooms fit, and reacting to the height every frame is a loop.
+        for step in 2...5 {
+            host.consume([], at: now.addingTimeInterval(Double(step)))
+        }
+        #expect(asked.count == 1, "an idle frame resized the panel: \(asked)")
+    }
+}

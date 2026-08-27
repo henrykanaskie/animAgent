@@ -251,6 +251,21 @@ public final class RoomScene: SKScene {
         return max(1, min(rooms.count, 1 + max(0, extra)))
     }
 
+    /// **The viewport height that would show every room this scene holds.**
+    /// [ADR-016 §4]
+    ///
+    /// The inverse of `roomsThatFit`, and the number the panel asks for when it
+    /// decides how tall to be. One room asks for exactly what it always asked
+    /// for, so a single-project run never resizes anything.
+    ///
+    /// Capped by the caller, not here: this says what the rooms want and the
+    /// panel decides what the display can spare.
+    public func viewportHeightToShowEveryRoom() -> Double {
+        let band = rooms[0].world.contentBand
+        let bandHeight = max(1, band.top - band.bottom)
+        return bandHeight + roomPitch * Double(max(0, rooms.count - 1))
+    }
+
     /// Projects that exist but are not on screen because the frame cannot hold
     /// them. Drawn by nothing yet; `RoomHost` reports it.
     public var roomsNotShown: Int { max(0, rooms.count - roomsThatFit) }

@@ -177,6 +177,12 @@ final class SceneBinding {
         return produced
     }
 
+    /// What the panel would have to be for every room to be on screen.
+    var viewportHeightToShowEveryRoom: Double { scene.viewportHeightToShowEveryRoom() }
+
+    /// How many projects exist that the frame cannot hold.
+    var roomsNotShown: Int { scene.roomsNotShown }
+
     /// One frame of the pilot lamp.
     ///
     /// `nil` means this run has no listener to report on (a replay, a render,

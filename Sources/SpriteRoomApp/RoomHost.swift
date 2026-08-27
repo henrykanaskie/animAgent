@@ -31,7 +31,7 @@ final class RoomHost {
 
     let view: SKView
     private let manifest: Manifest
-    private let viewport: CGSize
+    private var viewport: CGSize
     private var registry = ProjectRegistry()
     private var binding: SceneBinding
 
@@ -63,10 +63,12 @@ final class RoomHost {
         manifest: Manifest,
         viewport: CGSize,
         themes: ThemeCatalog = .empty,
-        themeStore: ThemeStore? = nil
+        themeStore: ThemeStore? = nil,
+        maximumViewportHeight: Double = 900
     ) {
         self.manifest = manifest
         self.viewport = viewport
+        self.maximumViewportHeight = maximumViewportHeight
         self.themes = themes
         self.themeStore = themeStore ?? ThemeStore()
         self.view = RoomView(frame: CGRect(origin: .zero, size: viewport))
@@ -239,6 +241,7 @@ final class RoomHost {
         // the menu bar is talking about, and it is what a theme pick applies
         // to. It is no longer what the panel is allowed to draw.
         binding.apply(deltas, at: now)
+        growPanelIfANewRoomAppeared()
         // **Outside the selection, deliberately.** The lamp is about this
         // process, not about the project on screen, so it is drawn on a panel
         // showing nothing at all, which is the case that most needs it, since
@@ -253,6 +256,40 @@ final class RoomHost {
         if rosterChanged {
             onRosterChanged?(registry.entries, selected)
         }
+    }
+
+    // MARK: The panel grows with the rooms [ADR-016 §4]
+
+    /// The tallest viewport this host will ask for, whatever the rooms want.
+    /// A panel that covers the whole display is not a glance surface.
+    private let maximumViewportHeight: Double
+
+    /// Called when the rooms need a panel of a different size. `main` wires it
+    /// to `NotchPanelController.resize(to:)`; a run with no panel (`--render`,
+    /// `--window`, the tests) leaves it nil and simply keeps its viewport.
+    var onViewportWanted: ((CGSize) -> Void)?
+
+    /// How many rooms the panel was last sized for. The resize is keyed on this
+    /// rather than on the wanted height, and that is not an optimisation: the
+    /// viewport feeds `applyScale`, which decides `roomsThatFit`, which decides
+    /// the wanted height. Reacting to the height every frame is a loop with a
+    /// gain of one. The room count only changes when a project appears, which
+    /// is a real event and happens once per project.
+    private var roomsSizedFor = 1
+
+    private func growPanelIfANewRoomAppeared() {
+        let rooms = binding.scene.rooms.count
+        guard rooms != roomsSizedFor else { return }
+        roomsSizedFor = rooms
+        let wanted = min(binding.viewportHeightToShowEveryRoom, maximumViewportHeight)
+        // Never below the size a single room asked for: the panel grows for a
+        // second project and does not shrink back to something smaller than it
+        // has always been.
+        let height = max(Double(PanelSize.room.height), wanted.rounded())
+        guard height != Double(viewport.height) else { return }
+        viewport = CGSize(width: viewport.width, height: height)
+        binding.scene.setViewport(viewport)
+        onViewportWanted?(viewport)
     }
 
     /// Switch which `cwd` group is on screen. Driven by the menu bar item.

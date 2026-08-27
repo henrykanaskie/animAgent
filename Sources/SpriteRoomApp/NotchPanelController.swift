@@ -25,7 +25,7 @@ final class NotchPanelController {
     /// The room's view, kept only so the render loop can be stopped while the
     /// panel is away. See `setRendering(_:)`.
     private weak var roomView: SKView?
-    private let size: PanelSize
+    private var size: PanelSize
     private let tuning: RevealPolicy.Tuning
     private var policy: RevealPolicy
     private(set) var geometry: NotchGeometry
@@ -189,6 +189,48 @@ final class NotchPanelController {
         }
         onTransition?(transition, policy.phase)
     }
+
+    /// **Grow or shrink the panel to fit what the room has to show.**
+    /// [M9 Phase 4, ADR-016]
+    ///
+    /// The height was a taste constant for the whole of this app's life and it
+    /// still is: `PanelSize.room` is what one room asks for. What changed is
+    /// that the room count is no longer always one, and a stack taller than the
+    /// frame is counted rather than drawn, so a panel that never grows means a
+    /// second project can never be seen.
+    ///
+    /// **It is the same operation `adoptScreenIfChanged` already performs**, and
+    /// deliberately written to look like it: rebuild the policy, then set the
+    /// frame. The policy has to be rebuilt because its hot zone and its
+    /// hysteresis are both derived from the size, and a policy holding a stale
+    /// height would retract the panel while the pointer was still inside it.
+    ///
+    /// **I8 is untouched.** Nothing here activates, focuses or orders the panel
+    /// front; `setFrame` on a non-activating panel is a geometry change and
+    /// nothing else. `thePanelCanNeverBecomeKeyOrMain` and the rest of the I8
+    /// set are properties of `NotchPanel` itself and cannot be affected by its
+    /// frame.
+    ///
+    /// Ignored while revealed, on purpose: resizing a panel out from under a
+    /// pointer that is inside it is a lurch, and the next retract picks the new
+    /// size up for free.
+    @discardableResult
+    func resize(to size: PanelSize) -> Bool {
+        guard size != self.size else { return false }
+        guard policy.phase == .hidden else { return false }
+        self.size = size
+        policy = RevealPolicy(geometry: geometry, size: size, tuning: tuning)
+        let frame = geometry.hiddenPanelFrame(size: size).cgRect
+        panel.setFrame(frame, display: false)
+        // The room view is a subview of the container with `[.width, .height]`
+        // autoresizing, set at init, so resizing the container carries it.
+        panel.contentView?.frame = CGRect(origin: .zero, size: frame.size)
+        return true
+    }
+
+    /// What the panel is currently sized to. Read by the room so it can ask for
+    /// a different one, and by the tests.
+    var panelSize: PanelSize { size }
 
     private func adoptScreenIfChanged(for pointer: PanelPoint) {
         guard let screen = NotchGeometry.activeScreen(pointer: pointer) else { return }

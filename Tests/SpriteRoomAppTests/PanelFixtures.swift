@@ -163,7 +163,7 @@ enum PanelWindowServer {
     /// and a real `ProjectSelector` (an `NSStatusItem`), neither of which
     /// exists without a window server. None of the nine reads a pixel, so they
     /// are gated on the window server alone and not on the art.
-    static let expectedGatedTestCount = 46
+    static let expectedGatedTestCount = 48
 
     /// The notice, as a pure function of what was surveyed, so the branch this
     /// machine cannot reach can still be rendered and asserted on. Rendering it
