@@ -1279,3 +1279,137 @@ struct SceneDirectorTests {
             "the corpus's plate collisions moved: \(collisions.sorted { $0.key < $1.key })"))
     }
 }
+
+// MARK: Two projects at once [M9 Phase 4]
+
+/// **What the director does when a second project's deltas reach it.**
+///
+/// `RoomHost` filters the stream to one project before the director ever sees
+/// it (`RoomHost.swift`, `deltas.filter { $0.projectKey == selected }`), so
+/// nothing in the shipped app exercises any of this. That filter is the whole
+/// of the single-project limit and Phase 4 removes it, at which point every
+/// assumption below stops being hypothetical.
+///
+/// So these drive the director with the **unfiltered** stream from
+/// `two-projects` and pin what actually happens, before anything depends on it.
+/// A test written after the fan-out would be a test written after the bug.
+@Suite struct TwoProjectDirectorTests {
+
+    /// Every delta of the capture, in arrival order, with no project filter.
+    static func unfiltered() async throws -> [(at: Date, deltas: [WorldDelta])] {
+        try await SceneFixtures.timedBatchedDeltas("two-projects")
+    }
+
+    /// **The capture really does carry two projects into one director.**
+    /// Without this the two tests below could pass by measuring nothing.
+    @Test func theUnfilteredStreamCarriesBothProjects() async throws {
+        // Asked of the capture itself rather than of anything downstream:
+        // `cwd` is the routing key, so two distinct `cwd`s in the file is
+        // exactly what "carries two projects" means. `WorldDelta.projectKey`
+        // would be the other way to ask, but it lives in the app layer
+        // (`ProjectRegistry`) which `SpriteRoomScene` may not import.
+        let entries = try HookLog.load(contentsOf: SceneFixtures.url("two-projects"))
+        let projects = Set(entries.compactMap { $0.event?.cwd })
+        #expect(projects.count == 2, Comment(rawValue:
+            "two-projects should hand the director two project keys, not \(projects)"))
+    }
+
+    /// **No reporter is ever sent to an anchor in another project.** [I1]
+    ///
+    /// This is the hazard `anchorSeat` carries into Phase 4 and the reason this
+    /// suite exists. It falls back to **seat 0** for a subagent whose parent it
+    /// never saw linked, or whose parent is off screen, and that fallback is
+    /// documented and right *within one project*: with no visible parent, a
+    /// subagent reports to the main agent.
+    ///
+    /// Across two projects it would be a character walking up to a stranger from
+    /// another repository and handing them a report, which is a picture no
+    /// arrangement of the data supports and exactly the failure the report beat
+    /// was rebuilt to prevent.
+    ///
+    /// The assertion is on the **intent**, not on the fallback's internals: it
+    /// checks who the room would actually send the reporter to, so a later
+    /// rewrite of `anchorSeat` cannot pass this by keeping the same shape.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func noReporterIsEverSentToAnAnchorInAnotherProject() async throws {
+        let manifest = try SceneFixtures.manifest()
+        var director = SceneDirector(manifest: manifest)
+        var seatOwner: [Int: AgentRef] = [:]
+        var reports = 0
+
+        for (at, deltas) in try await Self.unfiltered() {
+            for intent in director.apply(deltas, at: at) {
+                switch intent {
+                case let .spawnCharacter(agent, _, _, seat, _, _):
+                    seatOwner[seat] = agent
+                case let .exitCharacter(agent, _):
+                    seatOwner = seatOwner.filter { $0.value != agent }
+                case let .deliverReport(agent, anchorSeat):
+                    reports += 1
+                    if let anchor = seatOwner[anchorSeat] {
+                        #expect(anchor.project == agent.project, Comment(rawValue:
+                            "\(agent.agent) of \(agent.project) would deliver its"
+                            + " report to \(anchor.agent) of \(anchor.project),"
+                            + " a character from another project"))
+                    }
+                default:
+                    break
+                }
+            }
+        }
+        // **Zero on this corpus, and the run says so.** `two-projects` is two
+        // headless sessions and a recording one; every agent in it is a main
+        // agent and no subagent ever reports. So the assertion above is
+        // currently vacuous: it is the right assertion and it is watching an
+        // empty road. Closing this needs a capture with a subagent reporting in
+        // one project while another project is live, which is named as the gap
+        // in `fixtures/README.md`.
+        if reports == 0 {
+            print("NOTICE: no report beat occurs in two-projects, so the"
+                  + " cross-project anchor assertion measured NOTHING. The hazard"
+                  + " in anchorSeat's seat-0 fallback is unexercised, not absent."
+                  + " fixtures/README.md records the capture this needs.")
+        }
+        print("TWO-PROJECT REPORTS: \(reports) report beat(s) over the capture")
+    }
+
+    /// **Each project's main agent gets its own seat 0, or the room seats two
+    /// main agents on top of each other.**
+    ///
+    /// `claimSeat` gives seat 0 to `mainThread` and then walks upward while the
+    /// seat is taken, so the second project's main agent quietly becomes seat 1:
+    /// a subagent's chair, next to a stranger, with the report anchor still
+    /// pointing at seat 0. Nothing crashes and nothing looks broken, which is
+    /// why this is written down rather than left to be discovered.
+    ///
+    /// Pinned as an observation rather than asserted as a requirement, because
+    /// what the room *should* do with two main agents is Phase 4's design
+    /// question and not this test's to answer. What this fails on is the seat
+    /// map going silently ambiguous: two agents on one seat.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func twoProjectsNeverPutTwoCharactersOnOneSeat() async throws {
+        let manifest = try SceneFixtures.manifest()
+        var director = SceneDirector(manifest: manifest)
+        var seatOwner: [Int: AgentRef] = [:]
+        var mainSeats: [String: Int] = [:]
+
+        for (at, deltas) in try await Self.unfiltered() {
+            for intent in director.apply(deltas, at: at) {
+                switch intent {
+                case let .spawnCharacter(agent, _, _, seat, _, _):
+                    #expect(seatOwner[seat] == nil || seatOwner[seat] == agent,
+                            Comment(rawValue:
+                        "seat \(seat) is claimed by \(agent) while \(seatOwner[seat]!)"
+                        + " still holds it"))
+                    seatOwner[seat] = agent
+                    if agent.agent == .mainThread { mainSeats[agent.project] = seat }
+                case let .exitCharacter(agent, _):
+                    seatOwner = seatOwner.filter { $0.value != agent }
+                default:
+                    break
+                }
+            }
+        }
+        print("TWO-PROJECT MAIN SEATS: \(mainSeats.sorted { $0.key < $1.key }.map { "\($0.key.split(separator: "/").last ?? "?")=\($0.value)" })")
+    }
+}
