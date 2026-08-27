@@ -28,12 +28,53 @@ import SpriteRoomCore
 /// A refactor that moved a single prop would fail it.
 public final class RoomScene: SKScene {
 
-    /// The one room this scene draws today. Phase 4 makes this a collection;
-    /// nothing outside this file should assume it stays singular, which is why
-    /// every accessor below goes through it rather than around it.
-    public let world: RoomWorld
+    /// **The rooms, in the order they were first seen.** [M9 Phase 4]
+    ///
+    /// One per project. The first is the one every existing accessor forwards
+    /// to, which is what keeps a single-project run byte-identical to the run
+    /// before this existed: slot 0 sits at the origin and nothing about it
+    /// moves, so `lint-palette.py`'s pixel comparison still means what it meant.
+    public private(set) var rooms: [(project: String, world: RoomWorld)] = []
+
+    /// The room every single-project accessor speaks for.
+    public var world: RoomWorld { rooms[0].world }
+
+    /// **How far apart two rooms stand, in room pixels.**
+    ///
+    /// Not the room's nominal box (`rows * tile` = 288) but **what a room
+    /// actually paints**, which is a good deal more: tiles are drawn past the
+    /// nominal bounds so that no zoom level ever shows the void at an edge, and
+    /// `RoomLayout.drawnRows` is that overscan. A pitch of 288 puts the room
+    /// above squarely on top of the room below's back wall, which is measured
+    /// rather than guessed: it was tried, rendered, and the wall disappeared.
+    ///
+    /// So the pitch is measured off **the plan**, which is the part of a room
+    /// that is the room: 18 tiles from the walkway's near edge at `y = -6` to
+    /// the back band's top at `y = 11`, i.e. 576 px. At that pitch the floor of
+    /// the room above begins exactly where the back wall of the room below
+    /// ends: no overlap, and no strip of void between them either.
+    ///
+    /// **Both neighbouring values were rendered before this one was picked.**
+    /// The nominal box (288) put the upper room squarely on top of the lower
+    /// room's back wall and the wall vanished. The painted height (672, the
+    /// overscan `drawnRows`) left a 64 px band of void that is panel height
+    /// spent on nothing, which at 1x is a third of a character's worth of
+    /// screen per room.
+    ///
+    /// It is derived from `RoomPlan`'s own span rather than typed, so a plan
+    /// that ever changes depth takes the stack with it.
+    public var roomPitch: Double {
+        let plan = rooms[0].world.store.room.plan
+        guard let lowest = plan.spaces.map(\.y).min(),
+              let highest = plan.spaces.map({ $0.y + $0.h }).max(),
+              highest > lowest
+        else { return layout.height + Double(layout.tile) }
+        return Double((highest - lowest) * layout.tile)
+    }
 
     private let camera_ = SKCameraNode()
+    private let manifest: Manifest
+    private let baseLayout: RoomLayout
 
     /// The scale the director asked for, from population. The viewport can
     /// only ever push this *down* the ladder, never up. [I6]
@@ -44,13 +85,16 @@ public final class RoomScene: SKScene {
     public init(
         manifest: Manifest, themeID: String? = nil, layout: RoomLayout = RoomLayout()
     ) {
-        self.world = RoomWorld(manifest: manifest, themeID: themeID, layout: layout)
+        let first = RoomWorld(manifest: manifest, themeID: themeID, layout: layout)
+        self.manifest = manifest
+        self.baseLayout = layout
         super.init(size: CGSize(width: 320, height: 180))
+        rooms = [(project: "", world: first)]
         scaleMode = .fill
         // Slightly darker than the room's value floor so the room never blends
         // into the void behind it.
         backgroundColor = RoomWorld.voidColour
-        addChild(world.root)
+        addChild(first.root)
         addChild(camera_)
         camera = camera_
         applyScale()
@@ -79,6 +123,44 @@ public final class RoomScene: SKScene {
         ]
     }
 
+    // MARK: The rooms [M9 Phase 4]
+
+    /// **The room for `project`, made if this is the first time it is seen.**
+    ///
+    /// Slot 0 is claimed by the first project to ask, and it takes over the room
+    /// built in `init`, theme and all: building a second and throwing the first
+    /// away would redraw the whole room on the first delta of every run.
+    ///
+    /// Rooms stack **upstage**, one `roomPitch` apart, in first-seen order. That
+    /// order is deliberately not "most recently active": a room that reshuffled
+    /// itself whenever another project got busy would move every character on
+    /// screen for a reason none of them had anything to do with, which is the
+    /// lurch `theRoomIsDrawnWideAtEveryPopulation` exists to prevent, one level
+    /// up. [I1]
+    @discardableResult
+    public func room(for project: String, themeID: String?) -> RoomWorld {
+        if let existing = rooms.first(where: { $0.project == project }) {
+            return existing.world
+        }
+        // The room `init` built is unclaimed until the first project arrives.
+        if rooms.count == 1, rooms[0].project == "" {
+            rooms[0].project = project
+            return rooms[0].world
+        }
+        let world = RoomWorld(manifest: manifest, themeID: themeID, layout: baseLayout)
+        world.root.position = CGPoint(x: 0, y: CGFloat(Double(rooms.count) * roomPitch))
+        rooms.append((project: project, world: world))
+        addChild(world.root)
+        applyScale()
+        return world
+    }
+
+    /// Which room a project is drawn in, or `nil` if it has never been seen.
+    /// Slot 0 is the bottom of the stack.
+    public func slot(of project: String) -> Int? {
+        rooms.firstIndex { $0.project == project }
+    }
+
     // MARK: Intents
 
     /// **`.setScale` is taken out here and everything else goes through.**
@@ -87,11 +169,22 @@ public final class RoomScene: SKScene {
     /// so the room does not get to see it: `RoomWorld.apply`'s `.setScale` arm
     /// is unreachable by construction rather than by agreement.
     public func apply(_ intents: [SpriteIntent]) {
+        apply(intents, to: rooms[0].project)
+    }
+
+    /// **The same, addressed to one project's room.** [M9 Phase 4]
+    ///
+    /// `.setScale` is still taken out here rather than forwarded: the scale is
+    /// the camera's and there is one camera however many rooms there are, so
+    /// the last room to speak does not get to decide it. Every other intent
+    /// goes to the room the project is drawn in.
+    public func apply(_ intents: [SpriteIntent], to project: String) {
+        let target = rooms.first { $0.project == project }?.world ?? rooms[0].world
         for intent in intents {
             if case let .setScale(scale) = intent {
                 preferredScale = scale
             } else {
-                world.apply(intent)
+                target.apply(intent)
             }
         }
         applyScale()
@@ -119,11 +212,71 @@ public final class RoomScene: SKScene {
         applyScale()
     }
 
+    /// **How many rooms the viewport can actually hold, at least one.**
+    /// [M9 Phase 4]
+    ///
+    /// A stack taller than the frame is worse than a single room, not better:
+    /// the camera centres on the union, so two rooms in a 400 px panel would
+    /// show the top of one and the floor of the other and **neither one's
+    /// characters**. That is a regression for the exact user the feature is
+    /// for, so the room count is bounded by the frame rather than by hope.
+    ///
+    /// The surplus is **counted, not drawn**, which is the answer this room
+    /// already gives for the eighth agent: a picture that states a population
+    /// it does not have is the failure, and dropping a project silently is the
+    /// same failure one level up. [I1]
+    ///
+    /// This makes the panel's height a pure taste knob. At 400 px it is one
+    /// room, exactly as before this existed; at 800 it is two. Nothing else has
+    /// to change to spend it.
+    /// **Measured at `1x`, deliberately, and not at the current scale.**
+    ///
+    /// The scale is chosen *from* what is drawn, so asking "how many rooms fit
+    /// at the current scale" is circular: the first draft did exactly that and
+    /// an empty room at `3x` reported that a 800 px panel could hold one room,
+    /// which is how the circle shows itself.
+    ///
+    /// `1x` is the right cut anyway. It is the floor of the ladder [I6] and the
+    /// only rung the shipped panel uses, so this asks the question the panel is
+    /// actually asking: how many rooms does this height buy. A run that zooms
+    /// past `1x` (few enough characters that a closer rung fits) then crops the
+    /// stack, which is exactly what it already does to a single room and needs
+    /// no separate rule.
+    var roomsThatFit: Int {
+        guard roomPitch > 0 else { return 1 }
+        let band = rooms[0].world.contentBand
+        let bandHeight = max(1, band.top - band.bottom)
+        // The first room costs its band; each further one costs a whole pitch.
+        let extra = Int(((Double(viewport.height) - bandHeight) / roomPitch).rounded(.down))
+        return max(1, min(rooms.count, 1 + max(0, extra)))
+    }
+
+    /// Projects that exist but are not on screen because the frame cannot hold
+    /// them. Drawn by nothing yet; `RoomHost` reports it.
+    public var roomsNotShown: Int { max(0, rooms.count - roomsThatFit) }
+
     private func applyScale() {
-        let seats = world.charactersBySeat()
-        let span = layout.occupiedSpan(seats: seats)
+        // **The frame has to hold every room, not the first one.** [M9 Phase 4]
+        // With one room this is arithmetically identical to what it was: the
+        // union of one span is that span, and slot 0 is at the origin, so a
+        // single-project run frames exactly what it framed before.
+        // Hide the rooms that do not fit before framing, so the camera frames
+        // what is drawn rather than what exists.
+        let shown = roomsThatFit
+        for (index, entry) in rooms.enumerated() {
+            entry.world.root.isHidden = index >= shown
+        }
+        var span = layout.occupiedSpan(seats: rooms[0].world.charactersBySeat())
+        var band = rooms[0].world.contentBand
+        for (index, entry) in rooms.enumerated().dropFirst() where index < shown {
+            let other = layout.occupiedSpan(seats: entry.world.charactersBySeat())
+            span = (minX: min(span.minX, other.minX), maxX: max(span.maxX, other.maxX))
+            let offset = Double(index) * roomPitch
+            let theirs = entry.world.contentBand
+            band = (bottom: min(band.bottom, theirs.bottom + offset),
+                    top: max(band.top, theirs.top + offset))
+        }
         let contentWidth = max(1, span.maxX - span.minX)
-        let band = world.contentBand
         let contentHeight = max(1, band.top - band.bottom)
         let roomCamera = RoomCamera(manifest: store.manifest)
         let fitting = roomCamera.largestFittingScale(
@@ -153,8 +306,15 @@ public final class RoomScene: SKScene {
             x: camera_.position.x - sceneSize.width / 2,
             y: camera_.position.y - sceneSize.height / 2,
             width: sceneSize.width, height: sceneSize.height)
-        world.rememberCameraFrame(frame)
-        world.positionOverflowPlate(in: frame)
+        for (index, entry) in rooms.enumerated() {
+            // Each room clamps its own plate in its own coordinates, so the
+            // frame is shifted down by that room's offset before it is handed
+            // over: a room does not know where it stands and must not have to.
+            let offset = Double(index) * roomPitch
+            let local = frame.offsetBy(dx: 0, dy: CGFloat(-offset))
+            entry.world.rememberCameraFrame(local)
+            entry.world.positionOverflowPlate(in: local)
+        }
     }
 
     // MARK: The room's internals, forwarded for the tests

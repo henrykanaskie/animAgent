@@ -126,3 +126,176 @@ import SpriteRoomCore
         #expect(scene.currentScale == 1, "the scene ignored the scale too")
     }
 }
+
+/// **Several rooms in one scene: one per project.** [M9 Phase 4]
+///
+/// `docs/01-PRD.md` listed "Multiple projects on screen simultaneously" under
+/// *Explicit non-goals: v1*, "Do not build them". ADR-016 is the reversal and
+/// these are what it is checked by.
+///
+/// The property that matters most is the boring one: **a single-project run is
+/// unchanged**. Slot 0 sits at the origin and nothing about it moves, which is
+/// what keeps `lint-palette.py`'s pixel comparison meaning what it meant. If
+/// that ever stops being true, every claim this project makes about its own art
+/// stops being checkable at the same moment.
+@MainActor
+@Suite struct MultiRoomTests {
+
+    static func scene() throws -> RoomScene {
+        let scene = RoomScene(manifest: try SceneFixtures.manifest())
+        scene.setViewport(CGSize(width: 720, height: 800))
+        return scene
+    }
+
+    /// **One project is exactly what it was.** The guarantee the pixel gate
+    /// rests on, asserted rather than assumed.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func oneProjectPutsItsRoomAtTheOriginAndBuildsNoOther() throws {
+        let scene = try Self.scene()
+        scene.room(for: "/a", themeID: nil)
+        #expect(scene.rooms.count == 1, "a single project built \(scene.rooms.count) rooms")
+        #expect(scene.rooms[0].world.root.position == .zero,
+                "slot 0 moved, so the single-project picture is not what it was")
+        #expect(scene.slot(of: "/a") == 0)
+    }
+
+    /// **The room `init` built is claimed by the first project, not discarded.**
+    ///
+    /// Building a second and throwing the first away would redraw the whole room
+    /// on the first delta of every run, which is a rebuild nobody asked for and
+    /// `roomBuildCount` is how it would be noticed.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func theFirstProjectAdoptsTheRoomThatAlreadyExists() throws {
+        let scene = try Self.scene()
+        let before = ObjectIdentifier(scene.rooms[0].world)
+        let claimed = scene.room(for: "/a", themeID: nil)
+        #expect(ObjectIdentifier(claimed) == before, "the first project got a new room")
+        #expect(claimed.roomBuildCount == 1, "the room was built twice")
+    }
+
+    /// **A second project gets its own room, one pitch upstage.**
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aSecondProjectStandsOnePitchUpstageInItsOwnRoom() throws {
+        let scene = try Self.scene()
+        let ids = try #require(Array(scene.store.manifest.themes.orderedIDs.prefix(2)).count == 2
+                               ? Array(scene.store.manifest.themes.orderedIDs.prefix(2)) : nil)
+        let a = scene.room(for: "/a", themeID: ids[0])
+        let b = scene.room(for: "/b", themeID: ids[1])
+
+        #expect(a !== b, "two projects share one room")
+        #expect(scene.slot(of: "/a") == 0 && scene.slot(of: "/b") == 1)
+        #expect(a.root.position.y == 0)
+        #expect(b.root.position.y == CGFloat(scene.roomPitch), Comment(rawValue:
+            "room 1 stands at y=\(b.root.position.y) against a pitch of \(scene.roomPitch)"))
+        #expect(a.root.parent === scene && b.root.parent === scene,
+                "a room was built but never added to the scene")
+    }
+
+    /// **The pitch is exactly the plan's own depth**, so the floor of the room
+    /// above starts where the back wall of the room below ends.
+    ///
+    /// Both neighbouring values were rendered before this one was chosen: the
+    /// nominal box (288) buried the lower room's back wall, and the painted
+    /// overscan height (672) left a band of void. This pins the measurement so
+    /// the next person does not have to re-render to find that out.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func thePitchIsThePlansOwnDepth() throws {
+        let scene = try Self.scene()
+        let plan = scene.store.room.plan
+        let lowest = try #require(plan.spaces.map(\.y).min())
+        let highest = try #require(plan.spaces.map { $0.y + $0.h }.max())
+        #expect(scene.roomPitch == Double((highest - lowest) * scene.layout.tile))
+        #expect(scene.roomPitch > scene.layout.height, Comment(rawValue:
+            "a pitch of \(scene.roomPitch) is inside the room's own nominal box"
+            + " (\(scene.layout.height)), so the room above covers the wall below"))
+    }
+
+    /// **An intent addressed to one project lands in that project's room and
+    /// nowhere else.** [I1]
+    ///
+    /// The routing assertion. Without it a fan-out could put every project's
+    /// characters in the first room and look, from a distance, like it worked.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func anIntentGoesToItsOwnProjectsRoom() throws {
+        let scene = try Self.scene()
+        let manifest = scene.store.manifest
+        scene.room(for: "/a", themeID: nil)
+        scene.room(for: "/b", themeID: nil)
+
+        var directorB = SceneDirector(manifest: manifest)
+        let b = AgentRef(project: "/b", session: "s", agent: .mainThread)
+        let intents = directorB.apply(
+            [.agentAppeared(agent: b, agentType: nil, lifecycle: .active)], at: Date())
+        scene.apply(intents, to: "/b")
+
+        #expect(scene.rooms[0].world.population == 0, "project B was drawn in project A's room")
+        #expect(scene.rooms[1].world.population == 1, "project B was not drawn in its own room")
+        #expect(scene.rooms[1].world.character(for: b) != nil)
+    }
+
+    /// **A stack taller than the frame shows fewer rooms rather than half of
+    /// each.** [I1]
+    ///
+    /// The regression this prevents is specific: the camera centres on the union
+    /// of what is drawn, so two rooms in a 400 px panel would frame the top of
+    /// one and the floor of the other and show **neither one's characters**.
+    /// That is worse than the single room it replaced, for exactly the user the
+    /// feature is for.
+    ///
+    /// So the surplus is counted and not drawn, which is the answer this room
+    /// already gives for the eighth agent. It also makes the panel's height a
+    /// pure taste knob: 400 px is one room, 800 is two, and nothing else has to
+    /// change to spend it.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func aStackTallerThanTheFrameIsCountedRatherThanCropped() throws {
+        let manifest = try SceneFixtures.manifest()
+
+        let short = RoomScene(manifest: manifest)
+        short.setViewport(CGSize(width: 720, height: 400))
+        short.room(for: "/a", themeID: nil)
+        short.room(for: "/b", themeID: nil)
+        #expect(short.roomsThatFit == 1, Comment(rawValue:
+            "a 400 px frame showed \(short.roomsThatFit) rooms; the pitch alone is"
+            + " \(short.roomPitch)"))
+        #expect(short.roomsNotShown == 1)
+        #expect(short.rooms[1].world.root.isHidden, "the surplus room was drawn anyway")
+        #expect(!short.rooms[0].world.root.isHidden, "the first room was hidden")
+
+        let tall = RoomScene(manifest: manifest)
+        tall.setViewport(CGSize(width: 720, height: 800))
+        tall.room(for: "/a", themeID: nil)
+        tall.room(for: "/b", themeID: nil)
+        #expect(tall.roomsThatFit == 2, Comment(rawValue:
+            "an 800 px frame showed \(tall.roomsThatFit) rooms, so raising the"
+            + " panel height buys nothing and the knob does not work"))
+        #expect(tall.roomsNotShown == 0)
+        #expect(!tall.rooms[1].world.root.isHidden)
+    }
+
+    /// **Each project's main agent gets seat 0 of its own room.**
+    ///
+    /// This is the defect `TwoProjectDirectorTests` measured on the shipped
+    /// director: sharing one director, the second project's main agent silently
+    /// took seat 1, a subagent's chair. A director per project is the fix and
+    /// this is the assertion that it stays fixed.
+    @Test(.enabled(if: SceneArt.isAvailable))
+    func eachProjectsMainAgentSitsInSeatZeroOfItsOwnRoom() throws {
+        let scene = try Self.scene()
+        let manifest = scene.store.manifest
+        for project in ["/a", "/b"] {
+            scene.room(for: project, themeID: nil)
+            var director = SceneDirector(manifest: manifest)
+            let agent = AgentRef(project: project, session: "s", agent: .mainThread)
+            scene.apply(
+                director.apply(
+                    [.agentAppeared(agent: agent, agentType: nil, lifecycle: .active)],
+                    at: Date()),
+                to: project)
+            let slot = try #require(scene.slot(of: project))
+            #expect(scene.rooms[slot].world.seatOfForTesting(agent) == 0, Comment(rawValue:
+                "\(project)'s main agent took seat"
+                + " \(String(describing: scene.rooms[slot].world.seatOfForTesting(agent)))"
+                + " rather than seat 0 of its own room"))
+        }
+    }
+}

@@ -77,6 +77,7 @@ final class RoomHost {
         // so it is `nil` here by definition, not by omission. The first
         // `select(_:)` rebuilds with the project's theme.
         binding = SceneBinding(manifest: manifest, themeID: nil, viewport: viewport)
+        bindThemeResolver()
         view.presentScene(binding.scene)
     }
 
@@ -161,8 +162,21 @@ final class RoomHost {
     /// than a mutation. `SceneBinding` hands the same id to both the scene and
     /// the director; giving them different ids would seat a character at a
     /// station the room is not dressed for.
+    /// Every room resolves its own theme through the same ladder the selected
+    /// one always did: the user's stored pick, else the hash of the `cwd`. It is
+    /// a closure rather than a value because a room can be made at any frame,
+    /// for a project this type has never seen before. [ADR-002 §3c]
+    private func bindThemeResolver() {
+        binding.themeForProject = { [weak self] project in
+            guard let self else { return nil }
+            return self.themes.themeID(
+                for: project, stored: self.themeStore.stored, derive: self.derive)
+        }
+    }
+
     private func rebuild() {
         binding = SceneBinding(manifest: manifest, themeID: themeID, viewport: viewport)
+        bindThemeResolver()
         view.presentScene(binding.scene)
         if let selected {
             // The last instant `consume` was handed, not a clock this type
@@ -211,9 +225,20 @@ final class RoomHost {
         // nothing. The precedent is four lines above: `registry.absorb` already
         // takes this clock for exactly the same reason.
         lastFrame = now
-        if let selected {
-            binding.apply(deltas.filter { $0.projectKey == selected }, at: now)
-        }
+        // **Every project's deltas, not just the selected one.** [M9 Phase 4]
+        //
+        // This line was `deltas.filter { $0.projectKey == selected }` and that
+        // filter was the entire single-project limit: the model has always held
+        // `Project(cwd) -> Session -> Agent` and every delta has always carried
+        // its own project, so the room was the only thing that could not count
+        // past one. `docs/01-PRD.md` listed "multiple projects on screen
+        // simultaneously" as a v1 non-goal and this is the reversal of it,
+        // which is recorded in ADR-016 rather than made quietly here.
+        //
+        // `selected` still exists and still means something: it is the project
+        // the menu bar is talking about, and it is what a theme pick applies
+        // to. It is no longer what the panel is allowed to draw.
+        binding.apply(deltas, at: now)
         // **Outside the selection, deliberately.** The lamp is about this
         // process, not about the project on screen, so it is drawn on a panel
         // showing nothing at all, which is the case that most needs it, since

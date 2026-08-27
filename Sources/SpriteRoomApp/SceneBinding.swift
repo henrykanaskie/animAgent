@@ -12,7 +12,26 @@ import SpriteRoomScene
 final class SceneBinding {
 
     let scene: RoomScene
-    private var director: SceneDirector
+
+    /// **One director per project, made beside that project's room.**
+    /// [M9 Phase 4]
+    ///
+    /// It has to be one each rather than one shared, and the reason is the seat
+    /// map: `SceneDirector.claimSeat` gives seat 0 to a main thread and walks
+    /// upward while a seat is taken, so a second project's main agent sharing a
+    /// director would silently land in seat 1, a subagent's chair, with its
+    /// report anchor still pointing at seat 0. That is measured, not feared:
+    /// `TwoProjectDirectorTests` drives the shipped director with the
+    /// unfiltered `two-projects` stream and prints exactly that.
+    ///
+    /// A director per project makes each seat map its own, which is what "a
+    /// room per project" means one layer down.
+    private var directors: [String: SceneDirector] = [:]
+
+    /// Which room a project's deltas are drawn in. Handed in because the theme
+    /// is the app's business: it comes from the user's stored pick or from the
+    /// hash of the `cwd`, and neither is anything the scene may know. [ADR-002]
+    var themeForProject: (String) -> String? = { _ in nil }
 
     /// The pilot lamp, built on the first frame that has anything true to say
     /// about this process's liveness and never before.
@@ -44,10 +63,20 @@ final class SceneBinding {
     /// rule a caller can break: there is nothing left to get wrong.
     init(scene: RoomScene) {
         self.scene = scene
-        self.director = SceneDirector(
-            manifest: scene.store.manifest,
-            themeID: scene.store.themeID,
-            layout: scene.layout)
+    }
+
+    /// The director for `project`, made with that project's own room, or made
+    /// on the spot if this is the first delta it has ever sent.
+    private func director(for project: String) -> SceneDirector {
+        if let existing = directors[project] { return existing }
+        let theme = themeForProject(project)
+        let world = scene.room(for: project, themeID: theme)
+        let made = SceneDirector(
+            manifest: world.store.manifest,
+            themeID: world.store.themeID,
+            layout: world.layout)
+        directors[project] = made
+        return made
     }
 
     convenience init(manifest: Manifest, themeID: String? = nil, viewport: CGSize) {
@@ -59,7 +88,13 @@ final class SceneBinding {
     /// The room both halves were built for. One value, one source.
     var themeID: String? { scene.store.themeID }
 
-    var unmappedTools: [String: Int] { director.unmappedTools }
+    /// Pooled across every project's director: the count is about the tool
+    /// vocabulary, which is one thing however many rooms are drawing.
+    var unmappedTools: [String: Int] {
+        directors.values.reduce(into: [:]) { total, director in
+            for (tool, count) in director.unmappedTools { total[tool, default: 0] += count }
+        }
+    }
 
     /// One frame's deltas, and the instant that frame happened.
     ///
@@ -106,18 +141,40 @@ final class SceneBinding {
         }
     }
 
+    /// **Every project's deltas go to that project's own director and room.**
+    ///
+    /// The empty-batch case is not a special case: every director that already
+    /// exists is stepped on every frame, deltas or none, because `SceneDirector`
+    /// is a function of deltas **and time** as of ADR-003 and a closing beat
+    /// ends on a frame that usually carries nothing. Routing only the projects
+    /// that spoke this frame would strand every other room's beat.
     @discardableResult
     func apply(_ deltas: [WorldDelta], at now: Date) -> [SpriteIntent] {
-        var intents = director.apply(deltas, at: now)
-        if let pinnedScale {
-            intents = intents.map {
-                if case .setScale = $0 { return .setScale(pinnedScale) }
-                return $0
-            }
+        var byProject: [String: [WorldDelta]] = [:]
+        for delta in deltas { byProject[delta.projectKey, default: []].append(delta) }
+        // Make a room for any project that is new this frame, before stepping,
+        // so a project's first frame is drawn in its own room rather than in
+        // whichever one happened to exist.
+        for project in byProject.keys where directors[project] == nil {
+            _ = director(for: project)
         }
-        guard !intents.isEmpty else { return [] }
-        scene.apply(intents)
-        return intents
+
+        var produced: [SpriteIntent] = []
+        for project in directors.keys.sorted() {
+            var director = directors[project]!
+            var intents = director.apply(byProject[project] ?? [], at: now)
+            directors[project] = director
+            if let pinnedScale {
+                intents = intents.map {
+                    if case .setScale = $0 { return .setScale(pinnedScale) }
+                    return $0
+                }
+            }
+            guard !intents.isEmpty else { continue }
+            scene.apply(intents, to: project)
+            produced += intents
+        }
+        return produced
     }
 
     /// One frame of the pilot lamp.
